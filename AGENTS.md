@@ -31,6 +31,13 @@ SKILL.md frontmatter) so Claude Code / Cowork auto-triggers them — those mirro
 just point back to the canonical file, so edit the checklist in `.agents/skills/`
 only, not in both places.
 
+## Closing a phase
+`.agents/skills/close-phase/SKILL.md` (mirrored at `.claude/skills/close-phase/`)
+is the canonical procedure for Step 8 of `PHASE_START_PROTOCOL.md`: verify the
+phase's checklist is fully `[x]`, move `docs/exec-plans/active/phase-X.md` to
+`completed/`, then commit with a Conventional Commit message summarizing the
+phase. Use it every time a phase closes instead of ad hoc commits.
+
 ## Stack
 - Next.js + TypeScript
 - PostgreSQL / Supabase
