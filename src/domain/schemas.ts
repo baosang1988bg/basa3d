@@ -1,0 +1,199 @@
+import { z } from 'zod';
+
+const uuidSchema = z.string().uuid();
+const nonEmptyText = z.string().trim().min(1);
+const safeInteger = z.number().int().safe();
+
+/** VND has no fractional minor unit; all monetary values are integer VND. */
+export const vndSchema = safeInteger.nonnegative();
+export const positiveQuantitySchema = safeInteger.positive();
+export const movementQuantitySchema = safeInteger.refine((value) => value !== 0, {
+  message: 'Movement quantity must not be zero.',
+});
+
+export const productTypeSchema = z.enum(['READY_STOCK', 'MADE_TO_ORDER']);
+export const productStatusSchema = z.enum(['DRAFT', 'ACTIVE', 'ARCHIVED']);
+export const orderStatusSchema = z.enum([
+  'NEW', 'CONFIRMED', 'PRODUCING', 'READY_TO_SHIP', 'SHIPPED', 'COMPLETED', 'CANCELLED',
+]);
+export const paymentStatusSchema = z.enum(['UNPAID', 'DEPOSIT_PAID', 'PAID', 'REFUNDED']);
+export const shippingStatusSchema = z.enum(['PENDING', 'SHIPPED', 'DELIVERED', 'RETURNED']);
+export const inventoryMovementTypeSchema = z.enum([
+  'PURCHASE', 'PRODUCTION_IN', 'SALE_OUT', 'RETURN_IN', 'DAMAGE_OUT',
+  'ADJUSTMENT_IN', 'ADJUSTMENT_OUT', 'TRANSFER_IN', 'TRANSFER_OUT',
+]);
+export const materialMovementTypeSchema = z.enum([
+  'PURCHASE', 'PRODUCTION_OUT', 'RETURN_IN', 'DAMAGE_OUT', 'ADJUSTMENT_IN', 'ADJUSTMENT_OUT',
+]);
+export const customRequestSourceChannelSchema = z.enum([
+  'ZALO', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'OTHER',
+]);
+export const customRequestStatusSchema = z.enum([
+  'NEW', 'REVIEWING', 'NEED_INFO', 'QUOTED', 'APPROVED', 'REJECTED', 'CONVERTED',
+]);
+export const quoteStatusSchema = z.enum(['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED']);
+export const printJobStatusSchema = z.enum([
+  'QUEUED', 'PRINTING', 'FAILED', 'REPRINT', 'QC', 'COMPLETED', 'CANCELLED',
+]);
+
+export const categoryInputSchema = z.object({
+  parentId: uuidSchema.nullable().optional(),
+  name: nonEmptyText.max(160),
+  slug: z.string().trim().max(160).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  description: z.string().trim().max(2_000).nullable().optional(),
+  sortOrder: safeInteger.nonnegative().default(0),
+}).strict();
+
+export const materialInputSchema = z.object({
+  name: nonEmptyText.max(200),
+  materialType: nonEmptyText.max(80),
+  brand: z.string().trim().max(100).nullable().optional(),
+  color: z.string().trim().max(100).nullable().optional(),
+  unit: z.enum(['GRAM', 'SPOOL']).default('GRAM'),
+  costPerSpool: vndSchema.nullable().optional(),
+  spoolWeightGrams: positiveQuantitySchema.nullable().optional(),
+  currentUnitCost: vndSchema.nullable().optional(),
+}).strict();
+
+export const warehouseInputSchema = z.object({
+  name: nonEmptyText.max(160),
+  code: z.string().trim().max(40).regex(/^[A-Z0-9_]+$/),
+  address: z.string().trim().max(2_000).nullable().optional(),
+}).strict();
+
+export const productInputSchema = z.object({
+  categoryId: uuidSchema.nullable(),
+  name: nonEmptyText.max(200),
+  slug: z.string().trim().min(1).max(160).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  shortDescription: z.string().trim().max(500).nullable().optional(),
+  description: z.string().trim().max(20_000).nullable().optional(),
+  productType: productTypeSchema,
+  status: productStatusSchema.default('DRAFT'),
+  basePrice: vndSchema.nullable().optional(),
+  costPrice: vndSchema.nullable().optional(),
+  isFeatured: z.boolean().default(false),
+  isCustomizable: z.boolean().default(false),
+}).strict();
+
+export const productVariantInputSchema = z.object({
+  productId: uuidSchema,
+  sku: z.string().trim().min(1).max(40).regex(/^[A-Z0-9]+(?:-[A-Z0-9]+)*$/),
+  name: nonEmptyText.max(200),
+  attributes: z.record(z.string(), z.string()).default({}),
+  price: vndSchema,
+  costPrice: vndSchema.nullable().optional(),
+  weightGrams: safeInteger.nonnegative().nullable().optional(),
+  isActive: z.boolean().default(true),
+}).strict();
+
+export const cartItemInputSchema = z.object({
+  variantId: uuidSchema,
+  quantity: positiveQuantitySchema.max(10_000),
+  selectedOptions: z.record(z.string(), z.string()).default({}),
+}).strict();
+
+export const orderItemInputSchema = z.object({
+  variantId: uuidSchema,
+  quantity: positiveQuantitySchema.max(10_000),
+  productNameSnapshot: nonEmptyText.max(200),
+  variantNameSnapshot: nonEmptyText.max(200),
+  skuSnapshot: nonEmptyText.max(40),
+  unitPrice: vndSchema,
+}).strict();
+
+export const orderInputSchema = z.object({
+  customerName: nonEmptyText.max(200),
+  customerPhone: nonEmptyText.max(30),
+  customerEmail: z.string().trim().email().max(320).nullable().optional(),
+  shippingAddress: z.record(z.string(), z.unknown()).default({}),
+  subtotal: vndSchema,
+  shippingFee: vndSchema.default(0),
+  discount: vndSchema.default(0),
+  codFee: vndSchema.default(0),
+  total: vndSchema,
+  customerNote: z.string().trim().max(2_000).nullable().optional(),
+}).strict().superRefine((order, context) => {
+  if (order.total !== order.subtotal + order.shippingFee + order.codFee - order.discount) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'Total must equal subtotal + shipping fee + COD fee - discount.', path: ['total'] });
+  }
+});
+
+export const inventoryMovementInputSchema = z.object({
+  warehouseId: uuidSchema,
+  productVariantId: uuidSchema,
+  movementType: inventoryMovementTypeSchema,
+  quantity: movementQuantitySchema,
+  unitCost: vndSchema.nullable().optional(),
+  referenceType: z.string().trim().min(1).max(50).nullable().optional(),
+  referenceId: uuidSchema.nullable().optional(),
+  note: z.string().trim().max(2_000).nullable().optional(),
+  createdBy: uuidSchema.nullable().optional(),
+}).strict().superRefine((movement, context) => {
+  const incoming = ['PURCHASE', 'PRODUCTION_IN', 'RETURN_IN', 'ADJUSTMENT_IN', 'TRANSFER_IN'];
+  if ((incoming.includes(movement.movementType) && movement.quantity < 0) ||
+      (!incoming.includes(movement.movementType) && movement.quantity > 0)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'Quantity sign must match movement type.', path: ['quantity'] });
+  }
+  if (movement.movementType.startsWith('ADJUSTMENT') && (!movement.createdBy || !movement.note)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'Inventory adjustments need an actor and reason.' });
+  }
+});
+
+export const materialMovementInputSchema = z.object({
+  warehouseId: uuidSchema,
+  materialId: uuidSchema,
+  movementType: materialMovementTypeSchema,
+  quantity: movementQuantitySchema,
+  unitCost: vndSchema.nullable().optional(),
+  referenceType: z.string().trim().min(1).max(50).nullable().optional(),
+  referenceId: uuidSchema.nullable().optional(),
+  note: z.string().trim().max(2_000).nullable().optional(),
+  createdBy: uuidSchema.nullable().optional(),
+}).strict().superRefine((movement, context) => {
+  const incoming = ['PURCHASE', 'RETURN_IN', 'ADJUSTMENT_IN'];
+  if ((incoming.includes(movement.movementType) && movement.quantity < 0) ||
+      (!incoming.includes(movement.movementType) && movement.quantity > 0)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'Quantity sign must match movement type.', path: ['quantity'] });
+  }
+  if (movement.movementType.startsWith('ADJUSTMENT') && (!movement.createdBy || !movement.note)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'Inventory adjustments need an actor and reason.' });
+  }
+});
+
+export const customRequestInputSchema = z.object({
+  sourceChannel: customRequestSourceChannelSchema,
+  customerName: nonEmptyText.max(200),
+  customerPhone: nonEmptyText.max(30),
+  customerEmail: z.string().trim().email().max(320).nullable().optional(),
+  description: nonEmptyText.max(20_000),
+  quantity: positiveQuantitySchema.max(10_000),
+  requestedMaterial: z.string().trim().max(100).nullable().optional(),
+  requestedColor: z.string().trim().max(100).nullable().optional(),
+  requestedSize: z.string().trim().max(100).nullable().optional(),
+}).strict();
+
+export const quoteInputSchema = z.object({
+  customRequestId: uuidSchema,
+  subtotal: vndSchema,
+  shippingFee: vndSchema.default(0),
+  discount: vndSchema.default(0),
+  total: vndSchema,
+  validUntil: z.coerce.date(),
+  note: z.string().trim().max(2_000).nullable().optional(),
+}).strict().superRefine((quote, context) => {
+  if (quote.total !== quote.subtotal + quote.shippingFee - quote.discount) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'Quote total must reconcile to its components.', path: ['total'] });
+  }
+});
+
+export const printJobInputSchema = z.object({
+  orderId: uuidSchema.nullable().optional(),
+  customRequestId: uuidSchema.nullable().optional(),
+  quoteId: uuidSchema.nullable().optional(),
+  materialId: uuidSchema.nullable().optional(),
+  printerName: z.string().trim().max(160).nullable().optional(),
+  estimatedWeightGrams: safeInteger.nonnegative().nullable().optional(),
+  estimatedPrintTimeMinutes: safeInteger.nonnegative().nullable().optional(),
+}).strict().refine((job) => Boolean(job.orderId || job.customRequestId), {
+  message: 'A print job must be linked to an order or custom request.',
+});
