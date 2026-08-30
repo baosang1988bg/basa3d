@@ -14,29 +14,18 @@ thiểu để kiểm thử.
 - Không dựng authentication/admin (Phase 2/3).
 - Không code UI.
 
-## 2 điểm cần bạn xác nhận trước khi viết migration
+## 2 điểm cần xác nhận trước khi viết migration — đã chốt (qua Gemini)
 
-Gemini vừa bổ sung 3 quyết định vào Phase 0 (ADR-0008/0009/0010) — hai cái
-đầu ổn, nhưng có 2 điểm mình muốn bạn xác nhận trước khi biến thành migration
-thật, vì sửa enum/thêm cột sau khi đã có dữ liệu thật sẽ tốn công hơn nhiều:
+1. **ADR-0009 — `DEPOSIT_PAID`**: chốt là bắt buộc với đơn từ 300.000đ trở
+   lên, tuỳ chọn (theo thoả thuận sales) với đơn dưới mức đó. Đã ghi vào
+   `docs/database/business-rules.md` (rule 8) và `decisions.md` (ADR-0009).
+2. **ADR-0008 — `material_movements` cột tham chiếu**: đã thêm
+   `reference_type` (`PRINT_JOB`/`PURCHASE_ORDER`/`ADJUSTMENT`, nullable) và
+   `reference_id` (uuid, nullable) vào `docs/database/schema.md` + ADR-0008.
 
-1. **ADR-0009 — `DEPOSIT_PAID` (cọc 50%)**: đây là giả định của Gemini
-   ("3D printing bespoke thường yêu cầu cọc trước"), bạn chưa từng xác nhận
-   là có nhận cọc thật hay không, và nếu có thì % bao nhiêu. Đúng quy trình
-   (`AGENTS.md`: "If a business rule is unclear, do not silently invent
-   one") thì cái này nên được bạn chốt lại, không phải suy luận từ thông lệ
-   chung. Bạn có nhận cọc cho đơn MADE_TO_ORDER/custom không? Nếu không, bỏ
-   `DEPOSIT_PAID` cũng không sao — thêm lại sau dễ hơn bớt đi.
-2. **ADR-0008 — `material_movements` thiếu cột tham chiếu**: bảng mới này
-   không có `reference_type`/`reference_id` (kiểu như `inventory_movements`
-   đã có) để biết một lần `PRODUCTION_OUT` tiêu hao nguyên liệu cho
-   `print_job`/`order` nào. Thiếu cột này thì sau không tính được "đơn này
-   tốn bao nhiêu nguyên liệu thật" để đối chiếu COGS. Đề xuất: thêm
-   `reference_type varchar nullable`, `reference_id uuid nullable` vào
-   `material_movements` trước khi viết migration.
-
-Nếu bạn đồng ý với đề xuất ở mục 2 và trả lời câu hỏi ở mục 1, mình sẽ cập
-nhật `docs/database/schema.md` + `decisions.md` trước khi mở migration.
+Đã đối chiếu: cả hai đều được cập nhật nhất quán ở cả 3 chỗ
+(`schema.md`, `decisions.md`, `business-rules.md`) — không có lệch nội dung.
+Không còn điểm nào chặn việc viết migration.
 
 ## Inputs
 - `docs/database/schema.md`, `docs/database/business-rules.md`,
@@ -56,30 +45,54 @@ nhật `docs/database/schema.md` + `decisions.md` trước khi mở migration.
 
 ## Risks
 - Đổi enum/thêm cột sau khi Phase 1 xong sẽ tốn công hơn nhiều nếu đã có dữ
-  liệu/migration khác phụ thuộc vào — nên chốt 2 điểm ở trên trước khi viết
-  migration, không phải sau.
-- Repo hiện chưa có commit git nào — nên tạo commit baseline (`chore:
-  initialize project`) trước khi Codex bắt đầu viết migration, để review được
-  diff từng bước thay vì một khối thay đổi lớn.
+  liệu/migration khác phụ thuộc vào — 2 điểm này đã được chốt (xem checklist),
+  rủi ro này coi như đã xử lý.
+- Chưa có Supabase project thật — nếu Codex viết migration nhắm thẳng vào
+  Supabase cú pháp riêng (RLS, extensions) mà chưa test được trên project
+  thật, có thể phải sửa lại khi kết nối lần đầu. Giảm rủi ro bằng cách test
+  trên Postgres local trước, review kỹ phần đặc thù Supabase khi có project
+  thật.
 
 ## Checklist
 
 ### Trước khi viết migration
-- [ ] Xác nhận có nhận cọc (`DEPOSIT_PAID`) cho MADE_TO_ORDER/custom hay
-      không — giữ, sửa %, hoặc bỏ enum value này
-- [ ] Thêm `reference_type`/`reference_id` (nullable) vào `material_movements`
-- [ ] Tạo Supabase project, điền `.env` với connection string thật
-- [ ] Commit baseline vào git (repo hiện chưa có commit nào)
+- [x] Xác nhận có nhận cọc (`DEPOSIT_PAID`) cho đơn hàng từ 300.000đ trở lên (ADR-0009, business-rules.md)
+- [x] Thêm `reference_type`/`reference_id` (nullable) vào `material_movements` (Đã bổ sung vào schema.md & ADR-0008)
+- [x] Commit baseline vào git — done (`7a4bb75`, `86a235b`; xem `close-phase`
+      skill để đóng phase sau này)
+- [ ] Tạo Supabase project, điền `.env` với connection string thật (không
+      chặn việc Codex bắt đầu viết migration — có thể viết & test migration
+      trên Postgres local/Supabase CLI local stack trước, đổi sang connection
+      string thật khi có)
 
 ### Migration & seed
-- [ ] Viết migration cho toàn bộ bảng trong `docs/database/schema.md`
-- [ ] Migration chạy sạch từ database rỗng (test thực tế, không chỉ đọc code)
-- [ ] Viết seed script tối thiểu (deterministic, theo `migrations.md`)
-- [ ] Chạy skill `database-review` (`.claude/skills/database-review` /
-      `.agents/skills/database-review`) trên migration trước khi coi là xong
+- [x] Viết migration cho toàn bộ bảng trong `docs/database/schema.md` —
+      `supabase/migrations/20260830000000_initial_domain_schema.sql`, đủ 16
+      bảng + toàn bộ enum đã chốt.
+- [x] Migration chạy sạch từ database rỗng — **verify độc lập bởi Claude**
+      (không chỉ tin theo báo cáo của Codex): dựng Postgres 18 tạm thời trong
+      sandbox, chạy migration trên 2 database rỗng khác nhau, cả hai đều
+      apply sạch không lỗi.
+- [x] Viết seed script tối thiểu (`supabase/seed.sql`) — chạy thành công trên
+      DB vừa migrate.
+- [x] Chạy `npm test` với `DATABASE_URL` trỏ vào Postgres thật — cả 7 test
+      pass, bao gồm test integration (`database-integration.test.ts`) trước đó
+      bị skip vì thiếu `DATABASE_URL`. Test integration xác nhận CHECK
+      constraint hoạt động đúng: chặn được order sai tổng tiền, chặn được
+      inventory adjustment thiếu note/actor.
+- [x] Chạy review theo checklist `database-review` — không có BLOCKER. Ghi
+      chú: 2 điểm SUGGESTION cho Phase 2 (không chặn đóng phase): (1) concurrency
+      lock (`SELECT ... FOR UPDATE`/advisory lock) cho bước reserve stock khi
+      checkout; (2) đặt tên các CHECK constraint tường minh hơn (hiện Postgres
+      tự đặt tên như `orders_check`) để dễ đọc log lỗi sau này.
 
 ## Definition of Done
 Migration chạy được từ DB rỗng, seed script tạo dữ liệu hợp lệ, schema khớp
-100% với `docs/database/schema.md`, `database-review` không còn BLOCKER. Khi
-đó mới giao Codex bước tiếp theo (Phase 2 — backend/service layer) theo
-"Standard AI handoff prompt" trong `PHASE_START_PROTOCOL.md`.
+100% với `docs/database/schema.md`, `database-review` không còn BLOCKER.
+
+**Trạng thái: đạt DoD.** Đã verify thật (không chỉ dựa vào báo cáo Codex).
+Việc còn lại — tạo Supabase project thật + trỏ `.env` vào đó — không chặn
+việc đóng Phase 1 (migration đã chứng minh chạy đúng trên Postgres sạch),
+nhưng cần làm trước khi Phase 2 cần kết nối DB thật. Có thể đóng Phase 1 và
+giao Codex bước tiếp theo (Phase 2 — backend/service layer) theo "Standard AI
+handoff prompt" trong `PHASE_START_PROTOCOL.md`.

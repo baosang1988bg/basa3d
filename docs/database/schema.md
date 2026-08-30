@@ -34,8 +34,7 @@ lùi lại sau khi đã SHIPPED — trường hợp đó xử lý qua return ri�
 state).
 
 ### `orders.payment_status` (độc lập với `status`)
-`UNPAID → DEPOSIT_PAID → PAID`, cộng `REFUNDED`. `DEPOSIT_PAID` dùng khi nhận cọc
-(thường là 50%) cho đơn MADE_TO_ORDER/custom trước khi sản xuất (ADR-0009).
+`UNPAID → DEPOSIT_PAID → PAID`, cộng `REFUNDED`. `DEPOSIT_PAID` dùng khi nhận cọc cho đơn hàng có giá trị từ 300.000 VNĐ trở lên (hoặc theo thoả thuận với khách hàng, ADR-0009).
 
 ### `orders.shipping_status` (độc lập với `status`)
 `PENDING → SHIPPED → DELIVERED`, cộng `RETURNED`.
@@ -52,7 +51,24 @@ Trước đó (NEW/CONFIRMED), số lượng chỉ ở trạng thái "reserved" 
 ### `material_movements.movement_type` (Tồn kho nguyên liệu `materials` — tính theo gram/cuộn, ADR-0008)
 `PURCHASE`, `PRODUCTION_OUT`, `RETURN_IN`, `DAMAGE_OUT`, `ADJUSTMENT_IN`, `ADJUSTMENT_OUT`.
 Dùng để theo dõi nhập kho cuộn nhựa mới (`PURCHASE`) và tiêu hao nguyên liệu khi in sản phẩm (`PRODUCTION_OUT`).
+Bảng `material_movements` có các cột tham chiếu: `reference_type` (varchar, nullable, ví dụ: `PRINT_JOB`, `PURCHASE_ORDER`, `ADJUSTMENT`) và `reference_id` (UUID, nullable) để gắn vết lượt tiêu hao nguyên liệu với đúng `print_job` hoặc đơn nhập hàng tương ứng (giúp đối chiếu COGS chuẩn xác).
 
 ### `custom_requests.source_channel`
 `ZALO`, `FACEBOOK`, `INSTAGRAM`, `TIKTOK`, `OTHER` — thêm để biết kênh nào ra
 đơn nhiều nhất (Phase 0 decision, xem ADR-0007).
+
+### Enum bổ sung từ Phase 1 migration (Codex, chưa qua Phase 0 nhưng đã review)
+Các enum sau chưa được thảo luận rõ ở Phase 0, do Codex tự quyết khi viết
+migration thật (`supabase/migrations/20260830000000_initial_domain_schema.sql`).
+Đã review, hợp lý, ghi lại đây để tài liệu khớp với schema thật:
+- `products.status` (`product_status`): `DRAFT`, `ACTIVE`, `ARCHIVED`.
+- `materials.unit` (`material_unit`): `GRAM`, `SPOOL`.
+- `custom_requests.status` (`custom_request_status`): `NEW`, `REVIEWING`,
+  `NEED_INFO`, `QUOTED`, `APPROVED`, `REJECTED`, `CONVERTED`.
+- `quotes.status` (`quote_status`): `DRAFT`, `SENT`, `ACCEPTED`, `REJECTED`,
+  `EXPIRED`.
+- `print_jobs.status` (`print_job_status`): `QUEUED`, `PRINTING`, `FAILED`,
+  `REPRINT`, `QC`, `COMPLETED`, `CANCELLED`.
+- `product_variants.attributes` là `jsonb` (thay vì cột `color`/`size` cứng) —
+  linh hoạt hơn, khớp tinh thần review ban đầu về việc tránh hard-code thuộc
+  tính variant.

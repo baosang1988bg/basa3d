@@ -7,3 +7,4 @@
 5. Custom print requests do not become production jobs until they pass the quote/approval step.
 6. Every inventory adjustment needs a reason and actor.
 7. Never delete financial/order history casually; prefer status changes or archival semantics.
+8. Deposit policy: Deposits (`DEPOSIT_PAID`) are optional, required for orders with total value >= 300,000 VND. Orders under 300,000 VND may proceed without deposit unless requested by sales agent.
