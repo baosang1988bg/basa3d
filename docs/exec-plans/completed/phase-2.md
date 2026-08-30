@@ -109,26 +109,127 @@ atomic với reserve stock).
 - [x] Chốt cơ chế row lock `SELECT FOR UPDATE` chống race condition oversell
 - [x] Chốt cách xử lý `actorId` khi chưa có auth thật (hằng số `DEV_ACTOR_ID`
       server-side, xem mục "Xung đột cần xử lý" ở trên)
-- [ ] Điền `DATABASE_URL` thật vào `.env`
+- [x] Điền `DATABASE_URL` thật vào `.env` (Session Pooler connection string —
+      host trực tiếp `db.*.supabase.co` không route được từ máy dev, xem
+      Addendum bên dưới)
 
 ### Service layer & API
-- [ ] Next.js scaffold chạy được (`npm run dev` không lỗi)
-- [ ] `src/lib/auth/require-admin.ts` (no-op dev / throw production)
-- [ ] Migration bổ sung: index trên `order_items.variant_id` (phục vụ
+- [x] Next.js scaffold chạy được (`npm run dev` không lỗi — verify lại
+      2026-08-30, `npm run build` cũng pass)
+- [x] `src/lib/auth/require-admin.ts` (no-op dev / throw production)
+- [x] Migration bổ sung: index trên `order_items.variant_id` (phục vụ
       Available Stock query)
-- [ ] `src/services/` cho product, category, inventory, order, custom-request, quote
-- [ ] `src/app/api/` route handlers tương ứng, validate Zod ở boundary, áp dụng pagination limit (max 100)
-- [ ] Loại bỏ `createdBy` từ client body; inject `DEV_ACTOR_ID` (server-side
+- [x] `src/services/` cho product, category, inventory, order, custom-request, quote
+- [x] `src/app/api/` route handlers tương ứng, validate Zod ở boundary, áp dụng pagination limit (max 100)
+- [x] Loại bỏ `createdBy` từ client body; inject `DEV_ACTOR_ID` (server-side
       constant, không phải từ session) cho inventory/material adjustments &
       audit logs — đủ để thoả CHECK constraint bắt buộc `created_by not null`
-- [ ] Order creation atomic: tạo order + order_items + kiểm tra Available Stock với row lock `SELECT ... FOR UPDATE`
-- [ ] Quote service: chặn accept khi quote đã quá hạn (`valid_until < now()`)
-- [ ] Audit log ghi cho thao tác quan trọng
-- [ ] Unit & Integration test cho service logic quan trọng (stock ledger, order creation, concurrency test chống oversell)
-- [ ] Chạy skill `security-review` (`.agents/skills/security-review`) trên
+- [x] Order creation atomic: tạo order + order_items + kiểm tra Available Stock với row lock `SELECT ... FOR UPDATE`
+- [x] Quote service: chặn accept khi quote đã quá hạn (`valid_until < now()`)
+- [x] Audit log ghi cho thao tác quan trọng
+- [x] Unit & Integration test cho service logic quan trọng (stock ledger, order creation, concurrency test chống oversell — 14/14 test pass, xem Addendum)
+- [x] Chạy skill `security-review` (`.agents/skills/security-review`) trên
       API trước khi coi là xong — đặc biệt xác nhận guard production hoạt
-      động đúng (test giả lập `NODE_ENV=production` phải throw)
-- [ ] Chạy skill `database-review` lại nếu có thay đổi schema/migration mới
+      động đúng (test giả lập `NODE_ENV=production` phải throw) — xem Addendum
+- [x] Chạy skill `database-review` lại nếu có thay đổi schema/migration mới —
+      xem Addendum (order status transition + SALE_OUT + lock fix + 2 migration mới)
+
+## Addendum — Blocker fixes (post-review, 2026-08-30)
+
+Review (`security-review` + `database-review`) found Phase 2 not ready to close:
+one BLOCKER (order status transition entirely missing, so `SALE_OUT` per
+ADR-0005 never gets written) and one IMPORTANT concurrency gap (inventory
+adjustments don't lock against concurrent order creation). Codex is out of
+usage for this session, so Claude implements this addendum directly instead
+of handing off.
+
+### 1. Order status transition + `SALE_OUT` write (closes BLOCKER)
+- `orderStatusUpdateSchema` (`src/domain/schemas.ts`): `{ status: orderStatusSchema }`.
+- `PATCH /api/orders/[id]` route, `requireAdmin()` guarded, mirrors the
+  existing `quotes/[id]` PATCH pattern.
+- `order.service.updateOrderStatus(orderId, nextStatus, actorId)`:
+  - Locks the order row (`select ... for update`) and validates the
+    transition against a forward-only map (`docs/database/schema.md`:
+    `NEW→CONFIRMED→PRODUCING→READY_TO_SHIP→SHIPPED→COMPLETED`, plus
+    `CANCELLED` from `NEW`/`CONFIRMED`/`PRODUCING`/`READY_TO_SHIP` only).
+  - On transition **into `PRODUCING`**: aggregates `order_items` by
+    `variant_id` (skipping items whose variant was later deleted —
+    `variant_id` is nullable via `ON DELETE SET NULL`), sorts variant ids
+    ascending (same deadlock-avoidance convention as `createOrder`), and
+    records one `SALE_OUT` movement per variant via the new
+    `inventory.service.recordSaleOut`.
+  - Writes an `ORDER_STATUS_CHANGED` audit log entry (before/after status).
+- `inventory.service.resolveWarehouseForSale(client, variantId, quantity)`:
+  since Available Stock is already warehouse-agnostic in this codebase, pick
+  the warehouse currently holding enough on-hand balance for this variant
+  (`group by warehouse_id having sum(quantity) >= qty order by sum(quantity)
+  desc limit 1`) rather than hardcoding the seeded `MAIN` warehouse. Throws
+  `INSUFFICIENT_STOCK_FOR_FULFILLMENT` (409) if no single warehouse has
+  enough — a known edge case (stock moved/adjusted after order creation,
+  before `PRODUCING`) accepted as out of scope for Phase 2, same class as the
+  existing "stale `NEW` reservation" limitation already documented above.
+
+### 2. Close the order-creation vs. inventory-adjustment race (closes IMPORTANT #2)
+- New `inventory.service.lockVariantForInventoryWrite(client, variantId)`:
+  `select id from product_variants where id = $1 for update`.
+- Every write path that inserts into `inventory_movements` for a variant
+  (`recordInventoryMovement`, the new `recordSaleOut`) takes this lock first,
+  inside its own transaction — the same row `createOrder` already locks.
+  This makes Postgres serialize admin adjustments against concurrent
+  checkouts on the same variant instead of letting both read stale stock.
+  `recordMaterialMovement` is untouched (materials aren't part of the
+  product-variant oversell path).
+
+### Verification
+- `canTransitionOrderStatus` is a pure function — unit-tested without a DB
+  (forward path, illegal skip, `CANCELLED` allowed/blocked per state).
+- Integration test (skipped when `DATABASE_URL`/network is unavailable, same
+  as the existing concurrency test) added to `tests/phase-2-services.test.ts`:
+  transitioning an order to `PRODUCING` writes exactly one `SALE_OUT` row
+  (negative quantity, correct warehouse) and an `ORDER_STATUS_CHANGED` audit
+  log entry.
+- The lock fix itself (#2) is **not** covered by an executable concurrency
+  test: deterministically forcing the exact interleave (adjustment
+  committing mid-order-transaction) needs a test-only delay/synchronization
+  hook, which isn't worth adding to production code for Phase 2 scope. It's
+  covered instead by a regression test that `recordInventoryMovement`
+  (which now calls `lockVariantForInventoryWrite` first) still rejects an
+  unknown variant id, plus the reasoning above. Treat the lock's concurrency
+  guarantee as verified by code review, not by a test, when judging DoD.
+- Update: the user ran `npm test` locally (against the Supabase session
+  pooler, not the direct `db.*.supabase.co` host — see below) after applying
+  all three migrations + seed. All 14 non-skipped tests pass, including the
+  original oversell concurrency test and the two new tests above.
+- Networking note (not a code issue): the direct DB host
+  `db.<ref>.supabase.co` is IPv6-only and wasn't reachable from either this
+  sandbox or the user's machine. Fixed by switching `DATABASE_URL` to the
+  Session Pooler connection string (`aws-0-<region>.pooler.supabase.com:5432`,
+  username `postgres.<project-ref>`), which is IPv4. Also required
+  percent-encoding `%` in the password (literal `%` in a connection-string
+  password breaks percent-decoding and looks like a wrong password).
+
+### 3. Additional IMPORTANT fixes (post-`security-review`/`database-review`)
+Fixed in the same pass, once the BLOCKER was confirmed closed:
+- Route-param ids (`orders/[id]`, `quotes/[id]`, `custom-requests/[id]`,
+  `products/variants/[id]`, `inventory/[variantId]`) now `uuidSchema.parse()`
+  the id before it reaches a query, so a malformed id returns a clean 400
+  `VALIDATION_ERROR` instead of an uncaught Postgres cast error surfacing as
+  a generic 500.
+- `GET /api/custom-requests` / `custom-request.service.listCustomRequests`
+  now paginate (same `pagination()` helper as `product.service`, default
+  20/max 100) instead of reading the whole table.
+- New migration `20260830000002_audit_logs_actor_id_not_null.sql`:
+  `audit_logs.actor_id` is now `NOT NULL`, matching the same guarantee
+  already enforced on `inventory_movements`/`material_movements.created_by`.
+  Verified no existing NULL rows before applying.
+
+Left open, not fixed in this pass (flagged in the original review, not a
+DoD blocker): `GET /api/custom-requests` has no `requireAdmin()` guard —
+this is internal business/pipeline data, not storefront catalog data, and
+the phase's "GET is public" rule was written with catalog browsing in mind.
+Revisit in Phase 3 alongside real auth. Also still open: raw Postgres error
+`.detail` (can contain PII) is passed to `console.error` in `src/lib/api.ts`
+on unexpected errors — logging surface only, doesn't reach the API response.
 
 ## Definition of Done
 Next.js chạy được, toàn bộ service/API trong Outputs hoạt động và có test,

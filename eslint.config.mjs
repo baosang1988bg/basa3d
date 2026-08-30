@@ -5,6 +5,6 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    ignores: ['node_modules/', 'coverage/'],
+    ignores: ['node_modules/', '.next/', 'coverage/', 'next-env.d.ts'],
   },
 );

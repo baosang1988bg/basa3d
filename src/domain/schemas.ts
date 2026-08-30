@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const uuidSchema = z.string().uuid();
+export const uuidSchema = z.string().uuid();
 const nonEmptyText = z.string().trim().min(1);
 const safeInteger = z.number().int().safe();
 
@@ -127,15 +127,11 @@ export const inventoryMovementInputSchema = z.object({
   referenceType: z.string().trim().min(1).max(50).nullable().optional(),
   referenceId: uuidSchema.nullable().optional(),
   note: z.string().trim().max(2_000).nullable().optional(),
-  createdBy: uuidSchema.nullable().optional(),
 }).strict().superRefine((movement, context) => {
   const incoming = ['PURCHASE', 'PRODUCTION_IN', 'RETURN_IN', 'ADJUSTMENT_IN', 'TRANSFER_IN'];
   if ((incoming.includes(movement.movementType) && movement.quantity < 0) ||
       (!incoming.includes(movement.movementType) && movement.quantity > 0)) {
     context.addIssue({ code: z.ZodIssueCode.custom, message: 'Quantity sign must match movement type.', path: ['quantity'] });
-  }
-  if (movement.movementType.startsWith('ADJUSTMENT') && (!movement.createdBy || !movement.note)) {
-    context.addIssue({ code: z.ZodIssueCode.custom, message: 'Inventory adjustments need an actor and reason.' });
   }
 });
 
@@ -148,15 +144,11 @@ export const materialMovementInputSchema = z.object({
   referenceType: z.string().trim().min(1).max(50).nullable().optional(),
   referenceId: uuidSchema.nullable().optional(),
   note: z.string().trim().max(2_000).nullable().optional(),
-  createdBy: uuidSchema.nullable().optional(),
 }).strict().superRefine((movement, context) => {
   const incoming = ['PURCHASE', 'RETURN_IN', 'ADJUSTMENT_IN'];
   if ((incoming.includes(movement.movementType) && movement.quantity < 0) ||
       (!incoming.includes(movement.movementType) && movement.quantity > 0)) {
     context.addIssue({ code: z.ZodIssueCode.custom, message: 'Quantity sign must match movement type.', path: ['quantity'] });
-  }
-  if (movement.movementType.startsWith('ADJUSTMENT') && (!movement.createdBy || !movement.note)) {
-    context.addIssue({ code: z.ZodIssueCode.custom, message: 'Inventory adjustments need an actor and reason.' });
   }
 });
 
@@ -197,3 +189,25 @@ export const printJobInputSchema = z.object({
 }).strict().refine((job) => Boolean(job.orderId || job.customRequestId), {
   message: 'A print job must be linked to an order or custom request.',
 });
+
+export const paginationQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(20),
+}).strict();
+
+export const checkoutOrderInputSchema = z.object({
+  customerName: nonEmptyText.max(200),
+  customerPhone: nonEmptyText.max(30),
+  customerEmail: z.string().trim().email().max(320).nullable().optional(),
+  shippingAddress: z.record(z.string(), z.unknown()).default({}),
+  shippingFee: vndSchema.default(0),
+  discount: vndSchema.default(0),
+  codFee: vndSchema.default(0),
+  customerNote: z.string().trim().max(2_000).nullable().optional(),
+  items: z.array(z.object({ variantId: uuidSchema, quantity: positiveQuantitySchema.max(10_000) }).strict()).min(1),
+}).strict();
+
+export const orderStatusUpdateSchema = z.object({ status: orderStatusSchema }).strict();
+export const customRequestStatusUpdateSchema = z.object({ status: customRequestStatusSchema }).strict();
+export const quoteAcceptSchema = z.object({ status: z.literal('ACCEPTED') }).strict();
+export const variantPriceUpdateSchema = z.object({ price: vndSchema }).strict();
