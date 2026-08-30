@@ -21,11 +21,17 @@
       {
         "name": "next"
       }
-    ]
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
   "include": [
     "src/**/*.ts",
     "tests/**/*.ts",
+    "e2e/**/*.ts",
+    "playwright.config.ts",
     ".next/types/**/*.ts"
   ],
   "exclude": [

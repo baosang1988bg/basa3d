@@ -17,6 +17,7 @@
 - quotes
 - print_jobs
 - audit_logs
+- staff_profiles
 
 ## Rules
 - UUID primary keys unless there is a clear reason otherwise.
@@ -72,3 +73,11 @@ migration thật (`supabase/migrations/20260830000000_initial_domain_schema.sql`
 - `product_variants.attributes` là `jsonb` (thay vì cột `color`/`size` cứng) —
   linh hoạt hơn, khớp tinh thần review ban đầu về việc tránh hard-code thuộc
   tính variant.
+
+### `staff_profiles` (Phase 3 — xem ADR-0011 / ADR-0012)
+Bảng hồ sơ phân quyền nhân viên nội bộ (liên kết 1-1 với `auth.users` của Supabase Auth):
+- `id`: `uuid primary key references auth.users(id) on delete cascade`
+- `full_name`: `varchar(200) not null check (btrim(full_name) <> '')`
+- `role`: `staff_role not null default 'STAFF'` (`create type staff_role as enum ('OWNER', 'STAFF')`)
+- `is_active`: `boolean not null default true`
+- `created_at`, `updated_at`: `timestamptz not null default timezone('utc', now())`

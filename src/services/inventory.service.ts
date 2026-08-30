@@ -6,6 +6,26 @@ import { writeAuditLog } from './audit.service';
 export type StockLevel = { onHand: number; reserved: number; available: number };
 export function availableStock(onHand: number, reserved: number): number { return onHand - reserved; }
 
+export async function listWarehouses() {
+  const result = await query<{ id: string; name: string; code: string }>('select id, name, code from warehouses where is_active = true order by name');
+  return result.rows;
+}
+
+export async function listInventoryMovements(input: { variantId?: string; page?: number; limit?: number } = {}) {
+  const page = Math.max(1, input.page ?? 1);
+  const limit = Math.min(100, Math.max(1, input.limit ?? 20));
+  const offset = (page - 1) * limit;
+  const values: unknown[] = [];
+  const filterSql = input.variantId ? (values.push(input.variantId), `where product_variant_id = $${values.length}`) : '';
+  values.push(limit, offset);
+  const result = await query<{ id: string; warehouseId: string; productVariantId: string; movementType: string; quantity: number; unitCost: number | null; referenceType: string | null; referenceId: string | null; note: string | null; createdBy: string | null; createdAt: string }>(
+    `select id, warehouse_id as "warehouseId", product_variant_id as "productVariantId", movement_type as "movementType", quantity, unit_cost as "unitCost", reference_type as "referenceType", reference_id as "referenceId", note, created_by as "createdBy", created_at as "createdAt"
+     from inventory_movements ${filterSql} order by created_at desc limit $${values.length - 1} offset $${values.length}`,
+    values,
+  );
+  return { page, limit, items: result.rows };
+}
+
 export async function getStockLevel(variantId: string, client?: PoolClient): Promise<StockLevel> {
   const sql = `
     select coalesce((select sum(quantity) from inventory_movements where product_variant_id = $1), 0) as on_hand,

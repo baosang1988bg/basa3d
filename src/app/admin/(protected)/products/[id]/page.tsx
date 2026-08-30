@@ -1,0 +1,139 @@
+import Image from 'next/image';
+import { notFound } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { requireAdmin } from '@/lib/auth/require-admin';
+import { getProductById, listProductImages } from '@/services/product.service';
+import {
+  createVariantAction,
+  deleteProductAction,
+  deleteProductImageAction,
+  deleteVariantAction,
+  updateProductAction,
+  updateVariantAction,
+  uploadProductImageAction,
+} from '../actions';
+
+export default async function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const [{ role }, product, images] = await Promise.all([requireAdmin(), getProductById(id), listProductImages(id)]);
+  if (!product) notFound();
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">{product.name}</h1>
+        {role === 'OWNER' ? (
+          <form action={deleteProductAction.bind(null, id)}>
+            <Button type="submit" variant="destructive" size="sm">Xoá hẳn sản phẩm</Button>
+          </form>
+        ) : null}
+      </div>
+
+      <Card>
+        <CardHeader><CardTitle>Thông tin sản phẩm</CardTitle></CardHeader>
+        <CardContent>
+          <form action={updateProductAction.bind(null, id)} className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="name">Tên</Label>
+              <Input id="name" name="name" defaultValue={product.name} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="slug">Slug</Label>
+              <Input id="slug" name="slug" defaultValue={product.slug} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="status">Trạng thái</Label>
+              <select id="status" name="status" defaultValue={product.status} className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm">
+                <option value="DRAFT">DRAFT</option>
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="ARCHIVED">ARCHIVED</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="basePrice">Giá cơ bản (VND)</Label>
+              <Input id="basePrice" name="basePrice" type="number" min={0} defaultValue={product.basePrice ?? ''} />
+            </div>
+            <div className="col-span-2 flex flex-col gap-1.5">
+              <Label htmlFor="shortDescription">Mô tả ngắn</Label>
+              <Input id="shortDescription" name="shortDescription" defaultValue={product.shortDescription ?? ''} />
+            </div>
+            <div className="flex items-end gap-2">
+              <input id="isFeatured" name="isFeatured" type="checkbox" className="size-4" defaultChecked={product.isFeatured} />
+              <Label htmlFor="isFeatured">Nổi bật</Label>
+            </div>
+            <div className="col-span-2"><Button type="submit">Lưu thay đổi</Button></div>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Biến thể ({product.variants.length})</CardTitle></CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {product.variants.map((variant: { id: string; sku: string; name: string; price: number; isActive: boolean }) => (
+            <form key={variant.id} action={updateVariantAction.bind(null, id, variant.id)} className="flex flex-wrap items-end gap-3 border-b border-border pb-3">
+              <div className="flex flex-col gap-1.5">
+                <Label>SKU</Label>
+                <p className="text-sm">{variant.sku}</p>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor={`name-${variant.id}`}>Tên</Label>
+                <Input id={`name-${variant.id}`} name="name" defaultValue={variant.name} className="w-40" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor={`price-${variant.id}`}>Giá</Label>
+                <Input id={`price-${variant.id}`} name="price" type="number" min={0} defaultValue={variant.price} className="w-32" />
+              </div>
+              <div className="flex items-center gap-2">
+                <input id={`active-${variant.id}`} name="isActive" type="checkbox" className="size-4" defaultChecked={variant.isActive} />
+                <Label htmlFor={`active-${variant.id}`}>Đang bán</Label>
+              </div>
+              <Button type="submit" size="sm" variant="outline">Lưu</Button>
+              {role === 'OWNER' ? (
+                <Button type="submit" size="sm" variant="destructive" formAction={deleteVariantAction.bind(null, id, variant.id)}>Xoá hẳn</Button>
+              ) : null}
+            </form>
+          ))}
+
+          <form action={createVariantAction.bind(null, id)} className="flex flex-wrap items-end gap-3 pt-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="new-sku">SKU mới</Label>
+              <Input id="new-sku" name="sku" required placeholder="SKU-EXAMPLE" className="w-40" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="new-name">Tên biến thể</Label>
+              <Input id="new-name" name="name" required className="w-40" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="new-price">Giá</Label>
+              <Input id="new-price" name="price" type="number" min={0} required className="w-32" />
+            </div>
+            <Button type="submit" size="sm">Thêm biến thể</Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Ảnh sản phẩm ({images.length})</CardTitle></CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-wrap gap-4">
+            {images.map((image) => (
+              <div key={image.id} className="flex flex-col items-center gap-2">
+                <Image src={image.url} alt={image.altText ?? product.name} width={120} height={120} className="rounded-md object-cover" unoptimized />
+                <form action={deleteProductImageAction.bind(null, id, image.id)}>
+                  <Button type="submit" size="sm" variant="outline">Xoá</Button>
+                </form>
+              </div>
+            ))}
+          </div>
+          <form action={uploadProductImageAction.bind(null, id)} encType="multipart/form-data" className="flex items-end gap-2">
+            <input type="file" name="file" accept="image/jpeg,image/png,image/webp" required className="text-sm" />
+            <Button type="submit" size="sm">Tải ảnh lên</Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

@@ -24,8 +24,26 @@ export async function updateCustomRequestStatus(id: string, status: string, acto
   });
 }
 
+type CustomRequestSummary = { id: string; requestNumber: string; sourceChannel: string; status: string; createdAt: Date };
+
 export async function listCustomRequests(input: { page?: number; limit?: number } = {}) {
   const { page, limit, offset } = pagination(input);
-  const result = await query('select id, request_number as "requestNumber", source_channel as "sourceChannel", status, created_at as "createdAt" from custom_requests order by created_at desc limit $1 offset $2', [limit, offset]);
+  const result = await query<CustomRequestSummary>('select id, request_number as "requestNumber", source_channel as "sourceChannel", status, created_at as "createdAt" from custom_requests order by created_at desc limit $1 offset $2', [limit, offset]);
   return { page, limit, items: result.rows };
+}
+
+type CustomRequestDetail = {
+  id: string; requestNumber: string; sourceChannel: string; customerName: string; customerPhone: string;
+  customerEmail: string | null; description: string; quantity: number; requestedMaterial: string | null;
+  requestedColor: string | null; requestedSize: string | null; status: string; internalNote: string | null; createdAt: Date;
+};
+
+export async function getCustomRequestById(id: string): Promise<CustomRequestDetail | null> {
+  const result = await query<CustomRequestDetail>(`
+    select id, request_number as "requestNumber", source_channel as "sourceChannel", customer_name as "customerName",
+      customer_phone as "customerPhone", customer_email as "customerEmail", description, quantity,
+      requested_material as "requestedMaterial", requested_color as "requestedColor", requested_size as "requestedSize",
+      status, internal_note as "internalNote", created_at as "createdAt"
+    from custom_requests where id = $1`, [id]);
+  return result.rows[0] ?? null;
 }

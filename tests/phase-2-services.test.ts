@@ -3,7 +3,6 @@ import { randomUUID } from 'node:crypto';
 import test, { after } from 'node:test';
 import nextEnv from '@next/env';
 import { Client } from 'pg';
-import { requireAdmin } from '../src/lib/auth/require-admin.js';
 import { availableStock, recordInventoryMovement } from '../src/services/inventory.service.js';
 import { canTransitionOrderStatus, createOrder, reconcileOrderTotal, updateOrderStatus } from '../src/services/order.service.js';
 import { canAcceptQuote } from '../src/services/quote.service.js';
@@ -39,14 +38,6 @@ test('order status transitions are forward-only, with CANCELLED reachable until 
   assert.equal(canTransitionOrderStatus('READY_TO_SHIP', 'CANCELLED'), true);
   assert.equal(canTransitionOrderStatus('SHIPPED', 'CANCELLED'), false); // no cancel after shipped
   assert.equal(canTransitionOrderStatus('COMPLETED', 'CANCELLED'), false);
-});
-
-test('requireAdmin fails closed in production', () => {
-  const previous = Object.getOwnPropertyDescriptor(process.env, 'NODE_ENV');
-  Object.defineProperty(process.env, 'NODE_ENV', { value: 'production', configurable: true, writable: true, enumerable: true });
-  assert.throws(requireAdmin, /Admin auth not implemented — see Phase 3/);
-  if (previous) Object.defineProperty(process.env, 'NODE_ENV', previous);
-  else delete (process.env as Record<string, string | undefined>).NODE_ENV;
 });
 
 test('two overlapping order creations reserve stock exactly once', { skip: !process.env.DATABASE_URL }, async () => {

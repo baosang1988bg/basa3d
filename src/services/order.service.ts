@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { withTransaction } from '../lib/db';
+import { query, withTransaction } from '../lib/db';
 import { DomainError } from '../lib/domain-error';
 import { assertAvailableStock, recordSaleOut } from './inventory.service';
 import { writeAuditLog } from './audit.service';
+import { pagination } from './product.service';
 
 type OrderItemRequest = { variantId: string; quantity: number };
 type CreateOrderInput = { customerName: string; customerPhone: string; customerEmail?: string | null; shippingAddress?: Record<string, unknown>; shippingFee?: number; discount?: number; codFee?: number; customerNote?: string | null; items: OrderItemRequest[] };
@@ -93,6 +94,61 @@ export async function updateOrderStatus(orderId: string, nextStatus: string, act
 
     const updated = await client.query<{ id: string; status: string }>('update orders set status = $2 where id = $1 returning id, status', [orderId, nextStatus]);
     await writeAuditLog(client, { actorId, action: 'ORDER_STATUS_CHANGED', entityType: 'order', entityId: orderId, beforeData: { status: previousStatus }, afterData: { status: nextStatus } });
+    return updated.rows[0];
+  });
+}
+
+type OrderListRow = { id: string; orderNumber: string; customerName: string; status: string; paymentStatus: string; total: number; createdAt: string };
+
+export async function listOrders(input: { page?: number; limit?: number; status?: string } = {}) {
+  const { page, limit, offset } = pagination(input);
+  const values: unknown[] = [];
+  const statusSql = input.status ? (values.push(input.status), `and status = $${values.length}`) : '';
+  values.push(limit, offset);
+  const rows = await query<OrderListRow>(`
+    select id, order_number as "orderNumber", customer_name as "customerName", status, payment_status as "paymentStatus", total, created_at as "createdAt"
+    from orders where true ${statusSql} order by created_at desc limit $${values.length - 1} offset $${values.length}`, values);
+  return { page, limit, items: rows.rows };
+}
+
+type OrderDetail = {
+  id: string; orderNumber: string; customerName: string; customerPhone: string; customerEmail: string | null;
+  shippingAddress: Record<string, unknown>; status: string; paymentStatus: string; shippingStatus: string;
+  subtotal: number; shippingFee: number; discount: number; codFee: number; total: number;
+  customerNote: string | null; adminNote: string | null; createdAt: string;
+};
+type OrderItemDetail = { productNameSnapshot: string; variantNameSnapshot: string; skuSnapshot: string; quantity: number; unitPrice: number; lineTotal: number };
+
+export async function getOrderById(orderId: string) {
+  const result = await query<OrderDetail>(`
+    select id, order_number as "orderNumber", customer_name as "customerName", customer_phone as "customerPhone", customer_email as "customerEmail",
+      shipping_address as "shippingAddress", status, payment_status as "paymentStatus", shipping_status as "shippingStatus",
+      subtotal, shipping_fee as "shippingFee", discount, cod_fee as "codFee", total, customer_note as "customerNote", admin_note as "adminNote", created_at as "createdAt"
+    from orders where id = $1`, [orderId]);
+  if (!result.rowCount) return null;
+  const items = await query<OrderItemDetail>(`
+    select product_name_snapshot as "productNameSnapshot", variant_name_snapshot as "variantNameSnapshot", sku_snapshot as "skuSnapshot",
+      quantity, unit_price as "unitPrice", line_total as "lineTotal"
+    from order_items where order_id = $1 order by created_at`, [orderId]);
+  return { ...result.rows[0], items: items.rows };
+}
+
+export async function updateOrderPaymentAndShipping(orderId: string, patch: { paymentStatus?: string; shippingStatus?: string; adminNote?: string | null }, actorId: string) {
+  return withTransaction(async (client) => {
+    const before = await client.query('select payment_status, shipping_status, admin_note from orders where id = $1 for update', [orderId]);
+    if (!before.rowCount) throw new DomainError('ORDER_NOT_FOUND', 'Order was not found.', 404);
+    const fields = { paymentStatus: 'payment_status', shippingStatus: 'shipping_status', adminNote: 'admin_note' } as const;
+    const sets: string[] = [];
+    const values: unknown[] = [];
+    for (const [key, column] of Object.entries(fields) as [keyof typeof patch, string][]) {
+      if (patch[key] === undefined) continue;
+      values.push(patch[key]);
+      sets.push(`${column} = $${values.length}`);
+    }
+    if (!sets.length) return before.rows[0];
+    values.push(orderId);
+    const updated = await client.query('update orders set ' + sets.join(', ') + ` where id = $${values.length} returning id, payment_status, shipping_status, admin_note`, values);
+    await writeAuditLog(client, { actorId, action: 'ORDER_ADMIN_FIELDS_UPDATED', entityType: 'order', entityId: orderId, beforeData: before.rows[0], afterData: updated.rows[0] });
     return updated.rows[0];
   });
 }

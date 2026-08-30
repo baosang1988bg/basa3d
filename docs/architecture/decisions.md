@@ -58,6 +58,13 @@ they flow entirely through `custom_requests` → `quotes` → `print_jobs`.
 wants to know which channel converts. No Google Sheet migration was needed —
 there was no existing product data (greenfield catalog).
 
+**2026-08-30 addendum (Phase 3 kickoff):** the original research doc
+(`3d-printing-website-development-plan.md`, PHASE 3 §3.5) describes an admin
+action "convert [custom request] to order," which this ADR already
+contradicts. Resolved: that action means quote `ACCEPTED` → create a
+`print_jobs` row, never an `orders` row. See
+`docs/exec-plans/active/phase-3.md`.
+
 ## ADR-0008 — Separate inventory ledgers for finished product variants vs raw materials
 Status: accepted
 
@@ -72,3 +79,21 @@ Owner confirmed deposit policy: Deposits (`DEPOSIT_PAID`) are optional, required
 Status: accepted
 
 Calculated selling prices from the cost-plus formula are rounded up to the nearest 1,000 VND (`Math.ceil(Price / 1000) * 1000`). This satisfies the integer money storage rule (VND = 1 unit, `AGENTS.md`) and matches standard retail pricing practice in Vietnam.
+
+## ADR-0011 — Admin RBAC: 4-Boundary Model between OWNER and STAFF
+Status: accepted
+
+Phase 3 defines two internal roles (`OWNER` and `STAFF`) with 4 explicit risk boundaries:
+1. `Staff Management` (`/api/staff`): `OWNER` only.
+2. `Financial Dashboard & Profit Reports`: `OWNER` sees full revenue, COGS, and profit metrics; `STAFF` sees operational counts only (orders today, queued print jobs, low-stock items).
+3. `Hard Deletion of Products/Variants`: `OWNER` only; `STAFF` can only change status to `ARCHIVED`.
+4. `Audit Log Viewer` (`/api/audit-logs`): `OWNER` only.
+All standard day-to-day operations (create/edit products, receive inventory, process orders, draft/send quotes, manage print jobs) are shared equally.
+
+## ADR-0012 — Admin Authentication: Supabase Auth with @supabase/ssr and direct pg.Pool role checks
+Status: accepted
+
+Admin authentication uses Supabase Auth (Email + Password) with `@supabase/ssr` for HTTP-Only cookie session management in Next.js App Router.
+- Token refresh is handled in `middleware.ts` via `createServerClient`.
+- Route handlers and server actions verify sessions via `await supabase.auth.getUser()`.
+- Authorization and profile lookup (`staff_profiles`) are executed directly through the existing `pg.Pool` (`DATABASE_URL`), keeping database queries clean and consistent with Phase 1/2 patterns without relying on Supabase PostgREST or client-side RLS enforcement.

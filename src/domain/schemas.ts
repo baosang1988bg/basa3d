@@ -35,6 +35,7 @@ export const quoteStatusSchema = z.enum(['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED'
 export const printJobStatusSchema = z.enum([
   'QUEUED', 'PRINTING', 'FAILED', 'REPRINT', 'QC', 'COMPLETED', 'CANCELLED',
 ]);
+export const staffRoleSchema = z.enum(['OWNER', 'STAFF']);
 
 export const categoryInputSchema = z.object({
   parentId: uuidSchema.nullable().optional(),
@@ -208,6 +209,38 @@ export const checkoutOrderInputSchema = z.object({
 }).strict();
 
 export const orderStatusUpdateSchema = z.object({ status: orderStatusSchema }).strict();
+export const orderAdminUpdateSchema = z.object({
+  paymentStatus: paymentStatusSchema.optional(),
+  shippingStatus: shippingStatusSchema.optional(),
+  adminNote: z.string().trim().max(2_000).nullable().optional(),
+}).strict();
+export const staffCreateInputSchema = z.object({
+  email: z.string().trim().email().max(320),
+  password: z.string().min(8).max(200),
+  fullName: nonEmptyText.max(200),
+  role: staffRoleSchema,
+}).strict();
+export const staffUpdateInputSchema = z.object({ isActive: z.boolean() }).strict();
+export const productUpdateInputSchema = z.object({
+  categoryId: uuidSchema.nullable().optional(),
+  name: nonEmptyText.max(200).optional(),
+  slug: z.string().trim().min(1).max(160).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).optional(),
+  shortDescription: z.string().trim().max(500).nullable().optional(),
+  description: z.string().trim().max(20_000).nullable().optional(),
+  status: productStatusSchema.optional(),
+  basePrice: vndSchema.nullable().optional(),
+  costPrice: vndSchema.nullable().optional(),
+  isFeatured: z.boolean().optional(),
+  isCustomizable: z.boolean().optional(),
+}).strict();
+export const variantUpdateInputSchema = z.object({
+  name: nonEmptyText.max(200).optional(),
+  attributes: z.record(z.string(), z.string()).optional(),
+  price: vndSchema.optional(),
+  costPrice: vndSchema.nullable().optional(),
+  weightGrams: safeInteger.nonnegative().nullable().optional(),
+  isActive: z.boolean().optional(),
+}).strict();
 export const customRequestStatusUpdateSchema = z.object({ status: customRequestStatusSchema }).strict();
 export const quoteAcceptSchema = z.object({ status: z.literal('ACCEPTED') }).strict();
-export const variantPriceUpdateSchema = z.object({ price: vndSchema }).strict();
+export const printJobStatusUpdateSchema = z.object({ status: printJobStatusSchema }).strict();
