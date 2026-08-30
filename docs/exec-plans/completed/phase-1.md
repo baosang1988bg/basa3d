@@ -60,10 +60,12 @@ Không còn điểm nào chặn việc viết migration.
 - [x] Thêm `reference_type`/`reference_id` (nullable) vào `material_movements` (Đã bổ sung vào schema.md & ADR-0008)
 - [x] Commit baseline vào git — done (`7a4bb75`, `86a235b`; xem `close-phase`
       skill để đóng phase sau này)
-- [ ] Tạo Supabase project, điền `.env` với connection string thật (không
-      chặn việc Codex bắt đầu viết migration — có thể viết & test migration
-      trên Postgres local/Supabase CLI local stack trước, đổi sang connection
-      string thật khi có)
+- [x] Tạo Supabase project — done. `.env` thật đã điền
+      `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`/
+      `SUPABASE_SERVICE_ROLE_KEY`. `DATABASE_URL` (cần cho migration/test
+      chạy trực tiếp bằng `pg`) chưa điền — carry sang việc chuẩn bị trước
+      khi Phase 2 cần kết nối DB thật, không chặn đóng Phase 1 (đã verify
+      migration trên Postgres sạch riêng, xem mục Migration & seed).
 
 ### Migration & seed
 - [x] Viết migration cho toàn bộ bảng trong `docs/database/schema.md` —
