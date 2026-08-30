@@ -38,6 +38,13 @@ phase's checklist is fully `[x]`, move `docs/exec-plans/active/phase-X.md` to
 `completed/`, then commit with a Conventional Commit message summarizing the
 phase. Use it every time a phase closes instead of ad hoc commits.
 
+## Handing a phase to Codex
+`.agents/skills/codex-handoff/SKILL.md` (mirrored at
+`.claude/skills/codex-handoff/`) generates the implementer prompt for Step 4
+of `PHASE_START_PROTOCOL.md` directly from a `docs/exec-plans/active/phase-X.md`
+file, instead of hand-writing it each time. Only run it once that phase's
+"Trước khi giao Codex" checklist items are all resolved.
+
 ## Stack
 - Next.js + TypeScript
 - PostgreSQL / Supabase
