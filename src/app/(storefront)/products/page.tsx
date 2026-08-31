@@ -8,7 +8,7 @@ type SearchParams = { q?: string; type?: string; sort?: string; page?: string };
 export default async function ProductsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
   const sortBy = params.sort === 'price_asc' || params.sort === 'price_desc' ? params.sort : 'newest';
-  const { items, page } = await listStorefrontProducts({
+  const { items, page, limit } = await listStorefrontProducts({
     search: params.q, productType: params.type, sortBy,
     page: params.page ? Number(params.page) : 1,
   });
@@ -50,11 +50,23 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
         </div>
       )}
 
-      {page > 1 && (
-        <div className="mt-8 flex justify-center">
-          <Link href={`?${new URLSearchParams({ ...params, page: String(page - 1) })}`}><StorefrontButton variant="secondary">Trang trước</StorefrontButton></Link>
+      {(page > 1 || items.length === limit) && (
+        <div className="mt-8 flex justify-center gap-3">
+          {page > 1 && (
+            <Link href={`?${buildQueryString(params, page - 1)}`}><StorefrontButton variant="secondary">Trang trước</StorefrontButton></Link>
+          )}
+          {items.length === limit && (
+            <Link href={`?${buildQueryString(params, page + 1)}`}><StorefrontButton variant="secondary">Trang sau</StorefrontButton></Link>
+          )}
         </div>
       )}
     </div>
   );
+}
+
+function buildQueryString(params: SearchParams, page: number): string {
+  const entries = Object.entries({ ...params, page: String(page) }).filter(
+    (entry): entry is [string, string] => entry[1] != null && entry[1] !== '',
+  );
+  return new URLSearchParams(entries).toString();
 }
