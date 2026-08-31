@@ -28,10 +28,16 @@ async function attachStockFlag(variantsByProduct: Map<string, { id: string }[]>)
   return flags;
 }
 
-export async function listStorefrontProducts(input: { page?: number; limit?: number; categoryId?: string } = {}) {
+export async function listStorefrontProducts(input: { page?: number; limit?: number; categoryId?: string; productType?: string; search?: string; sortBy?: 'newest' | 'price_asc' | 'price_desc' } = {}) {
   const { page, limit, offset } = pagination(input);
   const values: unknown[] = [];
-  const categorySql = input.categoryId ? (values.push(input.categoryId), `and p.category_id = $${values.length}`) : '';
+  let filterSql = '';
+  if (input.categoryId) { values.push(input.categoryId); filterSql += ` and p.category_id = $${values.length}`; }
+  if (input.productType) { values.push(input.productType); filterSql += ` and p.product_type = $${values.length}`; }
+  if (input.search) { values.push(`%${input.search}%`); filterSql += ` and p.name ilike $${values.length}`; }
+  const orderSql = input.sortBy === 'price_asc' ? 'p.base_price asc nulls last'
+    : input.sortBy === 'price_desc' ? 'p.base_price desc nulls last'
+    : 'p.created_at desc';
   values.push(limit, offset);
   const rows = await query<{
     id: string; name: string; slug: string; shortDescription: string | null; productType: string;
@@ -42,8 +48,8 @@ export async function listStorefrontProducts(input: { page?: number; limit?: num
       (select storage_path from product_images pi where pi.product_id = p.id order by pi.sort_order limit 1) as "imageUrl",
       coalesce(array_agg(v.id) filter (where v.id is not null), '{}') as "variantIds"
     from products p left join product_variants v on v.product_id = p.id and v.is_active = true
-    where p.status = 'ACTIVE' ${categorySql}
-    group by p.id order by p.created_at desc limit $${values.length - 1} offset $${values.length}`, values);
+    where p.status = 'ACTIVE' ${filterSql}
+    group by p.id order by ${orderSql} limit $${values.length - 1} offset $${values.length}`, values);
 
   const variantsByProduct = new Map(rows.rows.map((row) => [row.id, row.variantIds.map((id) => ({ id }))]));
   const stockFlags = await attachStockFlag(variantsByProduct);
