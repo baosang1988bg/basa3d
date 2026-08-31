@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  blogPostInputSchema,
   inventoryMovementInputSchema,
   orderInputSchema,
   productVariantInputSchema,
@@ -66,4 +67,12 @@ test('publicCheckoutOrderInputSchema rejects client-supplied shippingFee/discoun
   assert.equal(publicCheckoutOrderInputSchema.safeParse({ ...base, discount: 999_999 }).success, false);
   assert.equal(publicCheckoutOrderInputSchema.safeParse({ ...base, shippingFee: 1 }).success, false);
   assert.equal(publicCheckoutOrderInputSchema.safeParse({ ...base, codFee: 1 }).success, false);
+});
+
+test('blogPostInputSchema requires a lowercase-hyphen slug and rejects an empty content body', () => {
+  const base = { title: 'Bai viet moi', slug: 'bai-viet-moi', content: '## Xin chao' };
+  assert.equal(blogPostInputSchema.safeParse(base).success, true);
+  assert.equal(blogPostInputSchema.safeParse({ ...base, slug: 'Bai Viet Moi' }).success, false);
+  assert.equal(blogPostInputSchema.safeParse({ ...base, content: '   ' }).success, false);
+  assert.equal(blogPostInputSchema.safeParse({ ...base, status: 'ARCHIVED' }).success, false);
 });

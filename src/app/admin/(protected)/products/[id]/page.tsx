@@ -64,6 +64,14 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
               <input id="isFeatured" name="isFeatured" type="checkbox" className="size-4" defaultChecked={product.isFeatured} />
               <Label htmlFor="isFeatured">Nổi bật</Label>
             </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="seoTitle">SEO title</Label>
+              <Input id="seoTitle" name="seoTitle" maxLength={200} defaultValue={product.seoTitle ?? ''} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="seoDescription">SEO description</Label>
+              <Input id="seoDescription" name="seoDescription" maxLength={500} defaultValue={product.seoDescription ?? ''} />
+            </div>
             <div className="col-span-2"><Button type="submit">Lưu thay đổi</Button></div>
           </form>
         </CardContent>

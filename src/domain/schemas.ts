@@ -74,6 +74,8 @@ export const productInputSchema = z.object({
   costPrice: vndSchema.nullable().optional(),
   isFeatured: z.boolean().default(false),
   isCustomizable: z.boolean().default(false),
+  seoTitle: z.string().trim().max(200).nullable().optional(),
+  seoDescription: z.string().trim().max(500).nullable().optional(),
 }).strict();
 
 export const productVariantInputSchema = z.object({
@@ -268,6 +270,8 @@ export const productUpdateInputSchema = z.object({
   costPrice: vndSchema.nullable().optional(),
   isFeatured: z.boolean().optional(),
   isCustomizable: z.boolean().optional(),
+  seoTitle: z.string().trim().max(200).nullable().optional(),
+  seoDescription: z.string().trim().max(500).nullable().optional(),
 }).strict();
 export const variantUpdateInputSchema = z.object({
   name: nonEmptyText.max(200).optional(),
@@ -280,6 +284,37 @@ export const variantUpdateInputSchema = z.object({
 export const customRequestStatusUpdateSchema = z.object({ status: customRequestStatusSchema }).strict();
 export const quoteAcceptSchema = z.object({ status: z.literal('ACCEPTED') }).strict();
 export const printJobStatusUpdateSchema = z.object({ status: printJobStatusSchema }).strict();
+
+export const blogPostStatusSchema = z.enum(['DRAFT', 'PUBLISHED']);
+
+export const blogCategoryInputSchema = z.object({
+  name: nonEmptyText.max(160),
+  slug: z.string().trim().min(1).max(160).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+}).strict();
+
+export const blogPostInputSchema = z.object({
+  categoryId: uuidSchema.nullable().optional(),
+  title: nonEmptyText.max(200),
+  slug: z.string().trim().min(1).max(200).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  excerpt: z.string().trim().max(500).nullable().optional(),
+  content: nonEmptyText.max(50_000),
+  tags: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
+  seoTitle: z.string().trim().max(200).nullable().optional(),
+  seoDescription: z.string().trim().max(500).nullable().optional(),
+  status: blogPostStatusSchema.default('DRAFT'),
+}).strict();
+
+export const blogPostUpdateInputSchema = z.object({
+  categoryId: uuidSchema.nullable().optional(),
+  title: nonEmptyText.max(200).optional(),
+  slug: z.string().trim().min(1).max(200).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).optional(),
+  excerpt: z.string().trim().max(500).nullable().optional(),
+  content: nonEmptyText.max(50_000).optional(),
+  tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
+  seoTitle: z.string().trim().max(200).nullable().optional(),
+  seoDescription: z.string().trim().max(500).nullable().optional(),
+  status: blogPostStatusSchema.optional(),
+}).strict();
 
 // materialId and estimatedWeightGrams must always be assigned together (phase-6.md decision #2):
 // updatePrintJobStatus checks both before allowing a PRINTING transition, so a partial assignment

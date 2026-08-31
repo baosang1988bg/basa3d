@@ -12,6 +12,7 @@ const NAV_LINKS = [
   { href: '/products', label: 'Sản phẩm' },
   { href: '/custom-print', label: 'Đặt in' },
   { href: '/#materials', label: 'Bảng giá & Vật liệu' },
+  { href: '/blog', label: 'Blog' },
 ];
 
 export function Header() {

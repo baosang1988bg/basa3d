@@ -71,14 +71,15 @@ export async function listAllVariantsWithProductName() {
 type ProductDetail = {
   id: string; name: string; slug: string; shortDescription: string | null; description: string | null;
   productType: string; status: string; basePrice: number | null; costPrice: number | null;
-  isFeatured: boolean; categoryId: string | null;
+  isFeatured: boolean; categoryId: string | null; seoTitle: string | null; seoDescription: string | null;
 };
 type VariantDetail = { id: string; sku: string; name: string; attributes: Record<string, string>; price: number; costPrice: number | null; weightGrams: number | null; isActive: boolean };
 
 export async function getProductById(productId: string) {
   const result = await query<ProductDetail>(`
     select id, name, slug, short_description as "shortDescription", description, product_type as "productType",
-      status, base_price as "basePrice", cost_price as "costPrice", is_featured as "isFeatured", category_id as "categoryId"
+      status, base_price as "basePrice", cost_price as "costPrice", is_featured as "isFeatured", category_id as "categoryId",
+      seo_title as "seoTitle", seo_description as "seoDescription"
     from products where id = $1`, [productId]);
   if (!result.rowCount) return null;
   const variants = await query<VariantDetail>('select id, sku, name, attributes, price, cost_price as "costPrice", weight_grams as "weightGrams", is_active as "isActive" from product_variants where product_id = $1 order by created_at', [productId]);
@@ -88,9 +89,9 @@ export async function getProductById(productId: string) {
 export async function createProduct(input: Record<string, unknown>, actorId: string) {
   return withTransaction(async (client) => {
     const result = await client.query<{ id: string }>(`
-      insert into products (category_id, name, slug, short_description, description, product_type, status, base_price, cost_price, is_featured, is_customizable)
-      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning id`, [
-      input.categoryId ?? null, input.name, input.slug, input.shortDescription ?? null, input.description ?? null, input.productType, input.status ?? 'DRAFT', input.basePrice ?? null, input.costPrice ?? null, input.isFeatured ?? false, input.isCustomizable ?? false,
+      insert into products (category_id, name, slug, short_description, description, product_type, status, base_price, cost_price, is_featured, is_customizable, seo_title, seo_description)
+      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) returning id`, [
+      input.categoryId ?? null, input.name, input.slug, input.shortDescription ?? null, input.description ?? null, input.productType, input.status ?? 'DRAFT', input.basePrice ?? null, input.costPrice ?? null, input.isFeatured ?? false, input.isCustomizable ?? false, input.seoTitle ?? null, input.seoDescription ?? null,
     ]);
     await writeAuditLog(client, { actorId, action: 'PRODUCT_CREATED', entityType: 'product', entityId: result.rows[0].id, afterData: input });
     return result.rows[0];
@@ -149,11 +150,11 @@ export async function deleteVariant(variantId: string, actorId: string) {
   });
 }
 
-export async function updateProduct(productId: string, patch: { categoryId?: string | null; name?: string; slug?: string; shortDescription?: string | null; description?: string | null; status?: string; basePrice?: number | null; costPrice?: number | null; isFeatured?: boolean; isCustomizable?: boolean }, actorId: string) {
+export async function updateProduct(productId: string, patch: { categoryId?: string | null; name?: string; slug?: string; shortDescription?: string | null; description?: string | null; status?: string; basePrice?: number | null; costPrice?: number | null; isFeatured?: boolean; isCustomizable?: boolean; seoTitle?: string | null; seoDescription?: string | null }, actorId: string) {
   return withTransaction(async (client) => {
-    const before = await client.query('select category_id, name, slug, short_description, description, status, base_price, cost_price, is_featured, is_customizable from products where id = $1 for update', [productId]);
+    const before = await client.query('select category_id, name, slug, short_description, description, status, base_price, cost_price, is_featured, is_customizable, seo_title, seo_description from products where id = $1 for update', [productId]);
     if (!before.rowCount) throw new DomainError('PRODUCT_NOT_FOUND', 'Product was not found.', 404);
-    const fields = { categoryId: 'category_id', name: 'name', slug: 'slug', shortDescription: 'short_description', description: 'description', status: 'status', basePrice: 'base_price', costPrice: 'cost_price', isFeatured: 'is_featured', isCustomizable: 'is_customizable' } as const;
+    const fields = { categoryId: 'category_id', name: 'name', slug: 'slug', shortDescription: 'short_description', description: 'description', status: 'status', basePrice: 'base_price', costPrice: 'cost_price', isFeatured: 'is_featured', isCustomizable: 'is_customizable', seoTitle: 'seo_title', seoDescription: 'seo_description' } as const;
     const sets: string[] = [];
     const values: unknown[] = [];
     for (const [key, column] of Object.entries(fields) as [keyof typeof patch, string][]) {

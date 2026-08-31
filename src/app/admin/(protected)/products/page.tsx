@@ -54,6 +54,14 @@ export default async function ProductsPage() {
               <input id="isFeatured" name="isFeatured" type="checkbox" className="size-4 rounded border-input" />
               <Label htmlFor="isFeatured" className="cursor-pointer">Nổi bật</Label>
             </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="seoTitle">SEO title</Label>
+              <Input id="seoTitle" name="seoTitle" maxLength={200} placeholder="Để trống dùng tên sản phẩm" />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="seoDescription">SEO description</Label>
+              <Input id="seoDescription" name="seoDescription" maxLength={500} placeholder="Để trống dùng mô tả ngắn" />
+            </div>
             <div className="col-span-2 flex flex-col gap-2 pt-2">
               <div className="flex items-center gap-3">
                 <Button type="submit">Tạo sản phẩm</Button>

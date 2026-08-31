@@ -4,6 +4,20 @@ import { ProductCard } from '@/components/storefront/product-card';
 import { SectionHeader } from '@/components/storefront/section-header';
 import { storefrontButtonClasses } from '@/components/storefront/button';
 import { MaterialBadge } from '@/components/storefront/material-badge';
+import { SITE_CONFIG } from '@/config/site';
+
+// LocalBusiness JSON-LD data comes straight from SITE_CONFIG (already env-driven with sensible
+// fallbacks) — not fabricated (phase-7.md decision #5). SITE_CONFIG.address is city-level only, so
+// this uses addressLocality rather than a full street address that doesn't exist yet.
+const LOCAL_BUSINESS_JSON_LD = {
+  '@context': 'https://schema.org',
+  '@type': 'LocalBusiness',
+  name: SITE_CONFIG.name,
+  description: SITE_CONFIG.description,
+  telephone: SITE_CONFIG.hotline,
+  email: SITE_CONFIG.email,
+  address: { '@type': 'PostalAddress', addressLocality: SITE_CONFIG.address, addressCountry: 'VN' },
+};
 
 const CATEGORIES = [
   { name: 'Mô hình / Art Toys', description: 'Nhân vật, mô hình sưu tầm chi tiết cao' },
@@ -30,6 +44,8 @@ export default async function HomePage() {
 
   return (
     <>
+      {/* Static JSON-LD constructed server-side from our own data, not user input rendered as HTML. */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(LOCAL_BUSINESS_JSON_LD) }} />
       <section className="mx-auto max-w-6xl px-4 py-16 text-center md:py-24">
         <h1 className="font-heading mx-auto max-w-3xl text-4xl font-extrabold text-foreground md:text-[3.25rem] md:leading-[1.15]">
           Hiện Thực Hóa Mọi Ý Tưởng Với Công Nghệ In 3D Chuẩn Xác

@@ -23,6 +23,7 @@ export type StorefrontProductSummary = {
 export type StorefrontProductDetail = {
   id: string; name: string; slug: string; shortDescription: string | null; description: string | null;
   productType: string; basePrice: number | null; categoryId: string | null;
+  seoTitle: string | null; seoDescription: string | null;
   variants: { id: string; sku: string; name: string; attributes: Record<string, string>; price: number; weightGrams: number | null; inStock: boolean }[];
   images: { url: string; altText: string | null; sortOrder: number }[];
 };
@@ -90,11 +91,22 @@ export async function listStorefrontProducts(input: { page?: number; limit?: num
   };
 }
 
+// For sitemap.ts only — every ACTIVE product slug, unpaginated (sitemap generation reads the
+// whole public catalog once per build/request, not page-by-page like the storefront listing).
+export async function listAllActiveProductSlugs() {
+  const result = await query<{ slug: string; updatedAt: string }>(
+    `select slug, updated_at as "updatedAt" from products where status = 'ACTIVE'`,
+  );
+  return result.rows;
+}
+
 export async function getStorefrontProductBySlug(slug: string): Promise<StorefrontProductDetail | null> {
   const productResult = await query<{
     id: string; name: string; slug: string; shortDescription: string | null; description: string | null;
     productType: string; basePrice: number | null; categoryId: string | null;
-  }>(`select id, name, slug, short_description as "shortDescription", description, product_type as "productType", base_price as "basePrice", category_id as "categoryId"
+    seoTitle: string | null; seoDescription: string | null;
+  }>(`select id, name, slug, short_description as "shortDescription", description, product_type as "productType", base_price as "basePrice", category_id as "categoryId",
+      seo_title as "seoTitle", seo_description as "seoDescription"
       from products where slug = $1 and status = 'ACTIVE'`, [slug]);
   if (!productResult.rowCount) return null;
   const product = productResult.rows[0];

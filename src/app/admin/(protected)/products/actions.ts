@@ -38,6 +38,8 @@ export async function createProductAction(formData: FormData) {
     status: readFormValue(formData, 'status') ?? 'DRAFT',
     basePrice: readFormValue(formData, 'basePrice') ? Number(formData.get('basePrice')) : null,
     isFeatured: formData.get('isFeatured') === 'on',
+    seoTitle: readFormValue(formData, 'seoTitle') ?? null,
+    seoDescription: readFormValue(formData, 'seoDescription') ?? null,
   });
   await createProduct(input, actorId);
   revalidatePath('/admin/products');
@@ -64,6 +66,8 @@ export async function updateProductAction(productId: string, formData: FormData)
     status: readFormValue(formData, 'status'),
     basePrice: readFormValue(formData, 'basePrice') ? Number(formData.get('basePrice')) : null,
     isFeatured: formData.get('isFeatured') === 'on',
+    seoTitle: readFormValue(formData, 'seoTitle') ?? null,
+    seoDescription: readFormValue(formData, 'seoDescription') ?? null,
   });
   await updateProduct(productId, patch, actorId);
   revalidatePath(`/admin/products/${productId}`);

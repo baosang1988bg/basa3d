@@ -1,0 +1,4 @@
+// Shared prose styling for react-markdown output — no @tailwindcss/typography plugin installed,
+// so headings/lists/etc. are targeted directly via Tailwind's arbitrary-descendant variants.
+// Used by both the admin preview tab (markdown-editor.tsx) and the public blog post page.
+export const MARKDOWN_PROSE_CLASSES = '[&_h2]:mt-4 [&_h2]:text-xl [&_h2]:font-bold [&_h3]:mt-3 [&_h3]:text-lg [&_h3]:font-semibold [&_p]:mt-2 [&_ul]:mt-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mt-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-primary [&_a]:underline [&_img]:mt-2 [&_img]:rounded-lg [&_blockquote]:mt-2 [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_table]:mt-2 [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-border [&_th]:p-1.5 [&_td]:border [&_td]:border-border [&_td]:p-1.5';

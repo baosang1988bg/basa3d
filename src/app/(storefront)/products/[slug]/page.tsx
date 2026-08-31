@@ -1,10 +1,24 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getStorefrontProductBySlug } from '@/services/storefront-catalog.service';
 import { SpecTable } from '@/components/storefront/spec-table';
 import { formatVnd } from '@/components/storefront/format';
 import { AddToCartForm } from './add-to-cart-form';
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const product = await getStorefrontProductBySlug(slug);
+  if (!product) return {};
+  const title = product.seoTitle ?? product.name;
+  const description = product.seoDescription ?? product.shortDescription ?? undefined;
+  return {
+    title, description,
+    alternates: { canonical: `/products/${product.slug}` },
+    openGraph: { title, description, type: 'website', ...(product.images[0] ? { images: [product.images[0].url] } : {}) },
+  };
+}
 
 export default async function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -13,6 +27,20 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
   const firstVariant = product.variants[0];
   const anyInStock = product.variants.some((variant) => variant.inStock);
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    description: product.shortDescription ?? undefined,
+    ...(product.images[0] ? { image: [product.images[0].url] } : {}),
+    ...(firstVariant ? {
+      sku: firstVariant.sku,
+      offers: {
+        '@type': 'Offer', priceCurrency: 'VND', price: firstVariant.price,
+        availability: anyInStock ? 'https://schema.org/InStock' : 'https://schema.org/PreOrder',
+      },
+    } : {}),
+  };
   const specs = [
     ...(firstVariant?.weightGrams != null ? [{ label: 'Khối lượng', value: `${firstVariant.weightGrams}g` }] : []),
     ...Object.entries(firstVariant?.attributes ?? {}).map(([label, value]) => ({ label, value })),
@@ -20,6 +48,8 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
+      {/* Static JSON-LD constructed server-side from our own data, not user input rendered as HTML. */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <nav className="mb-6 text-sm text-muted-foreground">
         <Link href="/" className="cursor-pointer hover:text-foreground">Trang chủ</Link>
         <span className="mx-2">/</span>
