@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Menu, X, ShoppingCart, MessageCircle } from 'lucide-react';
 import { ThemeToggle } from './theme-toggle';
+import { SITE_CONFIG } from '@/config/site';
 
 const NAV_LINKS = [
   { href: '/', label: 'Trang chủ' },
@@ -32,12 +33,12 @@ export function Header() {
 
         <div className="flex items-center gap-2">
           <a
-            href="https://zalo.me/"
+            href={SITE_CONFIG.zaloUrl}
             target="_blank"
             rel="noreferrer"
             className="hidden cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:inline-flex"
           >
-            <MessageCircle className="size-4" /> Zalo tư vấn
+            <MessageCircle className="size-4 text-[#0068FF]" /> Zalo tư vấn
           </a>
           <ThemeToggle />
           <button type="button" aria-label="Giỏ hàng (sắp ra mắt)" disabled className="inline-flex size-8 cursor-not-allowed items-center justify-center rounded-lg border border-border text-muted-foreground opacity-60">

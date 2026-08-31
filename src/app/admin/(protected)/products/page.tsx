@@ -30,32 +30,37 @@ export default async function ProductsPage() {
               <Label htmlFor="slug">Slug</Label>
               <Input id="slug" name="slug" required placeholder="ten-san-pham" />
             </div>
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="categoryId">Danh mục</Label>
-              <select id="categoryId" name="categoryId" className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm">
+              <select id="categoryId" name="categoryId" className="h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <option value="">— Không danh mục —</option>
                 {categories.map((category) => (
                   <option key={category.id} value={category.id}>{category.name}</option>
                 ))}
               </select>
             </div>
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="productType">Loại sản phẩm</Label>
-              <select id="productType" name="productType" className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm" required>
+              <select id="productType" name="productType" className="h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" required>
                 <option value="READY_STOCK">READY_STOCK</option>
                 <option value="MADE_TO_ORDER">MADE_TO_ORDER</option>
               </select>
             </div>
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="basePrice">Giá cơ bản (VND)</Label>
               <Input id="basePrice" name="basePrice" type="number" min={0} />
             </div>
-            <div className="flex items-end gap-2">
-              <input id="isFeatured" name="isFeatured" type="checkbox" className="size-4" />
-              <Label htmlFor="isFeatured">Nổi bật</Label>
+            <div className="flex items-center gap-2 pt-6">
+              <input id="isFeatured" name="isFeatured" type="checkbox" className="size-4 rounded border-input" />
+              <Label htmlFor="isFeatured" className="cursor-pointer">Nổi bật</Label>
             </div>
-            <div className="col-span-2">
-              <Button type="submit">Tạo sản phẩm</Button>
+            <div className="col-span-2 flex flex-col gap-2 pt-2">
+              <div className="flex items-center gap-3">
+                <Button type="submit">Tạo sản phẩm</Button>
+                <span className="text-xs text-muted-foreground">
+                  💡 Sau khi tạo, bấm <strong>Chi tiết</strong> để tải ảnh sản phẩm lên
+                </span>
+              </div>
             </div>
           </form>
         </CardContent>

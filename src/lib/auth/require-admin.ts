@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { query } from '../db';
 import { DomainError } from '../domain-error';
 import { createSupabaseServerClient } from '../supabase/server';
@@ -19,11 +20,12 @@ export async function resolveStaffSession(userId: string | null): Promise<StaffS
 
 // ADR-0012: auth.getUser() (not getSession()) to force a server-side revalidation against
 // Supabase Auth rather than trusting an unverified JWT read from the cookie.
-export async function requireAdmin(): Promise<StaffSession> {
+// Memoized via React cache() so multiple requireAdmin() calls in layout + page share 1 network check.
+export const requireAdmin = cache(async (): Promise<StaffSession> => {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   return resolveStaffSession(user?.id ?? null);
-}
+});
 
 // ADR-0011 boundary #1/#2/#3/#4: staff management, financial dashboard, hard delete, audit logs.
 export async function requireOwner(): Promise<StaffSession> {
