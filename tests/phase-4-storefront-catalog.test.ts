@@ -48,3 +48,25 @@ test('storefront catalog never returns cost_price or exact stock, and excludes n
     await client.end();
   }
 });
+
+test('listStorefrontProducts({ categoryId }) only returns products in that category', { skip: !process.env.DATABASE_URL }, async () => {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  const categoryAId = randomUUID();
+  const categoryBId = randomUUID();
+  const productInAId = randomUUID();
+  const productInBId = randomUUID();
+  const suffix = categoryAId.slice(0, 8);
+  try {
+    await client.query(`insert into categories (id, name, slug) values ($1, 'Category A', $2)`, [categoryAId, `cat-a-${suffix}`]);
+    await client.query(`insert into categories (id, name, slug) values ($1, 'Category B', $2)`, [categoryBId, `cat-b-${suffix}`]);
+    await client.query(`insert into products (id, category_id, name, slug, product_type, status) values ($1, $2, 'Product In A', $3, 'READY_STOCK', 'ACTIVE')`, [productInAId, categoryAId, `prod-a-${suffix}`]);
+    await client.query(`insert into products (id, category_id, name, slug, product_type, status) values ($1, $2, 'Product In B', $3, 'READY_STOCK', 'ACTIVE')`, [productInBId, categoryBId, `prod-b-${suffix}`]);
+
+    const filtered = await listStorefrontProducts({ categoryId: categoryAId, limit: 100 });
+    assert.ok(filtered.items.some((item) => item.id === productInAId), 'product in the filtered category must be listed');
+    assert.equal(filtered.items.some((item) => item.id === productInBId), false, 'product in a different category must be excluded');
+  } finally {
+    await client.end();
+  }
+});

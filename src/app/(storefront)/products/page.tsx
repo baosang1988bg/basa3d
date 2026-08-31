@@ -1,23 +1,55 @@
 import Link from 'next/link';
 import { listStorefrontProducts } from '@/services/storefront-catalog.service';
+import { listCategories } from '@/services/product.service';
 import { ProductCard } from '@/components/storefront/product-card';
 import { StorefrontButton, storefrontButtonClasses } from '@/components/storefront/button';
+import { Breadcrumb } from '@/components/storefront/breadcrumb';
+import { cn } from '@/lib/utils';
 
-type SearchParams = { q?: string; type?: string; sort?: string; page?: string };
+type SearchParams = { q?: string; type?: string; sort?: string; page?: string; categoryId?: string };
 
 export default async function ProductsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
   const sortBy = params.sort === 'price_asc' || params.sort === 'price_desc' ? params.sort : 'newest';
-  const { items, page, limit } = await listStorefrontProducts({
-    search: params.q, productType: params.type, sortBy,
-    page: params.page ? Number(params.page) : 1,
-  });
+  const [{ items, page, limit }, { items: categories }] = await Promise.all([
+    listStorefrontProducts({
+      search: params.q, productType: params.type, sortBy, categoryId: params.categoryId,
+      page: params.page ? Number(params.page) : 1,
+    }),
+    listCategories({ limit: 100 }),
+  ]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
+      <Breadcrumb items={[{ label: 'Trang chủ', href: '/' }, { label: 'Sản phẩm' }]} />
       <h1 className="font-heading text-2xl font-bold text-foreground md:text-[2rem]">Sản phẩm</h1>
 
+      <div className="mt-6 flex flex-wrap gap-2">
+        <Link
+          href={`?${buildQueryString(params, { categoryId: undefined })}`}
+          className={cn(
+            'cursor-pointer rounded-full border px-3 py-1.5 text-sm font-medium transition-colors duration-150',
+            !params.categoryId ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground hover:text-foreground',
+          )}
+        >
+          Tất cả
+        </Link>
+        {categories.map((category) => (
+          <Link
+            key={category.id}
+            href={`?${buildQueryString(params, { categoryId: category.id })}`}
+            className={cn(
+              'cursor-pointer rounded-full border px-3 py-1.5 text-sm font-medium transition-colors duration-150',
+              params.categoryId === category.id ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {category.name}
+          </Link>
+        ))}
+      </div>
+
       <form className="mt-6 flex flex-col gap-3 md:flex-row md:items-center" method="get">
+        {params.categoryId && <input type="hidden" name="categoryId" value={params.categoryId} />}
         <input
           type="search"
           name="q"
@@ -53,10 +85,10 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
       {(page > 1 || items.length === limit) && (
         <div className="mt-8 flex justify-center gap-3">
           {page > 1 && (
-            <Link href={`?${buildQueryString(params, page - 1)}`} className={storefrontButtonClasses('secondary')}>Trang trước</Link>
+            <Link href={`?${buildQueryString(params, { page: page - 1 })}`} className={storefrontButtonClasses('secondary')}>Trang trước</Link>
           )}
           {items.length === limit && (
-            <Link href={`?${buildQueryString(params, page + 1)}`} className={storefrontButtonClasses('secondary')}>Trang sau</Link>
+            <Link href={`?${buildQueryString(params, { page: page + 1 })}`} className={storefrontButtonClasses('secondary')}>Trang sau</Link>
           )}
         </div>
       )}
@@ -64,9 +96,15 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
   );
 }
 
-function buildQueryString(params: SearchParams, page: number): string {
-  const entries = Object.entries({ ...params, page: String(page) }).filter(
-    (entry): entry is [string, string] => entry[1] != null && entry[1] !== '',
+type QueryOverrides = Partial<Record<keyof SearchParams, string | number | undefined>>;
+
+// Merges overrides onto the current params, defaulting to page 1 unless the override sets page
+// explicitly (pagination links) — a category/filter change should never keep stale pagination
+// from the previous filter's result set.
+function buildQueryString(params: SearchParams, overrides: QueryOverrides = {}): string {
+  const merged: QueryOverrides = { ...params, page: '1', ...overrides };
+  const entries = Object.entries(merged).filter(
+    (entry): entry is [string, string | number] => entry[1] != null && entry[1] !== '',
   );
-  return new URLSearchParams(entries).toString();
+  return new URLSearchParams(entries.map(([key, value]) => [key, String(value)])).toString();
 }

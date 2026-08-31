@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import Image from 'next/image';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -7,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 import { getPublishedPostBySlug } from '@/services/blog.service';
 import { MARKDOWN_PROSE_CLASSES } from '@/lib/markdown';
 import { SITE_CONFIG } from '@/config/site';
+import { Breadcrumb } from '@/components/storefront/breadcrumb';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,13 +49,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       {/* Static JSON-LD constructed server-side from our own data, not user input rendered as HTML. */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <nav className="mb-6 text-sm text-muted-foreground">
-        <Link href="/" className="cursor-pointer hover:text-foreground">Trang chủ</Link>
-        <span className="mx-2">/</span>
-        <Link href="/blog" className="cursor-pointer hover:text-foreground">Blog</Link>
-        <span className="mx-2">/</span>
-        <span className="text-foreground">{post.title}</span>
-      </nav>
+      <Breadcrumb items={[{ label: 'Trang chủ', href: '/' }, { label: 'Blog', href: '/blog' }, { label: post.title }]} />
 
       {post.coverImageUrl && (
         <div className="aspect-video overflow-hidden rounded-xl bg-muted/50">

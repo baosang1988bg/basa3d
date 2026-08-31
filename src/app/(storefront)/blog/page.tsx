@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import type { Metadata } from 'next';
 import { listPublishedPosts } from '@/services/blog.service';
+import { Breadcrumb } from '@/components/storefront/breadcrumb';
 
 export const metadata: Metadata = {
   title: 'Blog — BaSa3D',
@@ -18,6 +19,7 @@ export default async function BlogListPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
+      <Breadcrumb items={[{ label: 'Trang chủ', href: '/' }, { label: 'Blog' }]} />
       <h1 className="font-heading text-2xl font-bold text-foreground md:text-[2rem]">Blog</h1>
       <p className="mt-2 text-muted-foreground">Kiến thức in 3D, mẫu mới, và tin tức từ BaSa3D.</p>
 

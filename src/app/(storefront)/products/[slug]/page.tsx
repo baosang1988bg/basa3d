@@ -1,10 +1,11 @@
-import Link from 'next/link';
 import Image from 'next/image';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getStorefrontProductBySlug } from '@/services/storefront-catalog.service';
+import { listCategories } from '@/services/product.service';
 import { SpecTable } from '@/components/storefront/spec-table';
 import { formatVnd } from '@/components/storefront/format';
+import { Breadcrumb, type BreadcrumbItem } from '@/components/storefront/breadcrumb';
 import { AddToCartForm } from './add-to-cart-form';
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -27,6 +28,16 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
   const firstVariant = product.variants[0];
   const anyInStock = product.variants.some((variant) => variant.inStock);
+
+  const category = product.categoryId
+    ? (await listCategories({ limit: 100 })).items.find((item) => item.id === product.categoryId)
+    : undefined;
+  const breadcrumbItems: BreadcrumbItem[] = [
+    { label: 'Trang chủ', href: '/' },
+    { label: 'Sản phẩm', href: '/products' },
+    ...(category ? [{ label: category.name, href: `/products?categoryId=${category.id}` }] : []),
+    { label: product.name },
+  ];
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Product',
@@ -50,13 +61,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     <div className="mx-auto max-w-6xl px-4 py-10">
       {/* Static JSON-LD constructed server-side from our own data, not user input rendered as HTML. */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <nav className="mb-6 text-sm text-muted-foreground">
-        <Link href="/" className="cursor-pointer hover:text-foreground">Trang chủ</Link>
-        <span className="mx-2">/</span>
-        <Link href="/products" className="cursor-pointer hover:text-foreground">Sản phẩm</Link>
-        <span className="mx-2">/</span>
-        <span className="text-foreground">{product.name}</span>
-      </nav>
+      <Breadcrumb items={breadcrumbItems} />
 
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <div>

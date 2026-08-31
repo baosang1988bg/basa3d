@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Menu, X, ShoppingCart, MessageCircle } from 'lucide-react';
 import { ThemeToggle } from './theme-toggle';
 import { SITE_CONFIG } from '@/config/site';
@@ -11,13 +12,21 @@ const NAV_LINKS = [
   { href: '/', label: 'Trang chủ' },
   { href: '/products', label: 'Sản phẩm' },
   { href: '/custom-print', label: 'Đặt in' },
-  { href: '/#materials', label: 'Bảng giá & Vật liệu' },
+  { href: '/#materials', label: 'Vật liệu' },
   { href: '/blog', label: 'Blog' },
 ];
+
+// Anchor links (e.g. `/#materials`) have no distinct pathname to match against, so they never
+// report active — accepted as out of scope for this slice rather than tracking scroll position.
+function isNavLinkActive(pathname: string, href: string): boolean {
+  if (href.includes('#')) return false;
+  return href === '/' ? pathname === '/' : pathname.startsWith(href);
+}
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { itemCount } = useCart();
+  const pathname = usePathname();
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur supports-backdrop-filter:bg-card/80">
@@ -27,11 +36,19 @@ export function Header() {
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex">
-          {NAV_LINKS.map((link) => (
-            <Link key={link.href} href={link.href} className="cursor-pointer text-sm font-medium text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
-              {link.label}
-            </Link>
-          ))}
+          {NAV_LINKS.map((link) => {
+            const isActive = isNavLinkActive(pathname, link.href);
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                aria-current={isActive ? 'page' : undefined}
+                className={`cursor-pointer text-sm font-medium transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${isActive ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="flex items-center gap-2">
@@ -79,11 +96,20 @@ export function Header() {
                 <X className="size-4" />
               </button>
             </div>
-            {NAV_LINKS.map((link) => (
-              <Link key={link.href} href={link.href} onClick={() => setIsMenuOpen(false)} className="cursor-pointer rounded-lg px-3 py-2.5 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-secondary">
-                {link.label}
-              </Link>
-            ))}
+            {NAV_LINKS.map((link) => {
+              const isActive = isNavLinkActive(pathname, link.href);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setIsMenuOpen(false)}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`cursor-pointer rounded-lg px-3 py-2.5 text-sm text-foreground transition-colors duration-150 hover:bg-secondary ${isActive ? 'font-semibold' : 'font-medium'}`}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Zap, ShieldCheck, Timer } from 'lucide-react';
 import { listStorefrontProducts } from '@/services/storefront-catalog.service';
 import { ProductCard } from '@/components/storefront/product-card';
 import { SectionHeader } from '@/components/storefront/section-header';
@@ -33,6 +34,49 @@ const WORKFLOW_STEPS = [
   { step: '4', title: 'In & Giao hàng', description: 'Sản xuất và giao hàng tận nơi' },
 ];
 
+// Each hero badge now links to the section/page that actually backs its claim, instead of being a
+// plain unclickable <span> (Phase 8 feedback vấn đề 5).
+const HERO_VALUE_PROPS = [
+  { icon: Zap, label: 'In nhanh 24h', href: '/#workflow' },
+  { icon: ShieldCheck, label: 'Nhựa nguyên sinh cao cấp', href: '/#materials' },
+  { icon: Timer, label: 'Báo giá nhanh trong 30p', href: '/custom-print' },
+];
+
+const FAQ_ITEMS = [
+  {
+    question: 'Thời gian in và giao hàng mất bao lâu?',
+    answer: 'Sản phẩm sẵn hàng đóng gói và giao trong 24–48 giờ làm việc. Đơn đặt in theo yêu cầu có thời gian sản xuất tuỳ độ phức tạp, được báo cụ thể ngay trong bước báo giá (trong vòng 30 phút sau khi gửi file).',
+  },
+  {
+    question: 'File thiết kế 3D của tôi có được bảo mật không?',
+    answer: 'File .stl/.step/.obj/.3mf bạn gửi chỉ dùng để báo giá và sản xuất đúng đơn hàng của bạn, không dùng cho mục đích khác và không chia sẻ cho bên thứ ba. Chi tiết xem Chính sách bảo mật file thiết kế 3D.',
+  },
+  {
+    question: 'Vật liệu nào phù hợp với nhu cầu của tôi?',
+    answer: 'PLA phù hợp mô hình trang trí chi tiết cao, PETG bền và chịu va đập tốt cho phụ kiện dùng hàng ngày, Resin cho độ mịn và chi tiết cực cao. Xem so sánh đầy đủ ở mục Vật liệu bên trên.',
+  },
+  {
+    question: 'Tôi có thể thanh toán và đổi trả như thế nào?',
+    answer: 'Hỗ trợ thanh toán khi nhận hàng (COD) hoặc chuyển khoản trước khi sản xuất. Sản phẩm lỗi sản xuất hoặc giao sai được đổi/trả trong 7 ngày kể từ ngày nhận hàng; đơn đặt in theo yêu cầu đã đúng file và đã duyệt báo giá thì không áp dụng đổi trả.',
+  },
+  {
+    question: 'Không tìm thấy mẫu tôi cần trong danh mục sản phẩm thì sao?',
+    answer: 'Gửi file thiết kế hoặc mô tả ý tưởng qua trang Đặt in theo yêu cầu — đội ngũ kỹ thuật sẽ tư vấn vật liệu và báo giá riêng cho đơn của bạn.',
+  },
+];
+
+// Built from FAQ_ITEMS above, not fabricated content — same "real data only" rule as the
+// LocalBusiness JSON-LD (phase-7.md decision #5).
+const FAQ_JSON_LD = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: FAQ_ITEMS.map((item) => ({
+    '@type': 'Question',
+    name: item.question,
+    acceptedAnswer: { '@type': 'Answer', text: item.answer },
+  })),
+};
+
 // Forces on-demand rendering instead of build-time static generation: this page reads live
 // catalog/stock data (product status and inventory availability change frequently), and without
 // this, Next.js would try to statically prerender it at `next build` time using whatever
@@ -46,6 +90,7 @@ export default async function HomePage() {
     <>
       {/* Static JSON-LD constructed server-side from our own data, not user input rendered as HTML. */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(LOCAL_BUSINESS_JSON_LD) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_JSON_LD) }} />
       <section className="mx-auto max-w-6xl px-4 py-16 text-center md:py-24">
         <h1 className="font-heading mx-auto max-w-3xl text-4xl font-extrabold text-foreground md:text-[3.25rem] md:leading-[1.15]">
           Hiện Thực Hóa Mọi Ý Tưởng Với Công Nghệ In 3D Chuẩn Xác
@@ -58,8 +103,15 @@ export default async function HomePage() {
           <Link href="/products" className={storefrontButtonClasses('secondary')}>Khám phá sản phẩm</Link>
         </div>
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-          {['In nhanh 24h', 'Nhựa nguyên sinh cao cấp', 'Báo giá nhanh trong 30p'].map((badge) => (
-            <span key={badge} className="rounded-full border border-border bg-card px-3 py-1 text-sm font-medium text-foreground">{badge}</span>
+          {HERO_VALUE_PROPS.map(({ icon: Icon, label, href }) => (
+            <Link
+              key={label}
+              href={href}
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-sm font-medium text-foreground transition-colors duration-150 hover:border-primary/50 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              <Icon className="size-4 text-primary" aria-hidden="true" />
+              {label}
+            </Link>
           ))}
         </div>
       </section>
@@ -85,7 +137,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      <section className="mx-auto max-w-6xl px-4 py-12">
+      <section id="workflow" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-12">
         <SectionHeader eyebrow="Quy trình" title="Đặt in theo yêu cầu chỉ với 4 bước" />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
           {WORKFLOW_STEPS.map((item) => (
@@ -117,10 +169,36 @@ export default async function HomePage() {
             <p className="mt-2 text-sm text-muted-foreground">Độ chi tiết cực cao, bề mặt mịn, phù hợp mô hình sưu tầm cao cấp.</p>
           </div>
         </div>
+
+        <div className="mt-6 rounded-xl border border-border bg-secondary/50 p-4">
+          <p className="text-sm font-semibold text-foreground">Cách tính giá</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Chi phí = Vật liệu tiêu hao (gram) + Thời gian in (giờ) + Xử lý bề mặt. Vì mỗi file có
+            khối lượng và độ phức tạp khác nhau, chúng tôi không niêm yết một bảng giá cố định — gửi
+            file để nhận báo giá chính xác trong 30 phút.
+          </p>
+          <Link href="/custom-print" className={storefrontButtonClasses('secondary', 'mt-3 text-sm')}>
+            Gửi file nhận báo giá
+          </Link>
+        </div>
       </section>
 
       <section className="mx-auto max-w-6xl px-4 py-12">
         <SectionHeader title="Cam kết chất lượng" description="Mỗi sản phẩm được kiểm tra độ bền và độ chính xác cơ khí trước khi giao đến khách hàng." />
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 py-12">
+        <SectionHeader eyebrow="Hỗ trợ" title="Câu hỏi thường gặp" />
+        <div className="flex flex-col gap-3">
+          {FAQ_ITEMS.map((item) => (
+            <details key={item.question} className="group rounded-xl border border-border bg-card p-4">
+              <summary className="cursor-pointer list-none font-heading text-base font-semibold text-foreground marker:content-none">
+                {item.question}
+              </summary>
+              <p className="mt-2 text-sm text-muted-foreground">{item.answer}</p>
+            </details>
+          ))}
+        </div>
       </section>
     </>
   );
