@@ -11,6 +11,13 @@ export async function listWarehouses() {
   return result.rows;
 }
 
+export async function listMaterials() {
+  const result = await query<{ id: string; name: string; materialType: string; unit: string }>(
+    'select id, name, material_type as "materialType", unit from materials where is_active = true order by name',
+  );
+  return result.rows;
+}
+
 export async function listInventoryMovements(input: { variantId?: string; page?: number; limit?: number } = {}) {
   const page = Math.max(1, input.page ?? 1);
   const limit = Math.min(100, Math.max(1, input.limit ?? 20));
@@ -85,6 +92,29 @@ export async function recordMaterialMovement(input: { warehouseId: string; mater
     if (input.movementType.startsWith('ADJUSTMENT')) await writeAuditLog(client, { actorId, action: 'MATERIAL_ADJUSTED', entityType: 'material_movement', entityId: result.rows[0].id, afterData: input });
     return result.rows[0];
   });
+}
+
+// Mirrors resolveWarehouseForSale — materials have no "default warehouse" concept either, so the
+// warehouse currently holding enough on-hand balance for this material is picked instead (phase-6.md
+// decision #2, lỗi #2). Caller must run this inside the same transaction/lock as the write that
+// consumes the result, exactly like resolveWarehouseForSale's callers.
+export async function resolveWarehouseForMaterial(client: PoolClient, materialId: string, quantity: number): Promise<string> {
+  const result = await client.query<{ warehouse_id: string }>(`
+    select warehouse_id from material_movements where material_id = $1
+    group by warehouse_id having sum(quantity) >= $2 order by sum(quantity) desc limit 1`, [materialId, quantity]);
+  if (!result.rowCount) throw new DomainError('INSUFFICIENT_MATERIAL_STOCK', 'Không kho nào còn đủ nguyên liệu để bắt đầu in.', 409);
+  return result.rows[0].warehouse_id;
+}
+
+export async function listMaterialMovementsByReference(referenceType: string, referenceId: string) {
+  const result = await query<{ id: string; materialName: string; warehouseName: string; movementType: string; quantity: number; createdAt: string }>(`
+    select mm.id, m.name as "materialName", w.name as "warehouseName", mm.movement_type as "movementType", mm.quantity, mm.created_at as "createdAt"
+    from material_movements mm
+    join materials m on m.id = mm.material_id
+    join warehouses w on w.id = mm.warehouse_id
+    where mm.reference_type = $1 and mm.reference_id = $2
+    order by mm.created_at`, [referenceType, referenceId]);
+  return result.rows;
 }
 
 export async function assertAvailableStock(client: PoolClient, variantId: string, requestedQuantity: number) {

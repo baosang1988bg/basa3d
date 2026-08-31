@@ -37,6 +37,16 @@ export default async function CustomRequestDetailPage({ params }: { params: Prom
           <div><p className="text-muted-foreground">Màu sắc yêu cầu</p><p>{customRequest.requestedColor ?? '—'}</p></div>
           <div><p className="text-muted-foreground">Kích thước yêu cầu</p><p>{customRequest.requestedSize ?? '—'}</p></div>
           <div><p className="text-muted-foreground">Ngày tạo</p><p>{new Date(customRequest.createdAt).toLocaleString('vi-VN')}</p></div>
+          <div className="col-span-2">
+            <p className="text-muted-foreground">File đính kèm / Ảnh mẫu</p>
+            {customRequest.attachmentUrl ? (
+              <a href={customRequest.attachmentUrl} target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline break-all">
+                📎 {customRequest.attachmentUrl}
+              </a>
+            ) : (
+              <p className="text-muted-foreground">Chưa có file đính kèm</p>
+            )}
+          </div>
           <div className="col-span-2"><p className="text-muted-foreground">Mô tả</p><p className="whitespace-pre-wrap">{customRequest.description}</p></div>
           {customRequest.internalNote ? (
             <div className="col-span-2"><p className="text-muted-foreground">Ghi chú nội bộ</p><p className="whitespace-pre-wrap">{customRequest.internalNote}</p></div>

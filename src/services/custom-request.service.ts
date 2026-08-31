@@ -1,8 +1,41 @@
 import { randomUUID } from 'node:crypto';
 import { query, withTransaction } from '../lib/db';
 import { DomainError } from '../lib/domain-error';
+import { createSupabaseAdminClient } from '../lib/supabase/admin';
 import { writeAuditLog } from './audit.service';
 import { pagination } from './product.service';
+
+const ATTACHMENT_BUCKET = 'custom-request-attachments';
+const MAX_ATTACHMENT_SIZE_BYTES = 20 * 1024 * 1024;
+
+// Content-Type is resolved from this hardcoded extension map, NEVER from the client-supplied
+// `file.type` (phase-6.md decision #1) — unlike uploadProductImage, which trusts `file.type`
+// because its caller is always an authenticated admin. This route is public/anonymous, and
+// `.stl/.step/.obj/.3mf` have no MIME type the browser can be trusted to report correctly, so
+// trusting the client here would let this become a mislabeled anonymous file host.
+const CONTENT_TYPE_BY_EXTENSION: Record<string, string> = {
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp',
+  stl: 'model/stl', step: 'model/step', stp: 'model/step', obj: 'application/octet-stream', '3mf': 'model/3mf',
+};
+
+export async function uploadCustomRequestAttachment(input: { file: Blob; fileName: string }) {
+  if (input.file.size === 0) throw new DomainError('EMPTY_FILE', 'File is empty.', 400);
+  if (input.file.size > MAX_ATTACHMENT_SIZE_BYTES) throw new DomainError('FILE_TOO_LARGE', 'File tối đa 20MB.', 400);
+  const extension = input.fileName.toLowerCase().split('.').pop() ?? '';
+  const contentType = CONTENT_TYPE_BY_EXTENSION[extension];
+  if (!contentType) throw new DomainError('INVALID_FILE_TYPE', 'Chỉ chấp nhận ảnh (JPG, PNG, WEBP) hoặc file thiết kế 3D (.stl, .step, .stp, .obj, .3mf).', 400);
+
+  // Random path, not the client's original filename — avoids path traversal / overwrite, same as
+  // uploadProductImage.
+  const storagePath = `${randomUUID()}.${extension}`;
+  const supabase = createSupabaseAdminClient();
+  const bytes = new Uint8Array(await input.file.arrayBuffer());
+  const { error: uploadError } = await supabase.storage.from(ATTACHMENT_BUCKET).upload(storagePath, bytes, { contentType });
+  if (uploadError) throw new DomainError('ATTACHMENT_UPLOAD_FAILED', uploadError.message, 502);
+
+  const { data: publicUrl } = supabase.storage.from(ATTACHMENT_BUCKET).getPublicUrl(storagePath);
+  return { url: publicUrl.publicUrl };
+}
 
 export async function createCustomRequest(input: Record<string, unknown>, actorId: string | null) {
   return withTransaction(async (client) => {
@@ -36,7 +69,8 @@ export async function listCustomRequests(input: { page?: number; limit?: number 
 type CustomRequestDetail = {
   id: string; requestNumber: string; sourceChannel: string; customerName: string; customerPhone: string;
   customerEmail: string | null; description: string; quantity: number; requestedMaterial: string | null;
-  requestedColor: string | null; requestedSize: string | null; status: string; internalNote: string | null; createdAt: Date;
+  requestedColor: string | null; requestedSize: string | null; attachmentUrl: string | null;
+  status: string; internalNote: string | null; createdAt: Date;
 };
 
 export async function getCustomRequestById(id: string): Promise<CustomRequestDetail | null> {
@@ -44,7 +78,7 @@ export async function getCustomRequestById(id: string): Promise<CustomRequestDet
     select id, request_number as "requestNumber", source_channel as "sourceChannel", customer_name as "customerName",
       customer_phone as "customerPhone", customer_email as "customerEmail", description, quantity,
       requested_material as "requestedMaterial", requested_color as "requestedColor", requested_size as "requestedSize",
-      status, internal_note as "internalNote", created_at as "createdAt"
+      attachment_url as "attachmentUrl", status, internal_note as "internalNote", created_at as "createdAt"
     from custom_requests where id = $1`, [id]);
   return result.rows[0] ?? null;
 }

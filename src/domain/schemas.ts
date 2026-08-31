@@ -280,3 +280,16 @@ export const variantUpdateInputSchema = z.object({
 export const customRequestStatusUpdateSchema = z.object({ status: customRequestStatusSchema }).strict();
 export const quoteAcceptSchema = z.object({ status: z.literal('ACCEPTED') }).strict();
 export const printJobStatusUpdateSchema = z.object({ status: printJobStatusSchema }).strict();
+
+// materialId and estimatedWeightGrams must always be assigned together (phase-6.md decision #2):
+// updatePrintJobStatus checks both before allowing a PRINTING transition, so a partial assignment
+// would just be rejected later with a less helpful error — required here instead of nullable.
+export const assignPrintJobMaterialInputSchema = z.object({
+  materialId: uuidSchema,
+  estimatedWeightGrams: positiveQuantitySchema,
+}).strict();
+
+export const printJobActualsInputSchema = z.object({
+  actualWeightGrams: safeInteger.nonnegative().nullable().optional(),
+  actualPrintTimeMinutes: safeInteger.nonnegative().nullable().optional(),
+}).strict();

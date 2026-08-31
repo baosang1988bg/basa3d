@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,7 +32,9 @@ export default async function PrintJobsPage() {
             <TableBody>
               {printJobs.map((job) => (
                 <TableRow key={job.id}>
-                  <TableCell className="font-mono text-xs">{job.id}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    <Link href={`/admin/print-jobs/${job.id}`} className="hover:underline">{job.id}</Link>
+                  </TableCell>
                   <TableCell>
                     {job.customRequestId ? `Custom request: ${job.customRequestId}` : null}
                     {job.orderId ? `Đơn hàng: ${job.orderId}` : null}

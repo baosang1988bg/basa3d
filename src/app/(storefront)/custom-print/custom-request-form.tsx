@@ -2,33 +2,54 @@
 
 import { useState, type FormEvent, type ClipboardEvent, type DragEvent, type ChangeEvent } from 'react';
 import { StorefrontButton } from '@/components/storefront/button';
-import { Upload, Link as LinkIcon, X, Image as ImageIcon } from 'lucide-react';
+import { Upload, Link as LinkIcon, X, Image as ImageIcon, File as FileIcon } from 'lucide-react';
 
 type SubmitState = { status: 'idle' | 'submitting' | 'success' | 'error'; message?: string };
+type UploadState = { status: 'idle' | 'uploading' | 'done' | 'error'; fileName?: string; message?: string };
+
+// Kept in sync with CONTENT_TYPE_BY_EXTENSION in custom-request.service.ts — this is only a
+// client-side UX check, the server re-validates and is the actual authority.
+const ALLOWED_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'stl', 'step', 'stp', 'obj', '3mf']);
+const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 
 export function CustomRequestForm() {
   const [state, setState] = useState<SubmitState>({ status: 'idle' });
   const [attachmentUrl, setAttachmentUrl] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [upload, setUpload] = useState<UploadState>({ status: 'idle' });
   const [isDragging, setIsDragging] = useState(false);
 
-  function handleImageFile(file: File) {
-    if (!file.type.startsWith('image/')) {
-      alert('Vui lòng chỉ chọn tệp hình ảnh (JPG, PNG, WEBP).');
+  async function handleFile(file: File) {
+    const extension = file.name.toLowerCase().split('.').pop() ?? '';
+    if (!ALLOWED_EXTENSIONS.has(extension)) {
+      alert('Chỉ chấp nhận ảnh (JPG, PNG, WEBP) hoặc file thiết kế 3D (.stl, .step, .stp, .obj, .3mf).');
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      alert('Dung lượng ảnh tối đa là 10MB.');
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      alert('Dung lượng file tối đa là 20MB.');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      setImagePreview(result);
-      // Set the data URL as the attachment value
-      setAttachmentUrl(result);
-    };
-    reader.readAsDataURL(file);
+
+    setUpload({ status: 'uploading', fileName: file.name });
+    setImagePreview(file.type.startsWith('image/') ? URL.createObjectURL(file) : null);
+
+    try {
+      const body = new FormData();
+      body.set('file', file);
+      const response = await fetch('/api/public/custom-requests/attachments', { method: 'POST', body });
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        setUpload({ status: 'error', message: errorBody?.message ?? 'Tải file lên thất bại, vui lòng thử lại.' });
+        setImagePreview(null);
+        return;
+      }
+      const { url } = (await response.json()) as { url: string };
+      setAttachmentUrl(url);
+      setUpload({ status: 'done', fileName: file.name });
+    } catch {
+      setUpload({ status: 'error', message: 'Không thể kết nối máy chủ, vui lòng thử lại.' });
+      setImagePreview(null);
+    }
   }
 
   function handlePaste(event: ClipboardEvent<HTMLDivElement>) {
@@ -39,7 +60,7 @@ export function CustomRequestForm() {
         const file = items[i].getAsFile();
         if (file) {
           event.preventDefault();
-          handleImageFile(file);
+          void handleFile(file);
           break;
         }
       }
@@ -50,23 +71,27 @@ export function CustomRequestForm() {
     event.preventDefault();
     setIsDragging(false);
     if (event.dataTransfer.files && event.dataTransfer.files[0]) {
-      handleImageFile(event.dataTransfer.files[0]);
+      void handleFile(event.dataTransfer.files[0]);
     }
   }
 
   function handleFileInputChange(event: ChangeEvent<HTMLInputElement>) {
     if (event.target.files && event.target.files[0]) {
-      handleImageFile(event.target.files[0]);
+      void handleFile(event.target.files[0]);
     }
   }
 
   function handleClearImage() {
     setImagePreview(null);
     setAttachmentUrl('');
+    setUpload({ status: 'idle' });
   }
+
+  const isUploading = upload.status === 'uploading';
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isUploading) return;
     const formElement = event.currentTarget;
     setState({ status: 'submitting' });
     const form = new FormData(formElement);
@@ -101,6 +126,7 @@ export function CustomRequestForm() {
       formElement.reset();
       setImagePreview(null);
       setAttachmentUrl('');
+      setUpload({ status: 'idle' });
     } catch {
       setState({ status: 'error', message: 'Không thể kết nối máy chủ, vui lòng thử lại.' });
     }
@@ -160,26 +186,35 @@ export function CustomRequestForm() {
         <input id="requestedColor" name="requestedColor" maxLength={100} placeholder="Ví dụ: Đen nhám, Trắng, Đỏ..." className="h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50" />
       </div>
 
-      {/* Attachment area: Link or Ctrl+V Image Paste or File Dropzone */}
+      {/* Attachment area: Link or Ctrl+V Image Paste or File Dropzone (ảnh + file thiết kế 3D) */}
       <div className="flex flex-col gap-2 md:col-span-2">
         <div className="flex items-center justify-between">
           <label htmlFor="attachmentUrl" className="text-sm font-semibold text-foreground">File đính kèm / Ảnh mẫu</label>
-          <span className="text-xs text-muted-foreground">Có thể <strong>Ctrl+V dán ảnh</strong> hoặc kéo thả ảnh trực tiếp</span>
+          <span className="text-xs text-muted-foreground">Có thể <strong>Ctrl+V dán ảnh</strong> hoặc kéo thả file trực tiếp</span>
         </div>
 
-        {imagePreview ? (
+        {upload.status === 'uploading' ? (
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 p-3">
+            <div className="size-4 shrink-0 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-primary" />
+            <span className="text-sm text-muted-foreground">Đang tải lên {upload.fileName}...</span>
+          </div>
+        ) : upload.status === 'done' && attachmentUrl ? (
           <div className="relative flex items-center gap-4 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 dark:bg-emerald-950/20">
-            <div className="relative size-16 shrink-0 overflow-hidden rounded-md border border-border bg-background">
-              {/* eslint-disable-next-html-element-suppression */}
-              <img src={imagePreview} alt="Ảnh mẫu đã dán" className="size-full object-cover" />
+            <div className="relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-background">
+              {imagePreview ? (
+                // eslint-disable-next-html-element-suppression
+                <img src={imagePreview} alt="Ảnh mẫu đã chọn" className="size-full object-cover" />
+              ) : (
+                <FileIcon className="size-6 text-muted-foreground" />
+              )}
             </div>
             <div className="flex flex-1 flex-col">
               <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                <ImageIcon className="size-3.5" /> Đã dán ảnh mẫu thành công!
+                <ImageIcon className="size-3.5" /> Đã tải lên thành công: {upload.fileName}
               </span>
-              <span className="text-xs text-muted-foreground">Ảnh sẽ được gửi đính kèm cùng yêu cầu đặt in của bạn.</span>
+              <span className="text-xs text-muted-foreground">File sẽ được gửi đính kèm cùng yêu cầu đặt in của bạn.</span>
             </div>
-            <button type="button" onClick={handleClearImage} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
+            <button type="button" onClick={handleClearImage} className="cursor-pointer rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
               <X className="size-4" />
             </button>
           </div>
@@ -193,6 +228,9 @@ export function CustomRequestForm() {
               isDragging ? 'border-primary bg-primary/5' : 'border-border bg-muted/20'
             }`}
           >
+            {upload.status === 'error' && upload.message ? (
+              <p className="text-xs font-medium text-destructive">{upload.message}</p>
+            ) : null}
             <div className="flex items-center gap-2">
               <LinkIcon className="size-4 text-muted-foreground shrink-0" />
               <input
@@ -209,11 +247,11 @@ export function CustomRequestForm() {
             <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/50">
               <div className="flex items-center gap-1.5">
                 <Upload className="size-3.5" />
-                <span>Kéo thả tệp ảnh vào đây hoặc nhấp chọn ảnh:</span>
+                <span>Kéo thả ảnh hoặc file .stl/.step/.obj/.3mf vào đây, hoặc:</span>
               </div>
               <label className="cursor-pointer font-medium text-primary hover:underline">
-                Chọn ảnh từ máy
-                <input type="file" accept="image/*" onChange={handleFileInputChange} className="hidden" />
+                Chọn file từ máy
+                <input type="file" accept="image/*,.stl,.step,.stp,.obj,.3mf" onChange={handleFileInputChange} className="hidden" />
               </label>
             </div>
           </div>
@@ -236,8 +274,8 @@ export function CustomRequestForm() {
       {state.status === 'error' && <p className="text-sm font-medium text-destructive md:col-span-2">{state.message}</p>}
 
       <div className="md:col-span-2 pt-2">
-        <StorefrontButton type="submit" variant="accent" disabled={state.status === 'submitting'} className="w-full sm:w-auto">
-          {state.status === 'submitting' ? 'Đang gửi yêu cầu...' : 'Gửi yêu cầu đặt in 3D'}
+        <StorefrontButton type="submit" variant="accent" disabled={state.status === 'submitting' || isUploading} className="w-full sm:w-auto">
+          {isUploading ? 'Đang tải file lên...' : state.status === 'submitting' ? 'Đang gửi yêu cầu...' : 'Gửi yêu cầu đặt in 3D'}
         </StorefrontButton>
       </div>
     </form>
