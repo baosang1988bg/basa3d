@@ -3,6 +3,7 @@ import test from 'node:test';
 import nextEnv from '@next/env';
 import { DomainError } from '../src/lib/domain-error.js';
 import { uploadCustomRequestAttachment } from '../src/services/custom-request.service.js';
+import { createSupabaseAdminClient } from '../src/lib/supabase/admin.js';
 
 nextEnv.loadEnvConfig(process.cwd());
 
@@ -31,3 +32,15 @@ test('rejects an empty file', async () => {
   );
 });
 
+test('uploads a real .stl to Storage with a hardcoded model/stl Content-Type, ignoring any client-declared type', { skip: !process.env.SUPABASE_SERVICE_ROLE_KEY }, async () => {
+  const file = new Blob([new Uint8Array([1, 2, 3, 4])], { type: 'application/x-should-be-ignored' });
+  const result = await uploadCustomRequestAttachment({ file, fileName: 'sample-model.stl' });
+  assert.match(result.url, /custom-request-attachments/);
+
+  const response = await fetch(result.url);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'model/stl');
+
+  const path = new URL(result.url).pathname.split('/custom-request-attachments/')[1];
+  await createSupabaseAdminClient().storage.from('custom-request-attachments').remove([path]);
+});

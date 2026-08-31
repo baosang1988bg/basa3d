@@ -28,11 +28,15 @@ export async function POST(request: Request) {
 
     const formData = await request.formData();
     const file = formData.get('file');
-    if (!(file instanceof File) || file.size === 0) {
+    // `instanceof Blob`, not `File` — the global `File` constructor isn't guaranteed to exist in
+    // every Node runtime this route can run under, and undici's multipart parser always returns a
+    // File-like Blob with a `name` property regardless (same reasoning as uploadProductImageAction).
+    if (!(file instanceof Blob) || file.size === 0) {
       return NextResponse.json({ code: 'FILE_REQUIRED', message: 'Vui lòng chọn một file.' }, { status: 400 });
     }
+    const fileName = 'name' in file && typeof file.name === 'string' ? file.name : '';
 
-    const result = await uploadCustomRequestAttachment({ file, fileName: file.name });
+    const result = await uploadCustomRequestAttachment({ file, fileName });
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
     return apiError(error);

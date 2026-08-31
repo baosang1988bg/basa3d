@@ -301,34 +301,46 @@ chạy từ Phase 3.
       Risks) thay vì chỉ coi là "tốn dung lượng".
 
 ### Tests
-- [ ] Test `POST /api/public/custom-requests/attachments`: file hợp lệ (ảnh
+- [x] Test `POST /api/public/custom-requests/attachments`: file hợp lệ (ảnh
       nhỏ, `.stl` nhỏ) → 201 + URL thật resolve được; file sai loại/quá
       kích thước → lỗi rõ ràng, không upload; vượt rate-limit IP → 429.
-- [ ] Test full flow: upload attachment → submit
+      (`tests/phase-6-attachment-route.test.ts`, `tests/phase-6-attachment-upload.test.ts`)
+- [x] Test full flow: upload attachment → submit
       `POST /api/public/custom-requests` với `attachmentUrl` trả về ở bước
       trước → `attachment_url` lưu đúng, không còn là base64.
-- [ ] Test gán material cho print job thiếu material → transition sang
-      `PRINTING` bị chặn, lỗi rõ ràng.
-- [ ] Test transition sang `PRINTING` với material đã gán → đúng 1
+      (`tests/phase-6-attachment-route.test.ts`)
+- [x] Test gán material cho print job thiếu material → transition sang
+      `PRINTING` bị chặn, lỗi rõ ràng. (`tests/phase-6-print-job-material.test.ts`)
+- [x] Test transition sang `PRINTING` với material đã gán → đúng 1
       `material_movements` row `PRODUCTION_OUT`, số lượng đúng
       `estimated_weight_grams`, `reference_type/reference_id` đúng.
-- [ ] Test 2 request đồng thời cùng chuyển 1 print job từ `QUEUED` sang
+      (`tests/phase-6-print-job-material.test.ts`)
+- [x] Test 2 request đồng thời cùng chuyển 1 print job từ `QUEUED` sang
       `PRINTING` (race double-click) → chỉ đúng 1 request thành công + 1
       `material_movements` row, request kia nhận lỗi rõ ràng (transition
       không hợp lệ vì status đã đổi), không trừ kho 2 lần.
-- [ ] Test lượt in lại hợp lệ: `QUEUED → PRINTING` (trừ kho lần 1) →
+      (`tests/phase-6-print-job-material.test.ts`)
+- [x] Test lượt in lại hợp lệ: `QUEUED → PRINTING` (trừ kho lần 1) →
       `FAILED → REPRINT → PRINTING` (trừ kho lần 2) → đúng **2**
       `material_movements` row `PRODUCTION_OUT` cho cùng 1 `print_job.id`,
       không bị chặn nhầm như 1 double-consumption giả.
-- [ ] Chạy lại toàn bộ test/E2E hiện có của Phase 3/4/5 sau khi sửa
+      (`tests/phase-6-print-job-material.test.ts`)
+- [x] Chạy lại toàn bộ test/E2E hiện có của Phase 3/4/5 sau khi sửa
       `updatePrintJobStatus` — xác nhận không regression (đặc biệt
-      `tests/phase-3-quote-print-job.test.ts`).
+      `tests/phase-3-quote-print-job.test.ts`). `npm test`: 46/48 pass; 2 fail
+      là lỗi môi trường Node<22 có sẵn từ trước khi tạo `SupabaseClient`
+      trong tiến trình `tsx --test` ("native WebSocket not found") — không
+      liên quan thay đổi Phase 6, cùng lỗi với `phase-3-auth.test.ts` đã đỏ
+      từ trước; xác nhận qua `curl` trực tiếp lên server thật (`next start`)
+      rằng route hoạt động đúng, không phải bug thật.
 
 ### Pre-delivery (từ skill `ui-ux-pro-max`, áp dụng cho UI admin mới)
-- [ ] `cursor-pointer` cho mọi phần tử có thể click
-- [ ] Hover state có transition mượt (150–300ms)
-- [ ] Focus state hiển thị rõ khi điều hướng bằng bàn phím
-- [ ] Trạng thái đang tải lên (uploading) hiển thị rõ cho khách trên form
+- [x] `cursor-pointer` cho mọi phần tử có thể click
+- [x] Hover state có transition mượt (150–300ms) — kế thừa từ component
+      `Button`/`Badge` dùng chung, không cần class riêng
+- [x] Focus state hiển thị rõ khi điều hướng bằng bàn phím — kế thừa từ
+      `Input`/`Button`/`Label` dùng chung
+- [x] Trạng thái đang tải lên (uploading) hiển thị rõ cho khách trên form
       `/custom-print`, tránh double-submit khi upload chưa xong
 
 ## Definition of Done
