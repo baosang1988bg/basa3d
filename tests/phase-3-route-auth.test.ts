@@ -11,7 +11,10 @@ const PLACEHOLDER_ID = '00000000-0000-4000-8000-000000000001';
 
 // Every route/method that must reject an unauthenticated caller. GET routes deliberately left
 // public (catalog browsing, per docs/exec-plans/completed/phase-2.md decision #1) are excluded:
-// GET /api/products, GET /api/products/variants, GET /api/products/[id]/images.
+// GET /api/products, GET /api/products/variants, GET /api/products/[id]/images. POST
+// /api/public/custom-requests is also deliberately public (Phase 4 decision #3, the project's
+// first unauthenticated write path, namespaced under api/public/* for auditability) — its own
+// coverage lives in tests/phase-4-public-custom-request.test.ts.
 const PROTECTED_ROUTES: { method: string; path: string }[] = [
   { method: 'POST', path: '/api/categories' },
   { method: 'GET', path: '/api/custom-requests' },
