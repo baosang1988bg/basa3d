@@ -97,3 +97,11 @@ Admin authentication uses Supabase Auth (Email + Password) with `@supabase/ssr` 
 - Token refresh is handled in `middleware.ts` via `createServerClient`.
 - Route handlers and server actions verify sessions via `await supabase.auth.getUser()`.
 - Authorization and profile lookup (`staff_profiles`) are executed directly through the existing `pg.Pool` (`DATABASE_URL`), keeping database queries clean and consistent with Phase 1/2 patterns without relying on Supabase PostgREST or client-side RLS enforcement.
+
+## ADR-0013 — Storefront Design System: Tactile Neo-Craft & Admin Token-Only Scope
+Status: accepted
+
+Storefront adopts **Tactile Neo-Craft (Modern Maker Aesthetic)** instead of full Claymorphism:
+- Storefront components use standard `rounded-xl` (12–16px), 1px crisp borders, and subtle tactile drop-shadows on CTAs/material badges only. This preserves high readability, fast mobile rendering, and WCAG AA contrast while letting physical 3D print photos stand out.
+- Dual-mode calibrated palette: Teal (`#0F766E` Light / `#2DD4BF` Dark) + Terracotta/Amber (`#D97706` Light / `#F59E0B` Dark).
+- Phase 4 Admin scope is strictly **Token & Font alignment** via CSS variables. Full Admin UI redesign / densification is deferred to Phase 8 to avoid regression risks on tested Phase 3 modules.
