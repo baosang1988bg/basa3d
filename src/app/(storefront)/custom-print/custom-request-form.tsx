@@ -81,7 +81,7 @@ export function CustomRequestForm() {
       </div>
       <div className="flex flex-col gap-1.5">
         <label htmlFor="requestedMaterial" className="text-sm font-medium text-foreground">Vật liệu mong muốn</label>
-        <select id="requestedMaterial" name="requestedMaterial" className="h-10 cursor-pointer rounded-lg border border-input bg-transparent px-3 text-sm">
+        <select id="requestedMaterial" name="requestedMaterial" className="h-10 cursor-pointer rounded-lg border border-input bg-transparent px-3 text-sm transition-colors duration-150 outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50">
           <option value="">Chưa chắc chắn / tư vấn giúp tôi</option>
           <option value="PLA">PLA</option>
           <option value="PETG">PETG</option>
