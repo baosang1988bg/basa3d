@@ -91,6 +91,16 @@ test('a filled honeypot returns a 201-shaped response but inserts no row', { ski
   }
 });
 
+test('a client-sent sourceChannel is rejected, not silently accepted or overridden', { skip: !process.env.DATABASE_URL }, async () => {
+  const response = await fetch(`${BASE_URL}/api/public/custom-requests`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(validPayload({ sourceChannel: 'ZALO', customerPhone: `06${randomUUID().replace(/\D/g, '').slice(0, 8)}` })),
+  });
+  assert.equal(response.status, 400);
+  const body = await response.json();
+  assert.equal(body.code, 'VALIDATION_ERROR');
+});
+
 test('submitting more than the rate limit for one phone number is rejected without inserting', { skip: !process.env.DATABASE_URL }, async () => {
   const phone = `07${randomUUID().replace(/\D/g, '').slice(0, 8)}`;
   for (let i = 0; i < 3; i += 1) {
