@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { listStorefrontProducts } from '@/services/storefront-catalog.service';
 import { ProductCard } from '@/components/storefront/product-card';
 import { SectionHeader } from '@/components/storefront/section-header';
-import { StorefrontButton } from '@/components/storefront/button';
+import { storefrontButtonClasses } from '@/components/storefront/button';
 import { MaterialBadge } from '@/components/storefront/material-badge';
 
 const CATEGORIES = [
@@ -38,8 +38,8 @@ export default async function HomePage() {
           Xưởng in 3D BaSa3D — từ mô hình sưu tầm đến linh kiện kỹ thuật chính xác, sản xuất theo yêu cầu với vật liệu nguyên sinh cao cấp.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Link href="/custom-print"><StorefrontButton variant="accent">Gửi file in theo yêu cầu</StorefrontButton></Link>
-          <Link href="/products"><StorefrontButton variant="secondary">Khám phá sản phẩm</StorefrontButton></Link>
+          <Link href="/custom-print" className={storefrontButtonClasses('accent')}>Gửi file in theo yêu cầu</Link>
+          <Link href="/products" className={storefrontButtonClasses('secondary')}>Khám phá sản phẩm</Link>
         </div>
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
           {['In nhanh 24h', 'Nhựa nguyên sinh cao cấp', 'Báo giá nhanh trong 30p'].map((badge) => (
@@ -81,7 +81,7 @@ export default async function HomePage() {
           ))}
         </div>
         <div className="mt-6 text-center">
-          <Link href="/custom-print"><StorefrontButton variant="primary">Bắt đầu đặt in</StorefrontButton></Link>
+          <Link href="/custom-print" className={storefrontButtonClasses('primary')}>Bắt đầu đặt in</Link>
         </div>
       </section>
 

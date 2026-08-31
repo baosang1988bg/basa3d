@@ -10,8 +10,12 @@ export function CustomRequestForm() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // React nulls out `event.currentTarget` once this handler yields at its first `await`, so the
+    // form element must be captured synchronously here — otherwise `formElement.reset()` after the
+    // fetch would throw and the catch block would overwrite the success state with a false error.
+    const formElement = event.currentTarget;
     setState({ status: 'submitting' });
-    const form = new FormData(event.currentTarget);
+    const form = new FormData(formElement);
     const payload = {
       customerName: String(form.get('customerName') ?? ''),
       customerPhone: String(form.get('customerPhone') ?? ''),
@@ -40,7 +44,7 @@ export function CustomRequestForm() {
         return;
       }
       setState({ status: 'success' });
-      event.currentTarget.reset();
+      formElement.reset();
     } catch {
       setState({ status: 'error', message: 'Không thể kết nối máy chủ, vui lòng thử lại.' });
     }

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { listStorefrontProducts } from '@/services/storefront-catalog.service';
 import { ProductCard } from '@/components/storefront/product-card';
-import { StorefrontButton } from '@/components/storefront/button';
+import { StorefrontButton, storefrontButtonClasses } from '@/components/storefront/button';
 
 type SearchParams = { q?: string; type?: string; sort?: string; page?: string };
 
@@ -42,7 +42,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
         <div className="mt-16 flex flex-col items-center gap-4 text-center">
           <p className="text-muted-foreground">Không tìm thấy sản phẩm phù hợp.</p>
           <p className="text-sm text-muted-foreground">Không thấy mẫu bạn cần? Gửi yêu cầu in theo thiết kế riêng của bạn.</p>
-          <Link href="/custom-print"><StorefrontButton variant="accent">Gửi yêu cầu đặt in</StorefrontButton></Link>
+          <Link href="/custom-print" className={storefrontButtonClasses('accent')}>Gửi yêu cầu đặt in</Link>
         </div>
       ) : (
         <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
@@ -53,10 +53,10 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
       {(page > 1 || items.length === limit) && (
         <div className="mt-8 flex justify-center gap-3">
           {page > 1 && (
-            <Link href={`?${buildQueryString(params, page - 1)}`}><StorefrontButton variant="secondary">Trang trước</StorefrontButton></Link>
+            <Link href={`?${buildQueryString(params, page - 1)}`} className={storefrontButtonClasses('secondary')}>Trang trước</Link>
           )}
           {items.length === limit && (
-            <Link href={`?${buildQueryString(params, page + 1)}`}><StorefrontButton variant="secondary">Trang sau</StorefrontButton></Link>
+            <Link href={`?${buildQueryString(params, page + 1)}`} className={storefrontButtonClasses('secondary')}>Trang sau</Link>
           )}
         </div>
       )}
