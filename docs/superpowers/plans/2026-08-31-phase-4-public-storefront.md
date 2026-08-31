@@ -600,7 +600,7 @@ export type StorefrontProductDetail = {
   images: { url: string; altText: string | null; sortOrder: number }[];
 };
 
-async function attachStockFlag<T extends { id: string }>(variantsByProduct: Map<string, { id: string }[]>): Promise<Map<string, boolean>> {
+async function attachStockFlag(variantsByProduct: Map<string, { id: string }[]>): Promise<Map<string, boolean>> {
   const flags = new Map<string, boolean>();
   for (const [productId, variants] of variantsByProduct) {
     let anyInStock = false;
@@ -1088,6 +1088,12 @@ const WORKFLOW_STEPS = [
   { step: '3', title: 'Báo giá 30 phút', description: 'Nhận báo giá minh bạch trong vòng 30 phút' },
   { step: '4', title: 'In & Giao hàng', description: 'Sản xuất và giao hàng tận nơi' },
 ];
+
+// Forces on-demand rendering instead of build-time static generation: this page reads live
+// catalog/stock data (product status and inventory availability change frequently), and without
+// this, Next.js would try to statically prerender it at `next build` time using whatever
+// DATABASE_URL happens to be set in the build environment — stale forever until the next deploy.
+export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   const { items: featuredProducts } = await listStorefrontProducts({ limit: 8 });
