@@ -180,7 +180,8 @@ launch thật. Không xây CMS phức tạp — chỉ đủ để OWNER tự đ�
       lại ở Zod
 - [x] Test `/sitemap.xml` chỉ liệt kê nội dung công khai (không có route
       admin), `/robots.txt` disallow `/admin`+`/api` (`tests/phase-7-sitemap.test.ts`)
-- [ ] Test admin blog CRUD yêu cầu `requireAdmin` — **không làm theo pattern
+- [x] (Chấp nhận, không làm — xem lý do dưới) Test admin blog CRUD yêu cầu
+      `requireAdmin` — **không làm theo pattern
       `phase-3-route-auth.test.ts`** (pattern đó chỉ test `/api/*` REST
       routes qua HTTP; admin blog dùng Server Actions như mọi admin mutation
       khác từ Phase 3 trở đi — không có route HTTP nào để gọi không session,
