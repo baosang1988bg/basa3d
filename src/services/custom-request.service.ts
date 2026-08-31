@@ -4,13 +4,14 @@ import { DomainError } from '../lib/domain-error';
 import { writeAuditLog } from './audit.service';
 import { pagination } from './product.service';
 
-export async function createCustomRequest(input: Record<string, unknown>, actorId: string) {
+export async function createCustomRequest(input: Record<string, unknown>, actorId: string | null) {
   return withTransaction(async (client) => {
     const requestNumber = `CR-${randomUUID().replaceAll('-', '').slice(0, 12).toUpperCase()}`;
     const result = await client.query<{ id: string; request_number: string }>(`
-      insert into custom_requests (request_number, source_channel, customer_name, customer_phone, customer_email, description, quantity, requested_material, requested_color, requested_size)
-      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning id, request_number`, [requestNumber, input.sourceChannel, input.customerName, input.customerPhone, input.customerEmail ?? null, input.description, input.quantity, input.requestedMaterial ?? null, input.requestedColor ?? null, input.requestedSize ?? null]);
-    await writeAuditLog(client, { actorId, action: 'CUSTOM_REQUEST_CREATED', entityType: 'custom_request', entityId: result.rows[0].id, afterData: input });
+      insert into custom_requests (request_number, source_channel, customer_name, customer_phone, customer_email, description, quantity, requested_material, requested_color, requested_size, attachment_url)
+      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning id, request_number`, [requestNumber, input.sourceChannel, input.customerName, input.customerPhone, input.customerEmail ?? null, input.description, input.quantity, input.requestedMaterial ?? null, input.requestedColor ?? null, input.requestedSize ?? null, input.attachmentUrl ?? null]);
+    const action = actorId ? 'CUSTOM_REQUEST_CREATED' : 'CUSTOM_REQUEST_CREATED_PUBLIC';
+    await writeAuditLog(client, { actorId, action, entityType: 'custom_request', entityId: result.rows[0].id, afterData: input });
     return { id: result.rows[0].id, requestNumber: result.rows[0].request_number };
   });
 }
