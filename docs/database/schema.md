@@ -57,6 +57,14 @@ Bảng `material_movements` có các cột tham chiếu: `reference_type` (varch
 ### `custom_requests.source_channel`
 `ZALO`, `FACEBOOK`, `INSTAGRAM`, `TIKTOK`, `OTHER` — thêm để biết kênh nào ra
 đơn nhiều nhất (Phase 0 decision, xem ADR-0007).
+Phase 4 bổ sung giá trị `WEBSITE`
+(`supabase/migrations/20260831000000_public_custom_request_support.sql`) cho các
+yêu cầu gửi từ form công khai trên storefront (`POST /api/public/custom-requests`).
+
+### `custom_requests.attachment_url` (Phase 4)
+`text`, nullable, `check (attachment_url is null or char_length(attachment_url) <= 2000)`
+— link file/ảnh mẫu do khách tự dán (Google Drive, Dropbox...) khi gửi yêu cầu
+đặt in từ storefront. Chưa upload file trực tiếp ở phase này.
 
 ### Enum bổ sung từ Phase 1 migration (Codex, chưa qua Phase 0 nhưng đã review)
 Các enum sau chưa được thảo luận rõ ở Phase 0, do Codex tự quyết khi viết
