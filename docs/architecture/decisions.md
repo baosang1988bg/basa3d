@@ -105,3 +105,13 @@ Storefront adopts **Tactile Neo-Craft (Modern Maker Aesthetic)** instead of full
 - Storefront components use standard `rounded-xl` (12–16px), 1px crisp borders, and subtle tactile drop-shadows on CTAs/material badges only. This preserves high readability, fast mobile rendering, and WCAG AA contrast while letting physical 3D print photos stand out.
 - Dual-mode calibrated palette: Teal (`#0F766E` Light / `#2DD4BF` Dark) + Terracotta/Amber (`#D97706` Light / `#F59E0B` Dark).
 - Phase 4 Admin scope is strictly **Token & Font alignment** via CSS variables. Full Admin UI redesign / densification is deferred to Phase 8 to avoid regression risks on tested Phase 3 modules.
+
+**2026-08-31 addendum (Phase 4):** `audit_logs.actor_id` was made `NOT NULL` in the Phase 3
+migration `20260830000002_audit_logs_actor_id_not_null.sql` on the assumption every write path has
+an authenticated actor. Phase 4 introduces the project's first unauthenticated write path
+(`POST /api/public/custom-requests`, see `docs/exec-plans/active/phase-4.md` decision #3), which
+must still write an audit log entry (`action: 'CUSTOM_REQUEST_CREATED_PUBLIC'`) with `actor_id =
+null` so OWNER can distinguish customer-submitted requests from staff-entered ones in the audit
+log. Migration `20260831000000_public_custom_request_support.sql` reverts the column back to
+nullable — its original Phase 0 design (`docs/database/schema.md`). Every existing authenticated
+write path is unaffected since it already supplies a real `actorId`.
