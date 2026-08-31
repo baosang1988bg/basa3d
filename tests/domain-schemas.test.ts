@@ -4,6 +4,7 @@ import {
   inventoryMovementInputSchema,
   orderInputSchema,
   productVariantInputSchema,
+  publicCustomRequestInputSchema,
   vndSchema,
 } from '../src/domain/schemas.js';
 
@@ -38,4 +39,18 @@ test('inventory movements reject zero and a sign inconsistent with the ledger ty
   assert.equal(inventoryMovementInputSchema.safeParse(movement).success, true);
   assert.equal(inventoryMovementInputSchema.safeParse({ ...movement, quantity: 1 }).success, false);
   assert.equal(inventoryMovementInputSchema.safeParse({ ...movement, quantity: 0 }).success, false);
+});
+
+test('publicCustomRequestInputSchema rejects a client-supplied sourceChannel', () => {
+  const result = publicCustomRequestInputSchema.safeParse({
+    customerName: 'Test', customerPhone: '0900000000', description: 'Test request', quantity: 1,
+    sourceChannel: 'ZALO',
+  });
+  assert.equal(result.success, false);
+});
+
+test('publicCustomRequestInputSchema accepts a valid attachmentUrl and rejects a non-URL one', () => {
+  const base = { customerName: 'Test', customerPhone: '0900000000', description: 'Test request', quantity: 1 };
+  assert.equal(publicCustomRequestInputSchema.safeParse({ ...base, attachmentUrl: 'https://drive.google.com/file/d/abc' }).success, true);
+  assert.equal(publicCustomRequestInputSchema.safeParse({ ...base, attachmentUrl: 'not-a-url' }).success, false);
 });

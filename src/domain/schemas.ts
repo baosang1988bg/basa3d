@@ -165,6 +165,24 @@ export const customRequestInputSchema = z.object({
   requestedSize: z.string().trim().max(100).nullable().optional(),
 }).strict();
 
+// Public-facing variant of customRequestInputSchema (POST /api/public/custom-requests):
+// - no sourceChannel field — the server always hardcodes 'WEBSITE', never trusts the client here.
+// - adds attachmentUrl (link-only file intake per phase-4.md Non-goals — no binary upload in Phase 4).
+// - adds honeypot: a hidden field real users never fill; any value on it means the submission is
+//   spam (see route.ts for the fake-201 handling).
+export const publicCustomRequestInputSchema = z.object({
+  customerName: nonEmptyText.max(200),
+  customerPhone: nonEmptyText.max(30),
+  customerEmail: z.string().trim().email().max(320).nullable().optional(),
+  description: nonEmptyText.max(20_000),
+  quantity: positiveQuantitySchema.max(10_000),
+  requestedMaterial: z.string().trim().max(100).nullable().optional(),
+  requestedColor: z.string().trim().max(100).nullable().optional(),
+  requestedSize: z.string().trim().max(100).nullable().optional(),
+  attachmentUrl: z.string().trim().url().max(2000).nullable().optional(),
+  honeypot: z.string().trim().max(200).optional().default(''),
+}).strict();
+
 export const quoteInputSchema = z.object({
   customRequestId: uuidSchema,
   subtotal: vndSchema,

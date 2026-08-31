@@ -33,6 +33,14 @@ export default {
           'accent-foreground': 'var(--sidebar-accent-foreground)', border: 'var(--sidebar-border)', ring: 'var(--sidebar-ring)',
         },
       },
+      fontFamily: {
+        sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+        heading: ['var(--font-heading)', 'var(--font-sans)', 'system-ui', 'sans-serif'],
+      },
+      boxShadow: {
+        tactile: '3px 3px 0px 0px var(--shadow-tactile-color)',
+        'tactile-accent': '3px 3px 0px 0px var(--shadow-tactile-accent-color)',
+      },
     },
   },
   plugins: [tailwindcssAnimate],

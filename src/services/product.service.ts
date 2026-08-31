@@ -12,9 +12,17 @@ const EXTENSION_BY_TYPE: Record<string, string> = { 'image/jpeg': 'jpg', 'image/
 export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 100;
 
+// Callers include public pages that pass `Number(searchParams.page)` straight through, so a
+// malformed `?page=abc` arrives here as NaN. `Math.max(1, NaN)` is NaN, which would reach SQL as an
+// OFFSET and blow up with a raw Postgres error, so non-finite values fall back to the default.
+// Fractional input is floored so the OFFSET stays an integer. Valid integer input is unaffected.
+function positiveInt(value: number | undefined, fallback: number): number {
+  return Number.isFinite(value) ? Math.max(1, Math.floor(value as number)) : fallback;
+}
+
 export function pagination(input: { page?: number; limit?: number }) {
-  const page = Math.max(1, input.page ?? 1);
-  const limit = Math.min(MAX_PAGE_SIZE, Math.max(1, input.limit ?? DEFAULT_PAGE_SIZE));
+  const page = positiveInt(input.page, 1);
+  const limit = Math.min(MAX_PAGE_SIZE, positiveInt(input.limit, DEFAULT_PAGE_SIZE));
   return { page, limit, offset: (page - 1) * limit };
 }
 

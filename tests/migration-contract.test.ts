@@ -24,3 +24,13 @@ test('migration enforces monetary, snapshot, and immutable-ledger constraints', 
   assert.match(migration, /product_name_snapshot/);
   assert.match(migration, /'DEPOSIT_PAID'/);
 });
+
+test('Phase 4 migration adds attachment_url, WEBSITE channel, and reverts actor_id nullability', async () => {
+  const migration = await readFile(
+    new URL('../supabase/migrations/20260831000000_public_custom_request_support.sql', import.meta.url),
+    'utf8',
+  );
+  assert.match(migration, /add column attachment_url text/);
+  assert.match(migration, /add value 'WEBSITE'/);
+  assert.match(migration, /alter column actor_id drop not null/);
+});

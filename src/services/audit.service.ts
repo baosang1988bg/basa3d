@@ -17,7 +17,7 @@ export async function listAuditLogs(input: { page?: number; limit?: number } = {
 }
 
 export async function writeAuditLog(client: PoolClient, input: {
-  actorId: string; action: string; entityType: string; entityId?: string; beforeData?: unknown; afterData?: unknown;
+  actorId: string | null; action: string; entityType: string; entityId?: string; beforeData?: unknown; afterData?: unknown;
 }): Promise<void> {
   await client.query(
     `insert into audit_logs (actor_id, action, entity_type, entity_id, before_data, after_data)
