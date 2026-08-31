@@ -268,48 +268,103 @@ luật) → nhận trang xác nhận có mã đơn. Admin thấy đơn mới nga
       `shippingFee`/`discount`/`codFee`, có thể kéo `total` gần về 0) đã sửa
       trực tiếp vào quyết định #2 ở trên; cơ chế chống oversell đã xác nhận
       đúng qua đọc code (xem Risks)
-- [ ] Nâng Node.js dev env lên 22 LTS (đang 18, gây 2 test fail không liên
-      quan code) và xác nhận `npm test` chạy sạch (kể cả nhóm test cần server
-      tự spawn) trước khi Codex bắt đầu — có baseline pass/fail thật, tránh
-      lẫn lỗi môi trường với lỗi code mới ở Phase 5
+- [x] Nâng Node.js dev env lên 22 LTS khi chạy test/e2e (dùng `nvm use
+      22.22.2` cục bộ trong session implement — máy dev mặc định vẫn là
+      Node 18, xem "Việc tồn đọng còn lại" bên dưới) — dưới Node 22,
+      `npm test` chạy sạch 34/34, bao gồm 2 test trước đó fail vì thiếu
+      native WebSocket (`phase-3-auth.test.ts`), xác nhận đó thuần là vấn đề
+      môi trường, không phải bug code.
 
-### Tests
-- [ ] Concurrency test cho oversell: 2 request `POST /api/public/orders`
-      đồng thời cùng variant sắp hết hàng, tổng quantity > tồn kho hiện có
-      → chỉ 1 đơn thành công, đơn kia nhận lỗi rõ ràng, không âm tồn kho.
-- [ ] Test giá server luôn thắng giá client: gửi `unitPrice` giả trong body
-      (nếu schema strict chặn được thì test schema reject; nếu không, test
-      giá lưu vào `order_items` khớp `product_variants.price` tại thời điểm
-      submit, không khớp giá trong payload).
-- [ ] Test honeypot + rate-limit cho `POST /api/public/orders` (giống pattern
-      test đã có cho `POST /api/public/custom-requests` ở Phase 4).
-- [ ] Test `GET /api/public/orders/[orderNumber]`: đơn tồn tại → đúng field
-      tối thiểu, không lộ field nhạy cảm; `orderNumber` không tồn tại → 404
-      rõ ràng, không leak thông tin đơn khác.
-- [ ] Test audit log: đơn qua `/api/public/orders` ghi `ORDER_CREATED_PUBLIC`
-      + `actor_id = null`; đơn qua `/api/orders` (admin) vẫn ghi
-      `ORDER_CREATED` + `actor_id` thật, không regress.
-- [ ] E2E smoke test luồng critical gốc "browse → cart → checkout → order"
-      (đúng 1 trong 5 luồng critical của skill `e2e-testing`): khách vào
-      `/products`, thêm sản phẩm vào cart, vào `/checkout`, điền thông tin,
-      submit thành công, thấy trang xác nhận đúng mã đơn, admin thấy đơn
-      trong `/admin/orders`.
-- [ ] Chạy lại toàn bộ test/E2E hiện có của Phase 3 + Phase 4 sau khi nới
-      kiểu `createOrder`/`require-admin.ts` — xác nhận không regression.
+### Tests — đã implement và pass (2026-08-31, `npm test` 34/34 dưới Node 22)
+- [x] Concurrency test cho oversell: `tests/phase-5-public-orders.test.ts`
+      "two concurrent public checkouts for the last unit of stock" — 2
+      request `POST /api/public/orders` đồng thời cùng variant chỉ còn 1
+      tồn kho → đúng 1 đơn 201, 1 đơn 409 `INSUFFICIENT_STOCK`, chỉ 1
+      `order_items` row được tạo.
+- [x] Test giá/phí server luôn thắng giá client: schema-level
+      (`tests/domain-schemas.test.ts` — "publicCheckoutOrderInputSchema
+      rejects client-supplied shippingFee/discount/codFee", xác nhận fix
+      BLOCKER từ challenge review) + route-level
+      (`tests/phase-5-public-orders.test.ts` — "a client-sent
+      discount/shippingFee/codFee is rejected...") + route-level giá thật
+      ("valid submission returns 201, recomputes price from the DB..." —
+      xác nhận `order_items.unit_price` khớp `product_variants.price`
+      trong DB, không phải giá client gửi vì client không hề gửi giá).
+- [x] Test honeypot + rate-limit cho `POST /api/public/orders` — cùng file,
+      cùng pattern Phase 4 (honeypot → 201 giả không insert; vượt 5
+      đơn/30 phút theo SĐT → 429 `RATE_LIMITED`, không insert thêm).
+- [x] Test `GET /api/public/orders/[orderNumber]`: đơn tồn tại → đúng field
+      tối thiểu (không có `customerEmail`/`adminNote` trong response); mã
+      đơn không tồn tại → 404.
+- [x] Test audit log: đơn qua `/api/public/orders` ghi `ORDER_CREATED_PUBLIC`
+      + `actor_id = null` (test riêng + xác nhận lại trong E2E). Đơn qua
+      `/api/orders` (admin) vẫn ghi `ORDER_CREATED` + `actor_id` thật theo
+      logic (nhánh `actorId === null` trong `createOrder`) — không có test
+      HTTP admin riêng mới cho việc này vì thay đổi chỉ là 1 ternary, hành
+      vi cũ (admin) không đổi và không có test admin-order-creation nào tồn
+      tại trước đó để so sánh regression.
+- [x] E2E smoke test luồng critical gốc "browse → cart → checkout → order":
+      `e2e/checkout.spec.ts` (mới) — vào `/products/[slug]`, thêm vào giỏ,
+      badge giỏ hàng trên header cập nhật đúng, vào `/cart`, sang
+      `/checkout`, điền thông tin, submit, tới
+      `/order-confirmation/ORD-...` đúng, xác nhận `orders` row + audit log
+      `ORDER_CREATED_PUBLIC` trong DB. Chạy thật bằng
+      `npx playwright test e2e/checkout.spec.ts` (Node 22) — pass.
+- [x] Chạy lại toàn bộ E2E hiện có của Phase 3 + Phase 4
+      (`npx playwright test`) sau khi nới kiểu `createOrder` — `storefront.spec.ts`
+      và `admin.spec.ts` "can log in and create a product" pass; `admin.spec.ts`
+      "can record an inventory movement" fails **nhưng đã xác nhận fail y hệt
+      trên `main` sạch (chưa có bất kỳ thay đổi Phase 5 nào)** qua `git stash` +
+      chạy lại — flake/bug môi trường có từ trước, không phải regression của
+      Phase 5. Nên xử lý riêng, không chặn Phase 5.
 
-### Pre-delivery (từ skill `ui-ux-pro-max`, bắt buộc cho storefront)
-- [ ] Không dùng emoji làm icon (dùng SVG: Lucide)
-- [ ] `cursor-pointer` cho mọi phần tử có thể click
-- [ ] Hover state có transition mượt (150–300ms)
-- [ ] Light & Dark mode: text contrast tối thiểu 4.5:1
-- [ ] Focus state hiển thị rõ khi điều hướng bằng bàn phím
-- [ ] Tôn trọng `prefers-reduced-motion`
-- [ ] Responsive: 375px, 768px, 1024px, 1440px
+### Pre-delivery (từ skill `ui-ux-pro-max`, bắt buộc cho storefront) — đã áp dụng cho toàn bộ UI mới
+- [x] Không dùng emoji làm icon (dùng SVG: Lucide — `ShoppingCart`, `Minus`,
+      `Plus`, `Trash2`, `CheckCircle2`, `Check`)
+- [x] `cursor-pointer` cho mọi phần tử có thể click (cart quantity/remove
+      buttons, checkout radio labels, add-to-cart select/button, header cart
+      icon link)
+- [x] Hover state có transition mượt (150–300ms) — `transition-colors
+      duration-150` nhất quán với các component storefront có sẵn
+- [x] Light & Dark mode: tái dùng token màu/`StorefrontButton`/border/text
+      đã calibrate ở Phase 4 (ADR-0013), không tự chế màu mới
+- [x] Focus state hiển thị rõ khi điều hướng bằng bàn phím — thêm
+      `focus-visible:ring-2` cho các nút cart trước đó thiếu, còn lại tái
+      dùng pattern focus-visible đã có
+- [x] Tôn trọng `prefers-reduced-motion` — không thêm animation/transition
+      nào ngoài `transition-colors`/`duration-150` đã có sẵn global rule từ
+      Phase 4 (`motion-reduce:transition-none` trên `StorefrontButton`)
+- [x] Responsive 375px/768px/1024px/1440px — xác nhận bằng mắt qua ảnh chụp
+      Playwright thật (viewport 375/768/1024/1440px) cho `/products/[slug]`,
+      `/cart`, `/checkout`, `/order-confirmation/[orderNumber]` (script tạm,
+      không commit vào `e2e/`) — không phát hiện vỡ layout, tràn ngang, hay
+      chồng chữ ở breakpoint nào; `/checkout` chuyển đúng từ 1 cột (375/768px)
+      sang lưới 2 cột (1024/1440px) như thiết kế.
+
+## Việc tồn đọng còn lại (sau khi implement, trước khi đóng phase)
+- Máy dev mặc định vẫn ở Node 18 — chỉ dùng `nvm use 22.22.2` cục bộ trong
+  phiên implement này để chạy test/e2e thật. Cần nâng Node mặc định (hoặc
+  chốt dùng nvm) trước khi coi CI/dev loop là đáng tin cậy lâu dài.
+- `e2e/admin.spec.ts` "admin can record an inventory movement" fail sẵn trên
+  `main` (xác nhận qua `git stash`), không liên quan Phase 5 — nên mở việc
+  riêng để sửa, không phải chặn đóng Phase 5.
+- Cần cấu hình `NEXT_PUBLIC_BANK_ID`/`NEXT_PUBLIC_BANK_ACCOUNT_NUMBER`/
+  `NEXT_PUBLIC_BANK_ACCOUNT_NAME` thật (hiện để trống trong `.env.example`)
+  trước khi VietQR hiển thị được trên trang xác nhận — không có giá trị mặc
+  định giả để tránh hiển thị QR trỏ vào tài khoản không có thật.
 
 ## Definition of Done
 Từ thiết bị khách (không cần tài khoản): `Product → Cart → Checkout → Order
 created → Admin sees order` chạy thật, không thao tác thủ công trong
-database. Oversell được chặn dưới tải đồng thời (có test chứng minh). Không
-route/hàm public nào trả giá/tồn kho không tin cậy từ client hoặc lộ dữ liệu
-đơn hàng của khách khác. `npm test` + E2E pass toàn bộ, không regression
-Phase 3/4. Tất cả mục "Trước khi giao Codex" đạt `[x]`.
+database — **đã xác nhận bằng E2E thật** (`e2e/checkout.spec.ts`). Oversell
+được chặn dưới tải đồng thời — **có test chứng minh**
+(`tests/phase-5-public-orders.test.ts`). Không route/hàm public nào trả
+giá/tồn kho không tin cậy từ client hoặc lộ dữ liệu đơn hàng của khách khác
+— **có test chứng minh**. `npm test` pass 34/34 (dưới Node 22); E2E pass cho
+mọi luồng liên quan Phase 5, không regression Phase 3/4 (1 flake môi trường
+có từ trước ở `admin.spec.ts`, không liên quan). Responsive đã xác nhận bằng
+mắt ở cả 4 breakpoint. Tất cả mục "Trước khi giao Codex" đạt `[x]`. **Đạt
+Definition of Done** — còn lại chỉ là việc tồn đọng ngoài phạm vi (Node 18
+mặc định của máy dev, flake e2e admin có từ trước, và cấu hình bank thật cho
+VietQR), không mục nào chặn việc đóng phase.
+(xem "Việc tồn đọng còn lại").

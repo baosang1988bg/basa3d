@@ -4,6 +4,7 @@ import {
   inventoryMovementInputSchema,
   orderInputSchema,
   productVariantInputSchema,
+  publicCheckoutOrderInputSchema,
   publicCustomRequestInputSchema,
   vndSchema,
 } from '../src/domain/schemas.js';
@@ -53,4 +54,16 @@ test('publicCustomRequestInputSchema accepts a valid attachmentUrl and rejects a
   const base = { customerName: 'Test', customerPhone: '0900000000', description: 'Test request', quantity: 1 };
   assert.equal(publicCustomRequestInputSchema.safeParse({ ...base, attachmentUrl: 'https://drive.google.com/file/d/abc' }).success, true);
   assert.equal(publicCustomRequestInputSchema.safeParse({ ...base, attachmentUrl: 'not-a-url' }).success, false);
+});
+
+// phase-5.md decision #2 / challenge-review BLOCKER: checkoutOrderInputSchema lets a trusted STAFF
+// actor set shippingFee/discount/codFee, but the public schema must not — those fields would let an
+// anonymous caller zero out the order total while stock is still deducted for real. This must stay
+// a strict allowlist, never checkoutOrderInputSchema + honeypot.
+test('publicCheckoutOrderInputSchema rejects client-supplied shippingFee/discount/codFee', () => {
+  const base = { customerName: 'Test', customerPhone: '0900000000', items: [{ variantId: id, quantity: 1 }] };
+  assert.equal(publicCheckoutOrderInputSchema.safeParse(base).success, true);
+  assert.equal(publicCheckoutOrderInputSchema.safeParse({ ...base, discount: 999_999 }).success, false);
+  assert.equal(publicCheckoutOrderInputSchema.safeParse({ ...base, shippingFee: 1 }).success, false);
+  assert.equal(publicCheckoutOrderInputSchema.safeParse({ ...base, codFee: 1 }).success, false);
 });

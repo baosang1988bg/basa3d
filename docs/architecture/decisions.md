@@ -115,3 +115,36 @@ null` so OWNER can distinguish customer-submitted requests from staff-entered on
 log. Migration `20260831000000_public_custom_request_support.sql` reverts the column back to
 nullable — its original Phase 0 design (`docs/database/schema.md`). Every existing authenticated
 write path is unaffected since it already supplies a real `actorId`.
+
+## ADR-0014 — Phase 5 cart is client-side only; `carts`/`cart_items` intentionally unused
+
+Status: accepted
+
+The `carts`/`cart_items` tables designed in Phase 0 are not used by Phase 5's checkout flow.
+Cart state (selected variant, quantity, and display-only snapshots of name/image/price) lives in
+the browser (`localStorage`, via `CartProvider`/`useCart` in `src/lib/cart/cart-context.tsx`), not
+in Postgres. This was a deliberate choice (not an oversight) confirmed with the project owner
+2026-08-31: Phase 5 ships guest checkout only (no customer accounts), so there is no cross-device
+cart to preserve, and skipping the server round-trip on every cart edit is simpler to build and
+reason about. `POST /api/public/orders` still recomputes price and validates stock from
+`product_variants` server-side at checkout time (`createOrder`, unchanged from Phase 2) — the
+client-side cart never influences what a customer is actually charged. If customer accounts are
+added later and cross-device cart sync becomes a real requirement, `carts`/`cart_items` are still
+there, unmodified, ready to be wired up. Full detail: `docs/exec-plans/completed/phase-5.md`.
+
+## ADR-0015 — Public order lookup and payment method are additive, no new order columns
+
+Status: accepted
+
+Two Phase 5 additions deliberately avoid new `orders` columns:
+- **Payment method** (COD vs. bank transfer) is reference-only for admin's manual reconciliation
+  (no payment gateway in Phase 5, per business-rules.md and dev-plan PHASE 5 §5.3) — it's folded
+  into `orders.customer_note` as a plain text line by `POST /api/public/orders`
+  (`src/app/api/public/orders/route.ts`), not a new enum column.
+- **`GET /api/public/orders/[orderNumber]`** (public order lookup, no account/OTP) uses
+  `orders.order_number` itself as the access token — it already has 48 bits of random entropy
+  (`ORD-` + 12 hex chars from `randomUUID()`, unchanged since Phase 2) — instead of adding a
+  separate lookup secret. The response is a field allowlist (`getPublicOrderByNumber` in
+  `order.service.ts`) that excludes `customer_email` and `admin_note`; there is no listing/search
+  variant of this query, only exact-`order_number` lookup, so it cannot be used to enumerate other
+  customers' orders. Full detail: `docs/exec-plans/completed/phase-5.md`.

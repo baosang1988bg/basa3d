@@ -82,6 +82,13 @@ migration thật (`supabase/migrations/20260830000000_initial_domain_schema.sql`
   linh hoạt hơn, khớp tinh thần review ban đầu về việc tránh hard-code thuộc
   tính variant.
 
+### `carts` / `cart_items` (Phase 0 — cố tình không dùng ở Phase 5, xem ADR-0014)
+Thiết kế sẵn từ Phase 0 nhưng **chưa có service/API nào dùng** — Phase 5
+(cart/checkout) chọn lưu cart hoàn toàn client-side (`localStorage`) vì MVP
+chỉ có guest checkout, không có tài khoản khách hàng nên không cần cart đồng
+bộ đa thiết bị. Không xoá, không migrate — nếu sau này có tài khoản khách
+hàng và cần cart đa thiết bị, quay lại dùng 2 bảng này.
+
 ### `staff_profiles` (Phase 3 — xem ADR-0011 / ADR-0012)
 Bảng hồ sơ phân quyền nhân viên nội bộ (liên kết 1-1 với `auth.users` của Supabase Auth):
 - `id`: `uuid primary key references auth.users(id) on delete cascade`

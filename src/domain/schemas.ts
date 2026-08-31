@@ -226,6 +226,24 @@ export const checkoutOrderInputSchema = z.object({
   items: z.array(z.object({ variantId: uuidSchema, quantity: positiveQuantitySchema.max(10_000) }).strict()).min(1),
 }).strict();
 
+// Public-facing variant of checkoutOrderInputSchema (POST /api/public/orders), phase-5.md decision
+// #2: deliberately NOT `checkoutOrderInputSchema` + honeypot — that schema lets the caller set
+// `shippingFee`/`discount`/`codFee`, which a trusted STAFF actor may legitimately need but an
+// anonymous public caller must never control (a large `discount` would zero out `total` while
+// stock is still deducted for real). This is a field-by-field allowlist instead: no monetary
+// override fields at all, `createOrder` always sees them as 0 for this path (see route.ts).
+export const paymentMethodSchema = z.enum(['COD', 'BANK_TRANSFER']);
+export const publicCheckoutOrderInputSchema = z.object({
+  customerName: nonEmptyText.max(200),
+  customerPhone: nonEmptyText.max(30),
+  customerEmail: z.string().trim().email().max(320).nullable().optional(),
+  shippingAddress: z.record(z.string(), z.unknown()).default({}),
+  paymentMethod: paymentMethodSchema.default('COD'),
+  customerNote: z.string().trim().max(2_000).nullable().optional(),
+  items: z.array(z.object({ variantId: uuidSchema, quantity: positiveQuantitySchema.max(10_000) }).strict()).min(1),
+  honeypot: z.string().trim().max(200).optional().default(''),
+}).strict();
+
 export const orderStatusUpdateSchema = z.object({ status: orderStatusSchema }).strict();
 export const orderAdminUpdateSchema = z.object({
   paymentStatus: paymentStatusSchema.optional(),

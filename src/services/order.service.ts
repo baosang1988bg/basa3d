@@ -13,7 +13,7 @@ export function reconcileOrderTotal(subtotal: number, shippingFee: number, disco
   return subtotal + shippingFee + codFee - discount;
 }
 
-export async function createOrder(input: CreateOrderInput, actorId: string) {
+export async function createOrder(input: CreateOrderInput, actorId: string | null) {
   const byVariant = new Map<string, number>();
   for (const item of input.items) byVariant.set(item.variantId, (byVariant.get(item.variantId) ?? 0) + item.quantity);
   const variantIds = [...byVariant.keys()].sort();
@@ -21,6 +21,12 @@ export async function createOrder(input: CreateOrderInput, actorId: string) {
 
   return withTransaction(async (client) => {
     // Lock in a consistent order to avoid deadlocks during concurrent multi-variant checkout.
+    // This lock is also what makes assertAvailableStock's `reserved` read (order_items/orders,
+    // never locked directly) race-free: every writer of order_items/orders locks these
+    // product_variants rows first, so a second concurrent checkout blocks here until the first
+    // commits, and only then reads reserved counts that already include it ("lock-by-proxy" — see
+    // phase-5.md Risks). Any future write path into order_items/orders MUST lock product_variants
+    // first or this guarantee silently breaks.
     const locked = await client.query<{ id: string }>('select id from product_variants where id = any($1::uuid[]) order by id for update', [variantIds]);
     if (locked.rowCount !== variantIds.length) throw new DomainError('VARIANT_NOT_FOUND', 'One or more product variants were not found.', 404);
     // TODO(Phase 2 risks): NEW orders reserve stock indefinitely until a later expiry/cleanup job exists.
@@ -48,7 +54,7 @@ export async function createOrder(input: CreateOrderInput, actorId: string) {
         insert into order_items (order_id, variant_id, product_name_snapshot, variant_name_snapshot, sku_snapshot, attributes_snapshot, quantity, unit_price, line_total)
         values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [order.rows[0].id, item.variantId, variant.product_name, variant.variant_name, variant.sku, variant.attributes, item.quantity, variant.price, variant.price * item.quantity]);
     }
-    await writeAuditLog(client, { actorId, action: 'ORDER_CREATED', entityType: 'order', entityId: order.rows[0].id, afterData: { orderNumber, total } });
+    await writeAuditLog(client, { actorId, action: actorId === null ? 'ORDER_CREATED_PUBLIC' : 'ORDER_CREATED', entityType: 'order', entityId: order.rows[0].id, afterData: { orderNumber, total } });
     return { id: order.rows[0].id, orderNumber: order.rows[0].order_number, total: order.rows[0].total };
   });
 }
@@ -130,6 +136,33 @@ export async function getOrderById(orderId: string) {
     select product_name_snapshot as "productNameSnapshot", variant_name_snapshot as "variantNameSnapshot", sku_snapshot as "skuSnapshot",
       quantity, unit_price as "unitPrice", line_total as "lineTotal"
     from order_items where order_id = $1 order by created_at`, [orderId]);
+  return { ...result.rows[0], items: items.rows };
+}
+
+// Public lookup for GET /api/public/orders/[orderNumber] and the /order-confirmation page (phase-5.md
+// decision #3): orderNumber itself is the access token (48-bit random, see createOrder), so this is
+// intentionally NOT gated by any session/account. Field set is a deliberate allowlist, not
+// `select *` — no customerEmail and no adminNote, matching the plan's "field tối thiểu" decision.
+// Never add a listing/search variant of this (by phone, by name, etc.) — that would let anyone
+// enumerate other customers' orders instead of looking up one they already hold the number for.
+type PublicOrderDetail = {
+  id: string; orderNumber: string; customerName: string; customerPhone: string;
+  shippingAddress: Record<string, unknown>; status: string; paymentStatus: string; shippingStatus: string;
+  subtotal: number; shippingFee: number; discount: number; codFee: number; total: number;
+  customerNote: string | null; createdAt: string;
+};
+
+export async function getPublicOrderByNumber(orderNumber: string) {
+  const result = await query<PublicOrderDetail>(`
+    select id, order_number as "orderNumber", customer_name as "customerName", customer_phone as "customerPhone",
+      shipping_address as "shippingAddress", status, payment_status as "paymentStatus", shipping_status as "shippingStatus",
+      subtotal, shipping_fee as "shippingFee", discount, cod_fee as "codFee", total, customer_note as "customerNote", created_at as "createdAt"
+    from orders where order_number = $1`, [orderNumber]);
+  if (!result.rowCount) return null;
+  const items = await query<OrderItemDetail>(`
+    select product_name_snapshot as "productNameSnapshot", variant_name_snapshot as "variantNameSnapshot", sku_snapshot as "skuSnapshot",
+      quantity, unit_price as "unitPrice", line_total as "lineTotal"
+    from order_items where order_id = $1 order by created_at`, [result.rows[0].id]);
   return { ...result.rows[0], items: items.rows };
 }
 

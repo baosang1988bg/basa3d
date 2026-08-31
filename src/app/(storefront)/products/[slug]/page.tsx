@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { getStorefrontProductBySlug } from '@/services/storefront-catalog.service';
 import { SpecTable } from '@/components/storefront/spec-table';
 import { formatVnd } from '@/components/storefront/format';
-import { ConfirmIntentDialog } from './confirm-intent-dialog';
+import { AddToCartForm } from './add-to-cart-form';
 
 export default async function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -57,21 +57,13 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           {product.basePrice != null && <p className="mt-4 text-2xl font-bold text-foreground">{formatVnd(product.basePrice)}</p>}
           {product.shortDescription && <p className="mt-4 text-base text-muted-foreground">{product.shortDescription}</p>}
 
-          {product.variants.length > 1 && (
-            <div className="mt-6">
-              <p className="text-sm font-semibold text-foreground">Tuỳ chọn</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {product.variants.map((variant) => (
-                  <span key={variant.id} className="rounded-lg border border-border px-3 py-1.5 text-sm">
-                    {variant.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
           <div className="mt-6">
-            <ConfirmIntentDialog productName={product.name} />
+            <AddToCartForm
+              productSlug={product.slug}
+              productName={product.name}
+              imageUrl={product.images[0]?.url ?? null}
+              variants={product.variants.map((variant) => ({ id: variant.id, sku: variant.sku, name: variant.name, attributes: variant.attributes, price: variant.price, inStock: variant.inStock }))}
+            />
           </div>
 
           {specs.length > 0 && (

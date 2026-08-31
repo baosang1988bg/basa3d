@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Menu, X, ShoppingCart, MessageCircle } from 'lucide-react';
 import { ThemeToggle } from './theme-toggle';
 import { SITE_CONFIG } from '@/config/site';
+import { useCart } from '@/lib/cart/cart-context';
 
 const NAV_LINKS = [
   { href: '/', label: 'Trang chủ' },
@@ -15,6 +16,7 @@ const NAV_LINKS = [
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { itemCount } = useCart();
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur supports-backdrop-filter:bg-card/80">
@@ -41,9 +43,18 @@ export function Header() {
             <MessageCircle className="size-4 text-[#0068FF]" /> Zalo tư vấn
           </a>
           <ThemeToggle />
-          <button type="button" aria-label="Giỏ hàng (sắp ra mắt)" disabled className="inline-flex size-8 cursor-not-allowed items-center justify-center rounded-lg border border-border text-muted-foreground opacity-60">
+          <Link
+            href="/cart"
+            aria-label={itemCount > 0 ? `Giỏ hàng, ${itemCount} sản phẩm` : 'Giỏ hàng'}
+            className="relative inline-flex size-8 cursor-pointer items-center justify-center rounded-lg border border-border text-foreground transition-colors duration-150 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
             <ShoppingCart className="size-4" />
-          </button>
+            {itemCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#D97706] px-1 text-[10px] font-bold text-white dark:bg-[#F59E0B] dark:text-[#0F172A]">
+                {itemCount > 99 ? '99+' : itemCount}
+              </span>
+            )}
+          </Link>
           <button
             type="button"
             aria-label="Mở menu"
