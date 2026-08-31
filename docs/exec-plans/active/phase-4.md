@@ -196,27 +196,27 @@ phẩm có sẵn, dùng một design system nhất quán về mặt thương hi�
       spam tối thiểu (honeypot + rate-limit theo SĐT) — quyết định #3
 
 ### Tests
-- [ ] Chạy lại toàn bộ test/E2E hiện có của Phase 3
+- [x] Chạy lại toàn bộ test/E2E hiện có của Phase 3
       (`tests/phase-3-*.test.ts`, `e2e/admin.spec.ts`) sau khi retrofit
       token màu/font admin — xác nhận không regression.
-- [ ] Test mới cho `POST /api/public/custom-requests`: submit hợp lệ → 201 +
+- [x] Test mới cho `POST /api/public/custom-requests`: submit hợp lệ → 201 +
       đúng `attachment_url`/`sourceChannel = 'WEBSITE'` trong DB; honeypot có
       giá trị → trả 201 giả nhưng không insert; vượt rate-limit theo SĐT →
       lỗi thân thiện, không insert; migration enum/column áp dụng đúng.
-- [ ] Test đường đọc catalog public: xác nhận không route/hàm nào trả
+- [x] Test đường đọc catalog public: xác nhận không route/hàm nào trả
       `cost_price` hoặc tồn kho chính xác, chỉ sản phẩm `status = 'ACTIVE'`.
-- [ ] E2E smoke test: khách vào `/custom-print`, điền form, submit thành
+- [x] E2E smoke test: khách vào `/custom-print`, điền form, submit thành
       công (nối tiếp tinh thần `e2e-testing` skill — đây là 1 trong 5 luồng
       critical gốc: "custom request submission").
 
 ### Pre-delivery (từ skill `ui-ux-pro-max`, bắt buộc cho storefront)
-- [ ] Không dùng emoji làm icon (dùng SVG: Lucide)
-- [ ] `cursor-pointer` cho mọi phần tử có thể click
-- [ ] Hover state có transition mượt (150–300ms)
-- [ ] Light & Dark mode: text contrast tối thiểu 4.5:1
-- [ ] Focus state hiển thị rõ khi điều hướng bằng bàn phím
-- [ ] Tôn trọng `prefers-reduced-motion`
-- [ ] Responsive: 375px, 768px, 1024px, 1440px
+- [x] Không dùng emoji làm icon (dùng SVG: Lucide)
+- [x] `cursor-pointer` cho mọi phần tử có thể click
+- [x] Hover state có transition mượt (150–300ms)
+- [x] Light & Dark mode: text contrast tối thiểu 4.5:1
+- [x] Focus state hiển thị rõ khi điều hướng bằng bàn phím
+- [x] Tôn trọng `prefers-reduced-motion`
+- [x] Responsive: 375px, 768px, 1024px, 1440px
 
 ## Definition of Done
 Tất cả các mục "Trước khi giao Codex" đã đạt `[x]`. `design-system/MASTER.md` tồn tại làm kim chỉ nam. Admin nhận token màu/font mới mà không phá vỡ bất kỳ test/chức năng nào của Phase 3 (`npm test` pass toàn bộ). Các trang storefront theo Sprint 4.1–4.5 hoàn thiện, responsive mượt mà từ mobile (375px) đến desktop (1440px) và đạt chuẩn Pre-delivery checklist.

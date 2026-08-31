@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Client } from 'pg';
 
+import nextEnv from '@next/env';
+
+nextEnv.loadEnvConfig(process.cwd());
 const databaseUrl = process.env.DATABASE_URL;
 
 test('PostgreSQL rejects invalid order totals and invalid inventory adjustments', { skip: !databaseUrl }, async () => {
