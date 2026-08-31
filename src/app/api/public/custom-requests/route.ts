@@ -21,6 +21,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ id: randomUUID(), requestNumber: `CR-${randomUUID().replaceAll('-', '').slice(0, 12).toUpperCase()}` }, { status: 201 });
     }
 
+    // Rate limit: max 3 submissions per phone number per 10-minute window.
     const recentCount = await query<{ count: string }>(
       `select count(*) from custom_requests where customer_phone = $1 and created_at > now() - interval '${RATE_LIMIT_WINDOW_MINUTES} minutes'`,
       [input.customerPhone],
@@ -31,9 +32,20 @@ export async function POST(request: Request) {
 
     // sourceChannel is never client-settable here — always hardcoded server-side, same
     // defense-in-depth pattern as the Phase 3 fix that forced status: 'ACTIVE' in GET /api/products.
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured only to exclude honeypot from serviceInput before it reaches the service layer / audit log.
-    const { honeypot, ...serviceInput } = input;
-    const created = await createCustomRequest({ ...serviceInput, sourceChannel: 'WEBSITE' }, null);
+    // Explicit allowlist (rather than spreading `input`) so honeypot never reaches the service
+    // layer / audit log.
+    const created = await createCustomRequest({
+      customerName: input.customerName,
+      customerPhone: input.customerPhone,
+      customerEmail: input.customerEmail,
+      description: input.description,
+      quantity: input.quantity,
+      requestedMaterial: input.requestedMaterial,
+      requestedColor: input.requestedColor,
+      requestedSize: input.requestedSize,
+      attachmentUrl: input.attachmentUrl,
+      sourceChannel: 'WEBSITE',
+    }, null);
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
     return apiError(error);
