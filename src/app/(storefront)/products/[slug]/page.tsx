@@ -62,7 +62,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
               <p className="text-sm font-semibold text-foreground">Tuỳ chọn</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {product.variants.map((variant) => (
-                  <span key={variant.id} className="cursor-pointer rounded-lg border border-border px-3 py-1.5 text-sm transition-colors duration-150 hover:border-primary">
+                  <span key={variant.id} className="rounded-lg border border-border px-3 py-1.5 text-sm">
                     {variant.name}
                   </span>
                 ))}
