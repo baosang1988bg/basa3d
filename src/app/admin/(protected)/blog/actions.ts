@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/auth/require-admin';
 import { blogCategoryInputSchema, blogPostInputSchema, blogPostUpdateInputSchema } from '@/domain/schemas';
-import { createBlogCategory, createBlogPost, updateBlogPost, uploadBlogCoverImage } from '@/services/blog.service';
+import { createBlogCategory, createBlogPost, deleteBlogCoverImage, getBlogPostById, updateBlogPost, uploadBlogCoverImage } from '@/services/blog.service';
 
 function readFormValue(formData: FormData, key: string): string | undefined {
   const value = formData.get(key);
@@ -32,7 +32,6 @@ async function uploadCoverIfProvided(formData: FormData): Promise<string | null 
 
 export async function createBlogPostAction(formData: FormData) {
   const { actorId } = await requireAdmin();
-  const coverImagePath = await uploadCoverIfProvided(formData);
   const input = blogPostInputSchema.parse({
     categoryId: readFormValue(formData, 'categoryId') ?? null,
     title: formData.get('title'),
@@ -44,13 +43,18 @@ export async function createBlogPostAction(formData: FormData) {
     seoDescription: readFormValue(formData, 'seoDescription') ?? null,
     status: readFormValue(formData, 'status') ?? 'DRAFT',
   });
-  await createBlogPost({ ...input, coverImagePath: coverImagePath ?? null }, actorId);
+  const coverImagePath = await uploadCoverIfProvided(formData);
+  try {
+    await createBlogPost({ ...input, coverImagePath: coverImagePath ?? null }, actorId);
+  } catch (error) {
+    if (coverImagePath) await deleteBlogCoverImage(coverImagePath).catch(() => undefined);
+    throw error;
+  }
   revalidatePath('/admin/blog');
 }
 
 export async function updateBlogPostAction(id: string, formData: FormData) {
   const { actorId } = await requireAdmin();
-  const coverImagePath = await uploadCoverIfProvided(formData);
   const input = blogPostUpdateInputSchema.parse({
     categoryId: readFormValue(formData, 'categoryId') ?? null,
     title: formData.get('title'),
@@ -62,7 +66,19 @@ export async function updateBlogPostAction(id: string, formData: FormData) {
     seoDescription: readFormValue(formData, 'seoDescription') ?? null,
     status: readFormValue(formData, 'status') ?? 'DRAFT',
   });
-  await updateBlogPost(id, { ...input, coverImagePath }, actorId);
+  const previous = await getBlogPostById(id);
+  const coverImagePath = await uploadCoverIfProvided(formData);
+  try {
+    await updateBlogPost(id, { ...input, coverImagePath }, actorId);
+  } catch (error) {
+    if (coverImagePath) await deleteBlogCoverImage(coverImagePath).catch(() => undefined);
+    throw error;
+  }
+  if (coverImagePath && previous?.coverImagePath && previous.coverImagePath !== coverImagePath) {
+    await deleteBlogCoverImage(previous.coverImagePath).catch((error) => {
+      console.error('Failed to remove replaced blog cover image.', { storagePath: previous.coverImagePath, error });
+    });
+  }
   revalidatePath('/admin/blog');
   revalidatePath(`/admin/blog/${id}`);
   revalidatePath('/blog');

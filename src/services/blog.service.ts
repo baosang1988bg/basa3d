@@ -41,6 +41,11 @@ export async function uploadBlogCoverImage(input: { file: Blob; fileName: string
   return { url: publicUrl.publicUrl, storagePath };
 }
 
+export async function deleteBlogCoverImage(storagePath: string) {
+  const { error } = await createSupabaseAdminClient().storage.from(BLOG_IMAGE_BUCKET).remove([storagePath]);
+  if (error) throw new DomainError('IMAGE_DELETE_FAILED', error.message, 502);
+}
+
 type BlogPostInput = {
   categoryId?: string | null; title: string; slug: string; excerpt?: string | null; content: string;
   tags?: string[]; seoTitle?: string | null; seoDescription?: string | null; status?: string; coverImagePath?: string | null;
