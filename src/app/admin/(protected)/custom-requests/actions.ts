@@ -35,9 +35,9 @@ export async function createCustomRequestAction(formData: FormData) {
 }
 
 export async function updateCustomRequestStatusAction(id: string, formData: FormData) {
-  const { actorId } = await requireAdmin();
-  const { status } = customRequestStatusUpdateSchema.parse({ status: formData.get('status') });
-  await updateCustomRequestStatus(id, status, actorId);
+  const session = await requireAdmin();
+  const input = customRequestStatusUpdateSchema.parse({ status: formData.get('status'), overrideReason: readFormValue(formData, 'overrideReason') });
+  await updateCustomRequestStatus(id, input.status, session.actorId, { role: session.role, overrideReason: input.overrideReason });
   revalidatePath(`/admin/custom-requests/${id}`);
   revalidatePath('/admin/custom-requests');
 }
@@ -66,8 +66,8 @@ export async function acceptQuoteAction(quoteId: string, customRequestId: string
 }
 
 export async function updatePrintJobStatusAction(id: string, formData: FormData) {
-  const { actorId } = await requireAdmin();
-  const { status } = printJobStatusUpdateSchema.parse({ status: formData.get('status') });
-  await updatePrintJobStatus(id, status, actorId);
+  const session = await requireAdmin();
+  const input = printJobStatusUpdateSchema.parse({ status: formData.get('status'), overrideReason: readFormValue(formData, 'overrideReason') });
+  await updatePrintJobStatus(id, input.status, session.actorId, { role: session.role, overrideReason: input.overrideReason });
   revalidatePath('/admin/print-jobs');
 }

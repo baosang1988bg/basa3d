@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { getCustomRequestById } from '@/services/custom-request.service';
+import { createCustomRequestAttachmentSignedUrl, getCustomRequestById, nextCustomRequestStatuses } from '@/services/custom-request.service';
+import { requireAdmin } from '@/lib/auth/require-admin';
 import { listQuotesByCustomRequest } from '@/services/quote.service';
 import { acceptQuoteAction, createQuoteAction, updateCustomRequestStatusAction } from '../actions';
 
@@ -14,8 +15,15 @@ const CUSTOM_REQUEST_STATUSES = ['NEW', 'REVIEWING', 'NEED_INFO', 'QUOTED', 'APP
 
 export default async function CustomRequestDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const session = await requireAdmin();
   const [customRequest, quotes] = await Promise.all([getCustomRequestById(id), listQuotesByCustomRequest(id)]);
   if (!customRequest) notFound();
+  const attachmentSignedUrl = customRequest.attachmentPath
+    ? await createCustomRequestAttachmentSignedUrl(customRequest.attachmentPath)
+    : null;
+  const statusOptions = session.role === 'OWNER'
+    ? CUSTOM_REQUEST_STATUSES.filter((status) => status !== customRequest.status)
+    : nextCustomRequestStatuses(customRequest.status);
 
   const now = Date.now();
 
@@ -39,9 +47,9 @@ export default async function CustomRequestDetailPage({ params }: { params: Prom
           <div><p className="text-muted-foreground">Ngày tạo</p><p>{new Date(customRequest.createdAt).toLocaleString('vi-VN')}</p></div>
           <div className="col-span-2">
             <p className="text-muted-foreground">File đính kèm / Ảnh mẫu</p>
-            {customRequest.attachmentUrl ? (
-              <a href={customRequest.attachmentUrl} target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline break-all">
-                📎 {customRequest.attachmentUrl}
+            {attachmentSignedUrl ? (
+              <a href={attachmentSignedUrl} target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline break-all">
+                📎 Mở file đính kèm (liên kết hết hạn sau 15 phút)
               </a>
             ) : (
               <p className="text-muted-foreground">Chưa có file đính kèm</p>
@@ -60,11 +68,13 @@ export default async function CustomRequestDetailPage({ params }: { params: Prom
           <form action={updateCustomRequestStatusAction.bind(null, id)} className="flex items-end gap-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="status">Cập nhật trạng thái</Label>
-              <select id="status" name="status" defaultValue={customRequest.status} className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm">
-                {CUSTOM_REQUEST_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}
+              <select id="status" name="status" defaultValue="" required className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm">
+                <option value="" disabled>— Chọn trạng thái —</option>
+                {statusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
               </select>
             </div>
-            <Button type="submit" size="sm">Lưu</Button>
+            {session.role === 'OWNER' ? <Input name="overrideReason" placeholder="Lý do nếu override" className="w-64" /> : null}
+            <Button type="submit" size="sm" disabled={statusOptions.length === 0}>Lưu</Button>
           </form>
         </CardContent>
       </Card>

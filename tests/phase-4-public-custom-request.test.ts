@@ -7,7 +7,7 @@ import { Client } from 'pg';
 
 nextEnv.loadEnvConfig(process.cwd());
 
-const PORT = 3413;
+const PORT = 3411;
 const BASE_URL = `http://localhost:${PORT}`;
 
 let serverProcess: ChildProcess | undefined;
@@ -26,7 +26,10 @@ async function waitForServer(timeoutMs: number): Promise<void> {
 
 before(async () => {
   if (!process.env.DATABASE_URL) return;
-  serverProcess = spawn('npx', ['next', 'start', '-p', String(PORT)], { cwd: process.cwd(), env: process.env, stdio: 'ignore' });
+  try {
+    if ((await fetch(`${BASE_URL}/admin/login`)).ok) return;
+  } catch { /* start a dedicated server below */ }
+  serverProcess = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '-p', String(PORT)], { cwd: process.cwd(), env: process.env, stdio: 'ignore' });
   await waitForServer(30_000);
 });
 
@@ -38,7 +41,7 @@ function validPayload(overrides: Record<string, unknown> = {}) {
     customerPhone: `09${randomUUID().replace(/\D/g, '').slice(0, 8)}`,
     description: 'Cần in 1 mô hình test',
     quantity: 1,
-    attachmentUrl: 'https://drive.google.com/file/d/abc123',
+    attachmentPath: `requests/${randomUUID()}.stl`,
     // NOTE: no sourceChannel here — publicCustomRequestInputSchema is .strict() and has no
     // sourceChannel field (see domain/schemas.ts), so a client-sent sourceChannel is rejected
     // with a 400 VALIDATION_ERROR before it ever reaches the route/service layer, not silently
@@ -47,7 +50,7 @@ function validPayload(overrides: Record<string, unknown> = {}) {
   };
 }
 
-test('valid submission returns 201 and persists source_channel = WEBSITE and the given attachment_url', { skip: !process.env.DATABASE_URL }, async () => {
+test('valid submission returns 201 and persists source_channel = WEBSITE and the private attachment_path', { skip: !process.env.DATABASE_URL }, async () => {
   const payload = validPayload();
   const response = await fetch(`${BASE_URL}/api/public/custom-requests`, {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload),
@@ -59,9 +62,9 @@ test('valid submission returns 201 and persists source_channel = WEBSITE and the
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
-    const row = await client.query('select source_channel, attachment_url from custom_requests where id = $1', [body.id]);
+    const row = await client.query('select source_channel, attachment_path from custom_requests where id = $1', [body.id]);
     assert.equal(row.rows[0].source_channel, 'WEBSITE');
-    assert.equal(row.rows[0].attachment_url, payload.attachmentUrl);
+    assert.equal(row.rows[0].attachment_path, payload.attachmentPath);
 
     const auditRow = await client.query(`select actor_id, action from audit_logs where entity_id = $1 and entity_type = 'custom_request'`, [body.id]);
     assert.equal(auditRow.rows[0].actor_id, null);

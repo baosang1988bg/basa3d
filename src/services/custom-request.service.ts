@@ -27,33 +27,62 @@ export async function uploadCustomRequestAttachment(input: { file: Blob; fileNam
 
   // Random path, not the client's original filename — avoids path traversal / overwrite, same as
   // uploadProductImage.
-  const storagePath = `${randomUUID()}.${extension}`;
+  const storagePath = `requests/${randomUUID()}.${extension}`;
   const supabase = createSupabaseAdminClient();
   const bytes = new Uint8Array(await input.file.arrayBuffer());
   const { error: uploadError } = await supabase.storage.from(ATTACHMENT_BUCKET).upload(storagePath, bytes, { contentType });
   if (uploadError) throw new DomainError('ATTACHMENT_UPLOAD_FAILED', uploadError.message, 502);
 
-  const { data: publicUrl } = supabase.storage.from(ATTACHMENT_BUCKET).getPublicUrl(storagePath);
-  return { url: publicUrl.publicUrl };
+  return { path: storagePath };
+}
+
+export async function createCustomRequestAttachmentSignedUrl(storagePath: string, expiresInSeconds = 15 * 60) {
+  const { data, error } = await createSupabaseAdminClient().storage
+    .from(ATTACHMENT_BUCKET)
+    .createSignedUrl(storagePath, expiresInSeconds);
+  if (error || !data?.signedUrl) throw new DomainError('ATTACHMENT_SIGNING_FAILED', error?.message ?? 'Could not create attachment URL.', 502);
+  return data.signedUrl;
 }
 
 export async function createCustomRequest(input: Record<string, unknown>, actorId: string | null) {
   return withTransaction(async (client) => {
     const requestNumber = `CR-${randomUUID().replaceAll('-', '').slice(0, 12).toUpperCase()}`;
     const result = await client.query<{ id: string; request_number: string }>(`
-      insert into custom_requests (request_number, source_channel, customer_name, customer_phone, customer_email, description, quantity, requested_material, requested_color, requested_size, attachment_url)
-      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning id, request_number`, [requestNumber, input.sourceChannel, input.customerName, input.customerPhone, input.customerEmail ?? null, input.description, input.quantity, input.requestedMaterial ?? null, input.requestedColor ?? null, input.requestedSize ?? null, input.attachmentUrl ?? null]);
+      insert into custom_requests (request_number, source_channel, customer_name, customer_phone, customer_email, description, quantity, requested_material, requested_color, requested_size, attachment_path)
+      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning id, request_number`, [requestNumber, input.sourceChannel, input.customerName, input.customerPhone, input.customerEmail ?? null, input.description, input.quantity, input.requestedMaterial ?? null, input.requestedColor ?? null, input.requestedSize ?? null, input.attachmentPath ?? null]);
     const action = actorId ? 'CUSTOM_REQUEST_CREATED' : 'CUSTOM_REQUEST_CREATED_PUBLIC';
     await writeAuditLog(client, { actorId, action, entityType: 'custom_request', entityId: result.rows[0].id, afterData: input });
     return { id: result.rows[0].id, requestNumber: result.rows[0].request_number };
   });
 }
 
-export async function updateCustomRequestStatus(id: string, status: string, actorId: string) {
+export const CUSTOM_REQUEST_STATUS_TRANSITIONS: Record<string, string[]> = {
+  NEW: ['REVIEWING', 'REJECTED'],
+  REVIEWING: ['NEED_INFO', 'QUOTED', 'REJECTED'],
+  NEED_INFO: ['REVIEWING', 'REJECTED'],
+  QUOTED: ['APPROVED', 'REJECTED'],
+  APPROVED: ['CONVERTED'],
+  REJECTED: [],
+  CONVERTED: [],
+};
+
+export function nextCustomRequestStatuses(status: string) {
+  return CUSTOM_REQUEST_STATUS_TRANSITIONS[status] ?? [];
+}
+
+export async function updateCustomRequestStatus(id: string, status: string, actorId: string, authorization?: { role: 'OWNER' | 'STAFF'; overrideReason?: string }) {
   return withTransaction(async (client) => {
+    const current = await client.query<{ status: string }>('select status from custom_requests where id = $1 for update', [id]);
+    if (!current.rowCount) throw new DomainError('CUSTOM_REQUEST_NOT_FOUND', 'Custom request was not found.', 404);
+    const previousStatus = current.rows[0].status;
+    const isForward = nextCustomRequestStatuses(previousStatus).includes(status);
+    const isOwnerOverride = authorization?.role === 'OWNER' && Boolean(authorization.overrideReason?.trim());
+    if (!isForward && !isOwnerOverride) throw new DomainError('INVALID_CUSTOM_REQUEST_TRANSITION', `Cannot transition custom request from ${previousStatus} to ${status}.`, 409);
     const result = await client.query('update custom_requests set status = $2 where id = $1 returning id, status', [id, status]);
-    if (!result.rowCount) throw new DomainError('CUSTOM_REQUEST_NOT_FOUND', 'Custom request was not found.', 404);
-    await writeAuditLog(client, { actorId, action: 'CUSTOM_REQUEST_STATUS_UPDATED', entityType: 'custom_request', entityId: id, afterData: result.rows[0] });
+    await writeAuditLog(client, {
+      actorId, action: isForward ? 'CUSTOM_REQUEST_STATUS_UPDATED' : 'CUSTOM_REQUEST_STATUS_OVERRIDDEN', entityType: 'custom_request', entityId: id,
+      beforeData: { status: previousStatus }, afterData: { ...result.rows[0], overrideReason: isForward ? undefined : authorization?.overrideReason },
+    });
     return result.rows[0];
   });
 }
@@ -69,7 +98,7 @@ export async function listCustomRequests(input: { page?: number; limit?: number 
 type CustomRequestDetail = {
   id: string; requestNumber: string; sourceChannel: string; customerName: string; customerPhone: string;
   customerEmail: string | null; description: string; quantity: number; requestedMaterial: string | null;
-  requestedColor: string | null; requestedSize: string | null; attachmentUrl: string | null;
+  requestedColor: string | null; requestedSize: string | null; attachmentPath: string | null;
   status: string; internalNote: string | null; createdAt: Date;
 };
 
@@ -78,7 +107,7 @@ export async function getCustomRequestById(id: string): Promise<CustomRequestDet
     select id, request_number as "requestNumber", source_channel as "sourceChannel", customer_name as "customerName",
       customer_phone as "customerPhone", customer_email as "customerEmail", description, quantity,
       requested_material as "requestedMaterial", requested_color as "requestedColor", requested_size as "requestedSize",
-      attachment_url as "attachmentUrl", status, internal_note as "internalNote", created_at as "createdAt"
+      attachment_path as "attachmentPath", status, internal_note as "internalNote", created_at as "createdAt"
     from custom_requests where id = $1`, [id]);
   return result.rows[0] ?? null;
 }

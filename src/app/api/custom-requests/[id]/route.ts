@@ -12,13 +12,13 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { actorId } = await requireAdmin();
+    const session = await requireAdmin();
     const id = uuidSchema.parse((await params).id);
-    const { status } = customRequestStatusUpdateSchema.parse(
+    const { status, overrideReason } = customRequestStatusUpdateSchema.parse(
       await request.json(),
     );
     return NextResponse.json(
-      await updateCustomRequestStatus(id, status, actorId),
+      await updateCustomRequestStatus(id, status, session.actorId, { role: session.role, overrideReason }),
     );
   } catch (error) {
     return apiError(error);

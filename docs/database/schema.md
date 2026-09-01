@@ -61,10 +61,10 @@ Phase 4 bổ sung giá trị `WEBSITE`
 (`supabase/migrations/20260831000000_public_custom_request_support.sql`) cho các
 yêu cầu gửi từ form công khai trên storefront (`POST /api/public/custom-requests`).
 
-### `custom_requests.attachment_url` (Phase 4)
-`text`, nullable, `check (attachment_url is null or char_length(attachment_url) <= 2000)`
-— link file/ảnh mẫu do khách tự dán (Google Drive, Dropbox...) khi gửi yêu cầu
-đặt in từ storefront. Chưa upload file trực tiếp ở phase này.
+### `custom_requests.attachment_path` (Hardening, ADR-0016)
+`text`, nullable — bucket-relative path của file khách upload vào private bucket
+`custom-request-attachments`. Không lưu public URL; admin lấy signed URL ngắn
+hạn sau khi xác thực server-side.
 
 ### Enum bổ sung từ Phase 1 migration (Codex, chưa qua Phase 0 nhưng đã review)
 Các enum sau chưa được thảo luận rõ ở Phase 0, do Codex tự quyết khi viết

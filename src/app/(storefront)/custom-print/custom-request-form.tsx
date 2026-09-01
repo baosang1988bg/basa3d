@@ -14,7 +14,7 @@ const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 
 export function CustomRequestForm() {
   const [state, setState] = useState<SubmitState>({ status: 'idle' });
-  const [attachmentUrl, setAttachmentUrl] = useState('');
+  const [attachmentPath, setAttachmentPath] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [upload, setUpload] = useState<UploadState>({ status: 'idle' });
   const [isDragging, setIsDragging] = useState(false);
@@ -43,8 +43,8 @@ export function CustomRequestForm() {
         setImagePreview(null);
         return;
       }
-      const { url } = (await response.json()) as { url: string };
-      setAttachmentUrl(url);
+      const { path } = (await response.json()) as { path: string };
+      setAttachmentPath(path);
       setUpload({ status: 'done', fileName: file.name });
     } catch {
       setUpload({ status: 'error', message: 'Không thể kết nối máy chủ, vui lòng thử lại.' });
@@ -83,7 +83,7 @@ export function CustomRequestForm() {
 
   function handleClearImage() {
     setImagePreview(null);
-    setAttachmentUrl('');
+    setAttachmentPath('');
     setUpload({ status: 'idle' });
   }
 
@@ -102,7 +102,7 @@ export function CustomRequestForm() {
       requestedMaterial: form.get('requestedMaterial') ? String(form.get('requestedMaterial')) : null,
       requestedColor: form.get('requestedColor') ? String(form.get('requestedColor')) : null,
       quantity: Number(form.get('quantity') ?? 1),
-      attachmentUrl: attachmentUrl.trim() !== '' ? attachmentUrl.trim() : null,
+      attachmentPath: attachmentPath.trim() !== '' ? attachmentPath.trim() : null,
       description: String(form.get('description') ?? ''),
       honeypot: String(form.get('company-website') ?? ''),
     };
@@ -125,7 +125,7 @@ export function CustomRequestForm() {
       setState({ status: 'success' });
       formElement.reset();
       setImagePreview(null);
-      setAttachmentUrl('');
+      setAttachmentPath('');
       setUpload({ status: 'idle' });
     } catch {
       setState({ status: 'error', message: 'Không thể kết nối máy chủ, vui lòng thử lại.' });
@@ -189,7 +189,7 @@ export function CustomRequestForm() {
       {/* Attachment area: Link or Ctrl+V Image Paste or File Dropzone (ảnh + file thiết kế 3D) */}
       <div className="flex flex-col gap-2 md:col-span-2">
         <div className="flex items-center justify-between">
-          <label htmlFor="attachmentUrl" className="text-sm font-semibold text-foreground">File đính kèm / Ảnh mẫu</label>
+          <span className="text-sm font-semibold text-foreground">File đính kèm / Ảnh mẫu</span>
           <span className="text-xs text-muted-foreground">Có thể <strong>Ctrl+V dán ảnh</strong> hoặc kéo thả file trực tiếp</span>
         </div>
 
@@ -198,7 +198,7 @@ export function CustomRequestForm() {
             <div className="size-4 shrink-0 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-primary" />
             <span className="text-sm text-muted-foreground">Đang tải lên {upload.fileName}...</span>
           </div>
-        ) : upload.status === 'done' && attachmentUrl ? (
+        ) : upload.status === 'done' && attachmentPath ? (
           <div className="relative flex items-center gap-4 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 dark:bg-emerald-950/20">
             <div className="relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-background">
               {imagePreview ? (
@@ -231,18 +231,9 @@ export function CustomRequestForm() {
             {upload.status === 'error' && upload.message ? (
               <p className="text-xs font-medium text-destructive">{upload.message}</p>
             ) : null}
-            <div className="flex items-center gap-2">
-              <LinkIcon className="size-4 text-muted-foreground shrink-0" />
-              <input
-                id="attachmentUrl"
-                name="attachmentUrl"
-                type="text"
-                maxLength={2000}
-                value={attachmentUrl}
-                onChange={(e) => setAttachmentUrl(e.target.value)}
-                placeholder="Dán link Google Drive, Dropbox, iCloud... hoặc link ảnh"
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
-              />
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <LinkIcon className="size-4 shrink-0" />
+              File được lưu riêng tư; chỉ nhân viên xử lý yêu cầu có thể mở.
             </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/50">
               <div className="flex items-center gap-1.5">

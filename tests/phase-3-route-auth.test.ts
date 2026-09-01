@@ -60,7 +60,10 @@ async function waitForServer(timeoutMs: number): Promise<void> {
 
 before(async () => {
   if (!process.env.DATABASE_URL) return;
-  serverProcess = spawn('npx', ['next', 'start', '-p', String(PORT)], {
+  try {
+    if ((await fetch(`${BASE_URL}/admin/login`)).ok) return;
+  } catch { /* start a dedicated server below */ }
+  serverProcess = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '-p', String(PORT)], {
     cwd: process.cwd(),
     env: process.env,
     stdio: 'ignore',

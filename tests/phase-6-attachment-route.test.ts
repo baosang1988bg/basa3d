@@ -7,7 +7,7 @@ import { Client } from 'pg';
 
 nextEnv.loadEnvConfig(process.cwd());
 
-const PORT = 3414;
+const PORT = 3411;
 const BASE_URL = `http://localhost:${PORT}`;
 
 let serverProcess: ChildProcess | undefined;
@@ -28,21 +28,23 @@ const canRunLiveServer = Boolean(process.env.DATABASE_URL && process.env.SUPABAS
 
 before(async () => {
   if (!canRunLiveServer) return;
-  serverProcess = spawn('npx', ['next', 'start', '-p', String(PORT)], { cwd: process.cwd(), env: process.env, stdio: 'ignore' });
+  try {
+    if ((await fetch(`${BASE_URL}/admin/login`)).ok) return;
+  } catch { /* start a dedicated server below */ }
+  serverProcess = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '-p', String(PORT)], { cwd: process.cwd(), env: process.env, stdio: 'ignore' });
   await waitForServer(30_000);
 });
 
 after(async () => { if (serverProcess) serverProcess.kill('SIGTERM'); });
 
-test('valid file upload returns 201 with a resolvable URL', { skip: !canRunLiveServer }, async () => {
+test('valid file upload returns a private storage path, not a public URL', { skip: !canRunLiveServer }, async () => {
   const body = new FormData();
   body.set('file', new Blob([new Uint8Array([1, 2, 3])], { type: 'model/stl' }), 'e2e-test.stl');
   const response = await fetch(`${BASE_URL}/api/public/custom-requests/attachments`, { method: 'POST', body });
   assert.equal(response.status, 201);
-  const { url } = await response.json();
-  assert.ok(url);
-  const fileResponse = await fetch(url);
-  assert.equal(fileResponse.status, 200);
+  const result = await response.json();
+  assert.match(result.path, /^requests\/.+\.stl$/);
+  assert.equal('url' in result, false);
 });
 
 test('an unsupported extension is rejected with 400, not uploaded', { skip: !canRunLiveServer }, async () => {
@@ -54,12 +56,12 @@ test('an unsupported extension is rejected with 400, not uploaded', { skip: !can
   assert.equal(responseBody.code, 'INVALID_FILE_TYPE');
 });
 
-test('uploading a real file then submitting the custom request with the returned URL persists a real Storage URL, not base64', { skip: !canRunLiveServer }, async () => {
+test('uploading a real file then submitting the custom request persists its private storage path', { skip: !canRunLiveServer }, async () => {
   const uploadBody = new FormData();
   uploadBody.set('file', new Blob([new Uint8Array([9, 9, 9])], { type: 'image/png' }), 'sample.png');
   const uploadResponse = await fetch(`${BASE_URL}/api/public/custom-requests/attachments`, { method: 'POST', body: uploadBody });
   assert.equal(uploadResponse.status, 201);
-  const { url: attachmentUrl } = await uploadResponse.json();
+  const { path: attachmentPath } = await uploadResponse.json();
 
   const phone = `05${randomUUID().replace(/\D/g, '').slice(0, 8)}`;
   const submitResponse = await fetch(`${BASE_URL}/api/public/custom-requests`, {
@@ -67,7 +69,7 @@ test('uploading a real file then submitting the custom request with the returned
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       customerName: 'Attachment Flow Test', customerPhone: phone, description: 'test full flow',
-      quantity: 1, attachmentUrl,
+      quantity: 1, attachmentPath,
     }),
   });
   assert.equal(submitResponse.status, 201);
@@ -76,9 +78,9 @@ test('uploading a real file then submitting the custom request with the returned
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
-    const row = await client.query('select attachment_url from custom_requests where id = $1', [id]);
-    assert.equal(row.rows[0].attachment_url, attachmentUrl);
-    assert.doesNotMatch(row.rows[0].attachment_url, /^data:/);
+    const row = await client.query('select attachment_path from custom_requests where id = $1', [id]);
+    assert.equal(row.rows[0].attachment_path, attachmentPath);
+    assert.doesNotMatch(row.rows[0].attachment_path, /^https?:/);
   } finally {
     await client.end();
   }

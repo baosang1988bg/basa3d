@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       requestedMaterial: input.requestedMaterial,
       requestedColor: input.requestedColor,
       requestedSize: input.requestedSize,
-      attachmentUrl: input.attachmentUrl,
+      attachmentPath: input.attachmentPath,
       sourceChannel: 'WEBSITE',
     }, null);
     return NextResponse.json(created, { status: 201 });

@@ -34,3 +34,12 @@ test('Phase 4 migration adds attachment_url, WEBSITE channel, and reverts actor_
   assert.match(migration, /add value 'WEBSITE'/);
   assert.match(migration, /alter column actor_id drop not null/);
 });
+
+test('hardening migrations make attachments private and staff deletion restrictive', async () => {
+  const attachmentMigration = await readFile(new URL('../supabase/migrations/20260901000000_hardening_private_attachments.sql', import.meta.url), 'utf8');
+  assert.match(attachmentMigration, /add column (?:if not exists )?attachment_path text/);
+  assert.match(attachmentMigration, /set public = false/);
+  assert.doesNotMatch(attachmentMigration, /drop column attachment_url/);
+  const staffMigration = await readFile(new URL('../supabase/migrations/20260901000001_staff_profiles_delete_restrict.sql', import.meta.url), 'utf8');
+  assert.match(staffMigration, /foreign key \(id\).*on delete restrict/);
+});
