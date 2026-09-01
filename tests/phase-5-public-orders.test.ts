@@ -1,40 +1,15 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { type ChildProcess, spawn } from 'node:child_process';
-import test, { after, before } from 'node:test';
+import test from 'node:test';
 import nextEnv from '@next/env';
 import { Client } from 'pg';
+import { createOrderConfirmationToken } from '../src/lib/order-confirmation-token.js';
 
 nextEnv.loadEnvConfig(process.cwd());
 
 const PORT = 3411;
 const BASE_URL = `http://localhost:${PORT}`;
 const WAREHOUSE_ID = '00000000-0000-4000-8000-000000000010'; // seeded warehouse, used by other test files too
-
-let serverProcess: ChildProcess | undefined;
-
-async function waitForServer(timeoutMs: number): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(`${BASE_URL}/`);
-      if (response.ok) return;
-    } catch { /* not up yet */ }
-    await new Promise((resolve) => setTimeout(resolve, 300));
-  }
-  throw new Error(`Server did not become ready on ${BASE_URL} within ${timeoutMs}ms`);
-}
-
-before(async () => {
-  if (!process.env.DATABASE_URL) return;
-  try {
-    if ((await fetch(`${BASE_URL}/admin/login`)).ok) return;
-  } catch { /* start a dedicated server below */ }
-  serverProcess = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '-p', String(PORT)], { cwd: process.cwd(), env: process.env, stdio: 'ignore' });
-  await waitForServer(30_000);
-});
-
-after(async () => { if (serverProcess) serverProcess.kill('SIGTERM'); });
 
 // Creates a fresh product + variant + a fixed on-hand stock, isolated per-test by random slug/sku,
 // mirroring the pattern already used in tests/phase-2-services.test.ts.
@@ -185,6 +160,22 @@ test('GET /api/public/orders/[orderNumber] returns minimal fields for a real ord
     const orderNumber = createdBody.orderNumber;
     const phoneRow = await client.query('select customer_phone from orders where id = $1', [createdBody.id]);
     const phoneSuffix = phoneRow.rows[0].customer_phone.replace(/\D/g, '').slice(-4);
+
+    assert.equal(typeof createdBody.confirmationToken, 'string');
+    const confirmed = await fetch(`${BASE_URL}/order-confirmation/${orderNumber}?token=${encodeURIComponent(createdBody.confirmationToken)}&phoneSuffix=${phoneSuffix}`);
+    assert.equal(confirmed.status, 200);
+    const confirmedHtml = await confirmed.text();
+    assert.match(confirmedHtml, /Test Customer/);
+    assert.match(confirmedHtml, new RegExp(phoneRow.rows[0].customer_phone));
+    assert.match(confirmedHtml, /123 Test St/);
+
+    for (const fallbackToken of ['invalid', createOrderConfirmationToken(createdBody.id, -1)]) {
+      const fallback = await fetch(`${BASE_URL}/order-confirmation/${orderNumber}?token=${encodeURIComponent(fallbackToken)}&phoneSuffix=${phoneSuffix}`);
+      assert.equal(fallback.status, 200);
+      const fallbackHtml = await fallback.text();
+      assert.doesNotMatch(fallbackHtml, new RegExp(phoneRow.rows[0].customer_phone));
+      assert.doesNotMatch(fallbackHtml, /123 Test St/);
+    }
 
     const unverified = await fetch(`${BASE_URL}/api/public/orders/${orderNumber}`);
     assert.equal(unverified.status, 400);

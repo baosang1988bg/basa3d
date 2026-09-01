@@ -4,6 +4,7 @@ import { DomainError } from '../lib/domain-error';
 import { assertAvailableStock, lockVariantForInventoryWrite, recordSaleOut } from './inventory.service';
 import { writeAuditLog } from './audit.service';
 import { pagination } from './product.service';
+import { verifyOrderConfirmationToken } from '../lib/order-confirmation-token';
 
 type OrderItemRequest = { variantId: string; quantity: number };
 type CreateOrderInput = { customerName: string; customerPhone: string; customerEmail?: string | null; shippingAddress?: Record<string, unknown>; shippingFee?: number; discount?: number; codFee?: number; customerNote?: string | null; items: OrderItemRequest[] };
@@ -186,6 +187,30 @@ export async function getOrderById(orderId: string) {
       quantity, unit_price as "unitPrice", line_total as "lineTotal"
     from order_items where order_id = $1 order by created_at`, [orderId]);
   return { ...result.rows[0], items: items.rows };
+}
+
+export async function getOrderConfirmationByToken(orderNumber: string, token: string) {
+  const verified = verifyOrderConfirmationToken(token);
+  if (!verified) return null;
+  const order = await getOrderById(verified.orderId);
+  if (!order || order.orderNumber !== orderNumber) return null;
+  return {
+    orderNumber: order.orderNumber,
+    customerName: order.customerName,
+    customerPhone: order.customerPhone,
+    shippingAddress: order.shippingAddress,
+    status: order.status,
+    paymentStatus: order.paymentStatus,
+    shippingStatus: order.shippingStatus,
+    subtotal: order.subtotal,
+    shippingFee: order.shippingFee,
+    discount: order.discount,
+    codFee: order.codFee,
+    total: order.total,
+    paymentMethod: order.customerNote?.startsWith('Thanh toán: Chuyển khoản') ? 'BANK_TRANSFER' : 'COD',
+    createdAt: order.createdAt,
+    items: order.items,
+  };
 }
 
 // Public lookup for GET /api/public/orders/[orderNumber] and the /order-confirmation page (phase-5.md

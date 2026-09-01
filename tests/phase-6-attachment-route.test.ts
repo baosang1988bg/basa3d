@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { type ChildProcess, spawn } from 'node:child_process';
-import test, { after, before } from 'node:test';
+import test from 'node:test';
 import nextEnv from '@next/env';
 import { Client } from 'pg';
 
@@ -9,38 +8,15 @@ nextEnv.loadEnvConfig(process.cwd());
 
 const PORT = 3411;
 const BASE_URL = `http://localhost:${PORT}`;
-
-let serverProcess: ChildProcess | undefined;
-
-async function waitForServer(timeoutMs: number): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(`${BASE_URL}/`);
-      if (response.ok) return;
-    } catch { /* not up yet */ }
-    await new Promise((resolve) => setTimeout(resolve, 300));
-  }
-  throw new Error(`Server did not become ready on ${BASE_URL} within ${timeoutMs}ms`);
-}
+const TEST_IP = `198.51.100.${Number.parseInt(randomUUID().slice(0, 2), 16) % 250 + 1}`;
+const TEST_HEADERS = { 'x-forwarded-for': TEST_IP };
 
 const canRunLiveServer = Boolean(process.env.DATABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
-
-before(async () => {
-  if (!canRunLiveServer) return;
-  try {
-    if ((await fetch(`${BASE_URL}/admin/login`)).ok) return;
-  } catch { /* start a dedicated server below */ }
-  serverProcess = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '-p', String(PORT)], { cwd: process.cwd(), env: process.env, stdio: 'ignore' });
-  await waitForServer(30_000);
-});
-
-after(async () => { if (serverProcess) serverProcess.kill('SIGTERM'); });
 
 test('valid file upload returns a private storage path, not a public URL', { skip: !canRunLiveServer }, async () => {
   const body = new FormData();
   body.set('file', new Blob([new Uint8Array([1, 2, 3])], { type: 'model/stl' }), 'e2e-test.stl');
-  const response = await fetch(`${BASE_URL}/api/public/custom-requests/attachments`, { method: 'POST', body });
+  const response = await fetch(`${BASE_URL}/api/public/custom-requests/attachments`, { method: 'POST', headers: TEST_HEADERS, body });
   assert.equal(response.status, 201);
   const result = await response.json();
   assert.match(result.path, /^requests\/.+\.stl$/);
@@ -50,7 +26,7 @@ test('valid file upload returns a private storage path, not a public URL', { ski
 test('an unsupported extension is rejected with 400, not uploaded', { skip: !canRunLiveServer }, async () => {
   const body = new FormData();
   body.set('file', new Blob([new Uint8Array([1, 2, 3])]), 'model.blend');
-  const response = await fetch(`${BASE_URL}/api/public/custom-requests/attachments`, { method: 'POST', body });
+  const response = await fetch(`${BASE_URL}/api/public/custom-requests/attachments`, { method: 'POST', headers: TEST_HEADERS, body });
   assert.equal(response.status, 400);
   const responseBody = await response.json();
   assert.equal(responseBody.code, 'INVALID_FILE_TYPE');
@@ -59,7 +35,7 @@ test('an unsupported extension is rejected with 400, not uploaded', { skip: !can
 test('uploading a real file then submitting the custom request persists its private storage path', { skip: !canRunLiveServer }, async () => {
   const uploadBody = new FormData();
   uploadBody.set('file', new Blob([new Uint8Array([9, 9, 9])], { type: 'image/png' }), 'sample.png');
-  const uploadResponse = await fetch(`${BASE_URL}/api/public/custom-requests/attachments`, { method: 'POST', body: uploadBody });
+  const uploadResponse = await fetch(`${BASE_URL}/api/public/custom-requests/attachments`, { method: 'POST', headers: TEST_HEADERS, body: uploadBody });
   assert.equal(uploadResponse.status, 201);
   const { path: attachmentPath } = await uploadResponse.json();
 
@@ -93,7 +69,7 @@ test('exceeding the per-IP upload rate limit returns 429', { skip: !canRunLiveSe
   for (let i = 0; i < 11; i += 1) {
     const body = new FormData();
     body.set('file', new Blob([new Uint8Array([i])]), `rl-${i}.png`);
-    const response = await fetch(`${BASE_URL}/api/public/custom-requests/attachments`, { method: 'POST', body });
+    const response = await fetch(`${BASE_URL}/api/public/custom-requests/attachments`, { method: 'POST', headers: TEST_HEADERS, body });
     lastStatus = response.status;
     if (response.status === 429) break;
   }

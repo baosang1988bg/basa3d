@@ -54,7 +54,9 @@ export default function CheckoutPage() {
       }
       clearCart();
       const phoneSuffix = payload.customerPhone.replace(/\D/g, '').slice(-4);
-      router.push(`/order-confirmation/${body.orderNumber}?phoneSuffix=${encodeURIComponent(phoneSuffix)}`);
+      const confirmationQuery = new URLSearchParams({ phoneSuffix });
+      if (typeof body.confirmationToken === 'string') confirmationQuery.set('token', body.confirmationToken);
+      router.push(`/order-confirmation/${body.orderNumber}?${confirmationQuery.toString()}`);
     } catch {
       setState({ status: 'error', message: 'Không thể kết nối máy chủ, vui lòng thử lại.' });
     }

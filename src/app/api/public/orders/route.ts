@@ -4,6 +4,7 @@ import { apiError } from '../../../../lib/api';
 import { query } from '../../../../lib/db';
 import { publicCheckoutOrderInputSchema } from '../../../../domain/schemas';
 import { createOrder } from '../../../../services/order.service';
+import { createOrderConfirmationToken } from '../../../../lib/order-confirmation-token';
 
 // MVP spam defense (phase-5.md Risks section) — honeypot + phone-based rate limiting only, same
 // pattern as POST /api/public/custom-requests (Phase 4). Threshold is looser than that route's
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
       customerNote,
       items: input.items,
     }, null);
-    return NextResponse.json(created, { status: 201 });
+    return NextResponse.json({ ...created, confirmationToken: createOrderConfirmationToken(created.id) }, { status: 201 });
   } catch (error) {
     return apiError(error);
   }

@@ -1,26 +1,26 @@
-type AttemptMap = Map<string, number[]>;
+import { withTransaction } from './db';
+import { createHash } from 'node:crypto';
 
-const CLEANUP_INTERVAL_MS = 5 * 60_000;
-
-export function createInMemoryRateLimiter(input: { maxRequests: number; windowMs: number }) {
-  const attempts: AttemptMap = new Map();
-
-  function cleanup(now: number) {
-    for (const [key, timestamps] of attempts) {
-      const recent = timestamps.filter((timestamp) => now - timestamp < input.windowMs);
-      if (recent.length === 0) attempts.delete(key);
-      else attempts.set(key, recent);
-    }
-  }
-
-  const cleanupTimer = setInterval(() => cleanup(Date.now()), CLEANUP_INTERVAL_MS);
-  cleanupTimer.unref();
-
-  return function isRateLimited(key: string): boolean {
-    const now = Date.now();
-    const recent = (attempts.get(key) ?? []).filter((timestamp) => now - timestamp < input.windowMs);
-    recent.push(now);
-    attempts.set(key, recent);
-    return recent.length > input.maxRequests;
+export function createDatabaseRateLimiter(input: { scope: string; maxRequests: number; windowMs: number }) {
+  return async function isRateLimited(key: string): Promise<boolean> {
+    const storedKey = createHash('sha256').update(key).digest('hex');
+    return withTransaction(async (client) => {
+      await client.query('delete from rate_limit_attempts where window_expires_at <= now()');
+      const result = await client.query<{ attempt_count: number }>(`
+        insert into rate_limit_attempts (scope, limiter_key, attempt_count, window_expires_at)
+        values ($1, $2, 1, now() + ($3::bigint * interval '1 millisecond'))
+        on conflict (scope, limiter_key) do update set
+          attempt_count = case
+            when rate_limit_attempts.window_expires_at <= now() then 1
+            else rate_limit_attempts.attempt_count + 1
+          end,
+          window_expires_at = case
+            when rate_limit_attempts.window_expires_at <= now()
+              then now() + ($3::bigint * interval '1 millisecond')
+            else rate_limit_attempts.window_expires_at
+          end
+        returning attempt_count`, [input.scope, storedKey, input.windowMs]);
+      return result.rows[0].attempt_count > input.maxRequests;
+    });
   };
 }

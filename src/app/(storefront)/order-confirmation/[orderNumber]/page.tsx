@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { CheckCircle2 } from 'lucide-react';
-import { getPublicOrderByNumber } from '@/services/order.service';
+import { getOrderConfirmationByToken, getPublicOrderByNumber } from '@/services/order.service';
 import { formatVnd } from '@/components/storefront/format';
 import { storefrontButtonClasses } from '@/components/storefront/button';
 import { SITE_CONFIG } from '@/config/site';
@@ -20,11 +20,11 @@ function formatAddress(address: Record<string, unknown>): string {
   return [address.line1, address.ward, address.city].filter((part) => typeof part === 'string' && part.trim() !== '').join(', ');
 }
 
-export default async function OrderConfirmationPage({ params, searchParams }: { params: Promise<{ orderNumber: string }>; searchParams: Promise<{ phoneSuffix?: string }> }) {
+export default async function OrderConfirmationPage({ params, searchParams }: { params: Promise<{ orderNumber: string }>; searchParams: Promise<{ phoneSuffix?: string; token?: string }> }) {
   const { orderNumber } = await params;
-  const { phoneSuffix = '' } = await searchParams;
-  if (!/^\d{4}$/.test(phoneSuffix)) notFound();
-  const order = await getPublicOrderByNumber(orderNumber, phoneSuffix);
+  const { phoneSuffix = '', token = '' } = await searchParams;
+  const tokenOrder = token ? await getOrderConfirmationByToken(orderNumber, token) : null;
+  const order = tokenOrder ?? (/^\d{4}$/.test(phoneSuffix) ? await getPublicOrderByNumber(orderNumber, phoneSuffix) : null);
   if (!order) notFound();
 
   const bankTransfer = order.paymentMethod === 'BANK_TRANSFER';

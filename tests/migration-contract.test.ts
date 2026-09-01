@@ -43,3 +43,10 @@ test('hardening migrations make attachments private and staff deletion restricti
   const staffMigration = await readFile(new URL('../supabase/migrations/20260901000001_staff_profiles_delete_restrict.sql', import.meta.url), 'utf8');
   assert.match(staffMigration, /foreign key \(id\).*on delete restrict/);
 });
+
+test('hardening follow-up migration creates the shared rate-limit store', async () => {
+  const migration = await readFile(new URL('../supabase/migrations/20260901000002_rate_limit_attempts.sql', import.meta.url), 'utf8');
+  assert.match(migration, /create table rate_limit_attempts/);
+  assert.match(migration, /primary key \(scope, limiter_key\)/);
+  assert.match(migration, /window_expires_at/);
+});
