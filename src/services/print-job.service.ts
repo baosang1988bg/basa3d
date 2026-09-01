@@ -2,7 +2,7 @@ import { query, withTransaction } from '../lib/db';
 import { DomainError } from '../lib/domain-error';
 import { writeAuditLog } from './audit.service';
 import { pagination } from './product.service';
-import { resolveWarehouseForMaterial } from './inventory.service';
+import { lockMaterialForInventoryWrite, resolveWarehouseForMaterial } from './inventory.service';
 
 type PrintJobSummary = {
   id: string; orderId: string | null; customRequestId: string | null; quoteId: string | null;
@@ -70,9 +70,21 @@ export async function recordPrintJobActuals(id: string, input: { actualWeightGra
 // request that reads the row after the first one's commit is rejected here, before it ever reaches
 // the stock deduction below. This guard applies ONLY to transitions targeting PRINTING — every other
 // status change is intentionally left unvalidated (out of scope for Phase 6, see phase-6.md).
-const PRINTING_ENTRY_STATUSES = new Set(['QUEUED', 'REPRINT']);
+export const PRINT_JOB_STATUS_TRANSITIONS: Record<string, string[]> = {
+  QUEUED: ['PRINTING', 'CANCELLED'],
+  PRINTING: ['QC', 'FAILED', 'CANCELLED'],
+  FAILED: ['REPRINT', 'CANCELLED'],
+  REPRINT: ['PRINTING', 'CANCELLED'],
+  QC: ['COMPLETED', 'REPRINT', 'CANCELLED'],
+  COMPLETED: [],
+  CANCELLED: [],
+};
 
-export async function updatePrintJobStatus(id: string, status: string, actorId: string) {
+export function nextPrintJobStatuses(status: string) {
+  return PRINT_JOB_STATUS_TRANSITIONS[status] ?? [];
+}
+
+export async function updatePrintJobStatus(id: string, status: string, actorId: string, authorization?: { role: 'OWNER' | 'STAFF'; overrideReason?: string }) {
   return withTransaction(async (client) => {
     // Lock first, then validate/write — same ordering as updateOrderStatus/createOrder
     // ("lock-by-proxy", order.service.ts) — is what makes the PRINTING-transition guard below
@@ -83,15 +95,18 @@ export async function updatePrintJobStatus(id: string, status: string, actorId: 
     );
     if (!current.rowCount) throw new DomainError('PRINT_JOB_NOT_FOUND', 'Print job was not found.', 404);
     const previousStatus = current.rows[0].status;
+    const isForward = nextPrintJobStatuses(previousStatus).includes(status);
+    const isOwnerOverride = authorization?.role === 'OWNER' && Boolean(authorization.overrideReason?.trim());
+    if (!isForward && !isOwnerOverride) {
+      throw new DomainError('INVALID_PRINT_JOB_TRANSITION', `Cannot transition print job from ${previousStatus} to ${status}.`, 409);
+    }
 
     if (status === 'PRINTING') {
-      if (!PRINTING_ENTRY_STATUSES.has(previousStatus)) {
-        throw new DomainError('INVALID_PRINT_JOB_TRANSITION', `Cannot transition print job from ${previousStatus} to PRINTING.`, 409);
-      }
       const { material_id: materialId, estimated_weight_grams: estimatedWeightGrams } = current.rows[0];
       if (!materialId || estimatedWeightGrams == null) {
         throw new DomainError('PRINT_JOB_MATERIAL_REQUIRED', 'Cần gán vật liệu và khối lượng ước tính trước khi bắt đầu in.', 409);
       }
+      await lockMaterialForInventoryWrite(client, materialId);
       const warehouseId = await resolveWarehouseForMaterial(client, materialId, estimatedWeightGrams);
       const movement = await client.query<{ id: string }>(`
         insert into material_movements (warehouse_id, material_id, movement_type, quantity, reference_type, reference_id, created_by)
@@ -101,7 +116,10 @@ export async function updatePrintJobStatus(id: string, status: string, actorId: 
     }
 
     const result = await client.query('update print_jobs set status = $2 where id = $1 returning id, status', [id, status]);
-    await writeAuditLog(client, { actorId, action: 'PRINT_JOB_STATUS_UPDATED', entityType: 'print_job', entityId: id, beforeData: { status: previousStatus }, afterData: result.rows[0] });
+    await writeAuditLog(client, {
+      actorId, action: isForward ? 'PRINT_JOB_STATUS_UPDATED' : 'PRINT_JOB_STATUS_OVERRIDDEN', entityType: 'print_job', entityId: id,
+      beforeData: { status: previousStatus }, afterData: { ...result.rows[0], overrideReason: isForward ? undefined : authorization?.overrideReason },
+    });
     return result.rows[0];
   });
 }

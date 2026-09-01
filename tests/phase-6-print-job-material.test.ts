@@ -105,6 +105,39 @@ test('two concurrent QUEUED->PRINTING requests only deduct stock once', { skip: 
   }
 });
 
+test('two different print jobs competing for the last material stock: exactly one starts', { skip: !process.env.DATABASE_URL }, async () => {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    const first = await seedPrintJobFixture(client);
+    const secondRequestId = randomUUID();
+    const secondJobId = randomUUID();
+    await client.query(
+      `insert into custom_requests (id, request_number, source_channel, customer_name, customer_phone, description, quantity)
+       values ($1,$2,'OTHER','Second Material Race','0900000001','test',1)`,
+      [secondRequestId, `CR-${secondRequestId.slice(0, 8).toUpperCase()}`],
+    );
+    await client.query(`insert into print_jobs (id, custom_request_id, status) values ($1,$2,'QUEUED')`, [secondJobId, secondRequestId]);
+    // Fixture starts with 1000g; each job asks for 700g, so serialization must reject one.
+    await assignPrintJobMaterial(first.printJobId, { materialId: first.materialId, estimatedWeightGrams: 700 }, ACTOR_ID);
+    await assignPrintJobMaterial(secondJobId, { materialId: first.materialId, estimatedWeightGrams: 700 }, ACTOR_ID);
+
+    const results = await Promise.allSettled([
+      updatePrintJobStatus(first.printJobId, 'PRINTING', ACTOR_ID),
+      updatePrintJobStatus(secondJobId, 'PRINTING', ACTOR_ID),
+    ]);
+    assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
+    const rejected = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
+    assert.ok(rejected?.reason instanceof DomainError);
+    assert.equal(rejected.reason.code, 'INSUFFICIENT_MATERIAL_STOCK');
+
+    const balance = await client.query('select sum(quantity) as balance from material_movements where material_id = $1', [first.materialId]);
+    assert.equal(Number(balance.rows[0].balance), 300);
+  } finally {
+    await client.end();
+  }
+});
+
 test('a REPRINT after FAILED deducts stock a second time, not blocked as a false double-consumption', { skip: !process.env.DATABASE_URL }, async () => {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
@@ -153,3 +186,16 @@ test('resolveWarehouseForMaterial-driven deduction fails clearly when no warehou
   }
 });
 
+test('print job terminal and backward transitions are rejected for regular operations', { skip: !process.env.DATABASE_URL }, async () => {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    const { printJobId } = await seedPrintJobFixture(client);
+    await assert.rejects(
+      () => updatePrintJobStatus(printJobId, 'COMPLETED', ACTOR_ID),
+      (error: unknown) => error instanceof DomainError && error.code === 'INVALID_PRINT_JOB_TRANSITION',
+    );
+  } finally {
+    await client.end();
+  }
+});

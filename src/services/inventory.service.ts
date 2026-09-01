@@ -86,12 +86,18 @@ export async function recordSaleOut(client: PoolClient, input: { variantId: stri
 
 export async function recordMaterialMovement(input: { warehouseId: string; materialId: string; movementType: string; quantity: number; unitCost?: number | null; referenceType?: string | null; referenceId?: string | null; note?: string | null }, actorId: string) {
   return withTransaction(async (client) => {
+    await lockMaterialForInventoryWrite(client, input.materialId);
     const result = await client.query<{ id: string }>(`
       insert into material_movements (warehouse_id, material_id, movement_type, quantity, unit_cost, reference_type, reference_id, note, created_by)
       values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning id`, [input.warehouseId, input.materialId, input.movementType, input.quantity, input.unitCost ?? null, input.referenceType ?? null, input.referenceId ?? null, input.note ?? null, actorId]);
     if (input.movementType.startsWith('ADJUSTMENT')) await writeAuditLog(client, { actorId, action: 'MATERIAL_ADJUSTED', entityType: 'material_movement', entityId: result.rows[0].id, afterData: input });
     return result.rows[0];
   });
+}
+
+export async function lockMaterialForInventoryWrite(client: PoolClient, materialId: string): Promise<void> {
+  const result = await client.query('select id from materials where id = $1 for update', [materialId]);
+  if (!result.rowCount) throw new DomainError('MATERIAL_NOT_FOUND', 'Material was not found.', 404);
 }
 
 // Mirrors resolveWarehouseForSale — materials have no "default warehouse" concept either, so the
