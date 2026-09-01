@@ -8,6 +8,25 @@
 > Claude re-verify độc lập bằng cách đọc trực tiếp file:line liên quan trước
 > khi ghi vào đây — không lặp lại các mục D-01 đến D-11 đã pass.
 
+## Quyết định đã chốt (OWNER, 2026-09-01)
+
+1. **F-01 — Cơ chế phiên order-confirmation:** Signed short-lived token gắn
+   vào URL redirect lúc checkout thành công (ví dụ HMAC theo `order_id` +
+   thời hạn hết hạn, ~30–60 phút), không dùng cookie. Trang confirmation xác
+   thực token này để trả **đầy đủ** thông tin đơn (không mask); token hết
+   hạn/không hợp lệ thì rơi về đúng luồng public lookup (mask PII + xác thực
+   4 số cuối SĐT) như người lạ.
+2. **F-01 — Rate limiter shared store:** Chuyển sang một bảng Postgres/
+   Supabase (ví dụ `rate_limit_attempts`), không thêm dependency/dịch vụ mới
+   (đúng AGENTS.md rule #8). Gộp chung cho cả `orders` lookup và
+   `custom-requests/attachments` upload.
+3. **F-02 — Quy trình MTO thủ công:** Giữ nguyên logic hiện tại (order vào
+   `PRODUCING` chỉ tự động tạo `print_jobs` rỗng; staff chủ động gán vật
+   liệu/khối lượng qua `assignPrintJobMaterial()` rồi mới chuyển print job
+   sang `PRINTING` để thực sự trừ kho). Không cần đổi code — chỉ sửa lại câu
+   chữ ADR-0017 cho đúng thực tế 2 bước (tự động tạo job / thủ công trừ
+   nguyên liệu).
+
 ## Mục đích
 
 Đây không phải một phase mới độc lập — là phần còn thiếu của phase hardening
@@ -208,10 +227,21 @@ file; có ít nhất 1 test D-11 gọi xóa Auth user thật và assert bị ch�
 
 ## Checklist
 
-- [ ] **F-01 (BLOCKER):** Session/token-bound proof cho order-confirmation;
-      rate limiter chuyển sang shared store.
+### Trước khi giao Codex
+- [x] F-01 quyết định cơ chế token + rate limiter store (OWNER, xem "Quyết
+      định đã chốt")
+- [x] F-02 xác nhận quy trình thủ công hiện tại đúng ý OWNER (xem "Quyết
+      định đã chốt")
+- [x] F-03, F-04 không có câu hỏi mở — thuần kỹ thuật
+
+### Việc cần làm
+- [ ] **F-01 (BLOCKER):** Signed short-lived token cho order-confirmation
+      (thay `phoneSuffix` query param); bảng `rate_limit_attempts` trong
+      Postgres thay cho in-memory Map, dùng chung cho `orders` lookup và
+      `custom-requests/attachments`.
 - [ ] **F-02 (IMPORTANT):** Sửa câu chữ ADR-0017 tách rõ 2 bước tạo print
-      job (tự động) và tiêu hao nguyên liệu (thủ công qua staff).
+      job (tự động) và tiêu hao nguyên liệu (thủ công qua staff) — không đổi
+      code.
 - [ ] **F-03 (IMPORTANT):** Thêm test rollback upload + dọn cover cũ cho D-08.
 - [ ] **F-04 (SUGGESTION):** Gom shared live-server cho test suite; thêm
       test hành vi thật cho D-11 FK RESTRICT.
