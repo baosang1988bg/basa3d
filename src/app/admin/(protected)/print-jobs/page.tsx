@@ -3,10 +3,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { listPrintJobs } from '@/services/print-job.service';
+import { listPrintJobs, nextPrintJobStatuses } from '@/services/print-job.service';
 import { updatePrintJobStatusAction } from '../custom-requests/actions';
-
-const PRINT_JOB_STATUSES = ['QUEUED', 'PRINTING', 'FAILED', 'REPRINT', 'QC', 'COMPLETED', 'CANCELLED'];
 
 export default async function PrintJobsPage() {
   const { items: printJobs } = await listPrintJobs({ limit: 100 });
@@ -45,10 +43,11 @@ export default async function PrintJobsPage() {
                   <TableCell>{new Date(job.createdAt).toLocaleString('vi-VN')}</TableCell>
                   <TableCell className="text-right">
                     <form action={updatePrintJobStatusAction.bind(null, job.id)} className="flex justify-end gap-2">
-                      <select name="status" defaultValue={job.status} className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm">
-                        {PRINT_JOB_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}
+                      <select name="status" defaultValue="" required className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm">
+                        <option value="" disabled>— Chọn —</option>
+                        {nextPrintJobStatuses(job.status).map((status) => <option key={status} value={status}>{status}</option>)}
                       </select>
-                      <Button type="submit" size="sm" variant="outline">Lưu</Button>
+                      <Button type="submit" size="sm" variant="outline" disabled={nextPrintJobStatuses(job.status).length === 0}>Lưu</Button>
                     </form>
                   </TableCell>
                 </TableRow>

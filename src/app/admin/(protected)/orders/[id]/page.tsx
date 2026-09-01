@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { canTransitionOrderStatus, getOrderById } from '@/services/order.service';
+import { canTransitionOrderStatus, getOrderById, nextPaymentStatuses, nextShippingStatuses } from '@/services/order.service';
+import { requireAdmin } from '@/lib/auth/require-admin';
 import { updateOrderAdminFieldsAction, updateOrderStatusAction } from '../actions';
 
 const ORDER_STATUSES = ['NEW', 'CONFIRMED', 'PRODUCING', 'READY_TO_SHIP', 'SHIPPED', 'COMPLETED', 'CANCELLED'];
@@ -14,10 +15,12 @@ const SHIPPING_STATUSES = ['PENDING', 'SHIPPED', 'DELIVERED', 'RETURNED'];
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const order = await getOrderById(id);
+  const [session, order] = await Promise.all([requireAdmin(), getOrderById(id)]);
   if (!order) notFound();
 
   const nextStatusCandidates = ORDER_STATUSES.filter((candidate) => canTransitionOrderStatus(order.status, candidate));
+  const paymentOptions = session.role === 'OWNER' ? PAYMENT_STATUSES : [order.paymentStatus, ...nextPaymentStatuses(order.paymentStatus)];
+  const shippingOptions = session.role === 'OWNER' ? SHIPPING_STATUSES : [order.shippingStatus, ...nextShippingStatuses(order.shippingStatus)];
 
   return (
     <div className="flex flex-col gap-6">
@@ -116,13 +119,13 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="paymentStatus">Trạng thái thanh toán</Label>
                 <select id="paymentStatus" name="paymentStatus" defaultValue={order.paymentStatus} className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm">
-                  {PAYMENT_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}
+                  {paymentOptions.map((status) => <option key={status} value={status}>{status}</option>)}
                 </select>
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="shippingStatus">Trạng thái vận chuyển</Label>
                 <select id="shippingStatus" name="shippingStatus" defaultValue={order.shippingStatus} className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm">
-                  {SHIPPING_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}
+                  {shippingOptions.map((status) => <option key={status} value={status}>{status}</option>)}
                 </select>
               </div>
             </div>
@@ -130,6 +133,12 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
               <Label htmlFor="adminNote">Ghi chú nội bộ</Label>
               <Textarea id="adminNote" name="adminNote" defaultValue={order.adminNote ?? ''} />
             </div>
+            {session.role === 'OWNER' ? (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="overrideReason">Lý do override (bắt buộc nếu đi ngược workflow)</Label>
+                <Textarea id="overrideReason" name="overrideReason" maxLength={500} />
+              </div>
+            ) : null}
             <div>
               <Button type="submit" size="sm">Lưu thay đổi</Button>
             </div>

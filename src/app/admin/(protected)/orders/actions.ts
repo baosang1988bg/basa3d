@@ -11,21 +11,23 @@ function readFormValue(formData: FormData, key: string): string | undefined {
 }
 
 export async function updateOrderStatusAction(orderId: string, formData: FormData) {
-  const { actorId } = await requireAdmin();
+  const session = await requireAdmin();
   const input = orderStatusUpdateSchema.parse({ status: formData.get('status') });
-  await updateOrderStatus(orderId, input.status, actorId);
+  await updateOrderStatus(orderId, input.status, session.actorId);
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath('/admin/orders');
 }
 
 export async function updateOrderAdminFieldsAction(orderId: string, formData: FormData) {
-  const { actorId } = await requireAdmin();
+  const session = await requireAdmin();
   const patch = orderAdminUpdateSchema.parse({
     paymentStatus: readFormValue(formData, 'paymentStatus'),
     shippingStatus: readFormValue(formData, 'shippingStatus'),
     adminNote: formData.has('adminNote') ? (readFormValue(formData, 'adminNote') ?? null) : undefined,
+    overrideReason: readFormValue(formData, 'overrideReason'),
   });
-  await updateOrderPaymentAndShipping(orderId, patch, actorId);
+  const { overrideReason, ...statusPatch } = patch;
+  await updateOrderPaymentAndShipping(orderId, statusPatch, session.actorId, { role: session.role, overrideReason });
   revalidatePath(`/admin/orders/${orderId}`);
   revalidatePath('/admin/orders');
 }

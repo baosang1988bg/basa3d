@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { getPrintJobById } from '@/services/print-job.service';
+import { getPrintJobById, nextPrintJobStatuses } from '@/services/print-job.service';
+import { requireAdmin } from '@/lib/auth/require-admin';
 import { listMaterials, listMaterialMovementsByReference } from '@/services/inventory.service';
 import { updatePrintJobStatusAction } from '../../custom-requests/actions';
 import { assignPrintJobMaterialAction, recordPrintJobActualsAction } from '../actions';
@@ -22,12 +23,16 @@ function formatVariance(estimated: number | null, actual: number | null) {
 
 export default async function PrintJobDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [printJob, materials, movements] = await Promise.all([
+  const [session, printJob, materials, movements] = await Promise.all([
+    requireAdmin(),
     getPrintJobById(id),
     listMaterials(),
     listMaterialMovementsByReference('print_job', id),
   ]);
   if (!printJob) notFound();
+  const statusOptions = session.role === 'OWNER'
+    ? PRINT_JOB_STATUSES.filter((status) => status !== printJob.status)
+    : nextPrintJobStatuses(printJob.status);
 
   const variance = formatVariance(printJob.estimatedWeightGrams, printJob.actualWeightGrams);
 
@@ -54,11 +59,13 @@ export default async function PrintJobDetailPage({ params }: { params: Promise<{
           <form action={updatePrintJobStatusAction.bind(null, id)} className="flex items-end gap-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="status">Cập nhật trạng thái</Label>
-              <select id="status" name="status" defaultValue={printJob.status} className="h-8 cursor-pointer rounded-lg border border-input bg-transparent px-2.5 text-sm">
-                {PRINT_JOB_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}
+              <select id="status" name="status" defaultValue="" required className="h-8 cursor-pointer rounded-lg border border-input bg-transparent px-2.5 text-sm">
+                <option value="" disabled>— Chọn trạng thái —</option>
+                {statusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
               </select>
             </div>
-            <Button type="submit" size="sm" className="cursor-pointer">Lưu</Button>
+            {session.role === 'OWNER' ? <Input name="overrideReason" placeholder="Lý do nếu override" className="w-64" /> : null}
+            <Button type="submit" size="sm" className="cursor-pointer" disabled={statusOptions.length === 0}>Lưu</Button>
           </form>
           <p className="mt-2 text-xs text-muted-foreground">
             Chuyển sang PRINTING sẽ tự động trừ kho nguyên liệu theo khối lượng ước tính bên dưới — cần gán vật liệu trước.

@@ -51,10 +51,10 @@ test('publicCustomRequestInputSchema rejects a client-supplied sourceChannel', (
   assert.equal(result.success, false);
 });
 
-test('publicCustomRequestInputSchema accepts a valid attachmentUrl and rejects a non-URL one', () => {
+test('publicCustomRequestInputSchema accepts a server-issued attachment path and rejects URLs', () => {
   const base = { customerName: 'Test', customerPhone: '0900000000', description: 'Test request', quantity: 1 };
-  assert.equal(publicCustomRequestInputSchema.safeParse({ ...base, attachmentUrl: 'https://drive.google.com/file/d/abc' }).success, true);
-  assert.equal(publicCustomRequestInputSchema.safeParse({ ...base, attachmentUrl: 'not-a-url' }).success, false);
+  assert.equal(publicCustomRequestInputSchema.safeParse({ ...base, attachmentPath: 'requests/00000000-0000-4000-8000-000000000001.stl' }).success, true);
+  assert.equal(publicCustomRequestInputSchema.safeParse({ ...base, attachmentPath: 'https://example.com/model.stl' }).success, false);
 });
 
 // phase-5.md decision #2 / challenge-review BLOCKER: checkoutOrderInputSchema lets a trusted STAFF

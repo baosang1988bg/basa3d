@@ -181,7 +181,7 @@ export const publicCustomRequestInputSchema = z.object({
   requestedMaterial: z.string().trim().max(100).nullable().optional(),
   requestedColor: z.string().trim().max(100).nullable().optional(),
   requestedSize: z.string().trim().max(100).nullable().optional(),
-  attachmentUrl: z.string().trim().url().max(2000).nullable().optional(),
+  attachmentPath: z.string().trim().min(1).max(500).regex(/^requests\/[0-9a-f-]+\.(?:jpg|jpeg|png|webp|stl|step|stp|obj|3mf)$/).nullable().optional(),
   honeypot: z.string().trim().max(200).optional().default(''),
 }).strict();
 
@@ -251,6 +251,7 @@ export const orderAdminUpdateSchema = z.object({
   paymentStatus: paymentStatusSchema.optional(),
   shippingStatus: shippingStatusSchema.optional(),
   adminNote: z.string().trim().max(2_000).nullable().optional(),
+  overrideReason: z.string().trim().min(1).max(500).optional(),
 }).strict();
 export const staffCreateInputSchema = z.object({
   email: z.string().trim().email().max(320),
@@ -281,9 +282,9 @@ export const variantUpdateInputSchema = z.object({
   weightGrams: safeInteger.nonnegative().nullable().optional(),
   isActive: z.boolean().optional(),
 }).strict();
-export const customRequestStatusUpdateSchema = z.object({ status: customRequestStatusSchema }).strict();
+export const customRequestStatusUpdateSchema = z.object({ status: customRequestStatusSchema, overrideReason: z.string().trim().min(1).max(500).optional() }).strict();
 export const quoteAcceptSchema = z.object({ status: z.literal('ACCEPTED') }).strict();
-export const printJobStatusUpdateSchema = z.object({ status: printJobStatusSchema }).strict();
+export const printJobStatusUpdateSchema = z.object({ status: printJobStatusSchema, overrideReason: z.string().trim().min(1).max(500).optional() }).strict();
 
 export const blogPostStatusSchema = z.enum(['DRAFT', 'PUBLISHED']);
 
