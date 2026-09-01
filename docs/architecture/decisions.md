@@ -148,3 +148,52 @@ Two Phase 5 additions deliberately avoid new `orders` columns:
   `order.service.ts`) that excludes `customer_email` and `admin_note`; there is no listing/search
   variant of this query, only exact-`order_number` lookup, so it cannot be used to enumerate other
   customers' orders. Full detail: `docs/exec-plans/completed/phase-5.md`.
+
+## ADR-0016 — Private storage bucket for custom request 3D attachments
+
+Status: accepted (Debate 2026-09-01)
+
+Customer 3D models (STL/STEP/3MF/OBJ) contain proprietary intellectual property and confidential design data.
+- The `custom-request-attachments` bucket is changed to `public = false`.
+- The database stores relative `attachment_path` (e.g. `requests/uuid.stl`), never a public URL.
+- Admins access attachments via short-lived (15–30 min) server-generated Signed URLs verified behind `requireAdmin()`.
+- Public intake routes upload directly via server action / service-role without exposing public bucket URLs.
+
+## ADR-0017 — `MADE_TO_ORDER` catalog & order checkout lifecycle
+
+Status: accepted (Debate 2026-09-01)
+
+`MADE_TO_ORDER` products represent standard designs printed on-demand without pre-existing finished goods stock.
+- Storefront displays `MADE_TO_ORDER` as available for ordering ("In theo yêu cầu / 1-2 ngày") and does not disable Add to Cart.
+- `createOrder` skips finished goods inventory reservation (`assertAvailableStock`) for `MADE_TO_ORDER` variants.
+- Material consumption occurs when the order enters `PRODUCING` by creating/linking a `print_jobs` row, deducting raw materials (`material_movements`), not finished goods stock.
+
+## ADR-0018 — Raw material concurrency lock protocol
+
+Status: accepted (Debate 2026-09-01)
+
+To prevent concurrent print jobs from overselling raw materials into negative balances:
+- Material deduction paths must lock the parent `materials` row (`SELECT id FROM materials WHERE id = $1 FOR UPDATE`) before calculating available warehouse stock via `resolveWarehouseForMaterial` and inserting `material_movements`.
+- This mirrors the lock-by-proxy pattern established in `product_variants` inventory management.
+
+## ADR-0019 — Order cancellation inventory compensation
+
+Status: accepted (Debate 2026-09-01)
+
+To preserve strict append-only ledger integrity when orders are cancelled after inventory has been deducted:
+- When an order transitions from `PRODUCING` or `READY_TO_SHIP` to `CANCELLED`, the system automatically inserts compensating `RETURN_IN` movements in `inventory_movements` for all deducted items.
+- Historical `SALE_OUT` records are immutable and never modified or deleted.
+
+## ADR-0020 — Enforced workflow state machine & transition boundaries
+
+Status: accepted (Debate 2026-09-01)
+
+- Service layer enforces strict forward-only transition maps for `custom_requests`, `print_jobs`, `payment_status`, and `shipping_status`.
+- Regular `STAFF` can only transition along approved forward directed acyclic paths.
+- Backward transitions or administrative overrides require `OWNER` authorization with mandatory audit reasons logged.
+
+## ADR-0021 — Public order lookup privacy & PII masking
+
+Status: accepted (Debate 2026-09-01)
+
+Public order tracking (`/tracking` / public API) requires dual verification (Order Number + recipient phone number / last 4 digits). Public responses strictly mask PII (Customer name `Ng*** V** A**`, phone `098***123`, address masked to district/province level) to prevent data leakage via shared URLs.
