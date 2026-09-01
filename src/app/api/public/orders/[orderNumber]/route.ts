@@ -9,7 +9,9 @@ const isRateLimited = createDatabaseRateLimiter({ scope: 'public-order-lookup', 
 
 export async function GET(request: Request, { params }: { params: Promise<{ orderNumber: string }> }) {
   try {
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const ip = request.headers.get('cf-connecting-ip')?.trim()
+      || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || 'unknown';
     if (await isRateLimited(ip)) {
       return NextResponse.json({ code: 'RATE_LIMITED', message: 'Quá nhiều yêu cầu, vui lòng thử lại sau ít phút.' }, { status: 429 });
     }
