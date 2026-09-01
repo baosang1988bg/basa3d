@@ -46,3 +46,21 @@ test('resolveStaffSession enforces is_active and returns the correct role', { sk
     await supabase.auth.admin.deleteUser(userId);
   }
 });
+
+test('Auth user deletion is rejected while staff_profiles still references the user', { skip: !process.env.DATABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY }, async () => {
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } });
+  const email = `phase3-fk-restrict-${Date.now()}@example.com`;
+  const { data, error } = await supabase.auth.admin.createUser({ email, password: 'test-password-123', email_confirm: true });
+  if (error || !data.user) throw error ?? new Error('createUser returned no user');
+  const userId = data.user.id;
+  try {
+    await query('insert into staff_profiles (id, full_name, role, is_active) values ($1, $2, $3, true)', [userId, 'FK Restrict Test', 'STAFF']);
+    const deletion = await supabase.auth.admin.deleteUser(userId);
+    assert.ok(deletion.error, 'Auth deletion must be rejected by staff_profiles_id_fkey');
+    const profile = await query('select id from staff_profiles where id = $1', [userId]);
+    assert.equal(profile.rowCount, 1, 'the linked staff profile must remain after rejected Auth deletion');
+  } finally {
+    await query('delete from staff_profiles where id = $1', [userId]);
+    await supabase.auth.admin.deleteUser(userId);
+  }
+});

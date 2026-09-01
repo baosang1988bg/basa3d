@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
-import { type ChildProcess, spawn } from 'node:child_process';
-import test, { after, before } from 'node:test';
+import test from 'node:test';
 import nextEnv from '@next/env';
 
 nextEnv.loadEnvConfig(process.cwd());
@@ -41,39 +40,6 @@ const PROTECTED_ROUTES: { method: string; path: string }[] = [
   { method: 'PATCH', path: `/api/staff/${PLACEHOLDER_ID}` },
   { method: 'GET', path: '/api/audit-logs' },
 ];
-
-let serverProcess: ChildProcess | undefined;
-
-async function waitForServer(timeoutMs: number): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(`${BASE_URL}/admin/login`);
-      if (response.ok) return;
-    } catch {
-      // not up yet
-    }
-    await new Promise((resolve) => setTimeout(resolve, 300));
-  }
-  throw new Error(`Server did not become ready on ${BASE_URL} within ${timeoutMs}ms`);
-}
-
-before(async () => {
-  if (!process.env.DATABASE_URL) return;
-  try {
-    if ((await fetch(`${BASE_URL}/admin/login`)).ok) return;
-  } catch { /* start a dedicated server below */ }
-  serverProcess = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '-p', String(PORT)], {
-    cwd: process.cwd(),
-    env: process.env,
-    stdio: 'ignore',
-  });
-  await waitForServer(30_000);
-});
-
-after(async () => {
-  if (serverProcess) serverProcess.kill('SIGTERM');
-});
 
 test('every admin/mutating route rejects an unauthenticated request', { skip: !process.env.DATABASE_URL }, async () => {
   const failures: string[] = [];

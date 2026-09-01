@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { type ChildProcess, spawn } from 'node:child_process';
-import test, { after, before } from 'node:test';
+import test from 'node:test';
 import nextEnv from '@next/env';
 import { Client } from 'pg';
 
@@ -9,31 +8,6 @@ nextEnv.loadEnvConfig(process.cwd());
 
 const PORT = 3411;
 const BASE_URL = `http://localhost:${PORT}`;
-
-let serverProcess: ChildProcess | undefined;
-
-async function waitForServer(timeoutMs: number): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(`${BASE_URL}/`);
-      if (response.ok) return;
-    } catch { /* not up yet */ }
-    await new Promise((resolve) => setTimeout(resolve, 300));
-  }
-  throw new Error(`Server did not become ready on ${BASE_URL} within ${timeoutMs}ms`);
-}
-
-before(async () => {
-  if (!process.env.DATABASE_URL) return;
-  try {
-    if ((await fetch(`${BASE_URL}/admin/login`)).ok) return;
-  } catch { /* start a dedicated server below */ }
-  serverProcess = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '-p', String(PORT)], { cwd: process.cwd(), env: process.env, stdio: 'ignore' });
-  await waitForServer(30_000);
-});
-
-after(async () => { if (serverProcess) serverProcess.kill('SIGTERM'); });
 
 function validPayload(overrides: Record<string, unknown> = {}) {
   return {
