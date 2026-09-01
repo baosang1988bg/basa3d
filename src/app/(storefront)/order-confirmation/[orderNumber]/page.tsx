@@ -9,10 +9,6 @@ import { SITE_CONFIG } from '@/config/site';
 
 const DEPOSIT_SUGGESTED_THRESHOLD = 300_000; // ADR-0009 / business-rules.md #8
 
-function isBankTransfer(customerNote: string | null): boolean {
-  return Boolean(customerNote?.startsWith('Thanh toán: Chuyển khoản'));
-}
-
 function buildVietQrUrl(amount: number, orderNumber: string): string | null {
   if (!SITE_CONFIG.bankId || !SITE_CONFIG.bankAccountNumber) return null;
   const params = new URLSearchParams({ amount: String(amount), addInfo: orderNumber });
@@ -24,12 +20,14 @@ function formatAddress(address: Record<string, unknown>): string {
   return [address.line1, address.ward, address.city].filter((part) => typeof part === 'string' && part.trim() !== '').join(', ');
 }
 
-export default async function OrderConfirmationPage({ params }: { params: Promise<{ orderNumber: string }> }) {
+export default async function OrderConfirmationPage({ params, searchParams }: { params: Promise<{ orderNumber: string }>; searchParams: Promise<{ phoneSuffix?: string }> }) {
   const { orderNumber } = await params;
-  const order = await getPublicOrderByNumber(orderNumber);
+  const { phoneSuffix = '' } = await searchParams;
+  if (!/^\d{4}$/.test(phoneSuffix)) notFound();
+  const order = await getPublicOrderByNumber(orderNumber, phoneSuffix);
   if (!order) notFound();
 
-  const bankTransfer = isBankTransfer(order.customerNote);
+  const bankTransfer = order.paymentMethod === 'BANK_TRANSFER';
   const qrUrl = bankTransfer ? buildVietQrUrl(order.total, order.orderNumber) : null;
 
   return (

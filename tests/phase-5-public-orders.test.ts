@@ -7,7 +7,7 @@ import { Client } from 'pg';
 
 nextEnv.loadEnvConfig(process.cwd());
 
-const PORT = 3414;
+const PORT = 3411;
 const BASE_URL = `http://localhost:${PORT}`;
 const WAREHOUSE_ID = '00000000-0000-4000-8000-000000000010'; // seeded warehouse, used by other test files too
 
@@ -27,7 +27,10 @@ async function waitForServer(timeoutMs: number): Promise<void> {
 
 before(async () => {
   if (!process.env.DATABASE_URL) return;
-  serverProcess = spawn('npx', ['next', 'start', '-p', String(PORT)], { cwd: process.cwd(), env: process.env, stdio: 'ignore' });
+  try {
+    if ((await fetch(`${BASE_URL}/admin/login`)).ok) return;
+  } catch { /* start a dedicated server below */ }
+  serverProcess = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '-p', String(PORT)], { cwd: process.cwd(), env: process.env, stdio: 'ignore' });
   await waitForServer(30_000);
 });
 
@@ -178,18 +181,28 @@ test('GET /api/public/orders/[orderNumber] returns minimal fields for a real ord
     const created = await fetch(`${BASE_URL}/api/public/orders`, {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(validPayload(variantId)),
     });
-    const { orderNumber } = await created.json();
+    const createdBody = await created.json();
+    const orderNumber = createdBody.orderNumber;
+    const phoneRow = await client.query('select customer_phone from orders where id = $1', [createdBody.id]);
+    const phoneSuffix = phoneRow.rows[0].customer_phone.replace(/\D/g, '').slice(-4);
 
-    const found = await fetch(`${BASE_URL}/api/public/orders/${orderNumber}`);
+    const unverified = await fetch(`${BASE_URL}/api/public/orders/${orderNumber}`);
+    assert.equal(unverified.status, 400);
+    const wrongPhone = await fetch(`${BASE_URL}/api/public/orders/${orderNumber}?phoneSuffix=0000`);
+    assert.equal(wrongPhone.status, 404);
+    const found = await fetch(`${BASE_URL}/api/public/orders/${orderNumber}?phoneSuffix=${phoneSuffix}`);
     assert.equal(found.status, 200);
     const body = await found.json();
     assert.equal(body.orderNumber, orderNumber);
     assert.equal(Number(body.total), 25_000);
     assert.equal('customerEmail' in body, false);
     assert.equal('adminNote' in body, false);
+    assert.equal('customerNote' in body, false);
+    assert.match(body.customerPhone, /^\d{3}\*{3}\d{4}$/);
+    assert.equal('line1' in body.shippingAddress, false);
     assert.ok(Array.isArray(body.items) && body.items.length === 1);
 
-    const missing = await fetch(`${BASE_URL}/api/public/orders/ORD-DOESNOTEXIST`);
+    const missing = await fetch(`${BASE_URL}/api/public/orders/ORD-DOESNOTEXIST?phoneSuffix=1234`);
     assert.equal(missing.status, 404);
   } finally {
     await client.end();
