@@ -2,10 +2,11 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { CheckCircle2 } from 'lucide-react';
-import { getOrderConfirmationByToken, getPublicOrderByNumber } from '@/services/order.service';
+import { claimAnalyticsPurchase, getOrderConfirmationByToken, getPublicOrderByNumber } from '@/services/order.service';
 import { formatVnd } from '@/components/storefront/format';
 import { storefrontButtonClasses } from '@/components/storefront/button';
 import { SITE_CONFIG } from '@/config/site';
+import { PurchaseTracker } from '@/components/analytics/storefront-trackers';
 
 const DEPOSIT_SUGGESTED_THRESHOLD = 300_000; // ADR-0009 / business-rules.md #8
 
@@ -26,12 +27,14 @@ export default async function OrderConfirmationPage({ params, searchParams }: { 
   const tokenOrder = token ? await getOrderConfirmationByToken(orderNumber, token) : null;
   const order = tokenOrder ?? (/^\d{4}$/.test(phoneSuffix) ? await getPublicOrderByNumber(orderNumber, phoneSuffix) : null);
   if (!order) notFound();
+  const shouldTrackPurchase = await claimAnalyticsPurchase(order.orderNumber);
 
   const bankTransfer = order.paymentMethod === 'BANK_TRANSFER';
   const qrUrl = bankTransfer ? buildVietQrUrl(order.total, order.orderNumber) : null;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
+      {shouldTrackPurchase && <PurchaseTracker order={{ orderNumber: order.orderNumber, total: order.total, shipping: order.shippingFee, items: order.items.map((item) => ({ item_id: item.skuSnapshot, item_name: item.productNameSnapshot, item_variant: item.variantNameSnapshot, price: item.unitPrice, quantity: item.quantity })) }} />}
       <div className="text-center">
         <CheckCircle2 className="mx-auto size-12 text-emerald-500" />
         <h1 className="font-heading mt-4 text-2xl font-bold text-foreground md:text-[2rem]">Đặt hàng thành công!</h1>

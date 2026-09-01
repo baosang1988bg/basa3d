@@ -50,3 +50,9 @@ test('hardening follow-up migration creates the shared rate-limit store', async 
   assert.match(migration, /primary key \(scope, limiter_key\)/);
   assert.match(migration, /window_expires_at/);
 });
+
+test('Phase 10 migration adds the nullable GA4 purchase idempotency marker', async () => {
+  const sql = await readFile('supabase/migrations/20260901000003_order_analytics_purchase_sent_at.sql', 'utf8');
+  assert.match(sql, /alter table orders add column analytics_purchase_sent_at timestamptz null/i);
+  assert.doesNotMatch(sql, /not null/i);
+});

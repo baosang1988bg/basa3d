@@ -213,6 +213,16 @@ export async function getOrderConfirmationByToken(orderNumber: string, token: st
   };
 }
 
+// Call only after the confirmation page has verified its token/phone challenge. The conditional
+// update is the concurrency boundary: at most one simultaneous page request may render purchase.
+export async function claimAnalyticsPurchase(orderNumber: string): Promise<boolean> {
+  const claimed = await query<{ id: string }>(`
+    update orders set analytics_purchase_sent_at = now()
+    where order_number = $1 and analytics_purchase_sent_at is null
+    returning id`, [orderNumber]);
+  return claimed.rowCount === 1;
+}
+
 // Public lookup for GET /api/public/orders/[orderNumber] and the /order-confirmation page (phase-5.md
 // decision #3): orderNumber itself is the access token (48-bit random, see createOrder), so this is
 // intentionally NOT gated by any session/account. Field set is a deliberate allowlist, not

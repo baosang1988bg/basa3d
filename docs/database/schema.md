@@ -19,6 +19,10 @@
 - audit_logs
 - staff_profiles
 
+Phase 10 adds nullable `orders.analytics_purchase_sent_at timestamptz` as the server-side,
+cross-device idempotency marker for the single GA4 `purchase` event. It does not affect order
+financial state or fulfillment workflow.
+
 ## Rules
 - UUID primary keys unless there is a clear reason otherwise.
 - Add created_at/updated_at to mutable business tables.

@@ -223,3 +223,14 @@ This produced a real, 100%-reproducible crash in Phase 9: `pricing_configs`/`mat
 Fix: `pricing-config.service.getCurrentPricingConfig`/`listPricingConfigs` and `inventory.service.listMaterials` now map every `bigint`/`numeric` column through `Number(...)` before returning, so their declared TypeScript return types are actually true at runtime.
 
 **Going forward**: any new service function selecting a `bigint`/`numeric` column and typing it as `number` must apply the same coercion at the read boundary — don't assume `pg` gives you a real number just because the SQL column is numeric. `integer` columns are unaffected (already returned as real numbers).
+
+## ADR-0024 — GA4 purchase idempotency is claimed server-side
+
+Status: accepted (Phase 10 reviewed plan, 2026-09-01)
+
+The confirmation page atomically sets nullable `orders.analytics_purchase_sent_at` with
+`UPDATE ... WHERE analytics_purchase_sent_at IS NULL RETURNING`. Only the request that claims the
+row renders the client `purchase` tracker. This prevents duplicate revenue across refreshes,
+shared confirmation links, and multiple devices; browser storage cannot provide that guarantee.
+The accepted tradeoff is at-most-once delivery: if analytics is blocked or the browser closes
+after the server claim, the application does not retry that purchase event.
