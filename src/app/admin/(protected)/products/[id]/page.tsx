@@ -4,7 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PricingCalculatorPanel } from '@/components/admin/pricing-calculator-panel';
 import { requireAdmin } from '@/lib/auth/require-admin';
+import { listMaterials } from '@/services/inventory.service';
+import { getCurrentPricingConfig } from '@/services/pricing-config.service';
 import { getProductById, listProductImages } from '@/services/product.service';
 import {
   createVariantAction,
@@ -18,7 +21,9 @@ import {
 
 export default async function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [{ role }, product, images] = await Promise.all([requireAdmin(), getProductById(id), listProductImages(id)]);
+  const [{ role }, product, images, materials, pricingConfig] = await Promise.all([
+    requireAdmin(), getProductById(id), listProductImages(id), listMaterials(), getCurrentPricingConfig(),
+  ]);
   if (!product) notFound();
 
   return (
@@ -55,6 +60,9 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="basePrice">Giá cơ bản (VND)</Label>
               <Input id="basePrice" name="basePrice" type="number" min={0} defaultValue={product.basePrice ?? ''} />
+            </div>
+            <div className="col-span-2">
+              <PricingCalculatorPanel materials={materials} config={pricingConfig} priceInputIds={['basePrice']} />
             </div>
             <div className="col-span-2 flex flex-col gap-1.5">
               <Label htmlFor="shortDescription">Mô tả ngắn</Label>

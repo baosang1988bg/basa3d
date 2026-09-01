@@ -45,6 +45,14 @@ of `PHASE_START_PROTOCOL.md` directly from a `docs/exec-plans/active/phase-X.md`
 file, instead of hand-writing it each time. Only run it once that phase's
 "Trước khi giao Codex" checklist items are all resolved.
 
+## Challenging a phase with Gemini
+`.agents/skills/gemini-challenge/SKILL.md` (mirrored at
+`.claude/skills/gemini-challenge/`) generates the challenge prompt for Step 3
+of `PHASE_START_PROTOCOL.md` directly from a freshly-drafted
+`docs/exec-plans/active/phase-X.md`, picking the 2-4 highest-risk tentative
+decisions instead of hand-writing the prompt each time. Use it right after
+drafting a phase's decisions, before running `codex-handoff`.
+
 ## Stack
 - Next.js + TypeScript
 - PostgreSQL / Supabase

@@ -18,12 +18,21 @@ export async function listQuotesByCustomRequest(customRequestId: string): Promis
   return result.rows;
 }
 
-export async function createQuote(input: { customRequestId: string; subtotal: number; shippingFee?: number; discount?: number; total: number; validUntil: Date; note?: string | null }, actorId: string) {
+// pricingBreakdown/pricingConfigId are an optional immutable snapshot (Phase 9) — a Quote created
+// by hand (no pricing engine involved) simply omits both, and the DB pair constraint
+// (quotes_pricing_snapshot_pair) rejects setting only one of the two.
+export async function createQuote(input: {
+  customRequestId: string; subtotal: number; shippingFee?: number; discount?: number; total: number;
+  validUntil: Date; note?: string | null; pricingBreakdown?: unknown | null; pricingConfigId?: string | null;
+}, actorId: string) {
   return withTransaction(async (client) => {
     const quoteNumber = `Q-${randomUUID().replaceAll('-', '').slice(0, 12).toUpperCase()}`;
     const result = await client.query<{ id: string; quote_number: string }>(`
-      insert into quotes (custom_request_id, quote_number, subtotal, shipping_fee, discount, total, valid_until, note)
-      values ($1,$2,$3,$4,$5,$6,$7,$8) returning id, quote_number`, [input.customRequestId, quoteNumber, input.subtotal, input.shippingFee ?? 0, input.discount ?? 0, input.total, input.validUntil, input.note ?? null]);
+      insert into quotes (custom_request_id, quote_number, subtotal, shipping_fee, discount, total, valid_until, note, pricing_breakdown, pricing_config_id)
+      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning id, quote_number`, [
+      input.customRequestId, quoteNumber, input.subtotal, input.shippingFee ?? 0, input.discount ?? 0, input.total, input.validUntil, input.note ?? null,
+      input.pricingBreakdown ? JSON.stringify(input.pricingBreakdown) : null, input.pricingConfigId ?? null,
+    ]);
     await writeAuditLog(client, { actorId, action: 'QUOTE_CREATED', entityType: 'quote', entityId: result.rows[0].id, afterData: input });
     return { id: result.rows[0].id, quoteNumber: result.rows[0].quote_number };
   });

@@ -198,3 +198,28 @@ Status: accepted (Debate 2026-09-01)
 Status: accepted (Debate 2026-09-01)
 
 Public order tracking (`/tracking` / public API) requires dual verification (Order Number + recipient phone number / last 4 digits). Public responses strictly mask PII (Customer name `Ng*** V** A**`, phone `098***123`, address masked to district/province level) to prevent data leakage via shared URLs.
+
+## ADR-0022 — Pricing snapshot immutability means different things for Quotes vs Products
+
+Status: accepted (Phase 9 second-pass review, 2026-09-01)
+
+`quotes.pricing_breakdown`/`pricing_config_id` and `products.pricing_breakdown`/`pricing_config_id` (Phase 9) are the same column shape but not the same guarantee:
+
+- **Quote**: bất biến thật — không có `updateQuote` nào trong codebase; một Quote chỉ được tạo một lần rồi chuyển trạng thái (SENT/ACCEPTED/REJECTED/EXPIRED). Bất biến là hệ quả của việc không tồn tại đường update, không phải một rule phải tự canh giữ riêng.
+- **Product**: không bất biến, và không nên coi là vậy — `updateProduct` đã cho sửa `basePrice` bằng tay từ trước Phase 9 (Product là catalog listing sống, không phải bản ghi giao dịch). Staff được phép chủ động mở lại pricing calculator panel trên trang edit Product và ghi đè `basePrice` + `pricing_breakdown` + `pricing_config_id` cùng lúc — đây là tái định giá chủ động (staff bấm nút), không phải side-effect ngầm.
+- Điều không đổi ở cả hai: tạo một `pricing_configs` row mới **không bao giờ** tự động cascade-update snapshot của Quote/Product đã có — tái định giá chỉ xảy ra khi staff chủ động submit lại qua panel.
+- Bảo đảm "giá đúng tại thời điểm bán" cho đơn hàng thật nằm ở `order_items` (business-rules.md #3 — snapshot tên/giá sản phẩm lúc mua), độc lập với `products.pricing_breakdown` hiện tại là gì. Vì vậy Product không cần một snapshot bất biến kiểu ledger.
+
+Xem `docs/exec-plans/active/phase-9.md` quyết định #4 để biết chi tiết implementation.
+
+## ADR-0023 — `bigint`/`numeric` Postgres columns must be coerced to `number` at the service boundary
+
+Status: accepted (Phase 9 second-pass review, browser E2E, 2026-09-01)
+
+`node-postgres` (`pg`) returns `bigint` and `numeric`/`decimal` columns as **strings**, not `number` — a deliberate driver default to avoid silent precision loss, but it means a service function typed as returning `number` (e.g. `PricingConfigRow.marginPct: number`) can lie about its own runtime shape if the SELECT result is passed straight through without an explicit `Number(...)` coercion.
+
+This produced a real, 100%-reproducible crash in Phase 9: `pricing_configs`/`materials` have several `bigint`/`numeric` columns (`electricity_vnd_per_kwh`, `margin_pct`, `printer_power_kw`, `cost_per_spool`, `current_unit_cost`, ...). `pricing.service.computePricingBreakdown`'s input-validation guard uses `Number.isFinite(value)` — which returns `false` for a numeric string like `"3500.00"` (unlike the coercing global `isFinite`) — so every real config/material read from the DB threw a `RangeError`, crashing `PricingCalculatorPanel` client-side. Found via a real Playwright browser run (`e2e/pricing.spec.ts`), not by unit tests (which only ever exercised the pure function with hand-typed JS number literals, never a real DB row).
+
+Fix: `pricing-config.service.getCurrentPricingConfig`/`listPricingConfigs` and `inventory.service.listMaterials` now map every `bigint`/`numeric` column through `Number(...)` before returning, so their declared TypeScript return types are actually true at runtime.
+
+**Going forward**: any new service function selecting a `bigint`/`numeric` column and typing it as `number` must apply the same coercion at the read boundary — don't assume `pg` gives you a real number just because the SQL column is numeric. `integer` columns are unaffected (already returned as real numbers).

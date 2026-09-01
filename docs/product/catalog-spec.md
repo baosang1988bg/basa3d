@@ -145,3 +145,33 @@ Price       = 38.560 / (1 - 0.4) = 64.267đ
 Nguồn tham khảo giá điện: Quyết định 1279/QĐ-BCT (giá bán lẻ điện bình quân
 2.204,0655đ/kWh, hiệu lực từ 10/05/2025) và biểu giá bậc thang sinh hoạt EVN
 hiện hành.
+
+### Phụ lục Phase 9 — Input contract cho Pricing Engine tự động
+
+Công thức ở mục 4 giữ nguyên (đã duyệt). Phần dưới đây chỉ làm rõ **ý nghĩa
+của các biến đầu vào** khi tính tự động cho model đa màu/đa plate (VD:
+Controller Stand Ace Snail, 8 plates, 7 màu PLA, 13.2 giờ in) — không đổi công
+thức:
+
+- **"khối lượng in, gram" (Material cost) — mỗi màu/loại vật liệu tính riêng,
+  rồi cộng lại**: là **tổng nhựa tiêu thụ thật** slicer báo cáo cho màu đó,
+  đã bao gồm sẵn purge waste (đổi màu AMS), prime tower, và support — **không**
+  phải khối lượng ròng của model. Con số này lấy trực tiếp từ
+  `Metadata/slice_info.config` (XML) bên trong file `.3mf` (mỗi `<filament>` báo `used_g` đã là
+  tổng tiêu thụ thật cho màu đó) hoặc do staff nhập tay khi không có file gốc
+  (nhập tổng gram thực tế, không phải khối lượng ròng). Không cần một dòng
+  cost "Waste" riêng — waste đã nằm trong con số gram của từng màu.
+- **"thời gian thao tác (setup...)" (Labor)**: đã bao gồm thời gian đổi plate
+  giữa các lượt in (VD 15 phút × 8 plate). Không cộng thêm giờ đổi plate vào
+  Electricity/Machine dep. — giả định máy ở trạng thái nghỉ/nguội trong lúc
+  đổi plate thủ công, không phát sinh điện/hao mòn đáng kể. "Thời gian in máy"
+  dùng cho Electricity/Machine dep. là thời gian máy in thực chạy (slicer báo
+  tổng cộng cho tất cả plate, VD 13.2 giờ), không cộng thêm giờ đổi plate.
+- **Đơn giá vật liệu/gram**: `materials` đã có sẵn 2 cách lưu chi phí
+  (`unit` = `SPOOL` hay `GRAM`) — pricing engine chọn theo `unit`:
+  - `unit = 'SPOOL'`: `đơn giá/gram = cost_per_spool / spool_weight_grams`.
+  - `unit = 'GRAM'`: dùng thẳng `current_unit_cost` (cột đã có trong schema
+    nhưng chưa được service nào đọc — dùng cho vật liệu mua theo cân/lít,
+    không theo cuộn, VD resin rời).
+  Material cost cho 1 màu = gram tiêu thụ (theo định nghĩa ở trên) × đơn giá/gram
+  của material đó; tổng Material cost = cộng qua tất cả màu/loại dùng trong job.

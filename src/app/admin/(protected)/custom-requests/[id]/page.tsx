@@ -6,8 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { PricingCalculatorPanel } from '@/components/admin/pricing-calculator-panel';
 import { createCustomRequestAttachmentSignedUrl, getCustomRequestById, nextCustomRequestStatuses } from '@/services/custom-request.service';
 import { requireAdmin } from '@/lib/auth/require-admin';
+import { listMaterials } from '@/services/inventory.service';
+import { getCurrentPricingConfig } from '@/services/pricing-config.service';
 import { listQuotesByCustomRequest } from '@/services/quote.service';
 import { acceptQuoteAction, createQuoteAction, updateCustomRequestStatusAction } from '../actions';
 
@@ -16,7 +19,9 @@ const CUSTOM_REQUEST_STATUSES = ['NEW', 'REVIEWING', 'NEED_INFO', 'QUOTED', 'APP
 export default async function CustomRequestDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await requireAdmin();
-  const [customRequest, quotes] = await Promise.all([getCustomRequestById(id), listQuotesByCustomRequest(id)]);
+  const [customRequest, quotes, materials, pricingConfig] = await Promise.all([
+    getCustomRequestById(id), listQuotesByCustomRequest(id), listMaterials(), getCurrentPricingConfig(),
+  ]);
   if (!customRequest) notFound();
   const attachmentSignedUrl = customRequest.attachmentPath
     ? await createCustomRequestAttachmentSignedUrl(customRequest.attachmentPath)
@@ -117,6 +122,9 @@ export default async function CustomRequestDetailPage({ params }: { params: Prom
           </Table>
 
           <form action={createQuoteAction.bind(null, id)} className="grid grid-cols-2 gap-4 border-t border-border pt-4">
+            <div className="col-span-2">
+              <PricingCalculatorPanel materials={materials} config={pricingConfig} priceInputIds={['subtotal', 'total']} />
+            </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="subtotal">Tạm tính (VND)</Label>
               <Input id="subtotal" name="subtotal" type="number" min={0} required />

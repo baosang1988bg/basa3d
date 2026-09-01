@@ -28,6 +28,7 @@ function readFormValue(formData: FormData, key: string): string | undefined {
 
 export async function createProductAction(formData: FormData) {
   const { actorId } = await requireAdmin();
+  const pricingBreakdownRaw = readFormValue(formData, 'pricingBreakdown');
   const input = productInputSchema.parse({
     categoryId: readFormValue(formData, 'categoryId') ?? null,
     name: formData.get('name'),
@@ -40,6 +41,9 @@ export async function createProductAction(formData: FormData) {
     isFeatured: formData.get('isFeatured') === 'on',
     seoTitle: readFormValue(formData, 'seoTitle') ?? null,
     seoDescription: readFormValue(formData, 'seoDescription') ?? null,
+    // Phase 9: set together only when staff used the pricing calculator panel.
+    pricingBreakdown: pricingBreakdownRaw ? JSON.parse(pricingBreakdownRaw) : undefined,
+    pricingConfigId: readFormValue(formData, 'pricingConfigId') ?? undefined,
   });
   await createProduct(input, actorId);
   revalidatePath('/admin/products');
@@ -58,6 +62,7 @@ export async function createCategoryAction(formData: FormData) {
 
 export async function updateProductAction(productId: string, formData: FormData) {
   const { actorId } = await requireAdmin();
+  const pricingBreakdownRaw = readFormValue(formData, 'pricingBreakdown');
   const patch = productUpdateInputSchema.parse({
     name: readFormValue(formData, 'name'),
     slug: readFormValue(formData, 'slug'),
@@ -68,6 +73,8 @@ export async function updateProductAction(productId: string, formData: FormData)
     isFeatured: formData.get('isFeatured') === 'on',
     seoTitle: readFormValue(formData, 'seoTitle') ?? null,
     seoDescription: readFormValue(formData, 'seoDescription') ?? null,
+    pricingBreakdown: pricingBreakdownRaw ? JSON.parse(pricingBreakdownRaw) : undefined,
+    pricingConfigId: readFormValue(formData, 'pricingConfigId') ?? undefined,
   });
   await updateProduct(productId, patch, actorId);
   revalidatePath(`/admin/products/${productId}`);

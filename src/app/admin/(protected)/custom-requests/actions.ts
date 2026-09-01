@@ -44,6 +44,7 @@ export async function updateCustomRequestStatusAction(id: string, formData: Form
 
 export async function createQuoteAction(customRequestId: string, formData: FormData) {
   const { actorId } = await requireAdmin();
+  const pricingBreakdownRaw = readFormValue(formData, 'pricingBreakdown');
   const input = quoteInputSchema.parse({
     customRequestId,
     subtotal: Number(formData.get('subtotal')),
@@ -52,6 +53,10 @@ export async function createQuoteAction(customRequestId: string, formData: FormD
     total: Number(formData.get('total')),
     validUntil: formData.get('validUntil'),
     note: readFormValue(formData, 'note') ?? null,
+    // Phase 9: set together only when staff actually used the pricing calculator panel and clicked
+    // "Dùng giá này" (see PricingCalculatorPanel) — otherwise both stay undefined (manual quote).
+    pricingBreakdown: pricingBreakdownRaw ? JSON.parse(pricingBreakdownRaw) : undefined,
+    pricingConfigId: readFormValue(formData, 'pricingConfigId') ?? undefined,
   });
   await createQuote(input, actorId);
   revalidatePath(`/admin/custom-requests/${customRequestId}`);

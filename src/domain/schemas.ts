@@ -56,6 +56,54 @@ export const materialInputSchema = z.object({
   currentUnitCost: vndSchema.nullable().optional(),
 }).strict();
 
+// Phase 9: system-wide cost-plus pricing parameters (docs/product/catalog-spec.md §4).
+// Percentages are stored as 0-100 numbers (e.g. 40 means 40%), matching pricing_configs' numeric(5,2)
+// columns — never a 0-1 fraction, to avoid a silent unit mismatch between DB/service/UI.
+export const pricingConfigInputSchema = z.object({
+  electricityVndPerKwh: vndSchema,
+  machinePriceVnd: vndSchema,
+  machineLifetimeHours: positiveQuantitySchema,
+  printerPowerKw: z.number().positive().max(10),
+  laborVndPerHour: vndSchema,
+  failureBufferPct: z.number().min(0).max(99.99),
+  marginPct: z.number().min(0).max(99.99),
+  packagingFeeVnd: vndSchema.default(0),
+}).strict();
+
+// Phase 9: shape of pricing.service's computed breakdown, re-validated here because it round-trips
+// through the browser (preview → staff review/edit → submit) before landing on a Quote/Product —
+// AGENTS.md rule #6, never trust a client-submitted payload even if this session's own server
+// action produced it a moment earlier.
+export const pricingBreakdownSchema = z.object({
+  materialCostVnd: vndSchema,
+  materialLines: z.array(z.object({
+    label: z.string().trim().max(200).nullable().optional(),
+    gram: z.number().nonnegative(),
+    costVnd: vndSchema,
+  })),
+  electricityCostVnd: vndSchema,
+  machineDepreciationVnd: vndSchema,
+  failureBufferVnd: vndSchema,
+  laborCostVnd: vndSchema,
+  packagingFeeVnd: vndSchema,
+  totalCostVnd: vndSchema,
+  priceBeforeRoundingVnd: vndSchema,
+  finalPriceVnd: vndSchema,
+}).strict();
+
+function validatePricingSnapshotPair(
+  value: { pricingBreakdown?: unknown | null; pricingConfigId?: string | null },
+  context: z.RefinementCtx,
+) {
+  if (Boolean(value.pricingBreakdown) !== Boolean(value.pricingConfigId)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'pricingBreakdown and pricingConfigId must be provided together.',
+      path: ['pricingBreakdown'],
+    });
+  }
+}
+
 export const warehouseInputSchema = z.object({
   name: nonEmptyText.max(160),
   code: z.string().trim().max(40).regex(/^[A-Z0-9_]+$/),
@@ -76,7 +124,9 @@ export const productInputSchema = z.object({
   isCustomizable: z.boolean().default(false),
   seoTitle: z.string().trim().max(200).nullable().optional(),
   seoDescription: z.string().trim().max(500).nullable().optional(),
-}).strict();
+  pricingBreakdown: pricingBreakdownSchema.nullable().optional(),
+  pricingConfigId: uuidSchema.nullable().optional(),
+}).strict().superRefine(validatePricingSnapshotPair);
 
 export const productVariantInputSchema = z.object({
   productId: uuidSchema,
@@ -193,7 +243,10 @@ export const quoteInputSchema = z.object({
   total: vndSchema,
   validUntil: z.coerce.date(),
   note: z.string().trim().max(2_000).nullable().optional(),
+  pricingBreakdown: pricingBreakdownSchema.nullable().optional(),
+  pricingConfigId: uuidSchema.nullable().optional(),
 }).strict().superRefine((quote, context) => {
+  validatePricingSnapshotPair(quote, context);
   if (quote.total !== quote.subtotal + quote.shippingFee - quote.discount) {
     context.addIssue({ code: z.ZodIssueCode.custom, message: 'Quote total must reconcile to its components.', path: ['total'] });
   }
@@ -273,7 +326,9 @@ export const productUpdateInputSchema = z.object({
   isCustomizable: z.boolean().optional(),
   seoTitle: z.string().trim().max(200).nullable().optional(),
   seoDescription: z.string().trim().max(500).nullable().optional(),
-}).strict();
+  pricingBreakdown: pricingBreakdownSchema.nullable().optional(),
+  pricingConfigId: uuidSchema.nullable().optional(),
+}).strict().superRefine(validatePricingSnapshotPair);
 export const variantUpdateInputSchema = z.object({
   name: nonEmptyText.max(200).optional(),
   attributes: z.record(z.string(), z.string()).optional(),

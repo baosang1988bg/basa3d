@@ -15,6 +15,7 @@ const NAV_ITEMS: { href: string; label: string; ownerOnly?: boolean }[] = [
   { href: '/admin/print-jobs', label: 'Việc in' },
   { href: '/admin/blog', label: 'Blog' },
   { href: '/admin/staff', label: 'Nhân viên', ownerOnly: true },
+  { href: '/admin/settings/pricing', label: 'Cấu hình giá', ownerOnly: true },
   { href: '/admin/audit-logs', label: 'Nhật ký hệ thống', ownerOnly: true },
 ];
 

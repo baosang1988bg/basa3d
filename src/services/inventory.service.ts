@@ -12,10 +12,28 @@ export async function listWarehouses() {
 }
 
 export async function listMaterials() {
-  const result = await query<{ id: string; name: string; materialType: string; unit: string }>(
-    'select id, name, material_type as "materialType", unit from materials where is_active = true order by name',
+  const result = await query<{
+    id: string; name: string; materialType: string; unit: string;
+    costPerSpool: number | null; spoolWeightGrams: number | null; currentUnitCost: number | null;
+  }>(
+    // Phase 9: cost_per_spool/spool_weight_grams/current_unit_cost existed since Phase 1 but had no
+    // reader until the pricing engine (see catalog-spec.md's Phase 9 addendum for how they combine
+    // into đơn giá/gram via unit SPOOL/GRAM).
+    `select id, name, material_type as "materialType", unit, cost_per_spool as "costPerSpool",
+       spool_weight_grams as "spoolWeightGrams", current_unit_cost as "currentUnitCost"
+     from materials where is_active = true order by name`,
   );
-  return result.rows;
+  // cost_per_spool/current_unit_cost are bigint columns — node-postgres returns bigint as a STRING
+  // to avoid silent precision loss. Coerce here so every caller (pricing.service's
+  // resolveMaterialUnitCostVndPerGram, in particular its Number.isFinite guard) actually gets a
+  // real number, matching this function's declared return type. Same class of bug as
+  // pricing-config.service's toPricingConfigRow — found via Playwright e2e in Phase 9 second-pass
+  // review (the pricing calculator panel crashed for any real material with `unit = 'GRAM'`).
+  return result.rows.map((row) => ({
+    ...row,
+    costPerSpool: row.costPerSpool === null ? null : Number(row.costPerSpool),
+    currentUnitCost: row.currentUnitCost === null ? null : Number(row.currentUnitCost),
+  }));
 }
 
 export async function listInventoryMovements(input: { variantId?: string; page?: number; limit?: number } = {}) {

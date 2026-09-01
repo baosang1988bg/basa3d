@@ -5,13 +5,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { PricingCalculatorPanel } from '@/components/admin/pricing-calculator-panel';
+import { listMaterials } from '@/services/inventory.service';
+import { getCurrentPricingConfig } from '@/services/pricing-config.service';
 import { listCategories, listProducts } from '@/services/product.service';
 import { archiveProductAction, createCategoryAction, createProductAction, unarchiveProductAction } from './actions';
 
 export default async function ProductsPage() {
-  const [{ items: products }, { items: categories }] = await Promise.all([
+  const [{ items: products }, { items: categories }, materials, pricingConfig] = await Promise.all([
     listProducts({ limit: 100 }),
     listCategories({ limit: 100 }),
+    listMaterials(),
+    getCurrentPricingConfig(),
   ]);
 
   return (
@@ -49,6 +54,9 @@ export default async function ProductsPage() {
             <div className="flex flex-col gap-2">
               <Label htmlFor="basePrice">Giá cơ bản (VND)</Label>
               <Input id="basePrice" name="basePrice" type="number" min={0} />
+            </div>
+            <div className="col-span-2">
+              <PricingCalculatorPanel materials={materials} config={pricingConfig} priceInputIds={['basePrice']} />
             </div>
             <div className="flex items-center gap-2 pt-6">
               <input id="isFeatured" name="isFeatured" type="checkbox" className="size-4 rounded border-input" />

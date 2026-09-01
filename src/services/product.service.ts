@@ -86,12 +86,18 @@ export async function getProductById(productId: string) {
   return { ...result.rows[0], variants: variants.rows };
 }
 
+// pricingBreakdown/pricingConfigId are an optional pricing snapshot (Phase 9) — a Product priced
+// by hand simply omits both; the DB pair constraint (products_pricing_snapshot_pair) rejects
+// setting only one of the two. Unlike quotes.pricing_breakdown, this is NOT immutable: staff can
+// reprice a live Product via updateProduct below (ADR-0022) — Products are a catalog listing, not
+// a transaction record, and order_items already owns the real point-in-time price guarantee.
 export async function createProduct(input: Record<string, unknown>, actorId: string) {
   return withTransaction(async (client) => {
     const result = await client.query<{ id: string }>(`
-      insert into products (category_id, name, slug, short_description, description, product_type, status, base_price, cost_price, is_featured, is_customizable, seo_title, seo_description)
-      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) returning id`, [
+      insert into products (category_id, name, slug, short_description, description, product_type, status, base_price, cost_price, is_featured, is_customizable, seo_title, seo_description, pricing_breakdown, pricing_config_id)
+      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) returning id`, [
       input.categoryId ?? null, input.name, input.slug, input.shortDescription ?? null, input.description ?? null, input.productType, input.status ?? 'DRAFT', input.basePrice ?? null, input.costPrice ?? null, input.isFeatured ?? false, input.isCustomizable ?? false, input.seoTitle ?? null, input.seoDescription ?? null,
+      input.pricingBreakdown ? JSON.stringify(input.pricingBreakdown) : null, input.pricingConfigId ?? null,
     ]);
     await writeAuditLog(client, { actorId, action: 'PRODUCT_CREATED', entityType: 'product', entityId: result.rows[0].id, afterData: input });
     return result.rows[0];
@@ -150,16 +156,16 @@ export async function deleteVariant(variantId: string, actorId: string) {
   });
 }
 
-export async function updateProduct(productId: string, patch: { categoryId?: string | null; name?: string; slug?: string; shortDescription?: string | null; description?: string | null; status?: string; basePrice?: number | null; costPrice?: number | null; isFeatured?: boolean; isCustomizable?: boolean; seoTitle?: string | null; seoDescription?: string | null }, actorId: string) {
+export async function updateProduct(productId: string, patch: { categoryId?: string | null; name?: string; slug?: string; shortDescription?: string | null; description?: string | null; status?: string; basePrice?: number | null; costPrice?: number | null; isFeatured?: boolean; isCustomizable?: boolean; seoTitle?: string | null; seoDescription?: string | null; pricingBreakdown?: unknown | null; pricingConfigId?: string | null }, actorId: string) {
   return withTransaction(async (client) => {
     const before = await client.query('select category_id, name, slug, short_description, description, status, base_price, cost_price, is_featured, is_customizable, seo_title, seo_description from products where id = $1 for update', [productId]);
     if (!before.rowCount) throw new DomainError('PRODUCT_NOT_FOUND', 'Product was not found.', 404);
-    const fields = { categoryId: 'category_id', name: 'name', slug: 'slug', shortDescription: 'short_description', description: 'description', status: 'status', basePrice: 'base_price', costPrice: 'cost_price', isFeatured: 'is_featured', isCustomizable: 'is_customizable', seoTitle: 'seo_title', seoDescription: 'seo_description' } as const;
+    const fields = { categoryId: 'category_id', name: 'name', slug: 'slug', shortDescription: 'short_description', description: 'description', status: 'status', basePrice: 'base_price', costPrice: 'cost_price', isFeatured: 'is_featured', isCustomizable: 'is_customizable', seoTitle: 'seo_title', seoDescription: 'seo_description', pricingBreakdown: 'pricing_breakdown', pricingConfigId: 'pricing_config_id' } as const;
     const sets: string[] = [];
     const values: unknown[] = [];
     for (const [key, column] of Object.entries(fields) as [keyof typeof patch, string][]) {
       if (patch[key] === undefined) continue;
-      values.push(patch[key]);
+      values.push(key === 'pricingBreakdown' && patch[key] !== null ? JSON.stringify(patch[key]) : patch[key]);
       sets.push(`${column} = $${values.length}`);
     }
     if (!sets.length) return before.rows[0];
