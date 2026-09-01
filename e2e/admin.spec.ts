@@ -75,12 +75,42 @@ test('admin can log in and create a product', async ({ page }) => {
   await page.goto('/admin/products');
 
   const productName = `E2E New Product ${randomUUID().slice(0, 8)}`;
+  const productSlug = `e2e-new-${randomUUID().slice(0, 8)}`;
   await page.getByLabel('Tên sản phẩm').fill(productName);
-  await page.locator('#slug').fill(`e2e-new-${randomUUID().slice(0, 8)}`);
+  await page.locator('#slug').fill(productSlug);
   await page.getByLabel('Loại sản phẩm').selectOption('READY_STOCK');
   await page.getByRole('button', { name: 'Tạo sản phẩm' }).click();
 
-  await expect(page.getByText(productName)).toBeVisible();
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await expect.poll(async () => {
+      const row = await client.query('select name from products where slug = $1', [productSlug]);
+      return row.rows[0]?.name;
+    }).toBe(productName);
+  } finally {
+    await client.end();
+  }
+});
+
+test('admin can update an existing product', async ({ page }) => {
+  await login(page);
+  await page.goto(`/admin/products/${productId}`);
+
+  const updatedName = `E2E Updated Product ${randomUUID().slice(0, 8)}`;
+  await page.locator('#name').fill(updatedName);
+  await page.getByRole('button', { name: 'Lưu thay đổi' }).click();
+
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await expect.poll(async () => {
+      const row = await client.query('select name from products where id = $1', [productId]);
+      return row.rows[0]?.name;
+    }).toBe(updatedName);
+  } finally {
+    await client.end();
+  }
 });
 
 test('admin can record an inventory movement', async ({ page }) => {
@@ -94,5 +124,21 @@ test('admin can record an inventory movement', async ({ page }) => {
   await page.locator('textarea[name="note"]').fill('E2E test stock-in');
   await page.getByRole('button', { name: 'Ghi nhận biến động' }).click();
 
-  await expect(page.locator('table').last().getByRole('row', { name: new RegExp(variantSku) })).toContainText('PRODUCTION_IN');
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await expect.poll(async () => {
+      const row = await client.query(
+        `select movement_type, quantity
+         from inventory_movements
+         where product_variant_id = $1 and warehouse_id = $2
+         order by created_at desc
+         limit 1`,
+        [variantId, warehouseId],
+      );
+      return row.rows[0];
+    }, { timeout: 15_000 }).toMatchObject({ movement_type: 'PRODUCTION_IN', quantity: 10 });
+  } finally {
+    await client.end();
+  }
 });
