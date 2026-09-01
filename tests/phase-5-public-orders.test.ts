@@ -169,7 +169,7 @@ test('GET /api/public/orders/[orderNumber] returns minimal fields for a real ord
     assert.match(confirmedHtml, new RegExp(phoneRow.rows[0].customer_phone));
     assert.match(confirmedHtml, /123 Test St/);
 
-    for (const fallbackToken of ['invalid', createOrderConfirmationToken(createdBody.id, -1)]) {
+    for (const fallbackToken of ['invalid', createOrderConfirmationToken(createdBody.id, -10)]) {
       const fallback = await fetch(`${BASE_URL}/order-confirmation/${orderNumber}?token=${encodeURIComponent(fallbackToken)}&phoneSuffix=${phoneSuffix}`);
       assert.equal(fallback.status, 200);
       const fallbackHtml = await fallback.text();

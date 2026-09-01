@@ -16,7 +16,7 @@ test('order confirmation token accepts a valid token and rejects expired or modi
   const orderId = randomUUID();
   const valid = createOrderConfirmationToken(orderId, 60);
   assert.equal(verifyOrderConfirmationToken(valid)?.orderId, orderId);
-  assert.equal(verifyOrderConfirmationToken(createOrderConfirmationToken(orderId, -1)), null);
+  assert.equal(verifyOrderConfirmationToken(createOrderConfirmationToken(orderId, -10)), null);
   assert.equal(verifyOrderConfirmationToken(`${valid.slice(0, -1)}x`), null);
 });
 

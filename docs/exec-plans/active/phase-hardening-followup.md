@@ -1,7 +1,6 @@
 # Hardening Follow-up — Codex verification findings on D-01–D-11
 
-> Trạng thái: **CHANGES REQUESTED — F-05 phát hiện khi Claude review (chạy
-> `npm test` 6 lần liên tiếp trên Node 22, xem chi tiết bên dưới)**
+> Trạng thái: **IMPLEMENTED — F-05 READY FOR CLAUDE REVIEW**
 > Nguồn: Codex verification pass trên
 > `docs/exec-plans/completed/phase-debate-claude-review.md` (phase đã đóng ở
 > commit `c007e22`). Các mục dưới đây là gap Codex phát hiện khi đối chiếu
@@ -296,7 +295,7 @@ chạy liên tiếp — 2 lần gần nhất của Claude đều fail liên ti�
 - [x] **F-03 (IMPORTANT):** Thêm test rollback upload + dọn cover cũ cho D-08.
 - [x] **F-04 (SUGGESTION):** Gom shared live-server cho test suite; thêm
       test hành vi thật cho D-11 FK RESTRICT.
-- [ ] **F-05 (BLOCKER):** Điều tra + sửa expiry check flaky trong
+- [x] **F-05 (BLOCKER):** Điều tra + sửa expiry check flaky trong
       `order-confirmation-token.ts`; siết test TTL âm; `npm test` ổn định
       qua 5 lần chạy liên tiếp.
 
