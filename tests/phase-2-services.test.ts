@@ -4,7 +4,7 @@ import test, { after } from 'node:test';
 import nextEnv from '@next/env';
 import { Client } from 'pg';
 import { availableStock, recordInventoryMovement } from '../src/services/inventory.service.js';
-import { canTransitionOrderStatus, createOrder, reconcileOrderTotal, updateOrderStatus } from '../src/services/order.service.js';
+import { canTransitionOrderStatus, createOrder, nextPaymentStatuses, nextShippingStatuses, reconcileOrderTotal, updateOrderStatus } from '../src/services/order.service.js';
 import { canAcceptQuote } from '../src/services/quote.service.js';
 import { DomainError } from '../src/lib/domain-error.js';
 import { getPool } from '../src/lib/db.js';
@@ -38,6 +38,13 @@ test('order status transitions are forward-only, with CANCELLED reachable until 
   assert.equal(canTransitionOrderStatus('READY_TO_SHIP', 'CANCELLED'), true);
   assert.equal(canTransitionOrderStatus('SHIPPED', 'CANCELLED'), false); // no cancel after shipped
   assert.equal(canTransitionOrderStatus('COMPLETED', 'CANCELLED'), false);
+});
+
+test('payment and shipping state maps expose forward-only next states', () => {
+  assert.deepEqual(nextPaymentStatuses('UNPAID'), ['DEPOSIT_PAID', 'PAID']);
+  assert.deepEqual(nextPaymentStatuses('REFUNDED'), []);
+  assert.deepEqual(nextShippingStatuses('PENDING'), ['SHIPPED']);
+  assert.deepEqual(nextShippingStatuses('RETURNED'), []);
 });
 
 test('two overlapping order creations reserve stock exactly once', { skip: !process.env.DATABASE_URL }, async () => {
@@ -104,4 +111,55 @@ test('recordInventoryMovement rejects an unknown variant instead of silently wri
     () => recordInventoryMovement({ warehouseId: '00000000-0000-4000-8000-000000000010', productVariantId: randomUUID(), movementType: 'ADJUSTMENT_OUT', quantity: -1, note: 'test' }, '00000000-0000-4000-8000-0000000000aa'),
     (error: unknown) => error instanceof DomainError && error.code === 'VARIANT_NOT_FOUND',
   );
+});
+
+test('MADE_TO_ORDER checkout succeeds with zero finished stock and creates a print job at PRODUCING', { skip: !process.env.DATABASE_URL }, async () => {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  const productId = randomUUID();
+  const variantId = randomUUID();
+  const actorId = '00000000-0000-4000-8000-0000000000aa';
+  try {
+    await client.query(`insert into products (id,name,slug,product_type,status) values ($1,'MTO Test',$2,'MADE_TO_ORDER','ACTIVE')`, [productId, `mto-${productId.slice(0, 8)}`]);
+    await client.query(`insert into product_variants (id,product_id,sku,name,price) values ($1,$2,$3,'Default',50000)`, [variantId, productId, `MTO-${productId.slice(0, 8).toUpperCase()}`]);
+    const order = await createOrder({ customerName: 'MTO Test', customerPhone: '0900000000', items: [{ variantId, quantity: 2 }] }, actorId);
+    await updateOrderStatus(order.id, 'CONFIRMED', actorId);
+    await updateOrderStatus(order.id, 'PRODUCING', actorId);
+
+    const saleOut = await client.query(`select id from inventory_movements where reference_type = 'order' and reference_id = $1`, [order.id]);
+    assert.equal(saleOut.rowCount, 0);
+    const jobs = await client.query(`select id,status from print_jobs where order_id = $1`, [order.id]);
+    assert.equal(jobs.rowCount, 1);
+    assert.equal(jobs.rows[0].status, 'QUEUED');
+  } finally {
+    await client.end();
+  }
+});
+
+test('cancelling after PRODUCING restores finished stock with an immutable RETURN_IN movement', { skip: !process.env.DATABASE_URL }, async () => {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  const productId = randomUUID();
+  const variantId = randomUUID();
+  const warehouseId = randomUUID();
+  const actorId = '00000000-0000-4000-8000-0000000000aa';
+  try {
+    await client.query(`insert into warehouses (id,name,code) values ($1,'Cancel Test',$2)`, [warehouseId, `CAN${productId.slice(0, 8).toUpperCase()}`]);
+    await client.query(`insert into products (id,name,slug,product_type,status) values ($1,'Cancel Test',$2,'READY_STOCK','ACTIVE')`, [productId, `cancel-${productId.slice(0, 8)}`]);
+    await client.query(`insert into product_variants (id,product_id,sku,name,price) values ($1,$2,$3,'Default',1000)`, [variantId, productId, `CAN-${productId.slice(0, 8).toUpperCase()}`]);
+    await client.query(`insert into inventory_movements (warehouse_id,product_variant_id,movement_type,quantity,note) values ($1,$2,'PRODUCTION_IN',5,'fixture')`, [warehouseId, variantId]);
+    const order = await createOrder({ customerName: 'Cancel Test', customerPhone: '0900000000', items: [{ variantId, quantity: 2 }] }, actorId);
+    await updateOrderStatus(order.id, 'CONFIRMED', actorId);
+    await updateOrderStatus(order.id, 'PRODUCING', actorId);
+    await updateOrderStatus(order.id, 'CANCELLED', actorId);
+
+    const movements = await client.query(`select movement_type,quantity from inventory_movements where reference_id = $1 order by created_at`, [order.id]);
+    assert.deepEqual(movements.rows.map((row) => [row.movement_type, row.quantity]), [['SALE_OUT', -2], ['RETURN_IN', 2]]);
+    const balance = await client.query('select sum(quantity) as balance from inventory_movements where product_variant_id = $1', [variantId]);
+    assert.equal(Number(balance.rows[0].balance), 5);
+    const audit = await client.query(`select id from audit_logs where entity_id = $1 and action = 'ORDER_CANCELLED_RESTOCKED'`, [order.id]);
+    assert.equal(audit.rowCount, 1);
+  } finally {
+    await client.end();
+  }
 });

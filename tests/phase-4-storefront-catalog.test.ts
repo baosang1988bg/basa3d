@@ -70,3 +70,23 @@ test('listStorefrontProducts({ categoryId }) only returns products in that categ
     await client.end();
   }
 });
+
+test('featured storefront listing returns only ACTIVE products marked featured', { skip: !process.env.DATABASE_URL }, async () => {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  const featuredId = randomUUID();
+  const regularId = randomUUID();
+  const draftId = randomUUID();
+  try {
+    const suffix = featuredId.slice(0, 8);
+    await client.query(`insert into products (id,name,slug,product_type,status,is_featured) values ($1,'Featured',$2,'READY_STOCK','ACTIVE',true)`, [featuredId, `featured-${suffix}`]);
+    await client.query(`insert into products (id,name,slug,product_type,status,is_featured) values ($1,'Regular',$2,'READY_STOCK','ACTIVE',false)`, [regularId, `regular-${suffix}`]);
+    await client.query(`insert into products (id,name,slug,product_type,status,is_featured) values ($1,'Draft Featured',$2,'READY_STOCK','DRAFT',true)`, [draftId, `draft-featured-${suffix}`]);
+    const result = await listStorefrontProducts({ featuredOnly: true, limit: 100 });
+    assert.equal(result.items.some((item) => item.id === featuredId), true);
+    assert.equal(result.items.some((item) => item.id === regularId), false);
+    assert.equal(result.items.some((item) => item.id === draftId), false);
+  } finally {
+    await client.end();
+  }
+});

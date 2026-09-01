@@ -94,6 +94,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
           <div className="mt-6">
             <AddToCartForm
+              productType={product.productType}
               productSlug={product.slug}
               productName={product.name}
               imageUrl={product.images[0]?.url ?? null}

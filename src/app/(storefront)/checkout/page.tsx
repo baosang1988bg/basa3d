@@ -53,7 +53,8 @@ export default function CheckoutPage() {
         return;
       }
       clearCart();
-      router.push(`/order-confirmation/${body.orderNumber}`);
+      const phoneSuffix = payload.customerPhone.replace(/\D/g, '').slice(-4);
+      router.push(`/order-confirmation/${body.orderNumber}?phoneSuffix=${encodeURIComponent(phoneSuffix)}`);
     } catch {
       setState({ status: 'error', message: 'Không thể kết nối máy chủ, vui lòng thử lại.' });
     }

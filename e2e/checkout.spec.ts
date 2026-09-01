@@ -56,7 +56,7 @@ test('a visitor can browse to a product, add it to cart, and complete guest chec
   await expect(page.getByText('Đặt hàng thành công!')).toBeVisible();
   await expect(page.getByText('E2E Checkout Product')).toBeVisible();
 
-  const orderNumber = page.url().split('/order-confirmation/')[1];
+  const orderNumber = new URL(page.url()).pathname.split('/order-confirmation/')[1];
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
@@ -72,4 +72,32 @@ test('a visitor can browse to a product, add it to cart, and complete guest chec
   } finally {
     await client.end();
   }
+});
+
+test('a visitor can order a MADE_TO_ORDER product with zero finished stock', async ({ page }) => {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  const mtoProductId = randomUUID();
+  const mtoVariantId = randomUUID();
+  const suffix = mtoProductId.slice(0, 8);
+  const slug = `e2e-mto-${suffix}`;
+  try {
+    await client.query(`insert into products (id,name,slug,product_type,status) values ($1,'E2E Made To Order',$2,'MADE_TO_ORDER','ACTIVE')`, [mtoProductId, slug]);
+    await client.query(`insert into product_variants (id,product_id,sku,name,price) values ($1,$2,$3,'Default',90000)`, [mtoVariantId, mtoProductId, `E2E-MTO-${suffix.toUpperCase()}`]);
+  } finally {
+    await client.end();
+  }
+
+  await page.goto(`/products/${slug}`);
+  await page.getByRole('button', { name: 'Đặt in theo yêu cầu' }).click();
+  await page.goto('/checkout');
+  const phone = `08${randomUUID().replace(/\D/g, '').slice(0, 8)}`;
+  await page.locator('#customerName').fill('Playwright MTO E2E');
+  await page.locator('#customerPhone').fill(phone);
+  await page.locator('#addressLine1').fill('123 Đường Test');
+  await page.locator('#ward').fill('Phường Test');
+  await page.locator('#city').fill('TP Test');
+  await page.getByRole('button', { name: 'Xác nhận đặt hàng' }).click();
+  await expect(page).toHaveURL(/\/order-confirmation\/ORD-/, { timeout: 15_000 });
+  await expect(page.getByText('Đặt hàng thành công!')).toBeVisible();
 });

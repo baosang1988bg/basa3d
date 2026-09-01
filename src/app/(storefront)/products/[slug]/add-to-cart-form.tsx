@@ -10,14 +10,14 @@ type Variant = {
   id: string; sku: string; name: string; attributes: Record<string, string>; price: number; inStock: boolean;
 };
 
-export function AddToCartForm({ productSlug, productName, imageUrl, variants }: { productSlug: string; productName: string; imageUrl: string | null; variants: Variant[] }) {
+export function AddToCartForm({ productSlug, productName, productType, imageUrl, variants }: { productSlug: string; productName: string; productType: string; imageUrl: string | null; variants: Variant[] }) {
   const { addItem } = useCart();
   const [selectedVariantId, setSelectedVariantId] = useState(variants[0]?.id ?? '');
   const [quantity, setQuantity] = useState(1);
   const [justAdded, setJustAdded] = useState(false);
 
   const selectedVariant = variants.find((variant) => variant.id === selectedVariantId) ?? variants[0];
-  const canAdd = Boolean(selectedVariant?.inStock);
+  const canAdd = Boolean(selectedVariant && (productType === 'MADE_TO_ORDER' || selectedVariant.inStock));
 
   function handleAddToCart() {
     if (!selectedVariant || !canAdd) return;
@@ -52,8 +52,8 @@ export function AddToCartForm({ productSlug, productName, imageUrl, variants }: 
             className="h-10 cursor-pointer rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
           >
             {variants.map((variant) => (
-              <option key={variant.id} value={variant.id} disabled={!variant.inStock}>
-                {variant.name}{!variant.inStock ? ' (hết hàng)' : ''}
+              <option key={variant.id} value={variant.id} disabled={productType !== 'MADE_TO_ORDER' && !variant.inStock}>
+                {variant.name}{productType !== 'MADE_TO_ORDER' && !variant.inStock ? ' (hết hàng)' : ''}
               </option>
             ))}
           </select>
@@ -77,7 +77,7 @@ export function AddToCartForm({ productSlug, productName, imageUrl, variants }: 
 
       <StorefrontButton variant="accent" onClick={handleAddToCart} disabled={!canAdd} className="w-full sm:w-auto">
         <ShoppingCart className="mr-2 size-4" />
-        {canAdd ? 'Thêm vào giỏ hàng' : 'Tạm hết hàng'}
+        {canAdd ? (productType === 'MADE_TO_ORDER' ? 'Đặt in theo yêu cầu' : 'Thêm vào giỏ hàng') : 'Tạm hết hàng'}
       </StorefrontButton>
 
       {justAdded && (

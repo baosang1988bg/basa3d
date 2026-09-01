@@ -54,13 +54,14 @@ async function attachStockFlag(variantsByProduct: Map<string, { id: string }[]>)
   return flags;
 }
 
-export async function listStorefrontProducts(input: { page?: number; limit?: number; categoryId?: string; productType?: string; search?: string; sortBy?: 'newest' | 'price_asc' | 'price_desc' } = {}) {
+export async function listStorefrontProducts(input: { page?: number; limit?: number; categoryId?: string; productType?: string; search?: string; sortBy?: 'newest' | 'price_asc' | 'price_desc'; featuredOnly?: boolean } = {}) {
   const { page, limit, offset } = pagination(input);
   const values: unknown[] = [];
   let filterSql = '';
   if (input.categoryId) { values.push(input.categoryId); filterSql += ` and p.category_id = $${values.length}`; }
   if (input.productType) { values.push(input.productType); filterSql += ` and p.product_type = $${values.length}`; }
   if (input.search) { values.push(`%${input.search}%`); filterSql += ` and p.name ilike $${values.length}`; }
+  if (input.featuredOnly) filterSql += ' and p.is_featured = true';
   const orderSql = input.sortBy === 'price_asc' ? 'p.base_price asc nulls last'
     : input.sortBy === 'price_desc' ? 'p.base_price desc nulls last'
     : 'p.created_at desc';
@@ -86,7 +87,7 @@ export async function listStorefrontProducts(input: { page?: number; limit?: num
       id: row.id, name: row.name, slug: row.slug, shortDescription: row.shortDescription,
       productType: row.productType, basePrice: row.basePrice, categoryId: row.categoryId,
       imageUrl: row.imageStoragePath ? toPublicImageUrl(row.imageStoragePath) : null,
-      inStock: stockFlags.get(row.id) ?? false,
+      inStock: row.productType === 'MADE_TO_ORDER' || (stockFlags.get(row.id) ?? false),
     })) satisfies StorefrontProductSummary[],
   };
 }
@@ -116,7 +117,7 @@ export async function getStorefrontProductBySlug(slug: string): Promise<Storefro
   );
   const availableByVariant = await getAvailableStockByVariant(variantRows.rows.map((variant) => variant.id));
   const variants = variantRows.rows.map((variant) => ({
-    ...variant, inStock: (availableByVariant.get(variant.id) ?? 0) > 0,
+    ...variant, inStock: product.productType === 'MADE_TO_ORDER' || (availableByVariant.get(variant.id) ?? 0) > 0,
   }));
 
   const imageRows = await query<{ storagePath: string; altText: string | null; sortOrder: number }>(
