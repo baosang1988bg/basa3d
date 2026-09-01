@@ -1,6 +1,6 @@
 # Hardening Follow-up — Codex verification findings on D-01–D-11
 
-> Trạng thái: **OPEN — chờ OWNER + Claude triage**
+> Trạng thái: **IMPLEMENTED — READY FOR CLAUDE/GEMINI REVIEW**
 > Nguồn: Codex verification pass trên
 > `docs/exec-plans/completed/phase-debate-claude-review.md` (phase đã đóng ở
 > commit `c007e22`). Các mục dưới đây là gap Codex phát hiện khi đối chiếu
@@ -235,15 +235,15 @@ file; có ít nhất 1 test D-11 gọi xóa Auth user thật và assert bị ch�
 - [x] F-03, F-04 không có câu hỏi mở — thuần kỹ thuật
 
 ### Việc cần làm
-- [ ] **F-01 (BLOCKER):** Signed short-lived token cho order-confirmation
+- [x] **F-01 (BLOCKER):** Signed short-lived token cho order-confirmation
       (thay `phoneSuffix` query param); bảng `rate_limit_attempts` trong
       Postgres thay cho in-memory Map, dùng chung cho `orders` lookup và
       `custom-requests/attachments`.
-- [ ] **F-02 (IMPORTANT):** Sửa câu chữ ADR-0017 tách rõ 2 bước tạo print
+- [x] **F-02 (IMPORTANT):** Sửa câu chữ ADR-0017 tách rõ 2 bước tạo print
       job (tự động) và tiêu hao nguyên liệu (thủ công qua staff) — không đổi
       code.
-- [ ] **F-03 (IMPORTANT):** Thêm test rollback upload + dọn cover cũ cho D-08.
-- [ ] **F-04 (SUGGESTION):** Gom shared live-server cho test suite; thêm
+- [x] **F-03 (IMPORTANT):** Thêm test rollback upload + dọn cover cũ cho D-08.
+- [x] **F-04 (SUGGESTION):** Gom shared live-server cho test suite; thêm
       test hành vi thật cho D-11 FK RESTRICT.
 
 ## Definition of Done
