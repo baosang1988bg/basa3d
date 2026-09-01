@@ -46,10 +46,39 @@ export async function deleteBlogCoverImage(storagePath: string) {
   if (error) throw new DomainError('IMAGE_DELETE_FAILED', error.message, 502);
 }
 
-type BlogPostInput = {
+export type BlogPostInput = {
   categoryId?: string | null; title: string; slug: string; excerpt?: string | null; content: string;
   tags?: string[]; seoTitle?: string | null; seoDescription?: string | null; status?: string; coverImagePath?: string | null;
 };
+
+type BlogCoverFile = { file: Blob; fileName: string } | undefined;
+
+export async function createBlogPostWithCover(input: BlogPostInput, cover: BlogCoverFile, actorId: string) {
+  const coverImagePath = cover ? (await uploadBlogCoverImage(cover)).storagePath : null;
+  try {
+    return await createBlogPost({ ...input, coverImagePath }, actorId);
+  } catch (error) {
+    if (coverImagePath) await deleteBlogCoverImage(coverImagePath).catch(() => undefined);
+    throw error;
+  }
+}
+
+export async function updateBlogPostWithCover(id: string, input: Partial<BlogPostInput>, cover: BlogCoverFile, actorId: string) {
+  const previous = await getBlogPostById(id);
+  const coverImagePath = cover ? (await uploadBlogCoverImage(cover)).storagePath : undefined;
+  try {
+    const result = await updateBlogPost(id, { ...input, coverImagePath }, actorId);
+    if (coverImagePath && previous?.coverImagePath && previous.coverImagePath !== coverImagePath) {
+      await deleteBlogCoverImage(previous.coverImagePath).catch((error) => {
+        console.error('Failed to remove replaced blog cover image.', { storagePath: previous.coverImagePath, error });
+      });
+    }
+    return result;
+  } catch (error) {
+    if (coverImagePath) await deleteBlogCoverImage(coverImagePath).catch(() => undefined);
+    throw error;
+  }
+}
 
 export async function createBlogPost(input: BlogPostInput, actorId: string) {
   return withTransaction(async (client) => {

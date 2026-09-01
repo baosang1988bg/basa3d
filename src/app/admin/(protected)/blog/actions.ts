@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/auth/require-admin';
 import { blogCategoryInputSchema, blogPostInputSchema, blogPostUpdateInputSchema } from '@/domain/schemas';
-import { createBlogCategory, createBlogPost, deleteBlogCoverImage, getBlogPostById, updateBlogPost, uploadBlogCoverImage } from '@/services/blog.service';
+import { createBlogCategory, createBlogPostWithCover, updateBlogPostWithCover } from '@/services/blog.service';
 
 function readFormValue(formData: FormData, key: string): string | undefined {
   const value = formData.get(key);
@@ -23,11 +23,10 @@ export async function createBlogCategoryAction(formData: FormData) {
   revalidatePath('/admin/blog');
 }
 
-async function uploadCoverIfProvided(formData: FormData): Promise<string | null | undefined> {
+function coverIfProvided(formData: FormData): { file: Blob; fileName: string } | undefined {
   const file = formData.get('coverImage');
   if (!(file instanceof Blob) || file.size === 0) return undefined;
-  const { storagePath } = await uploadBlogCoverImage({ file, fileName: file instanceof File ? file.name : 'upload' });
-  return storagePath;
+  return { file, fileName: file instanceof File ? file.name : 'upload' };
 }
 
 export async function createBlogPostAction(formData: FormData) {
@@ -43,13 +42,7 @@ export async function createBlogPostAction(formData: FormData) {
     seoDescription: readFormValue(formData, 'seoDescription') ?? null,
     status: readFormValue(formData, 'status') ?? 'DRAFT',
   });
-  const coverImagePath = await uploadCoverIfProvided(formData);
-  try {
-    await createBlogPost({ ...input, coverImagePath: coverImagePath ?? null }, actorId);
-  } catch (error) {
-    if (coverImagePath) await deleteBlogCoverImage(coverImagePath).catch(() => undefined);
-    throw error;
-  }
+  await createBlogPostWithCover(input, coverIfProvided(formData), actorId);
   revalidatePath('/admin/blog');
 }
 
@@ -66,19 +59,7 @@ export async function updateBlogPostAction(id: string, formData: FormData) {
     seoDescription: readFormValue(formData, 'seoDescription') ?? null,
     status: readFormValue(formData, 'status') ?? 'DRAFT',
   });
-  const previous = await getBlogPostById(id);
-  const coverImagePath = await uploadCoverIfProvided(formData);
-  try {
-    await updateBlogPost(id, { ...input, coverImagePath }, actorId);
-  } catch (error) {
-    if (coverImagePath) await deleteBlogCoverImage(coverImagePath).catch(() => undefined);
-    throw error;
-  }
-  if (coverImagePath && previous?.coverImagePath && previous.coverImagePath !== coverImagePath) {
-    await deleteBlogCoverImage(previous.coverImagePath).catch((error) => {
-      console.error('Failed to remove replaced blog cover image.', { storagePath: previous.coverImagePath, error });
-    });
-  }
+  await updateBlogPostWithCover(id, input, coverIfProvided(formData), actorId);
   revalidatePath('/admin/blog');
   revalidatePath(`/admin/blog/${id}`);
   revalidatePath('/blog');
