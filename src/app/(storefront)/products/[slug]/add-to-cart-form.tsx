@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Check, ShoppingCart } from 'lucide-react';
 import { StorefrontButton } from '@/components/storefront/button';
 import { useCart } from '@/lib/cart/cart-context';
+import { trackAddToCart } from '@/lib/analytics';
 
 type Variant = {
   id: string; sku: string; name: string; attributes: Record<string, string>; price: number; inStock: boolean;
@@ -31,6 +32,7 @@ export function AddToCartForm({ productSlug, productName, productType, imageUrl,
       price: selectedVariant.price,
       imageUrl,
     }, quantity);
+    trackAddToCart({ item_id: selectedVariant.sku, item_name: productName, item_variant: selectedVariant.name, price: selectedVariant.price }, quantity);
     setJustAdded(true);
     setQuantity(1);
     setTimeout(() => setJustAdded(false), 3000);

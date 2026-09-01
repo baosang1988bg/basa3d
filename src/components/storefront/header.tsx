@@ -7,6 +7,7 @@ import { Menu, X, ShoppingCart, MessageCircle } from 'lucide-react';
 import { ThemeToggle } from './theme-toggle';
 import { SITE_CONFIG } from '@/config/site';
 import { useCart } from '@/lib/cart/cart-context';
+import { trackContactClick } from '@/lib/analytics';
 
 const NAV_LINKS = [
   { href: '/', label: 'Trang chủ' },
@@ -56,6 +57,7 @@ export function Header() {
             href={SITE_CONFIG.zaloUrl}
             target="_blank"
             rel="noreferrer"
+            onClick={() => trackContactClick('zalo', 'header')}
             className="hidden cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:inline-flex"
           >
             <MessageCircle className="size-4 text-[#0068FF]" /> Zalo tư vấn

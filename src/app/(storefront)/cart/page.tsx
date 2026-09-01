@@ -6,9 +6,25 @@ import { Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react';
 import { storefrontButtonClasses } from '@/components/storefront/button';
 import { formatVnd } from '@/components/storefront/format';
 import { useCart } from '@/lib/cart/cart-context';
+import { useEffect, useRef } from 'react';
+import { trackBeginCheckout, trackRemoveFromCart, trackViewCart, type GTagItem } from '@/lib/analytics';
 
 export default function CartPage() {
   const { items, subtotal, updateQuantity, removeItem } = useCart();
+  const viewedCart = useRef(false);
+  const analyticsItems: GTagItem[] = items.map((item) => ({ item_id: item.sku, item_name: item.productName, item_variant: item.variantName, price: item.price, quantity: item.quantity }));
+  useEffect(() => {
+    if (!viewedCart.current && items.length > 0) {
+      viewedCart.current = true;
+      trackViewCart(analyticsItems, subtotal);
+    }
+  }, [analyticsItems, items.length, subtotal]);
+
+  function handleRemove(variantId: string) {
+    const item = items.find((candidate) => candidate.variantId === variantId);
+    if (item) trackRemoveFromCart({ item_id: item.sku, item_name: item.productName, item_variant: item.variantName, price: item.price, quantity: item.quantity });
+    removeItem(variantId);
+  }
 
   if (items.length === 0) {
     return (
@@ -54,7 +70,7 @@ export default function CartPage() {
                     <Plus className="size-3.5" />
                   </button>
                 </div>
-                <button type="button" aria-label="Xoá khỏi giỏ hàng" onClick={() => removeItem(item.variantId)} className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg text-muted-foreground transition-colors duration-150 hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+                <button type="button" aria-label="Xoá khỏi giỏ hàng" onClick={() => handleRemove(item.variantId)} className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg text-muted-foreground transition-colors duration-150 hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
                   <Trash2 className="size-4" />
                 </button>
               </div>
@@ -68,7 +84,7 @@ export default function CartPage() {
           <p className="text-sm text-muted-foreground">Tạm tính</p>
           <p className="text-xl font-bold text-foreground">{formatVnd(subtotal)}</p>
         </div>
-        <Link href="/checkout" className={storefrontButtonClasses('accent', 'w-full text-center sm:w-auto')}>Tiến hành đặt hàng</Link>
+        <Link href="/checkout" onClick={() => trackBeginCheckout(analyticsItems, subtotal)} className={storefrontButtonClasses('accent', 'w-full text-center sm:w-auto')}>Tiến hành đặt hàng</Link>
       </div>
       <Link href="/products" className="mt-4 inline-block text-sm text-muted-foreground hover:text-foreground">← Tiếp tục mua sắm</Link>
     </div>

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { SITE_CONFIG } from '@/config/site';
+import { ContactLink } from './contact-link';
 
 export function Footer() {
   return (
@@ -10,9 +11,9 @@ export function Footer() {
           <p className="mt-2 text-sm text-muted-foreground">{SITE_CONFIG.description}</p>
           <p className="mt-2 text-sm text-muted-foreground">
             Hotline/Zalo:{' '}
-            <a href={SITE_CONFIG.zaloUrl} target="_blank" rel="noreferrer" className="font-medium text-foreground hover:underline">
+            <ContactLink href={SITE_CONFIG.zaloUrl} channel="zalo" placement="footer" target="_blank" rel="noreferrer" className="font-medium text-foreground hover:underline">
               {SITE_CONFIG.zaloPhone}
-            </a>
+            </ContactLink>
           </p>
         </div>
         <div>

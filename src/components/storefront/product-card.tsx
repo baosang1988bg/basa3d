@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { formatVnd } from './format';
+import { trackSelectItem } from '@/lib/analytics';
 
 export type ProductCardData = {
-  name: string; slug: string; basePrice: number | null; imageUrl: string | null; inStock: boolean; productType: string;
+  id: string; name: string; slug: string; basePrice: number | null; imageUrl: string | null; inStock: boolean; productType: string;
 };
 
 export function ProductCard({ product }: { product: ProductCardData }) {
@@ -17,6 +18,7 @@ export function ProductCard({ product }: { product: ProductCardData }) {
   return (
     <Link
       href={`/products/${product.slug}`}
+      onClick={() => trackSelectItem({ item_id: product.id, item_name: product.name, price: product.basePrice ?? undefined }, 'Product catalog')}
       className="group relative flex cursor-pointer flex-col gap-3 rounded-xl border border-border bg-card p-4 transition-all duration-200 ease-out hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none"
     >
       <div className="aspect-square overflow-hidden rounded-lg bg-muted/50">

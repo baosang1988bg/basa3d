@@ -5,6 +5,7 @@ import { ProductCard } from '@/components/storefront/product-card';
 import { StorefrontButton, storefrontButtonClasses } from '@/components/storefront/button';
 import { Breadcrumb } from '@/components/storefront/breadcrumb';
 import { cn } from '@/lib/utils';
+import { ViewItemListTracker } from '@/components/analytics/storefront-trackers';
 
 type SearchParams = { q?: string; type?: string; sort?: string; page?: string; categoryId?: string };
 
@@ -21,6 +22,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
+      <ViewItemListTracker listName="Product catalog" items={items.map((product) => ({ item_id: product.id, item_name: product.name, price: product.basePrice ?? undefined, item_category: categories.find((category) => category.id === product.categoryId)?.name }))} />
       <Breadcrumb items={[{ label: 'Trang chủ', href: '/' }, { label: 'Sản phẩm' }]} />
       <h1 className="font-heading text-2xl font-bold text-foreground md:text-[2rem]">Sản phẩm</h1>
 

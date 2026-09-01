@@ -3,6 +3,7 @@
 import { useState, type FormEvent, type ClipboardEvent, type DragEvent, type ChangeEvent } from 'react';
 import { StorefrontButton } from '@/components/storefront/button';
 import { Upload, Link as LinkIcon, X, Image as ImageIcon, File as FileIcon } from 'lucide-react';
+import { trackCustomPrintQuote, trackFileUpload } from '@/lib/analytics';
 
 type SubmitState = { status: 'idle' | 'submitting' | 'success' | 'error'; message?: string };
 type UploadState = { status: 'idle' | 'uploading' | 'done' | 'error'; fileName?: string; message?: string };
@@ -46,6 +47,7 @@ export function CustomRequestForm() {
       const { path } = (await response.json()) as { path: string };
       setAttachmentPath(path);
       setUpload({ status: 'done', fileName: file.name });
+      trackFileUpload({ name: file.name, extension, sizeMb: Number((file.size / (1024 * 1024)).toFixed(2)) });
     } catch {
       setUpload({ status: 'error', message: 'Không thể kết nối máy chủ, vui lòng thử lại.' });
       setImagePreview(null);
@@ -122,6 +124,7 @@ export function CustomRequestForm() {
         setState({ status: 'error', message: 'Có lỗi xảy ra, vui lòng kiểm tra lại thông tin.' });
         return;
       }
+      trackCustomPrintQuote({ material: payload.requestedMaterial, color: payload.requestedColor, quantity: payload.quantity, hasAttachment: payload.attachmentPath !== null });
       setState({ status: 'success' });
       formElement.reset();
       setImagePreview(null);
