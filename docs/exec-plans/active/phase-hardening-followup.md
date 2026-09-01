@@ -1,6 +1,7 @@
 # Hardening Follow-up — Codex verification findings on D-01–D-11
 
-> Trạng thái: **IMPLEMENTED — READY FOR CLAUDE/GEMINI REVIEW**
+> Trạng thái: **CHANGES REQUESTED — F-05 phát hiện khi Claude review (chạy
+> `npm test` 6 lần liên tiếp trên Node 22, xem chi tiết bên dưới)**
 > Nguồn: Codex verification pass trên
 > `docs/exec-plans/completed/phase-debate-claude-review.md` (phase đã đóng ở
 > commit `c007e22`). Các mục dưới đây là gap Codex phát hiện khi đối chiếu
@@ -225,6 +226,56 @@ thật rằng RESTRICT hoạt động — chỉ biết migration SQL có đúng 
 `npm test` full-suite pass ổn định nhiều lần liên tiếp không cần chạy riêng
 file; có ít nhất 1 test D-11 gọi xóa Auth user thật và assert bị chặn.
 
+## BLOCKER (phát hiện lúc review)
+
+### F-05 — Token đã hết hạn (`ttlSeconds: -1`) đôi khi vẫn được `verifyOrderConfirmationToken` chấp nhận
+
+**Bằng chứng**
+
+- Claude chạy `npm test` (Node 22.23.2) 6 lần liên tiếp để verify DoD #2: 3
+  lần fail (1 lần `SIGKILL` file `phase-5-public-orders.test.ts` — nghi ngờ
+  không liên quan; **2 lần liên tiếp** fail đúng 1 assertion giống hệt nhau
+  trong `tests/hardening-followup.test.ts:20`:
+  ```
+  assert.equal(verifyOrderConfirmationToken(createOrderConfirmationToken(orderId, -1)), null);
+  ```
+  Cả 2 lần fail, `verifyOrderConfirmationToken` trả về object hợp lệ
+  `{ orderId, expiresAt }` thay vì `null` — nghĩa là token đã hết hạn (tạo
+  với TTL âm) vẫn được coi là còn hiệu lực.
+- Đọc `src/lib/order-confirmation-token.ts`: dưới đồng hồ hệ thống đơn điệu
+  (monotonic), điều này về lý thuyết không thể xảy ra — `expiresAt =
+  floor(createTime/1000) - 1` và điều kiện reject là
+  `expiresAt <= floor(verifyTime/1000)`, mà `verifyTime > createTime` luôn
+  đúng vì verify chạy ngay sau create. Việc fail lặp lại 2 lần liên tiếp gợi
+  ý đây không phải nhiễu ngẫu nhiên một lần, mà là edge case thật (có thể do
+  `Date.now()` không hoàn toàn đơn điệu dưới tải cao — GC pause/event-loop
+  lag — điều có thể xảy ra cả ở production, không chỉ trong sandbox).
+
+**Tác động**
+
+Đây là một token bảo mật cho phép xem thông tin đơn hàng không mask (tên,
+SĐT, địa chỉ) — một expiry check có thể flaky-pass dưới tải, dù xác suất
+thấp, vẫn là rủi ro bảo mật thật, và vi phạm rõ DoD #2 (stable qua ≥3 lần
+chạy liên tiếp — 2 lần gần nhất của Claude đều fail liên tiếp).
+
+**Đề xuất**
+
+- Điều tra nguyên nhân gốc: có phải do `Date.now()` không đơn điệu dưới tải,
+  hay còn logic nào khác. Không giả định ngay là "chỉ do sandbox".
+- Bất kể nguyên nhân, cần thêm safety margin cho expiry check (ví dụ reject
+  nếu `expiresAt <= Math.floor(Date.now() / 1000) + BUFFER_SECONDS` với
+  buffer nhỏ vài giây) để chống đúng loại jitter này, thay vì so sánh biên
+  chính xác từng giây.
+- Sửa lại test dùng TTL âm sâu hơn (`-10` thay vì `-1`) để test không còn
+  phụ thuộc vào ranh giới đúng 1 giây — nhưng đây là fix cho test, không
+  thay thế cho việc sửa buffer ở logic thật.
+
+**Acceptance tối thiểu**
+
+`npm test` full-suite pass ổn định qua **5 lần chạy liên tiếp** trên Node
+≥22 (siết chặt hơn mức 3 lần ban đầu, vì lần này chính assertion an ninh bị
+ảnh hưởng).
+
 ## Checklist
 
 ### Trước khi giao Codex
@@ -245,6 +296,9 @@ file; có ít nhất 1 test D-11 gọi xóa Auth user thật và assert bị ch�
 - [x] **F-03 (IMPORTANT):** Thêm test rollback upload + dọn cover cũ cho D-08.
 - [x] **F-04 (SUGGESTION):** Gom shared live-server cho test suite; thêm
       test hành vi thật cho D-11 FK RESTRICT.
+- [ ] **F-05 (BLOCKER):** Điều tra + sửa expiry check flaky trong
+      `order-confirmation-token.ts`; siết test TTL âm; `npm test` ổn định
+      qua 5 lần chạy liên tiếp.
 
 ## Definition of Done
 
