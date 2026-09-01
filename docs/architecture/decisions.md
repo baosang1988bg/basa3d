@@ -166,7 +166,8 @@ Status: accepted (Debate 2026-09-01)
 `MADE_TO_ORDER` products represent standard designs printed on-demand without pre-existing finished goods stock.
 - Storefront displays `MADE_TO_ORDER` as available for ordering ("In theo yêu cầu / 1-2 ngày") and does not disable Add to Cart.
 - `createOrder` skips finished goods inventory reservation (`assertAvailableStock`) for `MADE_TO_ORDER` variants.
-- Material consumption occurs when the order enters `PRODUCING` by creating/linking a `print_jobs` row, deducting raw materials (`material_movements`), not finished goods stock.
+- When an order enters `PRODUCING`, the system automatically creates an empty `print_jobs` row in `QUEUED`; no raw material is deducted at this step.
+- Staff then manually assigns the material and estimated weight with `assignPrintJobMaterial()`. Raw material is deducted as a `PRODUCTION_OUT` movement only when staff transitions that print job to `PRINTING` through `updatePrintJobStatus()`.
 
 ## ADR-0018 — Raw material concurrency lock protocol
 
