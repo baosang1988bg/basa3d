@@ -23,13 +23,23 @@ export type GTagCustomParams = Record<string, string | number | boolean | null |
 
 declare global {
   interface Window {
+    dataLayer?: IArguments[];
     gtag?: (command: 'event', eventName: string, params?: GTagEcommerceParams | GTagCustomParams) => void;
   }
 }
 
 export function sendGAEvent(eventName: string, params: GTagEcommerceParams | GTagCustomParams): void {
-  if (typeof window === 'undefined' || typeof window.gtag !== 'function') return;
-  window.gtag('event', eventName, params);
+  if (typeof window === 'undefined') return;
+  window.dataLayer ??= [];
+  window.dataLayer.push(createGTagCommand('event', eventName, params));
+}
+
+// Google's gtag snippet queues its `arguments` object, which gtag.js drains after loading.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function createGTagCommand(command: 'event', eventName: string, params: GTagEcommerceParams | GTagCustomParams): IArguments {
+  // Deliberately match Google's queue representation rather than returning a rest-parameter array.
+  // eslint-disable-next-line prefer-rest-params
+  return arguments;
 }
 
 const listId = (listName: string) => listName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
