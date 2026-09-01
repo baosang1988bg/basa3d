@@ -17,7 +17,17 @@ test('order confirmation token accepts a valid token and rejects expired or modi
   const valid = createOrderConfirmationToken(orderId, 60);
   assert.equal(verifyOrderConfirmationToken(valid)?.orderId, orderId);
   assert.equal(verifyOrderConfirmationToken(createOrderConfirmationToken(orderId, -10)), null);
-  assert.equal(verifyOrderConfirmationToken(`${valid.slice(0, -1)}x`), null);
+
+  // Flip a byte inside the decoded signature buffer (not the token string's last character):
+  // base64url's final character only carries the digest's last 4 bits (2 are don't-care padding),
+  // so mutating the string's last character can coincidentally decode to the *same* bytes and
+  // pass timingSafeEqual ~7% of the time — not a forgery, just a flaky assertion. Flipping a byte
+  // before re-encoding guarantees the decoded signature actually differs.
+  const [orderIdPart, expiresAtPart, sigPart] = valid.split('.');
+  const tamperedSig = Buffer.from(sigPart, 'base64url');
+  tamperedSig[0] ^= 0xff;
+  const tampered = `${orderIdPart}.${expiresAtPart}.${tamperedSig.toString('base64url')}`;
+  assert.equal(verifyOrderConfirmationToken(tampered), null);
 });
 
 test('valid token returns unmasked order details while invalid token cannot bypass masked public lookup', { skip: !process.env.DATABASE_URL }, async () => {

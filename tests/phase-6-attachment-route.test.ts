@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import test from 'node:test';
+import { createHash } from 'node:crypto';
+import test, { after } from 'node:test';
 import nextEnv from '@next/env';
 import { Client } from 'pg';
 
@@ -8,10 +9,26 @@ nextEnv.loadEnvConfig(process.cwd());
 
 const PORT = 3411;
 const BASE_URL = `http://localhost:${PORT}`;
-const TEST_IP = `198.51.100.${Number.parseInt(randomUUID().slice(0, 2), 16) % 250 + 1}`;
+// A full UUID (not a small mod-250 range) as the rate-limit key: the route only hashes this
+// header as an opaque string (no IP-format validation), and the shared Postgres-backed limiter
+// (F-01) now persists attempt counts for a full hour across separate `npm test` invocations —
+// a low-entropy key risks colliding with an exhausted key from an earlier run in the same window.
+const TEST_IP = `test-${randomUUID()}`;
 const TEST_HEADERS = { 'x-forwarded-for': TEST_IP };
 
 const canRunLiveServer = Boolean(process.env.DATABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+after(async () => {
+  if (!canRunLiveServer) return;
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  const hashedKey = createHash('sha256').update(TEST_IP).digest('hex');
+  await client.query(
+    "delete from rate_limit_attempts where scope = 'custom-request-attachment-upload' and limiter_key = $1",
+    [hashedKey],
+  );
+  await client.end();
+});
 
 test('valid file upload returns a private storage path, not a public URL', { skip: !canRunLiveServer }, async () => {
   const body = new FormData();
