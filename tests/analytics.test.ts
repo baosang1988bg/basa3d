@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { sendGAEvent, trackAddToCart, trackPurchase, trackViewItem } from '../src/lib/analytics';
+import { sendGAEvent, trackAddToCart, trackBlogPost, trackPolicy, trackPurchase, trackViewItem } from '../src/lib/analytics';
 
 function withMockWindow(run: (dataLayer: IArguments[]) => void) {
   const previous = Object.getOwnPropertyDescriptor(globalThis, 'window');
@@ -47,4 +47,13 @@ test('sendGAEvent queues an event before gtag.js is available', () => {
     if (previous) Object.defineProperty(globalThis, 'window', previous);
     else Reflect.deleteProperty(globalThis, 'window');
   }
+});
+
+test('content helpers send the approved blog and policy parameters', () => {
+  withMockWindow((dataLayer) => {
+    trackBlogPost({ title: 'Chọn vật liệu', slug: 'chon-vat-lieu', category: 'Hướng dẫn' });
+    trackPolicy('Chính sách bảo mật');
+    assert.deepEqual(Array.from(dataLayer[0]), ['event', 'read_blog_post', { post_title: 'Chọn vật liệu', post_slug: 'chon-vat-lieu', category: 'Hướng dẫn' }]);
+    assert.deepEqual(Array.from(dataLayer[1]), ['event', 'view_policy', { policy_name: 'Chính sách bảo mật' }]);
+  });
 });

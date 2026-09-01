@@ -18,10 +18,12 @@ BaSa3D sends integer VND amounts exactly as stored by the application. For examp
 | `upload_3d_file` | Attachment upload succeeds on the server | `file_name`, `file_extension`, `file_size_mb` |
 | `request_custom_quote` | Custom request succeeds on the server | `technology`, `material`, `color`, `quantity`, `has_attachment` |
 | `click_contact_channel` | Contact link selected | `channel`, `placement` |
+| `read_blog_post` | Published blog post opened | `post_title`, `post_slug`, `category` |
+| `view_policy` | Privacy, shipping, return, or file-confidentiality policy opened | `policy_name` |
 
 Each item may include `item_id`, `item_name`, `price`, `item_category`, `item_variant`, and `quantity`. Do not register customer names, phones, email addresses, delivery addresses, attachment paths, or free-form notes as GA parameters.
 
-The agreed schema also reserves `search`, `read_blog_post`, and `view_policy`; those event triggers need separate product/marketing confirmation before Phase 10 closes.
+The agreed schema reserves `search`; its trigger definition is deferred until Marketing confirms what counts as a search action.
 
 ## Validate with DebugView
 

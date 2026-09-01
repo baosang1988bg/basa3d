@@ -139,16 +139,16 @@ export async function listBlogPosts(input: { page?: number; limit?: number } = {
 }
 
 type BlogPostDetail = {
-  id: string; categoryId: string | null; title: string; slug: string; excerpt: string | null; content: string;
+  id: string; categoryId: string | null; categoryName: string | null; title: string; slug: string; excerpt: string | null; content: string;
   coverImagePath: string | null; tags: string[]; seoTitle: string | null; seoDescription: string | null;
   status: string; publishedAt: string | null; createdAt: string;
 };
 
 export async function getBlogPostById(id: string): Promise<BlogPostDetail | null> {
   const result = await query<BlogPostDetail>(`
-    select id, category_id as "categoryId", title, slug, excerpt, content, cover_image_path as "coverImagePath",
-      tags, seo_title as "seoTitle", seo_description as "seoDescription", status, published_at as "publishedAt", created_at as "createdAt"
-    from blog_posts where id = $1`, [id]);
+    select p.id, p.category_id as "categoryId", c.name as "categoryName", p.title, p.slug, p.excerpt, p.content, p.cover_image_path as "coverImagePath",
+      p.tags, p.seo_title as "seoTitle", p.seo_description as "seoDescription", p.status, p.published_at as "publishedAt", p.created_at as "createdAt"
+    from blog_posts p left join blog_categories c on c.id = p.category_id where p.id = $1`, [id]);
   return result.rows[0] ?? null;
 }
 
@@ -179,9 +179,10 @@ export async function listAllPublishedPostSlugs() {
 
 export async function getPublishedPostBySlug(slug: string) {
   const result = await query<BlogPostDetail>(`
-    select id, category_id as "categoryId", title, slug, excerpt, content, cover_image_path as "coverImagePath",
-      tags, seo_title as "seoTitle", seo_description as "seoDescription", status, published_at as "publishedAt", created_at as "createdAt"
-    from blog_posts where slug = $1 and status = 'PUBLISHED' and published_at <= now()`, [slug]);
+    select p.id, p.category_id as "categoryId", c.name as "categoryName", p.title, p.slug, p.excerpt, p.content, p.cover_image_path as "coverImagePath",
+      p.tags, p.seo_title as "seoTitle", p.seo_description as "seoDescription", p.status, p.published_at as "publishedAt", p.created_at as "createdAt"
+    from blog_posts p left join blog_categories c on c.id = p.category_id
+    where p.slug = $1 and p.status = 'PUBLISHED' and p.published_at <= now()`, [slug]);
   if (!result.rowCount) return null;
   const post = result.rows[0];
   // The `published_at <= now()` filter above guarantees this is non-null for every row this query

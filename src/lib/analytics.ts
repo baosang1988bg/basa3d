@@ -89,3 +89,11 @@ export function trackCustomPrintQuote(data: { technology?: string | null; materi
 export function trackContactClick(channel: 'zalo' | 'hotline' | 'messenger' | 'email', placement: string): void {
   sendGAEvent('click_contact_channel', { channel, placement });
 }
+
+export function trackBlogPost(post: { title: string; slug: string; category?: string | null }): void {
+  sendGAEvent('read_blog_post', { post_title: post.title, post_slug: post.slug, category: post.category ?? 'uncategorized' });
+}
+
+export function trackPolicy(policyName: string): void {
+  sendGAEvent('view_policy', { policy_name: policyName });
+}
