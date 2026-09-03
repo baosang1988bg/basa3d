@@ -42,8 +42,16 @@ nvm install 22 && nvm use 22
 - `npm run typecheck` / `npm run lint` / `npm run build`
 - `npm test` — unit + integration tests (`tests/*.test.ts`); the DB-touching ones
   skip automatically if `DATABASE_URL` isn't set, and one spins up a real
-  `next start` on port 3411 to verify every admin route rejects unauthenticated
-  requests.
+  `next start` on port 3411 to verify every admin route enforces its minimum
+  role (`STAFF` vs `OWNER`, per `docs/architecture/decisions.md` ADR-0011/
+  ADR-0026/ADR-0027) — not just "rejects unauthenticated requests." That
+  route×role matrix (`tests/phase-3-route-auth.test.ts`) mints 2 real
+  throwaway Supabase accounts (`tests/helpers/rbac-accounts.ts`, needs
+  `SUPABASE_SERVICE_ROLE_KEY`; skips gracefully without it, falling back to
+  the unauthenticated-only checks) and adds ~3s to mint/tear down (measured),
+  negligible against the ~2-3 minute `next build` + `next start` + full test
+  run — folded into `npm test` rather than a separate script (Phase 14
+  measured this; see that phase's closing commit).
 - `npx playwright test` — E2E (`e2e/*.spec.ts`); needs `SUPABASE_SERVICE_ROLE_KEY`
   to create/delete a throwaway test admin account. First run: `npx playwright
   install chromium`.
