@@ -6,16 +6,10 @@ import { claimAnalyticsPurchase, getOrderConfirmationByToken, getPublicOrderByNu
 import { formatVnd } from '@/components/storefront/format';
 import { storefrontButtonClasses } from '@/components/storefront/button';
 import { SITE_CONFIG } from '@/config/site';
+import { buildVietQrUrl } from '@/lib/vietqr';
 import { PurchaseTracker } from '@/components/analytics/storefront-trackers';
 
 const DEPOSIT_SUGGESTED_THRESHOLD = 300_000; // ADR-0009 / business-rules.md #8
-
-function buildVietQrUrl(amount: number, orderNumber: string): string | null {
-  if (!SITE_CONFIG.bankId || !SITE_CONFIG.bankAccountNumber) return null;
-  const params = new URLSearchParams({ amount: String(amount), addInfo: orderNumber });
-  if (SITE_CONFIG.bankAccountName) params.set('accountName', SITE_CONFIG.bankAccountName);
-  return `https://img.vietqr.io/image/${encodeURIComponent(SITE_CONFIG.bankId)}-${encodeURIComponent(SITE_CONFIG.bankAccountNumber)}-compact2.png?${params.toString()}`;
-}
 
 function formatAddress(address: Record<string, unknown>): string {
   return [address.line1, address.ward, address.city].filter((part) => typeof part === 'string' && part.trim() !== '').join(', ');

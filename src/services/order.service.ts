@@ -194,7 +194,7 @@ export async function getOrderById(orderId: string) {
 export async function getOrderConfirmationByToken(orderNumber: string, token: string) {
   const verified = verifyOrderConfirmationToken(token);
   if (!verified) return null;
-  const order = await getOrderById(verified.orderId);
+  const order = await getOrderById(verified.resourceId);
   if (!order || order.orderNumber !== orderNumber) return null;
   return {
     orderNumber: order.orderNumber,
@@ -238,9 +238,11 @@ type PublicOrderDetail = {
   customerNote: string | null; createdAt: string;
 };
 
-function digitsOnly(value: string) { return value.replace(/\D/g, ''); }
+// Exported (Phase 13) so quote.service.ts's public quote lookup can reuse the exact same
+// dual-verification/masking contract (business-rules.md #18 mirrors #14) instead of re-implementing it.
+export function digitsOnly(value: string) { return value.replace(/\D/g, ''); }
 
-function maskCustomerName(name: string): string {
+export function maskCustomerName(name: string): string {
   return name.split(/\s+/).filter(Boolean).map((part) => `${part.slice(0, 1)}${'*'.repeat(Math.min(3, Math.max(2, part.length - 1)))}`).join(' ');
 }
 

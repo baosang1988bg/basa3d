@@ -11,22 +11,27 @@ function tokenSecret(): string {
   return secret;
 }
 
-function signature(orderId: string, expiresAt: number): Buffer {
-  return createHmac('sha256', tokenSecret()).update(`${orderId}.${expiresAt}`).digest();
+function signature(resourceId: string, expiresAt: number): Buffer {
+  return createHmac('sha256', tokenSecret()).update(`${resourceId}.${expiresAt}`).digest();
 }
 
-export function createOrderConfirmationToken(orderId: string, ttlSeconds = DEFAULT_TTL_SECONDS): string {
+// Phase 13: generalized from `orderId` to `resourceId` — this token is now shared by two resources
+// (orders, since Phase 5; quotes, since Phase 13). The mechanism (HMAC-SHA256, TTL baked in at mint
+// time, timingSafeEqual) is identical for both; only the UUID being signed differs. Existing callers
+// were unaffected by this rename (they all pass the id positionally), but were updated for clarity —
+// see order.service.ts's getOrderConfirmationByToken and quote.service.ts's getQuoteAccessByToken.
+export function createOrderConfirmationToken(resourceId: string, ttlSeconds = DEFAULT_TTL_SECONDS): string {
   const expiresAt = Math.floor(Date.now() / 1000) + ttlSeconds;
-  return `${orderId}.${expiresAt}.${signature(orderId, expiresAt).toString('base64url')}`;
+  return `${resourceId}.${expiresAt}.${signature(resourceId, expiresAt).toString('base64url')}`;
 }
 
-export function verifyOrderConfirmationToken(token: string): { orderId: string; expiresAt: number } | null {
-  const [orderId, expiresAtRaw, signatureRaw, ...extra] = token.split('.');
-  if (extra.length || !/^[0-9a-f-]{36}$/i.test(orderId ?? '') || !/^\d+$/.test(expiresAtRaw ?? '') || !signatureRaw) return null;
+export function verifyOrderConfirmationToken(token: string): { resourceId: string; expiresAt: number } | null {
+  const [resourceId, expiresAtRaw, signatureRaw, ...extra] = token.split('.');
+  if (extra.length || !/^[0-9a-f-]{36}$/i.test(resourceId ?? '') || !/^\d+$/.test(expiresAtRaw ?? '') || !signatureRaw) return null;
   const expiresAt = Number(expiresAtRaw);
   // Date.now() is wall-clock time and may step backward after an OS/hypervisor/NTP correction.
   // Reject tokens slightly before their exact boundary so small clock jitter cannot reopen an
-  // already-expired bearer token that grants access to unmasked order details.
+  // already-expired bearer token that grants access to unmasked order/quote details.
   if (!Number.isSafeInteger(expiresAt) || expiresAt <= Math.floor(Date.now() / 1000) + EXPIRY_BUFFER_SECONDS) return null;
 
   let supplied: Buffer;
@@ -35,7 +40,7 @@ export function verifyOrderConfirmationToken(token: string): { orderId: string; 
   } catch {
     return null;
   }
-  const expected = signature(orderId, expiresAt);
+  const expected = signature(resourceId, expiresAt);
   if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) return null;
-  return { orderId, expiresAt };
+  return { resourceId, expiresAt };
 }

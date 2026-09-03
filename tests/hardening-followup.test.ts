@@ -15,7 +15,7 @@ after(async () => { if (process.env.DATABASE_URL) await getPool().end(); });
 test('order confirmation token accepts a valid token and rejects expired or modified tokens', () => {
   const orderId = randomUUID();
   const valid = createOrderConfirmationToken(orderId, 60);
-  assert.equal(verifyOrderConfirmationToken(valid)?.orderId, orderId);
+  assert.equal(verifyOrderConfirmationToken(valid)?.resourceId, orderId);
   assert.equal(verifyOrderConfirmationToken(createOrderConfirmationToken(orderId, -10)), null);
 
   // Flip a byte inside the decoded signature buffer (not the token string's last character):

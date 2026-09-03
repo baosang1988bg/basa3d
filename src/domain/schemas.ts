@@ -235,6 +235,19 @@ export const publicCustomRequestInputSchema = z.object({
   honeypot: z.string().trim().max(200).optional().default(''),
 }).strict();
 
+// Phase 13: immutable model metadata snapshot captured from the MakerWorld resolver at "Tạo báo
+// giá" time — see quote.service.ts's QuoteModelSnapshot. Re-validated here because it round-trips
+// through the browser (staff review/edit) before being submitted, same rationale as
+// pricingBreakdownSchema above (AGENTS.md rule #6).
+export const quoteModelSnapshotSchema = z.object({
+  sourceUrl: z.string().trim().url().max(2_000),
+  title: nonEmptyText.max(300),
+  coverImageUrl: z.string().trim().url().max(2_000).nullable().optional(),
+  platesCount: safeInteger.nonnegative(),
+  totalPrintMinutes: safeInteger.nonnegative(),
+  colorsCount: safeInteger.nonnegative(),
+}).strict();
+
 export const quoteInputSchema = z.object({
   customRequestId: uuidSchema,
   subtotal: vndSchema,
@@ -245,6 +258,7 @@ export const quoteInputSchema = z.object({
   note: z.string().trim().max(2_000).nullable().optional(),
   pricingBreakdown: pricingBreakdownSchema.nullable().optional(),
   pricingConfigId: uuidSchema.nullable().optional(),
+  modelSnapshot: quoteModelSnapshotSchema.nullable().optional(),
 }).strict().superRefine((quote, context) => {
   validatePricingSnapshotPair(quote, context);
   if (quote.total !== quote.subtotal + quote.shippingFee - quote.discount) {
