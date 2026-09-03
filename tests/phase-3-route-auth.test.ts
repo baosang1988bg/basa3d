@@ -32,6 +32,8 @@ const PROTECTED_ROUTES: ProtectedRoute[] = [
   // Found missing entirely during the Phase 14 audit (src/app/api/admin/pricing/parse-3mf/route.ts,
   // shipped in Phase 9) — this was the concrete gap phase-14.md section 1 flagged.
   { method: 'POST', path: '/api/admin/pricing/parse-3mf', minRole: 'STAFF' },
+  // Phase 13: MakerWorld URL resolver — STAFF/OWNER only, mirrors parse-3mf's auth boundary.
+  { method: 'POST', path: '/api/admin/pricing/resolve-makerworld', minRole: 'STAFF' },
   { method: 'GET', path: '/api/audit-logs', minRole: 'OWNER' }, // ADR-0011 boundary #4: audit log viewer.
   { method: 'POST', path: '/api/categories', minRole: 'STAFF' },
   { method: 'GET', path: '/api/custom-requests', minRole: 'STAFF' },
