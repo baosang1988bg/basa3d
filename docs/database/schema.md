@@ -100,3 +100,35 @@ Bảng hồ sơ phân quyền nhân viên nội bộ (liên kết 1-1 với `aut
 - `role`: `staff_role not null default 'STAFF'` (`create type staff_role as enum ('OWNER', 'STAFF')`)
 - `is_active`: `boolean not null default true`
 - `created_at`, `updated_at`: `timestamptz not null default timezone('utc', now())`
+
+### `filament_spools` (Phase 12 — see ADR-0025)
+Per-physical-spool filament inventory, extending `materials`/`material_movements` (ADR-0008) down
+to individual spool granularity:
+- `id`, `spool_code varchar(60) unique` (e.g. `PLA-L-L-001`), `material_id` / `warehouse_id` (FK,
+  `on delete restrict`).
+- `initial_weight_grams integer` (default 1000), `used_weight_grams integer` (cached counter,
+  `check (used_weight_grams between 0 and initial_weight_grams)`), `purchase_cost bigint` (VND
+  minor unit, OWNER-only via server-side masking, never sent to STAFF).
+- `has_spool boolean` (true = "Có lõi", false = "Không lõi").
+- `status varchar(30) check (status in ('ACTIVE', 'ARCHIVED'))` — only 2 manually-set values (Q5).
+  The 4-tier UI warning (Còn nhiều/Cần theo dõi/Sắp hết/Đã hết) is always computed at query time
+  from `(initial_weight_grams - used_weight_grams) / initial_weight_grams`, never stored.
+- `note`, `created_at`, `updated_at`.
+
+`material_movements.spool_id` (nullable FK, `on delete restrict`, indexed with `created_at desc`)
+ties per-spool consumption into the existing immutable raw-material ledger. `print_jobs.spool_id`
+(nullable FK) records which specific spool a print job consumes — nullable because jobs created
+before Phase 12, or against materials with no tracked spools yet, keep using the pre-Phase-12
+`lockMaterialForInventoryWrite` path unchanged.
+
+### `expenses` (Phase 12 — see ADR-0026)
+Workshop expense tracking, 100% OWNER-only:
+- `id`, `expense_code varchar(40) unique` (e.g. `EXP-20260819-001`), `title`, `category varchar(50)
+  check (category in ('EQUIPMENT', 'MATERIAL', 'ACCESSORIES', 'UTILITIES', 'LOGISTICS',
+  'MARKETING', 'OTHER'))`.
+- `amount bigint` (VND minor unit), `quantity integer` (default 1), `status varchar(30) check
+  (status in ('PAID', 'PENDING', 'CANCELLED'))` (default `PAID`).
+- `payer_name`, `spent_at`, `note`, `created_by uuid` (plain uuid, no FK — same convention as
+  `material_movements.created_by`/`pricing_configs.created_by`; `audit_logs` is the authoritative
+  actor trail), `created_at`, `updated_at`.
+- `deleteExpense` is a soft-cancel (`status = 'CANCELLED'`), never a real `DELETE` (business-rules.md #7/#17).

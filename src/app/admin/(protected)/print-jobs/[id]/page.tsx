@@ -5,13 +5,29 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ProcessStepper } from '@/components/admin/process-stepper';
 import { getPrintJobById, nextPrintJobStatuses } from '@/services/print-job.service';
 import { requireAdmin } from '@/lib/auth/require-admin';
 import { listMaterials, listMaterialMovementsByReference } from '@/services/inventory.service';
+import { listActiveSpoolsForMaterial } from '@/services/filament.service';
 import { updatePrintJobStatusAction } from '../../custom-requests/actions';
-import { assignPrintJobMaterialAction, recordPrintJobActualsAction } from '../actions';
+import { assignPrintJobMaterialAction, assignPrintJobSpoolAction, recordPrintJobActualsAction } from '../actions';
 
 const PRINT_JOB_STATUSES = ['QUEUED', 'PRINTING', 'FAILED', 'REPRINT', 'QC', 'COMPLETED', 'CANCELLED'];
+const PRINT_JOB_STEPS = [
+  { status: 'QUEUED', label: 'Trong hàng chờ' },
+  { status: 'PRINTING', label: 'Đang in' },
+  { status: 'QC', label: 'Kiểm tra chất lượng' },
+  { status: 'COMPLETED', label: 'Hoàn tất' },
+];
+// FAILED/REPRINT loop back toward PRINTING rather than advancing — a linear "step index" pointer
+// can't represent that without looking like a regression, so both render as a status badge below
+// the steps instead of occupying a step (see Phase 11 plan, review note on REPRINT).
+const PRINT_JOB_TERMINAL_STATUSES = [
+  { status: 'FAILED', label: 'In thất bại — chờ quyết định in lại' },
+  { status: 'REPRINT', label: 'Đang chờ in lại' },
+  { status: 'CANCELLED', label: 'Việc in đã bị huỷ' },
+];
 
 function formatVariance(estimated: number | null, actual: number | null) {
   if (estimated == null || actual == null) return null;
@@ -33,6 +49,7 @@ export default async function PrintJobDetailPage({ params }: { params: Promise<{
   const statusOptions = session.role === 'OWNER'
     ? PRINT_JOB_STATUSES.filter((status) => status !== printJob.status)
     : nextPrintJobStatuses(printJob.status);
+  const activeSpools = printJob.materialId ? await listActiveSpoolsForMaterial(printJob.materialId, session.role) : [];
 
   const variance = formatVariance(printJob.estimatedWeightGrams, printJob.actualWeightGrams);
 
@@ -42,6 +59,12 @@ export default async function PrintJobDetailPage({ params }: { params: Promise<{
         <h1 className="text-2xl font-semibold">Việc in {printJob.id}</h1>
         <Badge>{printJob.status}</Badge>
       </div>
+
+      <Card>
+        <CardContent className="pt-6">
+          <ProcessStepper steps={PRINT_JOB_STEPS} currentStatus={printJob.status} terminalStatuses={PRINT_JOB_TERMINAL_STATUSES} />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader><CardTitle>Thông tin</CardTitle></CardHeader>
@@ -83,14 +106,14 @@ export default async function PrintJobDetailPage({ params }: { params: Promise<{
           <form action={assignPrintJobMaterialAction.bind(null, id)} className="grid grid-cols-2 gap-4 border-t border-border pt-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="materialId">Vật liệu</Label>
-              <select id="materialId" name="materialId" required defaultValue={printJob.materialId ?? ''} className="h-9 cursor-pointer rounded-lg border border-input bg-transparent px-2.5 text-sm">
+              <select key={printJob.materialId ?? 'unset'} id="materialId" name="materialId" required defaultValue={printJob.materialId ?? ''} className="h-9 cursor-pointer rounded-lg border border-input bg-transparent px-2.5 text-sm">
                 <option value="" disabled>Chọn vật liệu</option>
                 {materials.map((material) => <option key={material.id} value={material.id}>{material.name}</option>)}
               </select>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="estimatedWeightGrams">Khối lượng ước tính (gram)</Label>
-              <Input id="estimatedWeightGrams" name="estimatedWeightGrams" type="number" min={1} required defaultValue={printJob.estimatedWeightGrams ?? ''} />
+              <Input key={printJob.estimatedWeightGrams ?? 'unset'} id="estimatedWeightGrams" name="estimatedWeightGrams" type="number" min={1} required defaultValue={printJob.estimatedWeightGrams ?? ''} />
             </div>
             <div className="col-span-2">
               <Button type="submit" className="cursor-pointer">Gán vật liệu</Button>
@@ -98,6 +121,37 @@ export default async function PrintJobDetailPage({ params }: { params: Promise<{
           </form>
         </CardContent>
       </Card>
+
+      {printJob.materialId && activeSpools.length > 0 ? (
+        <Card>
+          <CardHeader><CardTitle>Cuộn nhựa sử dụng</CardTitle></CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <div className="text-sm">
+              <p className="text-muted-foreground">Cuộn đã chọn</p>
+              <p>{activeSpools.find((s) => s.id === printJob.spoolId)?.spoolCode ?? '— Chưa chọn —'}</p>
+            </div>
+            <form action={assignPrintJobSpoolAction.bind(null, id)} className="grid grid-cols-2 gap-4 border-t border-border pt-4">
+              <div className="col-span-2 flex flex-col gap-1.5">
+                <Label htmlFor="spoolId">Chọn cuộn (ACTIVE, cùng loại vật liệu)</Label>
+                <select key={printJob.spoolId ?? 'unset'} id="spoolId" name="spoolId" required defaultValue={printJob.spoolId ?? ''} className="h-9 cursor-pointer rounded-lg border border-input bg-transparent px-2.5 text-sm">
+                  <option value="" disabled>Chọn cuộn nhựa</option>
+                  {activeSpools.map((spool) => (
+                    <option key={spool.id} value={spool.id}>
+                      {spool.spoolCode} — còn {Math.round(spool.remainingPct)}% ({spool.remainingWeightGrams}g)
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-span-2">
+                <Button type="submit" className="cursor-pointer">Gán cuộn nhựa</Button>
+              </div>
+            </form>
+            <p className="text-xs text-muted-foreground">
+              Vật liệu này đang được theo dõi theo cuộn — bắt buộc chọn cuộn cụ thể trước khi chuyển sang PRINTING.
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader><CardTitle>Khối lượng / thời gian thực tế</CardTitle></CardHeader>
@@ -111,11 +165,11 @@ export default async function PrintJobDetailPage({ params }: { params: Promise<{
           <form action={recordPrintJobActualsAction.bind(null, id)} className="grid grid-cols-2 gap-4 border-t border-border pt-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="actualWeightGrams">Khối lượng thực tế (gram)</Label>
-              <Input id="actualWeightGrams" name="actualWeightGrams" type="number" min={0} defaultValue={printJob.actualWeightGrams ?? ''} />
+              <Input key={printJob.actualWeightGrams ?? 'unset'} id="actualWeightGrams" name="actualWeightGrams" type="number" min={0} defaultValue={printJob.actualWeightGrams ?? ''} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="actualPrintTimeMinutes">Thời gian in thực tế (phút)</Label>
-              <Input id="actualPrintTimeMinutes" name="actualPrintTimeMinutes" type="number" min={0} defaultValue={printJob.actualPrintTimeMinutes ?? ''} />
+              <Input key={printJob.actualPrintTimeMinutes ?? 'unset'} id="actualPrintTimeMinutes" name="actualPrintTimeMinutes" type="number" min={0} defaultValue={printJob.actualPrintTimeMinutes ?? ''} />
             </div>
             <div className="col-span-2">
               <Button type="submit" variant="outline" className="cursor-pointer">Lưu số liệu thực tế</Button>

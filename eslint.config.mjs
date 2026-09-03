@@ -5,7 +5,7 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    ignores: ['node_modules/', '.next/', 'coverage/', 'next-env.d.ts'],
+    ignores: ['node_modules/', '.next/', '.next-test/', 'coverage/', 'next-env.d.ts'],
   },
   {
     // Root-level .mjs config files run in Node at build time. `no-undef` is already off for .ts

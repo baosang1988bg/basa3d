@@ -13,13 +13,13 @@ export async function listWarehouses() {
 
 export async function listMaterials() {
   const result = await query<{
-    id: string; name: string; materialType: string; unit: string;
+    id: string; name: string; materialType: string; unit: string; color: string | null;
     costPerSpool: number | null; spoolWeightGrams: number | null; currentUnitCost: number | null;
   }>(
     // Phase 9: cost_per_spool/spool_weight_grams/current_unit_cost existed since Phase 1 but had no
     // reader until the pricing engine (see catalog-spec.md's Phase 9 addendum for how they combine
-    // into đơn giá/gram via unit SPOOL/GRAM).
-    `select id, name, material_type as "materialType", unit, cost_per_spool as "costPerSpool",
+    // into đơn giá/gram via unit SPOOL/GRAM). color added in Phase 12 for filament spool filters.
+    `select id, name, material_type as "materialType", unit, color, cost_per_spool as "costPerSpool",
        spool_weight_grams as "spoolWeightGrams", current_unit_cost as "currentUnitCost"
      from materials where is_active = true order by name`,
   );

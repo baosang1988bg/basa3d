@@ -17,6 +17,14 @@ const supabaseHostname = (() => {
 })();
 
 const nextConfig = {
+  // `npm test` builds and runs a production server (tests/helpers/test-runner.ts) in the same repo
+  // a developer may have `npm run dev` running in. `next dev` and `next build`/`next start` write
+  // incompatible webpack module-ID layouts into whatever distDir they're pointed at — sharing the
+  // default `.next` between them corrupts whichever one runs second (manifests as "Cannot find
+  // module './NNNN.js'" or "Cannot read properties of undefined (reading '/_app')" the next time
+  // `next dev` starts). NEXT_DIST_DIR isolates the test build into `.next-test` so the two never
+  // touch the same directory.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   images: {
     remotePatterns: [
       ...(supabaseHostname

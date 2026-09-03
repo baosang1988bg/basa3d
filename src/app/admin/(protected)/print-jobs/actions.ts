@@ -2,8 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/auth/require-admin';
-import { assignPrintJobMaterialInputSchema, printJobActualsInputSchema } from '@/domain/schemas';
-import { assignPrintJobMaterial, recordPrintJobActuals } from '@/services/print-job.service';
+import { assignPrintJobMaterialInputSchema, assignPrintJobSpoolInputSchema, printJobActualsInputSchema } from '@/domain/schemas';
+import { assignPrintJobMaterial, assignPrintJobSpool, recordPrintJobActuals } from '@/services/print-job.service';
 
 function readFormValue(formData: FormData, key: string): string | undefined {
   const value = formData.get(key);
@@ -17,6 +17,13 @@ export async function assignPrintJobMaterialAction(id: string, formData: FormDat
     estimatedWeightGrams: Number(formData.get('estimatedWeightGrams')),
   });
   await assignPrintJobMaterial(id, input, actorId);
+  revalidatePath(`/admin/print-jobs/${id}`);
+}
+
+export async function assignPrintJobSpoolAction(id: string, formData: FormData) {
+  const { actorId } = await requireAdmin();
+  const input = assignPrintJobSpoolInputSchema.parse({ spoolId: formData.get('spoolId') });
+  await assignPrintJobSpool(id, input.spoolId, actorId);
   revalidatePath(`/admin/print-jobs/${id}`);
 }
 

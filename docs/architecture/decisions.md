@@ -234,3 +234,59 @@ row renders the client `purchase` tracker. This prevents duplicate revenue acros
 shared confirmation links, and multiple devices; browser storage cannot provide that guarantee.
 The accepted tradeoff is at-most-once delivery: if analytics is blocked or the browser closes
 after the server claim, the application does not retry that purchase event.
+
+## ADR-0025 — Filament spool tracking extends ADR-0018's lock protocol to per-spool granularity
+
+Status: accepted (Phase 12, self-review 2026-09-01)
+
+`filament_spools` tracks individual physical spools (spool code, weight consumed, purchase cost)
+on top of the existing `materials`/`material_movements` raw-material ledger (ADR-0008), instead of
+replacing it. `material_movements.spool_id` (nullable FK) attributes ledger rows to a specific
+spool when one is known; `filament_spools.used_weight_grams` is a cached counter that must only
+ever be updated in the same transaction as the `material_movements` insert that justifies it.
+
+- **Locking**: extends ADR-0018's "lock the parent row before writing" pattern down to the spool
+  level — `SELECT id FROM filament_spools WHERE id = $1 FOR UPDATE` before checking
+  `used_weight_grams + consumed <= initial_weight_grams`. Scope is deliberately narrow: only one
+  row is ever locked (no ordering concern, unlike multi-row lock protocols), because Phase 12 scope
+  is **one print job = one spool** (see Non-Goals below) — never a set of spools locked together.
+- **`print_jobs.spool_id`** (nullable FK) is the single point of integration with the real
+  production flow: `updatePrintJobStatus`'s `PRINTING` transition now branches on it. When set, it
+  calls `recordSpoolUsage` (the same helper the Admin "kiểm kê"/adjustment flow uses) instead of
+  the pre-Phase-12 `lockMaterialForInventoryWrite` + manual insert. When unset, it falls back to the
+  pre-Phase-12 path unchanged — but only when that material actually has no `ACTIVE` spools; if
+  ACTIVE spools exist for the assigned material, a missing `spool_id` is rejected
+  (`PRINT_JOB_SPOOL_REQUIRED`) rather than silently deducting from the material-level ledger and
+  leaving spool weights stale.
+- **Non-Goals**: multi-spool/AMS support for a single print job is explicitly out of scope — the
+  workshop has no AMS-capable printer yet, and `print_jobs.material_id` is already a single column.
+  Adding a `print_job_spool_usages` join table now would be speculative infrastructure (AGENTS.md
+  Rule #8/#9); if a real multi-spool need appears, that becomes its own phase.
+- **`filament_spools.status`** carries only 2 manually-set values (`ACTIVE`, `ARCHIVED`) — the
+  4-tier low-stock warning (Còn nhiều/Cần theo dõi/Sắp hết/Đã hết) shown in the Admin UI is always
+  computed at query/render time from the weight columns, never stored, so it cannot drift out of
+  sync with `used_weight_grams`.
+
+## ADR-0026 — Expenses/financial analytics is the 5th OWNER/STAFF boundary; reuses `requireOwner()`, no service-level role check
+
+Status: accepted (Phase 12, self-review 2026-09-01)
+
+Extends ADR-0011's 4-boundary model with a 5th: **Workshop expense tracking & financial
+analytics** (`/admin/expenses`, `expense.service.ts`) is 100% OWNER-only — `STAFF` has no partial
+or masked view of it (unlike `filament_spools.purchase_cost`, which STAFF simply can't see a value
+for; here STAFF can't reach the feature at all).
+
+Enforcement follows the existing convention from `pricing-config.service.ts`: the route/Server
+Action calls `requireOwner()` (`src/lib/auth/require-admin.ts`) before invoking anything in
+`expense.service.ts`; the service itself never re-checks role, trusting an already-authorized
+`actorId`. This was a deliberate choice over writing a service-level `assertOwnerRole` helper
+(considered and rejected in the original draft) — a second enforcement point would duplicate
+`requireOwner()`'s logic without adding real defense, and every other OWNER-only surface in this
+codebase (staff management, audit logs, pricing config) already follows the caller-enforces
+pattern.
+
+`filament_spools` sits on the other side of this boundary: `STAFF` needs it for day-to-day
+workshop operations (checking remaining stock, picking a spool to start a print), so it uses
+`requireAdmin()` (any active staff role), with only the `purchase_cost` column field-masked by role
+via a small reusable helper, `maskIfNotOwner<T>` (`src/lib/mask.ts`) — the first field-level
+role-based masking in this codebase (`product.service.ts`/`cost_price` has no precedent for it).

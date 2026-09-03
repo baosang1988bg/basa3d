@@ -378,9 +378,49 @@ export const blogPostUpdateInputSchema = z.object({
 export const assignPrintJobMaterialInputSchema = z.object({
   materialId: uuidSchema,
   estimatedWeightGrams: positiveQuantitySchema,
+  spoolId: uuidSchema.nullable().optional(),
 }).strict();
 
 export const printJobActualsInputSchema = z.object({
   actualWeightGrams: safeInteger.nonnegative().nullable().optional(),
   actualPrintTimeMinutes: safeInteger.nonnegative().nullable().optional(),
 }).strict();
+
+// Phase 12: assign/change a specific spool on an already material-assigned print job.
+export const assignPrintJobSpoolInputSchema = z.object({
+  spoolId: uuidSchema,
+}).strict();
+
+export const filamentSpoolStatusSchema = z.enum(['ACTIVE', 'ARCHIVED']);
+
+export const createFilamentSpoolInputSchema = z.object({
+  spoolCode: z.string().trim().min(1).max(60),
+  materialId: uuidSchema,
+  warehouseId: uuidSchema,
+  initialWeightGrams: positiveQuantitySchema,
+  purchaseCost: vndSchema.nullable().optional(),
+  hasSpool: z.boolean().optional(),
+  note: z.string().trim().max(2000).nullable().optional(),
+}).strict();
+
+export const adjustSpoolStockInputSchema = z.object({
+  newRemainingGrams: safeInteger.nonnegative(),
+  reason: z.string().trim().min(1).max(500),
+}).strict();
+
+export const expenseCategorySchema = z.enum(['EQUIPMENT', 'MATERIAL', 'ACCESSORIES', 'UTILITIES', 'LOGISTICS', 'MARKETING', 'OTHER']);
+export const expenseStatusSchema = z.enum(['PAID', 'PENDING', 'CANCELLED']);
+
+export const createExpenseInputSchema = z.object({
+  expenseCode: z.string().trim().min(1).max(40),
+  title: z.string().trim().min(1).max(200),
+  category: expenseCategorySchema,
+  amount: vndSchema,
+  quantity: positiveQuantitySchema.optional(),
+  status: expenseStatusSchema.optional(),
+  payerName: z.string().trim().max(100).nullable().optional(),
+  spentAt: z.coerce.date().optional(),
+  note: z.string().trim().max(2000).nullable().optional(),
+}).strict();
+
+export const updateExpenseInputSchema = createExpenseInputSchema.omit({ expenseCode: true }).partial();

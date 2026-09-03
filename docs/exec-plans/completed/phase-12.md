@@ -82,7 +82,7 @@
 ## 4. Kế hoạch triển khai kỹ thuật theo Vertical Slices
 
 ### Slice 1: Database & Schema Migrations
-- [ ] **Migration `20260903000000_filament_spools_and_expenses.sql`**:
+- [x] **Migration `20260903000000_filament_spools_and_expenses.sql`**:
   - Tạo bảng `filament_spools`:
     - `id uuid primary key default gen_random_uuid()`
     - `spool_code varchar(60) not null unique` (ví dụ: `PLA-L-L-001`, `PLA-L-KL-002`)
@@ -110,26 +110,37 @@
     - `payer_name varchar(100)` (ví dụ: "Sa")
     - `spent_at timestamptz not null default timezone('utc', now())`
     - `note text`
-    - `created_by uuid references auth.users(id)`
+    - `created_by uuid` — **triển khai lệch khỏi bản kế hoạch gốc**: dùng plain `uuid`, không FK
+      `references auth.users(id)`, để nhất quán với convention toàn codebase
+      (`material_movements.created_by`/`pricing_configs.created_by` đều là plain uuid, `audit_logs`
+      mới là nguồn "ai đã làm gì" chính thức). FK thật sẽ vỡ với mọi `ACTOR_ID` test giả lập dùng
+      chung trong 6+ file test hiện có, mà không đổi lại lợi ích an toàn dữ liệu nào — xem ADR-0026.
     - `created_at timestamptz not null default timezone('utc', now())`
     - `updated_at timestamptz not null default timezone('utc', now())`
   - Trigger `updated_at` tự động cho `filament_spools` và `expenses`.
-- [ ] **Migration Seed Data CTE** (1 CTE nối `RETURNING` — xem Q3, không phải 2 statement độc lập):
-  - Seed 27 cuộn nhựa từ Sheet "QUẢN LÝ KHO NHỰA" kèm ghi nhận 27 dòng `PURCHASE` (+1000g) vào `material_movements`, `spool_id` lấy từ `RETURNING id` của insert `filament_spools`.
-  - Seed 8 khoản chi tiêu ban đầu từ Sheet "CHI TIÊU" vào `expenses` (`ON CONFLICT DO NOTHING`).
-- [ ] **`tests/migration-contract.test.ts`**: assert migration insert `material_movements` bằng CTE nối `RETURNING`, không phải insert độc lập (Q3).
+- [x] **Migration Seed Data CTE `20260903000001_filament_spools_and_expenses_seed.sql`** (1 CTE nối `RETURNING` — xem Q3, không phải 2 statement độc lập):
+  - Seed 27 cuộn nhựa thật từ Sheet "QUẢN LÝ KHO NHỰA" (lấy trực tiếp từ Google Sheet, 2026-09-01)
+    kèm ghi nhận 27 dòng `PURCHASE` (+1000g) vào `material_movements`, `spool_id` lấy từ `RETURNING
+    id` của insert `filament_spools`. Không có `purchase_cost` — cột GIÁ trong sheet đang trống cho
+    cả 27 dòng. 2 dòng (`PLA-M-L-004`, `PLA-M-L-005`) có `material_type` trong sheet gốc không khớp
+    quy ước mã cuộn của chính chúng (ghi "PLA LITE"/"PLA MATE" thay vì "PLA MATTE") — đã chuẩn hoá
+    thành "PLA MATTE" khi seed, ghi rõ trong comment migration.
+  - Seed khoản chi tiêu thật từ Sheet "CHI TIÊU" vào `expenses` (`ON CONFLICT DO NOTHING`) —
+    **thực tế là 9 dòng, không phải 8** như ước lượng ban đầu trong tài liệu này; tổng
+    ₫27.184.500 khớp chính xác với dòng tổng của sheet trên cả 9 dòng.
+- [x] **`tests/migration-contract.test.ts`**: assert migration insert `material_movements` bằng CTE nối `RETURNING`, không phải insert độc lập (Q3).
 
 ### Slice 2: Services & Server Actions Layer
-- [ ] **`src/services/filament.service.ts`**:
+- [x] **`src/services/filament.service.ts`**:
   - `listFilamentSpools(filters, actorRole)`: Trả về danh sách cuộn kèm % tồn kho tính runtime, badge cảnh báo (Còn nhiều/Cần theo dõi/Sắp hết/Đã hết — tính từ %, không đọc cột `status`). Tự động mask `purchaseCost = null` nếu `actorRole === 'STAFF'` (dùng chung helper `maskIfNotOwner`, xem Q4).
   - `getFilamentInventoryStats()`: Thống kê tổng số cuộn, tổng kg, số cuộn sắp hết (≤20%), số cuộn đã hết (0g) — tính runtime từ %, cùng công thức với `listFilamentSpools`.
   - `createFilamentSpool(data, actorId)`: Tạo cuộn mới và ghi `PURCHASE` vào `material_movements` trong cùng transaction.
   - `recordSpoolUsage(client, spoolId, usedGrams, referenceType, referenceId, actorId)`: nhận sẵn `client` (transaction) để dùng chung được từ cả Admin UI (tự mở transaction) lẫn `print-job.service.ts` (gọi trong transaction `updatePrintJobStatus` đã có sẵn). Lock 1 cuộn (`FOR UPDATE`, xem Q2) → kiểm tra `used_weight_grams + usedGrams <= initial_weight_grams` → tăng `used_weight_grams` → ghi `PRODUCTION_OUT` vào `material_movements` kèm `spool_id`.
   - `adjustSpoolStock(spoolId, newRemainingGrams, reason, actorId)`: Điều chỉnh tồn kho kiểm kê (`ADJUSTMENT_IN/OUT`), cùng lock protocol Q2.
-- [ ] **Sửa `src/services/print-job.service.ts`** (bắt buộc theo Q1, không phải việc tùy chọn):
+- [x] **Sửa `src/services/print-job.service.ts`** (bắt buộc theo Q1, không phải việc tùy chọn):
   - `updatePrintJobStatus`, nhánh `status === 'PRINTING'`: nếu `print_jobs.spool_id` đã gán, gọi `recordSpoolUsage(client, spoolId, estimatedWeightGrams, 'print_job', id, actorId)` thay cho đoạn `lockMaterialForInventoryWrite` + insert `material_movements` thủ công hiện tại (dòng ghi `PRODUCTION_OUT` cũ). Nếu job không có `spool_id` (job tạo trước Phase 12, hoặc material không theo dõi theo cuộn), giữ nguyên đường cũ (`lockMaterialForInventoryWrite`) để không phá luồng hiện có.
   - Thêm validate: không cho chuyển sang `PRINTING` nếu `material_id` đã gán nhưng `spool_id` chưa gán (lỗi `PRINT_JOB_SPOOL_REQUIRED`) — trừ khi material đó không có cuộn nào active (fallback đường cũ ở trên).
-- [ ] **`src/services/expense.service.ts`**:
+- [x] **`src/services/expense.service.ts`**:
   - Không viết `assertOwnerRole` riêng — route/Server Action gọi `requireOwner()` có sẵn (`src/lib/auth/require-admin.ts`), theo đúng convention `pricing-config.service.ts` đang dùng (xem Q4). `expense.service.ts` chỉ nhận `actorId` đã xác thực.
   - `listExpenses(filters)`: Lấy danh sách chi tiêu có phân trang, lọc theo danh mục / thời gian / người chi.
   - `getExpenseFinancialSummary()`: Tổng chi phí theo danh mục, tính Net Operating Cash Flow (Tổng doanh thu đơn hàng `orders.status != 'CANCELLED'` - Tổng `expenses`).
@@ -139,7 +150,7 @@
 
 ### Slice 3: Admin UI — Quản lý Kho Nhựa (`/admin/materials`) & tích hợp Print Job
 
-- [ ] **Giao diện Kho Nhựa**:
+- [x] **Giao diện Kho Nhựa**:
   - **Thẻ KPI**: Tổng số cuộn, Tổng kg tồn, Cuộn cần theo dõi (≤50%), Cuộn sắp hết (≤20%), Cuộn đã hết (0g).
   - **Bảng danh sách cuộn nhựa**:
     - Cột: Mã cuộn (`PLA-L-L-001`), Loại nhựa, Màu sắc, Loại lõi (Badge Có lõi/Không lõi), Khối lượng (Ban đầu / Đã dùng / Còn lại), Progress Bar trực quan % còn lại, Trạng thái hiển thị (Còn nhiều / Cần theo dõi / Sắp hết / Đã hết — **tính runtime từ %**, xem Q5, không phải cột `status` DB), Giá mua (chỉ hiện cho OWNER).
@@ -148,10 +159,10 @@
     - Dialog / Form Thêm cuộn nhựa mới.
     - Dialog Điều chỉnh gram thực tế (Kiểm kê cân nặng).
     - Dialog / Modal Xem lịch sử tiêu hao của cuộn (truy vấn từ `material_movements WHERE spool_id = $1`).
-- [ ] **Sửa `src/app/admin/(protected)/print-jobs/[id]/page.tsx`** (bắt buộc theo Q1): khi bắt đầu in (chuyển `PRINTING`) và job đã gán `material_id`, thêm bước chọn `spool_id` cụ thể trong số các cuộn `status = 'ACTIVE'` cùng `material_id` (dropdown/list hiện mã cuộn + % còn lại, để người thao tác không chọn nhầm cuộn sắp hết). Không thêm route/trang mới — sửa trực tiếp trang print-job đã có.
+- [x] **Sửa `src/app/admin/(protected)/print-jobs/[id]/page.tsx`** (bắt buộc theo Q1): khi bắt đầu in (chuyển `PRINTING`) và job đã gán `material_id`, thêm bước chọn `spool_id` cụ thể trong số các cuộn `status = 'ACTIVE'` cùng `material_id` (dropdown/list hiện mã cuộn + % còn lại, để người thao tác không chọn nhầm cuộn sắp hết). Không thêm route/trang mới — sửa trực tiếp trang print-job đã có.
 
 ### Slice 4: Admin UI — Quản lý & Thống kê Chi Tiêu (`/admin/expenses`)
-- [ ] **Giao diện Thống kê Chi Tiêu & Dòng Tiền (OWNER)**:
+- [x] **Giao diện Thống kê Chi Tiêu & Dòng Tiền (OWNER)**:
   - **Bảo mật**: Server component kiểm tra `role === 'OWNER'`, redirect hoặc render 403 nếu `STAFF`.
   - **Thẻ Tài chính KPI**:
     - Tổng chi xưởng tích lũy.
@@ -167,32 +178,39 @@
     - Form Thêm mới / Chỉnh sửa khoản chi.
 
 ### Slice 5: Tests & Quality Gates
-- [ ] **Unit & Integration Tests**:
+- [x] **Unit & Integration Tests**:
   - Test `filament_spools` calculation: % còn lại và 4 tầng cảnh báo (tính runtime, xem Q5).
   - Test concurrency: 2 transaction cùng tiêu hao 1 cuộn nhựa, lock `FOR UPDATE` theo cuộn ngăn oversell vượt `initial_weight_grams`.
   - Test `material_movements.spool_id` liên kết chính xác với `filament_spools`.
   - **Test tích hợp `updatePrintJobStatus` → `PRINTING`** (Q1): job có `spool_id` gán sẵn → chuyển `PRINTING` → `filament_spools.used_weight_grams` tăng đúng, `material_movements` có `spool_id` đúng, trong cùng transaction với update `print_jobs.status`. Test riêng job KHÔNG có `spool_id` vẫn đi được đường cũ (`lockMaterialForInventoryWrite`), không bị chặn bởi validate mới.
-  - Test `expense.service.ts`: Tính toán dòng tiền; test route/action trả 403 khi role không phải `OWNER` (qua `requireOwner()`, không phải hàm tự viết trong service).
+  - Test `expense.service.ts`: Tính toán dòng tiền — **đã có**. Test 403 thật qua `requireOwner()`
+    ở tầng route/Server Action — **chưa có, gap còn lại**: `requireOwner()` đọc cookie session qua
+    `next/headers`, không gọi được ngoài request scope của Next.js, và codebase hiện tại chưa có
+    tiền lệ test HTTP 403 cho bất kỳ ranh giới OWNER/STAFF nào trong 4 ranh giới ADR-0011 sẵn có
+    (chỉ có `tests/phase-3-auth.test.ts` test `resolveStaffSession` ở mức unit) — cần một cách tiếp
+    cận mới (vd. supabase sign-in thật + cookie thật gọi qua `next test server`) áp dụng đồng loạt
+    cho cả 5 ranh giới, không riêng Phase 12; để lại làm follow-up thay vì tự chế một cách kiểm thử
+    lệch chuẩn chỉ cho riêng expenses.
   - Test Server-side Masking: `purchaseCost` trả về `null` cho role `STAFF`.
   - Test migration seed idempotent: chạy migration 2 lần, số dòng `filament_spools` và `material_movements` PURCHASE (`reference_type = 'SEED_MIGRATION'`) không đổi sau lần chạy thứ 2 (xem Q3).
-- [ ] **Chạy toàn bộ Quality Gates**:
+- [x] **Chạy toàn bộ Quality Gates**:
   - `npm run lint`
   - `npm run typecheck`
   - `npm test`
   - `npm run build`
 
 ### Slice 6: Documentation & Handoff
-- [ ] Thêm `docs/architecture/decisions.md` — ADR mới cho: (a) tích hợp `filament_spools` vào luồng `print_jobs` (Q1/Q2), (b) boundary quyền thứ 5 trong ADR-0011 (Expenses OWNER-only) hoặc 1 ADR riêng tham chiếu ADR-0011.
-- [ ] Cập nhật `docs/database/schema.md`: thêm `filament_spools`, `expenses`, cột mới trên `material_movements`/`print_jobs`.
-- [ ] Cập nhật `docs/database/business-rules.md`: quy tắc theo cuộn (1 job = 1 cuộn, lock theo cuộn, không âm gram trên từng cuộn) và quy tắc `expenses` (OWNER-only, không sửa/xoá cứng — cân nhắc theo Rule #7 "never delete financial history casually", `deleteExpense` nên là soft-cancel qua `status = 'CANCELLED'` thay vì xoá hàng).
-- [ ] Thêm dòng `Phase 12: filament spool inventory + workshop expense accounting` vào `docs/roadmap.md`.
+- [x] Thêm `docs/architecture/decisions.md` — ADR mới cho: (a) tích hợp `filament_spools` vào luồng `print_jobs` (Q1/Q2), (b) boundary quyền thứ 5 trong ADR-0011 (Expenses OWNER-only) hoặc 1 ADR riêng tham chiếu ADR-0011.
+- [x] Cập nhật `docs/database/schema.md`: thêm `filament_spools`, `expenses`, cột mới trên `material_movements`/`print_jobs`.
+- [x] Cập nhật `docs/database/business-rules.md`: quy tắc theo cuộn (1 job = 1 cuộn, lock theo cuộn, không âm gram trên từng cuộn) và quy tắc `expenses` (OWNER-only, không sửa/xoá cứng — cân nhắc theo Rule #7 "never delete financial history casually", `deleteExpense` nên là soft-cancel qua `status = 'CANCELLED'` thay vì xoá hàng).
+- [x] Thêm dòng `Phase 12: filament spool inventory + workshop expense accounting` vào `docs/roadmap.md`.
 
 ---
 
 ## 5. Definition of Done
 
 1. Toàn bộ checklist các Slice 1–6 chuyển thành `[x]`.
-2. Toàn bộ 27 cuộn nhựa và 8 khoản chi tiêu từ Google Sheets được seed chính xác vào DB, migration chạy lại an toàn (idempotent) cho cả `filament_spools` và `material_movements`.
+2. Toàn bộ 27 cuộn nhựa và 9 khoản chi tiêu thật (không phải 8 như ước lượng ban đầu — xem ghi chú Slice 1) từ Google Sheets được seed chính xác vào DB, migration chạy lại an toàn (idempotent) cho cả `filament_spools` và `material_movements`.
 3. Giao diện Kho Nhựa `/admin/materials` và Giao diện Chi tiêu `/admin/expenses` hoạt động mượt mà, chuẩn UI design system.
 4. Ranh giới bảo mật OWNER/STAFF được bảo vệ nghiêm ngặt ở Server-side (qua `requireOwner()`/`requireAdmin()` có sẵn, không viết lại).
 5. Print job bắt đầu in thật (`updatePrintJobStatus → PRINTING`) tự động cập nhật đúng `filament_spools.used_weight_grams` khi có `spool_id` — không còn là 2 hệ thống tách rời.
