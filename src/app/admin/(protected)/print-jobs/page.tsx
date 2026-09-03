@@ -3,15 +3,28 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { resolveStatusFilter, StatusFilterTabs, type StatusFilterGroup } from '@/components/admin/status-filter-tabs';
 import { listPrintJobs, nextPrintJobStatuses } from '@/services/print-job.service';
 import { updatePrintJobStatusAction } from '../custom-requests/actions';
 
-export default async function PrintJobsPage() {
-  const { items: printJobs } = await listPrintJobs({ limit: 100 });
+const FILTER_GROUPS: StatusFilterGroup[] = [
+  { key: 'all', label: 'Tất cả' },
+  { key: 'pending', label: 'Đang chờ', statuses: ['QUEUED'] },
+  { key: 'in_progress', label: 'Đang xử lý', statuses: ['PRINTING', 'QC', 'REPRINT', 'FAILED'] },
+  { key: 'completed', label: 'Hoàn tất', statuses: ['COMPLETED'] },
+  { key: 'cancelled', label: 'Đã huỷ', statuses: ['CANCELLED'] },
+];
+
+export default async function PrintJobsPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
+  const { filter } = await searchParams;
+  const { activeKey, statuses } = resolveStatusFilter(FILTER_GROUPS, filter);
+  const { items: printJobs } = await listPrintJobs({ limit: 100, statuses });
 
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-2xl font-semibold">Việc in</h1>
+
+      <StatusFilterTabs basePath="/admin/print-jobs" groups={FILTER_GROUPS} activeKey={activeKey} />
 
       <Card>
         <CardHeader><CardTitle>Danh sách việc in ({printJobs.length})</CardTitle></CardHeader>

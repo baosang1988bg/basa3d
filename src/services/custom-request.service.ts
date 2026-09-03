@@ -89,9 +89,18 @@ export async function updateCustomRequestStatus(id: string, status: string, acto
 
 type CustomRequestSummary = { id: string; requestNumber: string; sourceChannel: string; status: string; createdAt: Date };
 
-export async function listCustomRequests(input: { page?: number; limit?: number } = {}) {
+export async function listCustomRequests(input: { page?: number; limit?: number; status?: string; statuses?: string[] } = {}) {
   const { page, limit, offset } = pagination(input);
-  const result = await query<CustomRequestSummary>('select id, request_number as "requestNumber", source_channel as "sourceChannel", status, created_at as "createdAt" from custom_requests order by created_at desc limit $1 offset $2', [limit, offset]);
+  const values: unknown[] = [];
+  const statusSql = input.statuses?.length
+    ? (values.push(input.statuses), `and status = any($${values.length})`)
+    : input.status ? (values.push(input.status), `and status = $${values.length}`) : '';
+  values.push(limit, offset);
+  const result = await query<CustomRequestSummary>(
+    `select id, request_number as "requestNumber", source_channel as "sourceChannel", status, created_at as "createdAt"
+     from custom_requests where true ${statusSql} order by created_at desc limit $${values.length - 1} offset $${values.length}`,
+    values,
+  );
   return { page, limit, items: result.rows };
 }
 

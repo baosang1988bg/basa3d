@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PricingCalculatorPanel } from '@/components/admin/pricing-calculator-panel';
+import { ProcessStepper } from '@/components/admin/process-stepper';
 import { createCustomRequestAttachmentSignedUrl, getCustomRequestById, nextCustomRequestStatuses } from '@/services/custom-request.service';
 import { requireAdmin } from '@/lib/auth/require-admin';
 import { listMaterials } from '@/services/inventory.service';
@@ -15,6 +16,19 @@ import { listQuotesByCustomRequest } from '@/services/quote.service';
 import { acceptQuoteAction, createQuoteAction, updateCustomRequestStatusAction } from '../actions';
 
 const CUSTOM_REQUEST_STATUSES = ['NEW', 'REVIEWING', 'NEED_INFO', 'QUOTED', 'APPROVED', 'REJECTED', 'CONVERTED'];
+const CUSTOM_REQUEST_STEPS = [
+  { status: 'NEW', label: 'Mới' },
+  { status: 'REVIEWING', label: 'Đang xem xét' },
+  { status: 'QUOTED', label: 'Đã báo giá' },
+  { status: 'APPROVED', label: 'Đã duyệt' },
+  { status: 'CONVERTED', label: 'Đã chốt đơn' },
+];
+const CUSTOM_REQUEST_TERMINAL_STATUSES = [{ status: 'REJECTED', label: 'Yêu cầu đã bị từ chối' }];
+// NEED_INFO loops back to REVIEWING (chờ khách bổ sung thông tin) rather than moving forward —
+// normalize it onto the REVIEWING step so the stepper doesn't render it as regressing.
+function stepperStatus(status: string) {
+  return status === 'NEED_INFO' ? 'REVIEWING' : status;
+}
 
 export default async function CustomRequestDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -38,6 +52,19 @@ export default async function CustomRequestDetailPage({ params }: { params: Prom
         <h1 className="text-2xl font-semibold">{customRequest.requestNumber}</h1>
         <Badge variant="secondary">{customRequest.sourceChannel}</Badge>
       </div>
+
+      <Card>
+        <CardContent className="pt-6">
+          <ProcessStepper
+            steps={CUSTOM_REQUEST_STEPS}
+            currentStatus={stepperStatus(customRequest.status)}
+            terminalStatuses={CUSTOM_REQUEST_TERMINAL_STATUSES}
+          />
+          {customRequest.status === 'NEED_INFO' ? (
+            <p className="mt-2 text-xs text-muted-foreground">Đang chờ khách bổ sung thông tin trước khi tiếp tục xem xét.</p>
+          ) : null}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader><CardTitle>Thông tin yêu cầu</CardTitle></CardHeader>

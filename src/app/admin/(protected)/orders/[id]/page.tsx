@@ -5,11 +5,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
+import { ProcessStepper } from '@/components/admin/process-stepper';
 import { canTransitionOrderStatus, getOrderById, nextPaymentStatuses, nextShippingStatuses } from '@/services/order.service';
 import { requireAdmin } from '@/lib/auth/require-admin';
 import { updateOrderAdminFieldsAction, updateOrderStatusAction } from '../actions';
 
 const ORDER_STATUSES = ['NEW', 'CONFIRMED', 'PRODUCING', 'READY_TO_SHIP', 'SHIPPED', 'COMPLETED', 'CANCELLED'];
+const ORDER_STEPS = [
+  { status: 'NEW', label: 'Mới' },
+  { status: 'CONFIRMED', label: 'Đã xác nhận' },
+  { status: 'PRODUCING', label: 'Đang sản xuất' },
+  { status: 'READY_TO_SHIP', label: 'Sẵn sàng giao' },
+  { status: 'SHIPPED', label: 'Đã giao vận' },
+  { status: 'COMPLETED', label: 'Hoàn tất' },
+];
+const ORDER_TERMINAL_STATUSES = [{ status: 'CANCELLED', label: 'Đơn hàng đã bị huỷ' }];
 const PAYMENT_STATUSES = ['UNPAID', 'DEPOSIT_PAID', 'PAID', 'REFUNDED'];
 const SHIPPING_STATUSES = ['PENDING', 'SHIPPED', 'DELIVERED', 'RETURNED'];
 
@@ -32,6 +42,12 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           <Badge variant="secondary">{order.shippingStatus}</Badge>
         </div>
       </div>
+
+      <Card>
+        <CardContent className="pt-6">
+          <ProcessStepper steps={ORDER_STEPS} currentStatus={order.status} terminalStatuses={ORDER_TERMINAL_STATUSES} />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader><CardTitle>Thông tin khách hàng</CardTitle></CardHeader>

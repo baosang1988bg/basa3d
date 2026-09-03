@@ -6,15 +6,28 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { resolveStatusFilter, StatusFilterTabs, type StatusFilterGroup } from '@/components/admin/status-filter-tabs';
 import { listCustomRequests } from '@/services/custom-request.service';
 import { createCustomRequestAction } from './actions';
 
-export default async function CustomRequestsPage() {
-  const { items: customRequests } = await listCustomRequests({ limit: 100 });
+const FILTER_GROUPS: StatusFilterGroup[] = [
+  { key: 'all', label: 'Tất cả' },
+  { key: 'pending', label: 'Đang chờ', statuses: ['NEW', 'REVIEWING', 'NEED_INFO'] },
+  { key: 'in_progress', label: 'Đang xử lý', statuses: ['QUOTED', 'APPROVED'] },
+  { key: 'completed', label: 'Hoàn tất', statuses: ['CONVERTED'] },
+  { key: 'cancelled', label: 'Đã từ chối', statuses: ['REJECTED'] },
+];
+
+export default async function CustomRequestsPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
+  const { filter } = await searchParams;
+  const { activeKey, statuses } = resolveStatusFilter(FILTER_GROUPS, filter);
+  const { items: customRequests } = await listCustomRequests({ limit: 100, statuses });
 
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-2xl font-semibold">Yêu cầu in theo yêu cầu</h1>
+
+      <StatusFilterTabs basePath="/admin/custom-requests" groups={FILTER_GROUPS} activeKey={activeKey} />
 
       <Card>
         <CardHeader><CardTitle>Ghi nhận yêu cầu mới</CardTitle></CardHeader>

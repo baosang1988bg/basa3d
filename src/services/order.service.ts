@@ -156,10 +156,12 @@ export async function updateOrderStatus(orderId: string, nextStatus: string, act
 
 type OrderListRow = { id: string; orderNumber: string; customerName: string; status: string; paymentStatus: string; total: number; createdAt: string };
 
-export async function listOrders(input: { page?: number; limit?: number; status?: string } = {}) {
+export async function listOrders(input: { page?: number; limit?: number; status?: string; statuses?: string[] } = {}) {
   const { page, limit, offset } = pagination(input);
   const values: unknown[] = [];
-  const statusSql = input.status ? (values.push(input.status), `and status = $${values.length}`) : '';
+  const statusSql = input.statuses?.length
+    ? (values.push(input.statuses), `and status = any($${values.length})`)
+    : input.status ? (values.push(input.status), `and status = $${values.length}`) : '';
   values.push(limit, offset);
   const rows = await query<OrderListRow>(`
     select id, order_number as "orderNumber", customer_name as "customerName", status, payment_status as "paymentStatus", total, created_at as "createdAt"
