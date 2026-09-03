@@ -90,6 +90,10 @@ Phase 3 defines two internal roles (`OWNER` and `STAFF`) with 4 explicit risk bo
 4. `Audit Log Viewer` (`/api/audit-logs`): `OWNER` only.
 All standard day-to-day operations (create/edit products, receive inventory, process orders, draft/send quotes, manage print jobs) are shared equally.
 
+Extended by ADR-0026 with a 5th boundary (expenses/financial analytics). ADR-0027 records the
+Phase 14 test-coverage audit of all 5 boundaries — a second, test-level layer of protection on top
+of the `requireOwner()`/`requireAdmin()` calls this ADR defines.
+
 ## ADR-0012 — Admin Authentication: Supabase Auth with @supabase/ssr and direct pg.Pool role checks
 Status: accepted
 
@@ -290,3 +294,66 @@ workshop operations (checking remaining stock, picking a spool to start a print)
 `requireAdmin()` (any active staff role), with only the `purchase_cost` column field-masked by role
 via a small reusable helper, `maskIfNotOwner<T>` (`src/lib/mask.ts`) — the first field-level
 role-based masking in this codebase (`product.service.ts`/`cost_price` has no precedent for it).
+
+Re-audited as part of ADR-0027 (Phase 14) — see that ADR for the Server Action call-site check.
+
+## ADR-0027 — Phase 14 RBAC test-coverage audit: route×minRole matrix + Server Action manual audit baseline
+
+Status: accepted (Phase 14, 2026-09-03)
+
+Phase 3-12 built ADR-0011's 4 boundaries + ADR-0026's 5th on a single layer of protection: a
+`requireOwner()`/`requireAdmin()` call at the top of each route handler or Server Action. Nothing
+in the test suite would have caught a refactor that silently dropped one of those calls — the only
+HTTP-level auth test (`tests/phase-3-route-auth.test.ts`) accepted both 401 *and* 403 as a pass,
+which cannot distinguish "no session" from "valid STAFF session hitting an OWNER-only route." Phase
+14 closes that gap. No boundary, no middleware, and no route handler changed — this is a
+test-coverage-only phase (see `docs/exec-plans/completed/phase-14.md`).
+
+**Route-level audit (`src/app/api/**/route.ts`).** Every route method was read and assigned a
+`minRole: 'STAFF' | 'OWNER'` (24 files, 24 protected method+path combinations once the deliberately
+public GET/`/api/public/*` routes are excluded — see the comment block in
+`tests/phase-3-route-auth.test.ts`). One route was found with **zero** auth-test coverage:
+`POST /api/admin/pricing/parse-3mf` (shipped in Phase 9, calls `requireAdmin()` correctly in code —
+this was a test gap, not a real permission bug). It has been added to the route table. No route was
+found missing its `requireOwner()`/`requireAdmin()` call — the 4+1 boundaries from ADR-0011/ADR-0026
+map cleanly onto `DELETE /api/products/[id]`, `DELETE /api/products/variants/[id]` (boundary #3),
+`GET/POST /api/staff` + `PATCH /api/staff/[id]` (boundary #1), and `GET /api/audit-logs`
+(boundary #4) all correctly calling `requireOwner()`; every other protected route correctly calls
+`requireAdmin()`.
+
+`tests/phase-3-route-auth.test.ts` was rewritten (not replaced with a new file — same discovery
+path in `tests/helpers/test-runner.ts`) to run 3 scenarios per route: no cookie (expect 401 or
+403), a real STAFF session cookie against an OWNER-only route (expect **exactly** 403, the actual
+fix — no longer accepting 401 as an equivalent pass), and a session cookie meeting the route's
+minimum role (expect neither 401 nor 403). The STAFF/OWNER accounts are minted for real via
+`tests/helpers/rbac-accounts.ts`, reusing `e2e/admin.spec.ts`'s
+`supabase.auth.admin.createUser`/`deleteUser` throwaway-account pattern, then signed in through
+`@supabase/ssr`'s own `createServerClient` + `auth.signInWithPassword()` storage adapter so the
+resulting `Cookie` header is produced by the same code the app uses in production — not a
+hand-built/faked JWT.
+
+**Server Action manual audit (`expense.service.ts`, `pricing-config.service.ts`,
+`filament.service.ts`).** These are Server Actions, not `route.ts` handlers, and are out of scope
+for the HTTP-level table above (Next.js Server Action endpoints are opaque, encoded POSTs, not
+stable URLs — building an equivalent HTTP harness for them was judged not worth the cost against
+manually auditing 3 files once; see `docs/exec-plans/completed/phase-14.md` Non-goals). All three
+services trust an already-authorized `actorId`/`actorRole` passed in by the caller and never
+re-check role themselves (as ADR-0026 already documents for `expense.service.ts`). Every caller was
+read and confirmed to call `requireOwner()`/`requireAdmin()` as its first line, before any input
+parsing or service call:
+- `src/app/admin/(protected)/expenses/actions.ts` — `createExpenseAction`, `updateExpenseAction`,
+  `cancelExpenseAction` all call `requireOwner()` first.
+- `src/app/admin/(protected)/expenses/page.tsx` and `expenses/[id]/page.tsx` (Server Components
+  reading `expense.service.ts` directly) also call `requireOwner()` first — necessary because the
+  shared `(protected)` layout only enforces `requireAdmin()` (any active staff), not `requireOwner()`
+  specifically, so an OWNER-only page must still gate itself.
+- `src/app/admin/(protected)/settings/pricing/actions.ts` (`createPricingConfigAction`) and
+  `settings/pricing/page.tsx` both call `requireOwner()` first, for the same reason.
+- `src/app/admin/(protected)/materials/actions.ts` (`createFilamentSpoolAction`,
+  `adjustSpoolStockAction`) call `requireAdmin()` first, matching `filament_spools`' `STAFF`-visible
+  boundary from ADR-0026.
+
+No bug was found — this audit is a baseline recorded for the *next* re-audit, not a fix. **Re-audit
+trigger:** re-run this manual check whenever a new Server Action is added to any of these three
+files, or whenever this ADR is more than ~6 months old, whichever comes first — a dated baseline
+with no re-audit process attached decays into false confidence (this ADR's own stated risk).
