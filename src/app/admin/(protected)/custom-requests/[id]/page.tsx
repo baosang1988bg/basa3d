@@ -7,12 +7,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PricingCalculatorPanel } from '@/components/admin/pricing-calculator-panel';
+import { MakerWorldQuotePanel } from '@/components/admin/makerworld-quote-panel';
+import { CopyZaloQuoteButton } from '@/components/admin/copy-zalo-quote-button';
 import { ProcessStepper } from '@/components/admin/process-stepper';
 import { createCustomRequestAttachmentSignedUrl, getCustomRequestById, nextCustomRequestStatuses } from '@/services/custom-request.service';
 import { requireAdmin } from '@/lib/auth/require-admin';
 import { listMaterials } from '@/services/inventory.service';
 import { getCurrentPricingConfig } from '@/services/pricing-config.service';
-import { listQuotesByCustomRequest } from '@/services/quote.service';
+import { listQuotesByCustomRequest, mintQuoteAccessToken } from '@/services/quote.service';
 import { acceptQuoteAction, createQuoteAction, updateCustomRequestStatusAction } from '../actions';
 
 const CUSTOM_REQUEST_STATUSES = ['NEW', 'REVIEWING', 'NEED_INFO', 'QUOTED', 'APPROVED', 'REJECTED', 'CONVERTED'];
@@ -135,7 +137,19 @@ export default async function CustomRequestDetailPage({ params }: { params: Prom
                     <TableCell>{Number(quote.total).toLocaleString('vi-VN')}đ</TableCell>
                     <TableCell>{new Date(quote.validUntil).toLocaleString('vi-VN')}</TableCell>
                     <TableCell><Badge variant={quote.status === 'ACCEPTED' ? 'default' : 'secondary'}>{quote.status}</Badge></TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="flex flex-wrap justify-end gap-2 text-right">
+                      <CopyZaloQuoteButton
+                        quoteNumber={quote.quoteNumber}
+                        totalVnd={Number(quote.total)}
+                        depositVnd={Math.ceil(Number(quote.total) / 2)}
+                        model={quote.modelSnapshot ? {
+                          title: quote.modelSnapshot.title,
+                          totalPrintMinutes: quote.modelSnapshot.totalPrintMinutes,
+                          platesCount: quote.modelSnapshot.platesCount,
+                          colorsCount: quote.modelSnapshot.colorsCount,
+                        } : null}
+                        token={isExpired ? null : mintQuoteAccessToken(quote.id, new Date(quote.validUntil))}
+                      />
                       {canAccept ? (
                         <form action={acceptQuoteAction.bind(null, quote.id, id)}>
                           <Button type="submit" size="sm">Chấp nhận báo giá</Button>
@@ -149,6 +163,9 @@ export default async function CustomRequestDetailPage({ params }: { params: Prom
           </Table>
 
           <form action={createQuoteAction.bind(null, id)} className="grid grid-cols-2 gap-4 border-t border-border pt-4">
+            <div className="col-span-2">
+              <MakerWorldQuotePanel materials={materials} config={pricingConfig} priceInputIds={['subtotal', 'total']} />
+            </div>
             <div className="col-span-2">
               <PricingCalculatorPanel materials={materials} config={pricingConfig} priceInputIds={['subtotal', 'total']} />
             </div>

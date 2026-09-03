@@ -45,6 +45,7 @@ export async function updateCustomRequestStatusAction(id: string, formData: Form
 export async function createQuoteAction(customRequestId: string, formData: FormData) {
   const { actorId } = await requireAdmin();
   const pricingBreakdownRaw = readFormValue(formData, 'pricingBreakdown');
+  const modelSnapshotRaw = readFormValue(formData, 'modelSnapshot');
   const input = quoteInputSchema.parse({
     customRequestId,
     subtotal: Number(formData.get('subtotal')),
@@ -57,6 +58,9 @@ export async function createQuoteAction(customRequestId: string, formData: FormD
     // "Dùng giá này" (see PricingCalculatorPanel) — otherwise both stay undefined (manual quote).
     pricingBreakdown: pricingBreakdownRaw ? JSON.parse(pricingBreakdownRaw) : undefined,
     pricingConfigId: readFormValue(formData, 'pricingConfigId') ?? undefined,
+    // Phase 13: set only when staff used the MakerWorld panel (see MakerWorldQuotePanel) —
+    // otherwise undefined (manual/upload-.3mf quote, no model metadata to snapshot).
+    modelSnapshot: modelSnapshotRaw ? JSON.parse(modelSnapshotRaw) : undefined,
   });
   await createQuote(input, actorId);
   revalidatePath(`/admin/custom-requests/${customRequestId}`);
