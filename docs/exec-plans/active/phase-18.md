@@ -20,6 +20,13 @@
   locale hiện tại. `src/app/robots.ts` disallow `/admin`, `/api`, allow còn lại.
 - Dữ liệu sản phẩm/category (tên, mô tả) lấy trực tiếp từ DB, không có cột đa ngôn ngữ — **ngoài
   phạm vi phase này** (xem Non-goals).
+- **[Phát hiện khi rà soát lại]** Project **đã có sẵn** `middleware.ts` ở root (không phải
+  `src/middleware.ts`) — matcher `['/admin/:path*']`, gọi `updateSession()`
+  (`src/lib/supabase/middleware.ts`) để refresh Supabase session cookie + redirect
+  `/admin/login` khi chưa đăng nhập. Next.js chỉ cho phép **1 file middleware duy nhất** mỗi
+  project — không thể thêm riêng `src/middleware.ts` cho next-intl như bản nháp ban đầu đã viết.
+  2 middleware (auth session refresh cho `/admin`, locale routing cho storefront) phải được gộp
+  chung vào 1 file. Xem quyết định #3 (đã sửa) và Question 1 trong prompt Gemini.
 
 ---
 
@@ -59,9 +66,14 @@
 2. **Cấu trúc route**: chuyển `src/app/(storefront)/*` (kể cả `page.tsx` trang chủ) vào
    `src/app/[locale]/(storefront)/*`. `src/app/admin/**` và `src/app/api/**` giữ nguyên vị trí,
    nằm ngoài segment `[locale]` — không bị ảnh hưởng.
-3. **Middleware**: `src/middleware.ts` dùng `createMiddleware` của next-intl —
-   `locales: ['vi', 'en']`, `defaultLocale: 'vi'`, `localePrefix: 'as-needed'` (VI không prefix, EN
-   có `/en`). `matcher` loại trừ `/admin`, `/api`, `/_next`, file tĩnh.
+3. **Middleware [TENTATIVE — cần Gemini challenge]**: gộp logic next-intl (`createMiddleware`,
+   `locales: ['vi', 'en']`, `defaultLocale: 'vi'`, `localePrefix: 'as-needed'`) vào **cùng 1 file**
+   `middleware.ts` ở root đang có sẵn, cạnh `updateSession()` hiện tại — vì Next.js chỉ chạy được 1
+   middleware/project. Hướng đề xuất: `matcher` chung mở rộng ra toàn bộ site (bỏ giới hạn
+   `/admin/:path*` cũ), trong hàm `middleware()` tự rẽ nhánh theo `pathname` — path bắt đầu
+   `/admin` thì chạy `updateSession()` như cũ, còn lại chạy next-intl middleware; `/api` không chạy
+   qua nhánh nào (return sớm/next()). Chưa chắc đây là cách an toàn nhất để không phá vỡ hành vi
+   auth redirect hiện tại của `/admin` — xem Question 1 trong prompt Gemini.
 4. **Root layout** (`src/app/layout.tsx`): chuyển thành async, dùng `getLocale()` từ
    `next-intl/server` để set `<html lang={locale}>` (fallback `vi` khi request không qua middleware
    locale, tức toàn bộ admin/api). Giữ nguyên font/GA hiện tại. Thêm `src/app/[locale]/layout.tsx`
@@ -82,7 +94,9 @@
 - [ ] Cài `next-intl`.
 - [ ] Tạo `messages/vi.json`, `messages/en.json` (khung namespace rỗng/placeholder).
 - [ ] `next.config.ts`: bọc `createNextIntlPlugin()`.
-- [ ] `src/middleware.ts`: `createMiddleware` với matcher loại trừ `/admin`, `/api`.
+- [ ] Sửa `middleware.ts` (root, đã có sẵn) để gộp `updateSession()` (giữ nguyên cho `/admin`) với
+  next-intl `createMiddleware` (storefront) theo hướng chốt ở Question 1 (Gemini) — không tạo file
+  `src/middleware.ts` mới song song.
 - [ ] Di chuyển `src/app/(storefront)/**` + `src/app/page.tsx` (nếu có) vào
   `src/app/[locale]/(storefront)/**`. Cập nhật mọi import/path liên quan (nếu route dùng
   absolute link nội bộ).
