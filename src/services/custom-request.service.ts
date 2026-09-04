@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { query, withTransaction } from '../lib/db';
 import { DomainError } from '../lib/domain-error';
 import { createSupabaseAdminClient } from '../lib/supabase/admin';
+import { sendStaffNotification } from '../lib/notify/send-staff-notification';
 import { writeAuditLog } from './audit.service';
 import { pagination } from './product.service';
 
@@ -45,7 +46,7 @@ export async function createCustomRequestAttachmentSignedUrl(storagePath: string
 }
 
 export async function createCustomRequest(input: Record<string, unknown>, actorId: string | null) {
-  return withTransaction(async (client) => {
+  const created = await withTransaction(async (client) => {
     const requestNumber = `CR-${randomUUID().replaceAll('-', '').slice(0, 12).toUpperCase()}`;
     const result = await client.query<{ id: string; request_number: string }>(`
       insert into custom_requests (request_number, source_channel, customer_name, customer_phone, customer_email, description, quantity, requested_material, requested_color, requested_size, attachment_path)
@@ -54,6 +55,10 @@ export async function createCustomRequest(input: Record<string, unknown>, actorI
     await writeAuditLog(client, { actorId, action, entityType: 'custom_request', entityId: result.rows[0].id, afterData: input });
     return { id: result.rows[0].id, requestNumber: result.rows[0].request_number };
   });
+  // Notified only after the transaction has committed (phase-15.md decision #1) — never inside
+  // the callback above, so a rolled-back insert can never trigger a staff notification.
+  await sendStaffNotification({ type: 'CUSTOM_REQUEST', id: created.id, code: created.requestNumber });
+  return created;
 }
 
 export const CUSTOM_REQUEST_STATUS_TRANSITIONS: Record<string, string[]> = {

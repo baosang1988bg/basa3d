@@ -5,6 +5,7 @@ import { assertAvailableStock, lockVariantForInventoryWrite, recordSaleOut } fro
 import { writeAuditLog } from './audit.service';
 import { pagination } from './product.service';
 import { verifyOrderConfirmationToken } from '../lib/order-confirmation-token';
+import { sendStaffNotification } from '../lib/notify/send-staff-notification';
 
 type OrderItemRequest = { variantId: string; quantity: number };
 type CreateOrderInput = { customerName: string; customerPhone: string; customerEmail?: string | null; shippingAddress?: Record<string, unknown>; shippingFee?: number; discount?: number; codFee?: number; customerNote?: string | null; items: OrderItemRequest[] };
@@ -20,7 +21,7 @@ export async function createOrder(input: CreateOrderInput, actorId: string | nul
   const variantIds = [...byVariant.keys()].sort();
   if (!variantIds.length) throw new DomainError('ORDER_ITEMS_REQUIRED', 'An order requires at least one item.');
 
-  return withTransaction(async (client) => {
+  const created = await withTransaction(async (client) => {
     // Lock in a consistent order to avoid deadlocks during concurrent multi-variant checkout.
     // This lock is also what makes assertAvailableStock's `reserved` read (order_items/orders,
     // never locked directly) race-free: every writer of order_items/orders locks these
@@ -62,6 +63,10 @@ export async function createOrder(input: CreateOrderInput, actorId: string | nul
     await writeAuditLog(client, { actorId, action: actorId === null ? 'ORDER_CREATED_PUBLIC' : 'ORDER_CREATED', entityType: 'order', entityId: order.rows[0].id, afterData: { orderNumber, total } });
     return { id: order.rows[0].id, orderNumber: order.rows[0].order_number, total: order.rows[0].total };
   });
+  // Notified only after the transaction has committed (phase-15.md decision #1) — never inside
+  // the callback above, so a rolled-back insert can never trigger a staff notification.
+  await sendStaffNotification({ type: 'ORDER', id: created.id, code: created.orderNumber });
+  return created;
 }
 
 // Forward-only, per docs/database/schema.md: CANCELLED is reachable from NEW/CONFIRMED/PRODUCING/

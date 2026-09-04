@@ -74,7 +74,9 @@ async function main(): Promise<void> {
         .filter((name) => name.endsWith('.test.ts'))
         .sort()
         .map((name) => `tests/${name}`);
-      const tests = spawn(process.execPath, ['--import', 'tsx', '--test', '--test-concurrency=1', ...testFiles], {
+      // --experimental-test-module-mocks: used by tests/phase-15-staff-notification-failure.test.ts
+      // to mock the `resend` package (mock.module), instead of pulling in a mocking library.
+      const tests = spawn(process.execPath, ['--import', 'tsx', '--experimental-test-module-mocks', '--test', '--test-concurrency=1', ...testFiles], {
         cwd: process.cwd(), env: process.env, stdio: 'inherit',
       });
       const exitCode = await new Promise<number>((resolve) => tests.once('exit', (code) => resolve(code ?? 1)));
