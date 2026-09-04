@@ -1,6 +1,7 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import { Plus_Jakarta_Sans, Inter } from 'next/font/google';
+import { getLocale } from 'next-intl/server';
 import { cn } from '@/lib/utils';
 import { themeBootstrapScript } from '@/lib/theme-script';
 import { GoogleAnalytics } from '@/components/analytics/google-analytics';
@@ -17,9 +18,14 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  // `/admin/**` and `/api/**` never go through the locale middleware (middleware.ts branches
+  // them away from next-intl entirely), so getLocale() falls back to the default 'vi' there —
+  // exactly the "admin stays Vietnamese-only" behavior phase-18.md requires.
+  const locale = await getLocale();
+
   return (
-    <html lang="vi" className={cn('font-sans', headingFont.variable, bodyFont.variable)} suppressHydrationWarning>
+    <html lang={locale} className={cn('font-sans', headingFont.variable, bodyFont.variable)} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
       </head>

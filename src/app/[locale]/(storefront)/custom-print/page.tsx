@@ -1,6 +1,8 @@
 import { MaterialBadge } from '@/components/storefront/material-badge';
 import { Breadcrumb } from '@/components/storefront/breadcrumb';
 import { CustomRequestForm } from './custom-request-form';
+import Link from 'next/link';
+import { storefrontButtonClasses } from '@/components/storefront/button';
 
 const STEPS = [
   { step: '1', title: 'Gửi file', description: 'Gửi file .stl, .step, .obj, .3mf hoặc ảnh vẽ mẫu qua form bên dưới' },
@@ -26,6 +28,11 @@ export default function CustomPrintPage() {
         <p className="mx-auto mt-3 max-w-xl text-base text-muted-foreground">
           Gửi file thiết kế hoặc ý tưởng của bạn — BaSa3D tư vấn vật liệu, báo giá minh bạch và sản xuất chính xác.
         </p>
+      </section>
+
+      <section className="mt-12 rounded-xl border border-primary/20 bg-primary/5 p-6 md:flex md:items-center md:justify-between">
+        <div><p className="text-sm font-semibold uppercase tracking-wide text-primary">Chưa có file 3D?</p><h2 className="font-heading mt-1 text-2xl font-bold">Tự tạo móc khoá khắc tên</h2><p className="mt-2 text-sm text-muted-foreground">Nhập tên, xem trước 3D và gửi file STL thẳng tới xưởng.</p></div>
+        <Link href="/custom-print/tao-mau-khac-ten" className={storefrontButtonClasses('accent', 'mt-4 md:mt-0')}>Mở công cụ tạo mẫu</Link>
       </section>
 
       <section className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-4">

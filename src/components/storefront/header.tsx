@@ -1,21 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Menu, X, ShoppingCart, MessageCircle } from 'lucide-react';
+import { Link, usePathname } from '@/i18n/navigation';
 import { ThemeToggle } from './theme-toggle';
+import { LanguageSwitcher } from './language-switcher';
 import { SITE_CONFIG } from '@/config/site';
 import { useCart } from '@/lib/cart/cart-context';
 import { trackContactClick } from '@/lib/analytics';
-
-const NAV_LINKS = [
-  { href: '/', label: 'Trang chủ' },
-  { href: '/products', label: 'Sản phẩm' },
-  { href: '/custom-print', label: 'Đặt in' },
-  { href: '/#materials', label: 'Vật liệu' },
-  { href: '/blog', label: 'Blog' },
-];
 
 // Anchor links (e.g. `/#materials`) have no distinct pathname to match against, so they never
 // report active — accepted as out of scope for this slice rather than tracking scroll position.
@@ -28,6 +21,15 @@ export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { itemCount } = useCart();
   const pathname = usePathname();
+  const t = useTranslations('nav');
+
+  const navLinks = [
+    { href: '/', label: t('home') },
+    { href: '/products', label: t('products') },
+    { href: '/custom-print', label: t('customPrint') },
+    { href: '/#materials', label: t('materials') },
+    { href: '/blog', label: t('blog') },
+  ];
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur supports-backdrop-filter:bg-card/80">
@@ -37,7 +39,7 @@ export function Header() {
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex">
-          {NAV_LINKS.map((link) => {
+          {navLinks.map((link) => {
             const isActive = isNavLinkActive(pathname, link.href);
             return (
               <Link
@@ -60,12 +62,13 @@ export function Header() {
             onClick={() => trackContactClick('zalo', 'header')}
             className="hidden cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:inline-flex"
           >
-            <MessageCircle className="size-4 text-[#0068FF]" /> Zalo tư vấn
+            <MessageCircle className="size-4 text-[#0068FF]" /> {t('zaloConsult')}
           </a>
+          <LanguageSwitcher />
           <ThemeToggle />
           <Link
             href="/cart"
-            aria-label={itemCount > 0 ? `Giỏ hàng, ${itemCount} sản phẩm` : 'Giỏ hàng'}
+            aria-label={itemCount > 0 ? t('cartAriaLabelWithCount', { count: itemCount }) : t('cartAriaLabelEmpty')}
             className="relative inline-flex size-8 cursor-pointer items-center justify-center rounded-lg border border-border text-foreground transition-colors duration-150 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             <ShoppingCart className="size-4" />
@@ -77,7 +80,7 @@ export function Header() {
           </Link>
           <button
             type="button"
-            aria-label="Mở menu"
+            aria-label={t('openMenu')}
             onClick={() => setIsMenuOpen(true)}
             className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg border border-border text-foreground md:hidden"
           >
@@ -93,12 +96,12 @@ export function Header() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">
-              <span className="font-heading text-lg font-bold">Menu</span>
-              <button type="button" aria-label="Đóng menu" onClick={() => setIsMenuOpen(false)} className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg border border-border">
+              <span className="font-heading text-lg font-bold">{t('menuTitle')}</span>
+              <button type="button" aria-label={t('closeMenu')} onClick={() => setIsMenuOpen(false)} className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg border border-border">
                 <X className="size-4" />
               </button>
             </div>
-            {NAV_LINKS.map((link) => {
+            {navLinks.map((link) => {
               const isActive = isNavLinkActive(pathname, link.href);
               return (
                 <Link

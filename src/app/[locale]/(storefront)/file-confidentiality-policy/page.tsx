@@ -1,43 +1,43 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { LegalPage } from '@/components/storefront/legal-page';
 import { SITE_CONFIG } from '@/config/site';
 
-export const metadata: Metadata = {
-  title: 'Chính sách bảo mật file thiết kế 3D — BaSa3D',
-  description: 'Cam kết bảo mật file thiết kế 3D (STL/STEP/OBJ/3MF) khách hàng gửi khi đặt in theo yêu cầu.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('policies.fileConfidentiality');
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+    alternates: {
+      canonical: '/file-confidentiality-policy',
+      languages: { vi: '/file-confidentiality-policy', en: '/en/file-confidentiality-policy' },
+    },
+  };
+}
 
-export default function FileConfidentialityPolicyPage() {
+export default async function FileConfidentialityPolicyPage() {
+  const t = await getTranslations('policies.fileConfidentiality');
   return (
-    <LegalPage title="Chính sách bảo mật file thiết kế 3D" updatedAt="2026-08-31">
+    <LegalPage title={t('title')} updatedAt="2026-08-31">
       <section>
-        <h2>1. Cam kết</h2>
+        <h2>{t('section1Title')}</h2>
         <p>
-          File thiết kế (.stl, .step/.stp, .obj, .3mf) hoặc ảnh mẫu bạn gửi qua trang{' '}
-          <strong>Đặt in theo yêu cầu</strong> chỉ được {SITE_CONFIG.name} sử dụng cho đúng mục đích
-          báo giá và sản xuất đơn hàng của bạn. Chúng tôi không sử dụng file thiết kế của khách hàng
-          cho mục đích thương mại khác, không bán lại, và không chia sẻ cho bên thứ ba ngoài phạm vi
-          cần thiết để in sản phẩm.
+          {t('section1BodyBefore')} <strong>{t('section1BodyStrong')}</strong>{' '}
+          {t('section1BodyAfter', { siteName: SITE_CONFIG.name })}
         </p>
       </section>
       <section>
-        <h2>2. Lưu trữ</h2>
-        <p>
-          File được lưu trữ trên hạ tầng đám mây riêng của {SITE_CONFIG.name}, chỉ đội ngũ kỹ thuật xử
-          lý đơn hàng của bạn được truy cập. File không được xem trước tự động — chỉ được nhân viên mở
-          thủ công khi cần tư vấn/báo giá đơn của bạn.
-        </p>
+        <h2>{t('section2Title')}</h2>
+        <p>{t('section2Body', { siteName: SITE_CONFIG.name })}</p>
       </section>
       <section>
-        <h2>3. Yêu cầu xoá file</h2>
-        <p>Nếu bạn muốn yêu cầu xoá file thiết kế đã gửi sau khi đơn hàng hoàn tất, liên hệ Zalo/hotline: {SITE_CONFIG.hotline}.</p>
+        <h2>{t('section3Title')}</h2>
+        <p>{t('section3Body', { hotline: SITE_CONFIG.hotline })}</p>
       </section>
       <section>
-        <h2>4. Sở hữu trí tuệ</h2>
+        <h2>{t('section4Title')}</h2>
         <p>
-          Bạn xác nhận có quyền hợp pháp đối với file thiết kế gửi cho chúng tôi để sản xuất.{' '}
-          {SITE_CONFIG.name} không chịu trách nhiệm nếu file do khách hàng cung cấp vi phạm quyền sở
-          hữu trí tuệ của bên thứ ba.
+          {t('section4BodyBefore')} {SITE_CONFIG.name} {t('section4BodyAfter')}
         </p>
       </section>
     </LegalPage>

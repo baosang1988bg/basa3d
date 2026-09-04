@@ -1,40 +1,40 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { LegalPage } from '@/components/storefront/legal-page';
 import { SITE_CONFIG } from '@/config/site';
 
-export const metadata: Metadata = { title: 'Chính sách bảo mật — BaSa3D', description: 'Chính sách bảo mật thông tin khách hàng của BaSa3D.' };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('policies.privacy');
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+    alternates: { canonical: '/privacy-policy', languages: { vi: '/privacy-policy', en: '/en/privacy-policy' } },
+  };
+}
 
-export default function PrivacyPolicyPage() {
+export default async function PrivacyPolicyPage() {
+  const t = await getTranslations('policies.privacy');
   return (
-    <LegalPage title="Chính sách bảo mật" updatedAt="2026-08-31">
+    <LegalPage title={t('title')} updatedAt="2026-08-31">
       <section>
-        <h2>1. Thông tin chúng tôi thu thập</h2>
-        <p>
-          Khi bạn đặt hàng hoặc gửi yêu cầu đặt in tại {SITE_CONFIG.name}, chúng tôi thu thập: họ tên,
-          số điện thoại, email (nếu cung cấp), địa chỉ giao hàng, và nội dung/file thiết kế bạn gửi
-          kèm yêu cầu đặt in. Chúng tôi không yêu cầu tạo tài khoản — mỗi đơn hàng/yêu cầu được xử lý
-          độc lập.
-        </p>
+        <h2>{t('section1Title')}</h2>
+        <p>{t('section1Body', { siteName: SITE_CONFIG.name })}</p>
       </section>
       <section>
-        <h2>2. Mục đích sử dụng</h2>
+        <h2>{t('section2Title')}</h2>
         <ul>
-          <li>Liên hệ tư vấn, báo giá, và xác nhận đơn hàng</li>
-          <li>Sản xuất và giao hàng đúng yêu cầu</li>
-          <li>Chăm sóc khách hàng sau bán</li>
+          <li>{t('section2Item1')}</li>
+          <li>{t('section2Item2')}</li>
+          <li>{t('section2Item3')}</li>
         </ul>
       </section>
       <section>
-        <h2>3. Chia sẻ thông tin</h2>
-        <p>
-          Chúng tôi không bán hoặc chia sẻ thông tin cá nhân của bạn cho bên thứ ba ngoài mục đích vận
-          chuyển đơn hàng (đơn vị giao hàng) và các dịch vụ hạ tầng kỹ thuật cần thiết để vận hành
-          website.
-        </p>
+        <h2>{t('section3Title')}</h2>
+        <p>{t('section3Body')}</p>
       </section>
       <section>
-        <h2>4. Liên hệ</h2>
-        <p>Mọi thắc mắc về chính sách bảo mật, liên hệ qua Zalo/hotline: {SITE_CONFIG.hotline}.</p>
+        <h2>{t('section4Title')}</h2>
+        <p>{t('section4Body', { hotline: SITE_CONFIG.hotline })}</p>
       </section>
     </LegalPage>
   );

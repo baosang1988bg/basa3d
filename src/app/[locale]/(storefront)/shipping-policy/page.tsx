@@ -1,34 +1,39 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { LegalPage } from '@/components/storefront/legal-page';
 import { SITE_CONFIG } from '@/config/site';
 
-export const metadata: Metadata = { title: 'Chính sách vận chuyển — BaSa3D', description: 'Chính sách vận chuyển và giao hàng của BaSa3D.' };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('policies.shipping');
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+    alternates: { canonical: '/shipping-policy', languages: { vi: '/shipping-policy', en: '/en/shipping-policy' } },
+  };
+}
 
-export default function ShippingPolicyPage() {
+export default async function ShippingPolicyPage() {
+  const t = await getTranslations('policies.shipping');
   return (
-    <LegalPage title="Chính sách vận chuyển" updatedAt="2026-08-31">
+    <LegalPage title={t('title')} updatedAt="2026-08-31">
       <section>
-        <h2>1. Phương thức thanh toán khi giao hàng</h2>
-        <p>
-          {SITE_CONFIG.name} hỗ trợ Thanh toán khi nhận hàng (COD) và Chuyển khoản ngân hàng trước khi
-          sản xuất. Đơn đặt in theo yêu cầu chỉ tiến hành sản xuất sau khi khách hàng chấp nhận báo
-          giá.
-        </p>
+        <h2>{t('section1Title')}</h2>
+        <p>{t('section1Body', { siteName: SITE_CONFIG.name })}</p>
       </section>
       <section>
-        <h2>2. Thời gian xử lý</h2>
+        <h2>{t('section2Title')}</h2>
         <ul>
-          <li>Sản phẩm sẵn hàng: đóng gói và giao trong 24–48 giờ làm việc</li>
-          <li>Đặt in theo yêu cầu: thời gian sản xuất phụ thuộc độ phức tạp, được thông báo cụ thể khi báo giá</li>
+          <li>{t('section2Item1')}</li>
+          <li>{t('section2Item2')}</li>
         </ul>
       </section>
       <section>
-        <h2>3. Đơn vị vận chuyển</h2>
-        <p>Giao hàng qua các đơn vị vận chuyển đối tác trên toàn quốc. Phí vận chuyển hiển thị rõ trước khi xác nhận đơn hàng.</p>
+        <h2>{t('section3Title')}</h2>
+        <p>{t('section3Body')}</p>
       </section>
       <section>
-        <h2>4. Liên hệ</h2>
-        <p>Theo dõi đơn hàng hoặc thắc mắc về giao nhận, liên hệ Zalo/hotline: {SITE_CONFIG.hotline}.</p>
+        <h2>{t('section4Title')}</h2>
+        <p>{t('section4Body', { hotline: SITE_CONFIG.hotline })}</p>
       </section>
     </LegalPage>
   );

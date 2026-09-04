@@ -13,11 +13,21 @@ type UploadState = { status: 'idle' | 'uploading' | 'done' | 'error'; fileName?:
 const ALLOWED_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'stl', 'step', 'stp', 'obj', '3mf']);
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 
-export function CustomRequestForm() {
+export type CustomRequestPrefill = {
+  attachmentPath: string;
+  attachmentFileName: string;
+  requestedMaterial: string;
+  requestedColor: string;
+  description: string;
+};
+
+export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill }) {
   const [state, setState] = useState<SubmitState>({ status: 'idle' });
-  const [attachmentPath, setAttachmentPath] = useState('');
+  const [attachmentPath, setAttachmentPath] = useState(prefill?.attachmentPath ?? '');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [upload, setUpload] = useState<UploadState>({ status: 'idle' });
+  const [upload, setUpload] = useState<UploadState>(prefill
+    ? { status: 'done', fileName: prefill.attachmentFileName }
+    : { status: 'idle' });
   const [isDragging, setIsDragging] = useState(false);
 
   async function handleFile(file: File) {
@@ -175,7 +185,7 @@ export function CustomRequestForm() {
       </div>
       <div className="flex flex-col gap-1.5">
         <label htmlFor="requestedMaterial" className="text-sm font-semibold text-foreground">Vật liệu mong muốn</label>
-        <select id="requestedMaterial" name="requestedMaterial" className="h-10 cursor-pointer rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50">
+        <select id="requestedMaterial" name="requestedMaterial" defaultValue={prefill?.requestedMaterial ?? ''} className="h-10 cursor-pointer rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50">
           <option value="">Chưa chắc chắn / Tư vấn giúp tôi</option>
           <option value="PLA">PLA (Tiêu chuẩn, đẹp, dễ dùng)</option>
           <option value="PETG">PETG (Bền cơ học, chịu nhiệt nhẹ)</option>
@@ -186,7 +196,7 @@ export function CustomRequestForm() {
       </div>
       <div className="flex flex-col gap-1.5">
         <label htmlFor="requestedColor" className="text-sm font-semibold text-foreground">Màu sắc yêu cầu</label>
-        <input id="requestedColor" name="requestedColor" maxLength={100} placeholder="Ví dụ: Đen nhám, Trắng, Đỏ..." className="h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50" />
+        <input id="requestedColor" name="requestedColor" defaultValue={prefill?.requestedColor} maxLength={100} placeholder="Ví dụ: Đen nhám, Trắng, Đỏ..." className="h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50" />
       </div>
 
       {/* Attachment area: Link or Ctrl+V Image Paste or File Dropzone (ảnh + file thiết kế 3D) */}
@@ -260,6 +270,7 @@ export function CustomRequestForm() {
           required
           maxLength={20000}
           rows={4}
+          defaultValue={prefill?.description}
           placeholder="Mô tả công dụng, kích thước mong muốn (dài x rộng x cao mm), tỉ lệ scale, hoặc các lưu ý đặc biệt..."
           className="rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
         />
