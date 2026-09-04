@@ -32,7 +32,7 @@ export default function CustomPrintPage() {
 
       <section className="mt-12 rounded-xl border border-primary/20 bg-primary/5 p-6 md:flex md:items-center md:justify-between">
         <div><p className="text-sm font-semibold uppercase tracking-wide text-primary">Chưa có file 3D?</p><h2 className="font-heading mt-1 text-2xl font-bold">Tự tạo móc khoá khắc tên</h2><p className="mt-2 text-sm text-muted-foreground">Nhập tên, xem trước 3D và gửi file STL thẳng tới xưởng.</p></div>
-        <Link href="/custom-print/tao-mau-khac-ten" className={storefrontButtonClasses('accent', 'mt-4 md:mt-0')}>Mở công cụ tạo mẫu</Link>
+        <Link href="/tools/keychain-generator" className={storefrontButtonClasses('accent', 'mt-4 md:mt-0')}>Mở công cụ tạo mẫu</Link>
       </section>
 
       <section className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-4">

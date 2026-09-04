@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
-import { Zap, ShieldCheck, Timer } from 'lucide-react';
+import { Zap, ShieldCheck, Timer, Cuboid, Download, Send } from 'lucide-react';
 import { listStorefrontProducts } from '@/services/storefront-catalog.service';
 import { ProductCard } from '@/components/storefront/product-card';
 import { SectionHeader } from '@/components/storefront/section-header';
@@ -85,6 +85,32 @@ export default async function HomePage() {
               </Link>
             );
           })}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 py-12">
+        <div className="overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-accent/10 p-6 md:p-8">
+          <div className="grid items-center gap-8 md:grid-cols-[minmax(0,1fr)_360px]">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wide text-primary">{t('toolEyebrow')}</p>
+              <h2 className="font-heading mt-2 text-2xl font-extrabold text-foreground md:text-3xl">{t('toolTitle')}</h2>
+              <p className="mt-3 max-w-2xl text-muted-foreground">{t('toolDescription')}</p>
+              <div className="mt-5 flex flex-wrap gap-4 text-sm text-foreground">
+                <span className="inline-flex items-center gap-1.5"><Cuboid className="size-4 text-primary" />{t('toolFeaturePreview')}</span>
+                <span className="inline-flex items-center gap-1.5"><Download className="size-4 text-primary" />{t('toolFeatureDownload')}</span>
+                <span className="inline-flex items-center gap-1.5"><Send className="size-4 text-primary" />{t('toolFeatureRequest')}</span>
+              </div>
+              <Link href="/tools/keychain-generator" className={storefrontButtonClasses('accent', 'mt-6')}>
+                {t('toolCta')}
+              </Link>
+            </div>
+            <div className="flex min-h-48 items-center justify-center rounded-xl border border-border bg-background/70 p-6" aria-hidden="true">
+              <div className="relative flex h-24 w-64 rotate-[-5deg] items-center justify-center rounded-2xl bg-slate-900 shadow-xl dark:bg-slate-700">
+                <div className="absolute left-4 size-7 rounded-full border-[6px] border-background/90" />
+                <span className="font-heading ml-8 text-3xl font-extrabold tracking-wide text-amber-400">BaSa3D</span>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

@@ -2,6 +2,7 @@
   "nav": {
     "home": "Trang chủ",
     "products": "Sản phẩm",
+    "tools": "Công cụ",
     "customPrint": "Đặt in",
     "materials": "Vật liệu",
     "blog": "Blog",
@@ -39,6 +40,13 @@
     "heroDescription": "Xưởng in 3D BaSa3D — từ mô hình sưu tầm đến linh kiện kỹ thuật chính xác, sản xuất theo yêu cầu với vật liệu nguyên sinh cao cấp.",
     "ctaCustomPrint": "Gửi file in theo yêu cầu",
     "ctaExploreProducts": "Khám phá sản phẩm",
+    "toolEyebrow": "Công cụ thiết kế 3D miễn phí",
+    "toolTitle": "Tự tạo móc khoá khắc tên ngay trên trình duyệt",
+    "toolDescription": "Nhập tên tiếng Việt, chọn màu và xem trước mẫu 3D trực tiếp. Bạn có thể tải một file STL hoàn chỉnh hoặc gửi mẫu thẳng tới BaSa3D để nhận báo giá.",
+    "toolFeaturePreview": "Xem trước 3D",
+    "toolFeatureDownload": "Tải STL miễn phí",
+    "toolFeatureRequest": "Gửi báo giá nhanh",
+    "toolCta": "Mở công cụ tạo mẫu",
     "heroValueProps": [
       { "label": "In nhanh 24h", "href": "/#workflow" },
       { "label": "Nhựa nguyên sinh cao cấp", "href": "/#materials" },
@@ -133,6 +141,36 @@
     "addedToCart": "Đã thêm vào giỏ hàng.",
     "viewCart": "Xem giỏ hàng",
     "noVariants": "Sản phẩm hiện chưa có phân loại nào để đặt hàng."
+  },
+  "tools": {
+    "breadcrumbHome": "Trang chủ",
+    "breadcrumbTools": "Công cụ",
+    "eyebrow": "Xưởng công cụ BaSa3D",
+    "title": "Công cụ 3D chạy ngay trên trình duyệt",
+    "description": "Tạo, xem và chuẩn bị mẫu in 3D mà không cần cài phần mềm. Mỗi công cụ được phát hành riêng sau khi có kiểm thử file in thực tế.",
+    "available": "Dùng ngay",
+    "planned": "Đang phát triển",
+    "openTool": "Mở công cụ",
+    "plannedNote": "Engine và quy trình kiểm thử sẽ được triển khai trong phase riêng.",
+    "keychainBreadcrumb": "Tạo móc khoá",
+    "keychainTitle": "Tạo móc khoá khắc tên 3D",
+    "keychainDescription": "Nhập tên tiếng Việt, xoay và phóng to mẫu ngay trên trình duyệt. Tải một file STL gộp hoặc gửi thẳng tới xưởng để nhận báo giá.",
+    "items": [
+      { "name": "Móc khoá khắc tên", "description": "Tạo name tag có chữ nổi, chọn màu, lỗ khoen và xuất STL.", "status": "available" },
+      { "name": "Chữ và bảng tên 3D", "description": "Tạo chữ nổi, bảng tên bàn hoặc biển treo từ nội dung tuỳ chỉnh.", "status": "planned" },
+      { "name": "Khay organizer", "description": "Tạo khay nhiều ngăn theo kích thước bàn hoặc ngăn kéo.", "status": "planned" },
+      { "name": "Bát và chậu trang trí", "description": "Tạo vật thể xoay với biên dạng và hoa văn tuỳ chỉnh.", "status": "planned" },
+      { "name": "Ghép hình jigsaw", "description": "Chuyển ảnh hoặc hình dạng thành bộ mảnh ghép có thể in.", "status": "planned" },
+      { "name": "Hộp có bản lề", "description": "Tạo hộp, nắp, khe hở lắp ghép và bản lề theo tham số.", "status": "planned" },
+      { "name": "Lithophane từ ảnh", "description": "Chuyển ảnh thành tấm relief xuyên sáng để in 3D.", "status": "planned" },
+      { "name": "Cookie cutter", "description": "Chuyển đường bao thành khuôn cắt bánh có tay cầm.", "status": "planned" },
+      { "name": "Tách màu 3MF", "description": "Đọc vùng màu của file 3MF và chuẩn bị các phần riêng để in.", "status": "planned" },
+      { "name": "Xem file STL/3MF", "description": "Mở file cục bộ, xoay, đo kích thước và kiểm tra mesh.", "status": "planned" },
+      { "name": "Tính tỷ lệ model", "description": "Tính phần trăm scale theo kích thước hiện tại và mục tiêu.", "status": "planned" },
+      { "name": "Tạo hình khối tham số", "description": "Tạo spacer, vòng, ống và khối cơ bản theo số đo.", "status": "planned" },
+      { "name": "Tách và ghép mesh", "description": "Cắt model theo mặt phẳng hoặc gộp các phần tương thích.", "status": "planned" },
+      { "name": "Sculpt cơ bản", "description": "Chỉnh sửa bề mặt mesh bằng các thao tác kéo, đẩy và làm mịn.", "status": "planned" }
+    ]
   },
   "policies": {
     "updatedAtLabel": "Cập nhật lần cuối: {date}",

@@ -97,3 +97,15 @@ export function trackBlogPost(post: { title: string; slug: string; category?: st
 export function trackPolicy(policyName: string): void {
   sendGAEvent('view_policy', { policy_name: policyName });
 }
+
+export function trackKeychainPreview(data: { characterCount: number; hasKeyringHole: boolean }): void {
+  sendGAEvent('tool_keychain_preview', { character_count: data.characterCount, has_keyring_hole: data.hasKeyringHole });
+}
+
+export function trackKeychainExportDownload(data: { characterCount: number }): void {
+  sendGAEvent('tool_keychain_export_download', { character_count: data.characterCount });
+}
+
+export function trackKeychainExportToRequest(data: { characterCount: number; hasKeyringHole: boolean }): void {
+  sendGAEvent('tool_keychain_export_to_request', { character_count: data.characterCount, has_keyring_hole: data.hasKeyringHole });
+}
