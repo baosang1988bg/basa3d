@@ -1,0 +1,197 @@
+{
+  "nav": {
+    "home": "Trang chủ",
+    "products": "Sản phẩm",
+    "customPrint": "Đặt in",
+    "materials": "Vật liệu",
+    "blog": "Blog",
+    "zaloConsult": "Zalo tư vấn",
+    "cartAriaLabelWithCount": "Giỏ hàng, {count} sản phẩm",
+    "cartAriaLabelEmpty": "Giỏ hàng",
+    "openMenu": "Mở menu",
+    "closeMenu": "Đóng menu",
+    "menuTitle": "Menu"
+  },
+  "footer": {
+    "hotline": "Hotline/Zalo",
+    "commitmentsTitle": "Cam kết",
+    "commitment1": "Bảo mật tuyệt đối file thiết kế khách hàng gửi",
+    "commitment2": "Đổi trả trong 7 ngày nếu lỗi sản xuất",
+    "commitment3": "Báo giá minh bạch, không phát sinh chi phí ẩn",
+    "linksTitle": "Liên kết",
+    "customPrint": "Đặt in theo yêu cầu",
+    "adminLogin": "Đăng nhập quản trị",
+    "policiesTitle": "Chính sách",
+    "privacyPolicy": "Bảo mật",
+    "shippingPolicy": "Vận chuyển",
+    "returnPolicy": "Đổi trả",
+    "fileConfidentialityPolicy": "Bảo mật file thiết kế",
+    "copyright": "© {year} BaSa3D. All rights reserved."
+  },
+  "languageSwitcher": {
+    "vi": "Tiếng Việt",
+    "en": "English",
+    "label": "Ngôn ngữ"
+  },
+  "untranslatedNotice": "Trang này hiện chỉ có nội dung tiếng Việt. Bản dịch tiếng Anh sẽ sớm được bổ sung.",
+  "home": {
+    "heroTitle": "Hiện Thực Hóa Mọi Ý Tưởng Với Công Nghệ In 3D Chuẩn Xác",
+    "heroDescription": "Xưởng in 3D BaSa3D — từ mô hình sưu tầm đến linh kiện kỹ thuật chính xác, sản xuất theo yêu cầu với vật liệu nguyên sinh cao cấp.",
+    "ctaCustomPrint": "Gửi file in theo yêu cầu",
+    "ctaExploreProducts": "Khám phá sản phẩm",
+    "heroValueProps": [
+      { "label": "In nhanh 24h", "href": "/#workflow" },
+      { "label": "Nhựa nguyên sinh cao cấp", "href": "/#materials" },
+      { "label": "Báo giá nhanh trong 30p", "href": "/custom-print" }
+    ],
+    "categoriesEyebrow": "Danh mục",
+    "categoriesTitle": "Khám phá theo danh mục",
+    "categories": [
+      { "name": "Mô hình / Art Toys", "description": "Nhân vật, mô hình sưu tầm chi tiết cao" },
+      { "name": "Decor bàn làm việc", "description": "Vật trang trí, đèn, chậu cây mini" },
+      { "name": "Phụ kiện tiện ích", "description": "Giá đỡ, hộp đựng, phụ kiện đời sống" },
+      { "name": "Linh kiện kỹ thuật", "description": "Chi tiết máy, gá lắp, prototype" }
+    ],
+    "featuredEyebrow": "Nổi bật",
+    "featuredTitle": "Sản phẩm tiêu biểu",
+    "workflowEyebrow": "Quy trình",
+    "workflowTitle": "Đặt in theo yêu cầu chỉ với 4 bước",
+    "workflowSteps": [
+      { "step": "1", "title": "Gửi file", "description": "Gửi file .stl/.step/.obj/.3mf hoặc ảnh vẽ mẫu" },
+      { "step": "2", "title": "Tư vấn & Tối ưu", "description": "Đội ngũ kỹ thuật kiểm tra và tư vấn vật liệu phù hợp" },
+      { "step": "3", "title": "Báo giá 30 phút", "description": "Nhận báo giá minh bạch trong vòng 30 phút" },
+      { "step": "4", "title": "In & Giao hàng", "description": "Sản xuất và giao hàng tận nơi" }
+    ],
+    "ctaStartOrder": "Bắt đầu đặt in",
+    "materialsEyebrow": "Vật liệu",
+    "materialsTitle": "So sánh nhanh vật liệu in 3D",
+    "materialPlaDescription": "Dễ in, chi tiết cao, phù hợp mô hình trang trí, giá thành thấp.",
+    "materialPetgDescription": "Bền, chịu va đập tốt, phù hợp phụ kiện sử dụng hàng ngày.",
+    "materialResinDescription": "Độ chi tiết cực cao, bề mặt mịn, phù hợp mô hình sưu tầm cao cấp.",
+    "pricingTitle": "Cách tính giá",
+    "pricingDescription": "Chi phí = Vật liệu tiêu hao (gram) + Thời gian in (giờ) + Xử lý bề mặt. Vì mỗi file có khối lượng và độ phức tạp khác nhau, chúng tôi không niêm yết một bảng giá cố định — gửi file để nhận báo giá chính xác trong 30 phút.",
+    "ctaGetQuote": "Gửi file nhận báo giá",
+    "qualityTitle": "Cam kết chất lượng",
+    "qualityDescription": "Mỗi sản phẩm được kiểm tra độ bền và độ chính xác cơ khí trước khi giao đến khách hàng.",
+    "faqEyebrow": "Hỗ trợ",
+    "faqTitle": "Câu hỏi thường gặp",
+    "faq": [
+      {
+        "question": "Thời gian in và giao hàng mất bao lâu?",
+        "answer": "Sản phẩm sẵn hàng đóng gói và giao trong 24–48 giờ làm việc. Đơn đặt in theo yêu cầu có thời gian sản xuất tuỳ độ phức tạp, được báo cụ thể ngay trong bước báo giá (trong vòng 30 phút sau khi gửi file)."
+      },
+      {
+        "question": "File thiết kế 3D của tôi có được bảo mật không?",
+        "answer": "File .stl/.step/.obj/.3mf bạn gửi chỉ dùng để báo giá và sản xuất đúng đơn hàng của bạn, không dùng cho mục đích khác và không chia sẻ cho bên thứ ba. Chi tiết xem Chính sách bảo mật file thiết kế 3D."
+      },
+      {
+        "question": "Vật liệu nào phù hợp với nhu cầu của tôi?",
+        "answer": "PLA phù hợp mô hình trang trí chi tiết cao, PETG bền và chịu va đập tốt cho phụ kiện dùng hàng ngày, Resin cho độ mịn và chi tiết cực cao. Xem so sánh đầy đủ ở mục Vật liệu bên trên."
+      },
+      {
+        "question": "Tôi có thể thanh toán và đổi trả như thế nào?",
+        "answer": "Hỗ trợ thanh toán khi nhận hàng (COD) hoặc chuyển khoản trước khi sản xuất. Sản phẩm lỗi sản xuất hoặc giao sai được đổi/trả trong 7 ngày kể từ ngày nhận hàng; đơn đặt in theo yêu cầu đã đúng file và đã duyệt báo giá thì không áp dụng đổi trả."
+      },
+      {
+        "question": "Không tìm thấy mẫu tôi cần trong danh mục sản phẩm thì sao?",
+        "answer": "Gửi file thiết kế hoặc mô tả ý tưởng qua trang Đặt in theo yêu cầu — đội ngũ kỹ thuật sẽ tư vấn vật liệu và báo giá riêng cho đơn của bạn."
+      }
+    ]
+  },
+  "products": {
+    "breadcrumbHome": "Trang chủ",
+    "breadcrumbProducts": "Sản phẩm",
+    "title": "Sản phẩm",
+    "filterAll": "Tất cả",
+    "searchPlaceholder": "Tìm sản phẩm theo tên...",
+    "typeAll": "Tất cả loại",
+    "typeReadyStock": "Sẵn hàng",
+    "typeMadeToOrder": "Đặt in theo yêu cầu",
+    "sortNewest": "Mới nhất",
+    "sortPriceAsc": "Giá tăng dần",
+    "sortPriceDesc": "Giá giảm dần",
+    "filterSubmit": "Lọc",
+    "emptyTitle": "Không tìm thấy sản phẩm phù hợp.",
+    "emptyDescription": "Không thấy mẫu bạn cần? Gửi yêu cầu in theo thiết kế riêng của bạn.",
+    "ctaCustomRequest": "Gửi yêu cầu đặt in",
+    "previousPage": "Trang trước",
+    "nextPage": "Trang sau",
+    "noImage": "Chưa có ảnh",
+    "inStock": "Sẵn hàng",
+    "outOfStock": "Tạm hết hàng",
+    "printOnDemand24h": "Đặt in 24h",
+    "sku": "SKU: {sku}",
+    "specsTitle": "Thông số kỹ thuật",
+    "weight": "Khối lượng",
+    "descriptionTitle": "Mô tả & hướng dẫn bảo quản",
+    "variantLabel": "Phân loại",
+    "variantOutOfStock": " (hết hàng)",
+    "quantityLabel": "Số lượng",
+    "addToCart": "Thêm vào giỏ hàng",
+    "orderCustom": "Đặt in theo yêu cầu",
+    "temporarilyOutOfStock": "Tạm hết hàng",
+    "addedToCart": "Đã thêm vào giỏ hàng.",
+    "viewCart": "Xem giỏ hàng",
+    "noVariants": "Sản phẩm hiện chưa có phân loại nào để đặt hàng."
+  },
+  "policies": {
+    "updatedAtLabel": "Cập nhật lần cuối: {date}",
+    "privacy": {
+      "metaTitle": "Chính sách bảo mật — BaSa3D",
+      "metaDescription": "Chính sách bảo mật thông tin khách hàng của BaSa3D.",
+      "title": "Chính sách bảo mật",
+      "section1Title": "1. Thông tin chúng tôi thu thập",
+      "section1Body": "Khi bạn đặt hàng hoặc gửi yêu cầu đặt in tại {siteName}, chúng tôi thu thập: họ tên, số điện thoại, email (nếu cung cấp), địa chỉ giao hàng, và nội dung/file thiết kế bạn gửi kèm yêu cầu đặt in. Chúng tôi không yêu cầu tạo tài khoản — mỗi đơn hàng/yêu cầu được xử lý độc lập.",
+      "section2Title": "2. Mục đích sử dụng",
+      "section2Item1": "Liên hệ tư vấn, báo giá, và xác nhận đơn hàng",
+      "section2Item2": "Sản xuất và giao hàng đúng yêu cầu",
+      "section2Item3": "Chăm sóc khách hàng sau bán",
+      "section3Title": "3. Chia sẻ thông tin",
+      "section3Body": "Chúng tôi không bán hoặc chia sẻ thông tin cá nhân của bạn cho bên thứ ba ngoài mục đích vận chuyển đơn hàng (đơn vị giao hàng) và các dịch vụ hạ tầng kỹ thuật cần thiết để vận hành website.",
+      "section4Title": "4. Liên hệ",
+      "section4Body": "Mọi thắc mắc về chính sách bảo mật, liên hệ qua Zalo/hotline: {hotline}."
+    },
+    "shipping": {
+      "metaTitle": "Chính sách vận chuyển — BaSa3D",
+      "metaDescription": "Chính sách vận chuyển và giao hàng của BaSa3D.",
+      "title": "Chính sách vận chuyển",
+      "section1Title": "1. Phương thức thanh toán khi giao hàng",
+      "section1Body": "{siteName} hỗ trợ Thanh toán khi nhận hàng (COD) và Chuyển khoản ngân hàng trước khi sản xuất. Đơn đặt in theo yêu cầu chỉ tiến hành sản xuất sau khi khách hàng chấp nhận báo giá.",
+      "section2Title": "2. Thời gian xử lý",
+      "section2Item1": "Sản phẩm sẵn hàng: đóng gói và giao trong 24–48 giờ làm việc",
+      "section2Item2": "Đặt in theo yêu cầu: thời gian sản xuất phụ thuộc độ phức tạp, được thông báo cụ thể khi báo giá",
+      "section3Title": "3. Đơn vị vận chuyển",
+      "section3Body": "Giao hàng qua các đơn vị vận chuyển đối tác trên toàn quốc. Phí vận chuyển hiển thị rõ trước khi xác nhận đơn hàng.",
+      "section4Title": "4. Liên hệ",
+      "section4Body": "Theo dõi đơn hàng hoặc thắc mắc về giao nhận, liên hệ Zalo/hotline: {hotline}."
+    },
+    "returns": {
+      "metaTitle": "Chính sách đổi trả — BaSa3D",
+      "metaDescription": "Chính sách đổi trả sản phẩm của BaSa3D.",
+      "title": "Chính sách đổi trả",
+      "section1Title": "1. Điều kiện đổi trả",
+      "section1Body": "Sản phẩm được đổi/trả trong vòng 7 ngày kể từ ngày nhận hàng nếu: sản phẩm bị lỗi sản xuất (nứt, vỡ, in sai kích thước/màu so với đơn xác nhận), hoặc giao sai sản phẩm.",
+      "section2Title": "2. Không áp dụng đổi trả",
+      "section2Item1": "Sản phẩm đặt in theo yêu cầu (custom) đã đúng theo file/thông số khách hàng cung cấp và đã được khách duyệt báo giá",
+      "section2Item2": "Hư hỏng do quá trình sử dụng, va đập sau khi nhận hàng",
+      "section3Title": "3. Quy trình",
+      "section3Body": "Liên hệ Zalo/hotline: {hotline} kèm ảnh/video sản phẩm lỗi trong vòng 7 ngày để được hỗ trợ đổi trả hoặc hoàn tiền."
+    },
+    "fileConfidentiality": {
+      "metaTitle": "Chính sách bảo mật file thiết kế 3D — BaSa3D",
+      "metaDescription": "Cam kết bảo mật file thiết kế 3D (STL/STEP/OBJ/3MF) khách hàng gửi khi đặt in theo yêu cầu.",
+      "title": "Chính sách bảo mật file thiết kế 3D",
+      "section1Title": "1. Cam kết",
+      "section1BodyBefore": "File thiết kế (.stl, .step/.stp, .obj, .3mf) hoặc ảnh mẫu bạn gửi qua trang",
+      "section1BodyStrong": "Đặt in theo yêu cầu",
+      "section1BodyAfter": "chỉ được {siteName} sử dụng cho đúng mục đích báo giá và sản xuất đơn hàng của bạn. Chúng tôi không sử dụng file thiết kế của khách hàng cho mục đích thương mại khác, không bán lại, và không chia sẻ cho bên thứ ba ngoài phạm vi cần thiết để in sản phẩm.",
+      "section2Title": "2. Lưu trữ",
+      "section2Body": "File được lưu trữ trên hạ tầng đám mây riêng của {siteName}, chỉ đội ngũ kỹ thuật xử lý đơn hàng của bạn được truy cập. File không được xem trước tự động — chỉ được nhân viên mở thủ công khi cần tư vấn/báo giá đơn của bạn.",
+      "section3Title": "3. Yêu cầu xoá file",
+      "section3Body": "Nếu bạn muốn yêu cầu xoá file thiết kế đã gửi sau khi đơn hàng hoàn tất, liên hệ Zalo/hotline: {hotline}.",
+      "section4Title": "4. Sở hữu trí tuệ",
+      "section4BodyBefore": "Bạn xác nhận có quyền hợp pháp đối với file thiết kế gửi cho chúng tôi để sản xuất.",
+      "section4BodyAfter": "không chịu trách nhiệm nếu file do khách hàng cung cấp vi phạm quyền sở hữu trí tuệ của bên thứ ba."
+    }
+  }
+}

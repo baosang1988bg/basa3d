@@ -1,0 +1,197 @@
+{
+  "nav": {
+    "home": "Home",
+    "products": "Products",
+    "customPrint": "Custom Print",
+    "materials": "Materials",
+    "blog": "Blog",
+    "zaloConsult": "Chat on Zalo",
+    "cartAriaLabelWithCount": "Cart, {count} items",
+    "cartAriaLabelEmpty": "Cart",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "menuTitle": "Menu"
+  },
+  "footer": {
+    "hotline": "Hotline/Zalo",
+    "commitmentsTitle": "Our commitments",
+    "commitment1": "Your design files are kept strictly confidential",
+    "commitment2": "7-day exchange/return on production defects",
+    "commitment3": "Transparent pricing, no hidden fees",
+    "linksTitle": "Links",
+    "customPrint": "Custom print request",
+    "adminLogin": "Admin login",
+    "policiesTitle": "Policies",
+    "privacyPolicy": "Privacy",
+    "shippingPolicy": "Shipping",
+    "returnPolicy": "Returns",
+    "fileConfidentialityPolicy": "Design file confidentiality",
+    "copyright": "© {year} BaSa3D. All rights reserved."
+  },
+  "languageSwitcher": {
+    "vi": "Tiếng Việt",
+    "en": "English",
+    "label": "Language"
+  },
+  "untranslatedNotice": "This page is currently only available in Vietnamese. An English translation is coming soon.",
+  "home": {
+    "heroTitle": "Bring Any Idea to Life With Precision 3D Printing",
+    "heroDescription": "BaSa3D 3D-printing workshop — from collectible models to precision engineering parts, made to order with premium virgin-grade filament.",
+    "ctaCustomPrint": "Send a file for custom printing",
+    "ctaExploreProducts": "Explore products",
+    "heroValueProps": [
+      { "label": "24h fast printing", "href": "/#workflow" },
+      { "label": "Premium virgin-grade filament", "href": "/#materials" },
+      { "label": "Quote in 30 minutes", "href": "/custom-print" }
+    ],
+    "categoriesEyebrow": "Categories",
+    "categoriesTitle": "Browse by category",
+    "categories": [
+      { "name": "Models / Art Toys", "description": "Highly detailed collectible figures and models" },
+      { "name": "Desk decor", "description": "Decorative pieces, lamps, mini planters" },
+      { "name": "Everyday accessories", "description": "Stands, organizers, everyday-use accessories" },
+      { "name": "Engineering parts", "description": "Mechanical parts, mounts, prototypes" }
+    ],
+    "featuredEyebrow": "Featured",
+    "featuredTitle": "Featured products",
+    "workflowEyebrow": "Process",
+    "workflowTitle": "Custom printing in just 4 steps",
+    "workflowSteps": [
+      { "step": "1", "title": "Send your file", "description": "Send a .stl/.step/.obj/.3mf file or a reference image" },
+      { "step": "2", "title": "Consult & optimize", "description": "Our technical team reviews it and recommends the right material" },
+      { "step": "3", "title": "30-minute quote", "description": "Get a transparent quote within 30 minutes" },
+      { "step": "4", "title": "Print & deliver", "description": "We produce and deliver straight to you" }
+    ],
+    "ctaStartOrder": "Start your order",
+    "materialsEyebrow": "Materials",
+    "materialsTitle": "Quick material comparison",
+    "materialPlaDescription": "Easy to print, highly detailed, great for decorative models, low cost.",
+    "materialPetgDescription": "Durable and impact-resistant, great for everyday-use accessories.",
+    "materialResinDescription": "Extremely fine detail and smooth surface, great for premium collectibles.",
+    "pricingTitle": "How we price",
+    "pricingDescription": "Cost = material used (grams) + print time (hours) + finishing. Since every file differs in weight and complexity, we don't publish a fixed price list — send your file for an accurate quote within 30 minutes.",
+    "ctaGetQuote": "Send a file for a quote",
+    "qualityTitle": "Our quality commitment",
+    "qualityDescription": "Every product is checked for durability and mechanical accuracy before it reaches you.",
+    "faqEyebrow": "Support",
+    "faqTitle": "Frequently asked questions",
+    "faq": [
+      {
+        "question": "How long does printing and delivery take?",
+        "answer": "In-stock products are packed and delivered within 24–48 business hours. Custom print orders have a production time that depends on complexity, quoted specifically during the quoting step (within 30 minutes of sending your file)."
+      },
+      {
+        "question": "Is my 3D design file kept confidential?",
+        "answer": "Your .stl/.step/.obj/.3mf file is only used to quote and produce your own order — never for any other purpose, and never shared with third parties. See our 3D design file confidentiality policy for details."
+      },
+      {
+        "question": "Which material fits my needs?",
+        "answer": "PLA is great for highly detailed decorative models, PETG is durable and impact-resistant for everyday-use accessories, and Resin gives extremely fine detail and a smooth finish. See the full comparison in the Materials section above."
+      },
+      {
+        "question": "How can I pay, and what's your return policy?",
+        "answer": "We support cash on delivery (COD) or bank transfer before production. Products with production defects or delivered incorrectly can be exchanged/returned within 7 days of receipt; custom print orders that match the approved file and quote are not eligible for return."
+      },
+      {
+        "question": "Can't find what you need in the product catalog?",
+        "answer": "Send your design file or describe your idea via the Custom Print page — our technical team will recommend materials and quote your order individually."
+      }
+    ]
+  },
+  "products": {
+    "breadcrumbHome": "Home",
+    "breadcrumbProducts": "Products",
+    "title": "Products",
+    "filterAll": "All",
+    "searchPlaceholder": "Search products by name...",
+    "typeAll": "All types",
+    "typeReadyStock": "In stock",
+    "typeMadeToOrder": "Made to order",
+    "sortNewest": "Newest",
+    "sortPriceAsc": "Price: low to high",
+    "sortPriceDesc": "Price: high to low",
+    "filterSubmit": "Filter",
+    "emptyTitle": "No matching products found.",
+    "emptyDescription": "Can't find what you need? Send a request for your own custom design.",
+    "ctaCustomRequest": "Send a custom print request",
+    "previousPage": "Previous",
+    "nextPage": "Next",
+    "noImage": "No image yet",
+    "inStock": "In stock",
+    "outOfStock": "Out of stock",
+    "printOnDemand24h": "24h custom print",
+    "sku": "SKU: {sku}",
+    "specsTitle": "Specifications",
+    "weight": "Weight",
+    "descriptionTitle": "Description & care instructions",
+    "variantLabel": "Variant",
+    "variantOutOfStock": " (out of stock)",
+    "quantityLabel": "Quantity",
+    "addToCart": "Add to cart",
+    "orderCustom": "Order custom print",
+    "temporarilyOutOfStock": "Temporarily out of stock",
+    "addedToCart": "Added to cart.",
+    "viewCart": "View cart",
+    "noVariants": "This product has no orderable variants yet."
+  },
+  "policies": {
+    "updatedAtLabel": "Last updated: {date}",
+    "privacy": {
+      "metaTitle": "Privacy Policy — BaSa3D",
+      "metaDescription": "BaSa3D's customer data privacy policy.",
+      "title": "Privacy Policy",
+      "section1Title": "1. Information we collect",
+      "section1Body": "When you place an order or submit a custom print request at {siteName}, we collect: full name, phone number, email (if provided), delivery address, and the design content/files you submit with your request. We don't require an account — every order/request is handled independently.",
+      "section2Title": "2. How we use it",
+      "section2Item1": "To contact you for consultation, quoting, and order confirmation",
+      "section2Item2": "To produce and deliver exactly what you requested",
+      "section2Item3": "For after-sales customer care",
+      "section3Title": "3. Sharing your information",
+      "section3Body": "We never sell or share your personal information with third parties, other than what's necessary for delivery (our shipping partners) and the technical infrastructure services required to run this website.",
+      "section4Title": "4. Contact",
+      "section4Body": "For any questions about this privacy policy, contact us via Zalo/hotline: {hotline}."
+    },
+    "shipping": {
+      "metaTitle": "Shipping Policy — BaSa3D",
+      "metaDescription": "BaSa3D's shipping and delivery policy.",
+      "title": "Shipping Policy",
+      "section1Title": "1. Payment on delivery",
+      "section1Body": "{siteName} supports cash on delivery (COD) and bank transfer before production. Custom print orders only go into production after the customer accepts the quote.",
+      "section2Title": "2. Processing time",
+      "section2Item1": "In-stock products: packed and delivered within 24–48 business hours",
+      "section2Item2": "Custom print orders: production time depends on complexity, and is quoted specifically during the quoting step",
+      "section3Title": "3. Shipping partners",
+      "section3Body": "We deliver nationwide through partner shipping carriers. Shipping fees are shown clearly before you confirm your order.",
+      "section4Title": "4. Contact",
+      "section4Body": "To track an order or ask about delivery, contact us via Zalo/hotline: {hotline}."
+    },
+    "returns": {
+      "metaTitle": "Return Policy — BaSa3D",
+      "metaDescription": "BaSa3D's product return policy.",
+      "title": "Return Policy",
+      "section1Title": "1. Return conditions",
+      "section1Body": "Products can be exchanged/returned within 7 days of receipt if: the product has a production defect (cracked, broken, printed at the wrong size/color versus the confirmed order), or the wrong product was delivered.",
+      "section2Title": "2. Not eligible for return",
+      "section2Item1": "Custom print orders that match the file/specifications you provided and that you already approved the quote for",
+      "section2Item2": "Damage from use or impact after you've received the product",
+      "section3Title": "3. Process",
+      "section3Body": "Contact us via Zalo/hotline: {hotline} with photos/video of the defective product within 7 days for a return or refund."
+    },
+    "fileConfidentiality": {
+      "metaTitle": "3D Design File Confidentiality Policy — BaSa3D",
+      "metaDescription": "Our commitment to keeping your 3D design files (STL/STEP/OBJ/3MF) confidential when you submit a custom print request.",
+      "title": "3D Design File Confidentiality Policy",
+      "section1Title": "1. Our commitment",
+      "section1BodyBefore": "Design files (.stl, .step/.stp, .obj, .3mf) or reference images you submit via the",
+      "section1BodyStrong": "Custom Print",
+      "section1BodyAfter": "page are used by {siteName} only for quoting and producing your own order. We never use customer design files for any other commercial purpose, never resell them, and never share them with third parties beyond what's necessary to print your product.",
+      "section2Title": "2. Storage",
+      "section2Body": "Files are stored on {siteName}'s own private cloud infrastructure, accessible only to the technical team handling your order. Files are never previewed automatically — staff only open them manually when needed to quote or produce your order.",
+      "section3Title": "3. Requesting file deletion",
+      "section3Body": "If you'd like to request deletion of a design file you submitted after your order is complete, contact us via Zalo/hotline: {hotline}.",
+      "section4Title": "4. Intellectual property",
+      "section4BodyBefore": "You confirm you hold the legal rights to any design file you send us for production.",
+      "section4BodyAfter": "is not responsible if a file provided by a customer infringes a third party's intellectual property rights."
+    }
+  }
+}

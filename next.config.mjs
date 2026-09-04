@@ -1,3 +1,7 @@
+import createNextIntlPlugin from 'next-intl/plugin';
+
+const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
+
 /**
  * Product images are served from Supabase Storage public URLs shaped
  * `https://<project-ref>.supabase.co/storage/v1/object/public/<bucket>/<path>`.
@@ -37,4 +41,4 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+export default withNextIntl(nextConfig);
