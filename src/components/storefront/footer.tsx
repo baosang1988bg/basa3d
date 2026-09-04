@@ -1,8 +1,12 @@
-import Link from 'next/link';
+import { useTranslations } from 'next-intl';
+import { Link } from '@/i18n/navigation';
 import { SITE_CONFIG } from '@/config/site';
 import { ContactLink } from './contact-link';
 
 export function Footer() {
+  const t = useTranslations('footer');
+  const tNav = useTranslations('nav');
+
   return (
     <footer className="border-t border-border bg-card">
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 md:grid-cols-4">
@@ -10,40 +14,40 @@ export function Footer() {
           <p className="font-heading text-lg font-bold text-foreground">{SITE_CONFIG.name}</p>
           <p className="mt-2 text-sm text-muted-foreground">{SITE_CONFIG.description}</p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Hotline/Zalo:{' '}
+            {t('hotline')}:{' '}
             <ContactLink href={SITE_CONFIG.zaloUrl} channel="zalo" placement="footer" target="_blank" rel="noreferrer" className="font-medium text-foreground hover:underline">
               {SITE_CONFIG.zaloPhone}
             </ContactLink>
           </p>
         </div>
         <div>
-          <p className="text-sm font-semibold text-foreground">Cam kết</p>
+          <p className="text-sm font-semibold text-foreground">{t('commitmentsTitle')}</p>
           <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-            <li>Bảo mật tuyệt đối file thiết kế khách hàng gửi</li>
-            <li>Đổi trả trong 7 ngày nếu lỗi sản xuất</li>
-            <li>Báo giá minh bạch, không phát sinh chi phí ẩn</li>
+            <li>{t('commitment1')}</li>
+            <li>{t('commitment2')}</li>
+            <li>{t('commitment3')}</li>
           </ul>
         </div>
         <div>
-          <p className="text-sm font-semibold text-foreground">Liên kết</p>
+          <p className="text-sm font-semibold text-foreground">{t('linksTitle')}</p>
           <ul className="mt-2 space-y-1 text-sm">
-            <li><Link href="/products" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">Sản phẩm</Link></li>
-            <li><Link href="/custom-print" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">Đặt in theo yêu cầu</Link></li>
-            <li><Link href="/blog" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">Blog</Link></li>
-            <li><Link href="/admin/login" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">Đăng nhập quản trị</Link></li>
+            <li><Link href="/products" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">{tNav('products')}</Link></li>
+            <li><Link href="/custom-print" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">{t('customPrint')}</Link></li>
+            <li><Link href="/blog" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">{tNav('blog')}</Link></li>
+            <li><Link href="/admin/login" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">{t('adminLogin')}</Link></li>
           </ul>
         </div>
         <div>
-          <p className="text-sm font-semibold text-foreground">Chính sách</p>
+          <p className="text-sm font-semibold text-foreground">{t('policiesTitle')}</p>
           <ul className="mt-2 space-y-1 text-sm">
-            <li><Link href="/privacy-policy" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">Bảo mật</Link></li>
-            <li><Link href="/shipping-policy" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">Vận chuyển</Link></li>
-            <li><Link href="/return-policy" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">Đổi trả</Link></li>
-            <li><Link href="/file-confidentiality-policy" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">Bảo mật file thiết kế</Link></li>
+            <li><Link href="/privacy-policy" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">{t('privacyPolicy')}</Link></li>
+            <li><Link href="/shipping-policy" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">{t('shippingPolicy')}</Link></li>
+            <li><Link href="/return-policy" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">{t('returnPolicy')}</Link></li>
+            <li><Link href="/file-confidentiality-policy" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">{t('fileConfidentialityPolicy')}</Link></li>
           </ul>
         </div>
       </div>
-      <div className="border-t border-border px-4 py-4 text-center text-xs text-muted-foreground">© {new Date().getFullYear()} BaSa3D. All rights reserved.</div>
+      <div className="border-t border-border px-4 py-4 text-center text-xs text-muted-foreground">{t('copyright', { year: new Date().getFullYear() })}</div>
     </footer>
   );
 }

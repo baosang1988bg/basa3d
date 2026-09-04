@@ -1,7 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import Image from 'next/image';
+import { useTranslations } from 'next-intl';
+import { Link } from '@/i18n/navigation';
 import { formatVnd } from './format';
 import { trackSelectItem } from '@/lib/analytics';
 
@@ -10,9 +11,10 @@ export type ProductCardData = {
 };
 
 export function ProductCard({ product }: { product: ProductCardData }) {
+  const t = useTranslations('products');
   const stockLabel = product.productType === 'READY_STOCK'
-    ? (product.inStock ? 'Sẵn hàng' : 'Tạm hết hàng')
-    : 'Đặt in 24h';
+    ? (product.inStock ? t('inStock') : t('outOfStock'))
+    : t('printOnDemand24h');
   const stockBadgeClass = product.productType === 'READY_STOCK' && product.inStock
     ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
     : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';
@@ -33,7 +35,7 @@ export function ProductCard({ product }: { product: ProductCardData }) {
             className="size-full object-cover transition-transform duration-300 ease-out group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
           />
         ) : (
-          <div className="flex size-full items-center justify-center text-sm text-muted-foreground">Chưa có ảnh</div>
+          <div className="flex size-full items-center justify-center text-sm text-muted-foreground">{t('noImage')}</div>
         )}
       </div>
       <span className={`absolute top-6 left-6 rounded-full px-2 py-0.5 text-xs font-semibold ${stockBadgeClass}`}>{stockLabel}</span>

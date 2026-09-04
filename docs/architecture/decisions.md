@@ -357,3 +357,60 @@ No bug was found — this audit is a baseline recorded for the *next* re-audit, 
 trigger:** re-run this manual check whenever a new Server Action is added to any of these three
 files, or whenever this ADR is more than ~6 months old, whichever comes first — a dated baseline
 with no re-audit process attached decays into false confidence (this ADR's own stated risk).
+
+## ADR-0028 — Phase 17 browser keychain geometry and advisory pricing
+
+Status: accepted (Phase 17, 2026-09-04)
+
+The public keychain tool creates geometry in millimetres in the browser. Enclosed volume is the
+absolute signed-tetrahedron sum over every triangle, divided by 1,000 to convert mm³ to cm³. PLA
+weight uses `volumeCm3 × 1.24 g/cm³`, assuming a solid thin part. Print time uses the fixed Phase 17
+heuristic `12 + weightGrams × 1.8` minutes. The owner must validate the weight heuristic against
+five physical prints; that manual measurement is deliberately not claimed by the implementation.
+
+The keyring hole is a `THREE.Path` attached to the base `THREE.Shape.holes` before extrusion. This
+lets Three.js/Earcut triangulate the through-hole without a CSG dependency or coplanar boolean
+artifacts. Base and raised-text geometries remain separate for the two-colour preview, then are
+merged into one `BufferGeometry` and exported as exactly one STL file. Colours are request metadata,
+not separate materials in the STL.
+
+The browser sends only estimated grams and minutes to the public price-estimate route. That route
+loads the current pricing config and active PLA unit cost from PostgreSQL, runs the existing
+cost-plus calculator server-side with five minutes of handling labor, and returns only a range. The
+range is the calculated price ±15%, rounded outward to 1,000 VND. This range width and handling-time
+allowance fill a gap left unspecified in the Phase 17 brief and are intentionally advisory. No raw
+pricing config or cost breakdown crosses the public boundary, and no Quote row is created.
+
+## ADR-0029 — Phase 18 storefront i18n: next-intl, Path Branching middleware, VI-forced default
+
+Status: accepted (Phase 18, 2026-09-04)
+
+`next-intl` handles storefront routing/messages: VI is unprefixed default, EN lives under `/en`
+(`localePrefix: 'as-needed'`). The pre-existing admin-auth `middleware.ts` (Supabase session
+refresh + login redirect, matcher `/admin/:path*`) and next-intl's locale middleware cannot
+coexist as separate files — Next.js only runs one middleware per project — so they're merged into
+a single `middleware.ts` (relocated to `src/middleware.ts`, alongside `src/app`, which is where
+Next.js actually looks for it when the app lives under `src/`) using independent path branching:
+`/admin/*` always calls `updateSession()` exactly as before; everything else goes through
+next-intl. Neither branch wraps or calls into the other, so a future change to one can't silently
+affect the other.
+
+`routing.localeDetection` is explicitly set to `false`. next-intl's default behavior negotiates a
+locale from the visitor's `Accept-Language` header, which would silently serve EN on the
+unprefixed `/` to any browser configured for English — directly contradicting the product
+requirement that VI is the default regardless of browser language. With detection off, `/` always
+serves VI; a visitor only gets EN by explicitly using the `LanguageSwitcher`.
+
+The `LanguageSwitcher` renders plain `<a>` tags (a full page navigation) rather than next-intl's
+client router. The root layout's `<html lang>` lives above the `[locale]` segment and does not
+re-render on a client-side soft navigation between locales — only a real navigation re-runs
+middleware and the root layout with the new locale. This was caught by a Playwright test
+(`e2e/i18n.spec.ts`) asserting `<html lang>` after a locale switch; the fix trades a full-reload
+cost (acceptable for an infrequent action) for correctness.
+
+Content translation is scoped to nav/footer/home/products list & detail/4 static policy pages
+(phase-18.md's Non-goals). Pages outside that slice (`cart`, `checkout`, `custom-print`, `blog`,
+`quotes/[quoteNumber]`) are still reachable under `/en/...` but render their existing Vietnamese
+content, with a `<UntranslatedNotice />` banner (added via a nested `layout.tsx` per route, since
+it's a server component and several of those pages are client components) making that explicit
+rather than silently mixing languages.
