@@ -22,7 +22,13 @@ Phase 18: storefront i18n (VI/EN, VI default) — nav/footer/home/products list 
 
 Phase 19: 3D tools roadmap and shared `(tools)` architecture — closed
 Phase 20: Flex Organizer tray generator, shared tool price estimate, STL → custom request — closed; Owner accepted risk on skipping physical print validation
-Phase 21: Flex Keychain (block-style), multi-color 3MF export — in progress
-Phase 22: handoff tracker for outstanding non-code items from Phase 15/17/20 (not a feature phase)
+Phase 21: Flex Keychain (block-style), multi-color 3MF export — closed
+Phase 22: Flex Dual Text (Chữ ảo ảnh 2 góc nhìn) — code done, marked PENDING / deferred by Owner (non-essential for MVP launch)
+Phase 23: Flex Car (multi-angle text car interior) — closed
+Phase 24: Flex Lamp (lathe geometry & cutout patterns) — closed
+Phase 25: Hinge Box Studio (parametric living hinge box) — closed; physical validation pending
+Phase 26: Jigsaw Studio (STL/OBJ mesh grid interlock cutter) — closed; Web Worker & Voronoi pending/deferred; physical validation pending
+Phase 27: Flex Sculpt — dropped/canceled by Owner
+
 
 Do not start a phase by coding immediately. Follow the Phase Start Protocol in the main project plan.
