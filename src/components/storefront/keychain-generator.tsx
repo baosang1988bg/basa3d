@@ -58,7 +58,7 @@ export function KeychainGenerator() {
           setError(null);
           trackKeychainPreview({ characterCount: text.trim().length, hasKeyringHole: includeKeyringHole });
           const weightGrams = estimateMeshWeightGrams(calculateMeshVolumeCm3(nextModel.mergedGeometry));
-          const response = await fetch('/api/public/keychain-price-estimate', {
+          const response = await fetch('/api/public/tool-price-estimate', {
             method: 'POST', headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ weightGrams, printMinutes: estimatePrintMinutes(weightGrams) }),
           });

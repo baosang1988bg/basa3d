@@ -6,7 +6,7 @@ import { listMaterials } from '@/services/inventory.service';
 import { getCurrentPricingConfig } from '@/services/pricing-config.service';
 import { resolveMaterialUnitCostVndPerGram } from '@/services/pricing.service';
 import { DomainError } from '@/lib/domain-error';
-import { calculateKeychainPriceRange } from '@/lib/pricing/keychain-price-range';
+import { calculateToolPriceRange } from '@/lib/pricing/tool-price-range';
 
 const inputSchema = z.object({
   weightGrams: z.number().finite().positive().max(2_000),
@@ -14,7 +14,7 @@ const inputSchema = z.object({
 }).strict();
 
 const isRateLimited = createDatabaseRateLimiter({
-  scope: 'keychain-price-estimate',
+  scope: 'tool-price-estimate',
   maxRequests: 60,
   windowMs: 60 * 60_000,
 });
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     if (!pla) throw new DomainError('PLA_COST_UNAVAILABLE', 'Chưa thể ước tính giá PLA lúc này.', 503);
     const unitCostVndPerGram = resolveMaterialUnitCostVndPerGram(pla);
     if (unitCostVndPerGram <= 0) throw new DomainError('PLA_COST_UNAVAILABLE', 'Chưa thể ước tính giá PLA lúc này.', 503);
-    return NextResponse.json(calculateKeychainPriceRange({ ...input, unitCostVndPerGram, config }));
+    return NextResponse.json(calculateToolPriceRange({ ...input, unitCostVndPerGram, config }));
   } catch (error) {
     return apiError(error);
   }

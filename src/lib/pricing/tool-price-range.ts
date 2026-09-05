@@ -1,6 +1,6 @@
 import { computePricingBreakdown, type PricingConfigInput } from '@/services/pricing.service';
 
-export function calculateKeychainPriceRange(input: {
+export function calculateToolPriceRange(input: {
   weightGrams: number;
   printMinutes: number;
   unitCostVndPerGram: number;
