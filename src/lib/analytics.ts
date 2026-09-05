@@ -109,3 +109,13 @@ export function trackKeychainExportDownload(data: { characterCount: number }): v
 export function trackKeychainExportToRequest(data: { characterCount: number; hasKeyringHole: boolean }): void {
   sendGAEvent('tool_keychain_export_to_request', { character_count: data.characterCount, has_keyring_hole: data.hasKeyringHole });
 }
+
+export function trackOrganizerPreview(data: { rows: number; cols: number }) {
+  sendGAEvent('tool_organizer_preview', { rows: data.rows, cols: data.cols });
+}
+export function trackOrganizerExportDownload(data: { rows: number; cols: number }) {
+  sendGAEvent('tool_organizer_export_download', { rows: data.rows, cols: data.cols });
+}
+export function trackOrganizerExportToRequest(data: { rows: number; cols: number }) {
+  sendGAEvent('tool_organizer_export_to_request', { rows: data.rows, cols: data.cols });
+}

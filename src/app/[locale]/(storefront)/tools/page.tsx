@@ -20,11 +20,12 @@ export default async function ToolsPage() {
         {tools.map((tool, index) => {
           const Icon = ICONS[index] ?? Cuboid;
           const available = tool.status === 'available';
+          const href = index === 2 ? '/tools/organizer' : '/tools/keychain-generator';
           return (
             <article key={tool.name} className="flex min-h-56 flex-col rounded-xl border border-border bg-card p-5 shadow-xs">
               <div className="flex items-start justify-between gap-3"><span className="inline-flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary"><Icon className="size-5" /></span><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${available ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' : 'bg-muted text-muted-foreground'}`}>{available ? t('available') : t('planned')}</span></div>
               <h2 className="font-heading mt-4 text-lg font-bold">{tool.name}</h2><p className="mt-2 flex-1 text-sm text-muted-foreground">{tool.description}</p>
-              {available ? <Link href="/tools/keychain-generator" className={storefrontButtonClasses('primary', 'mt-5 w-full text-sm')}>{t('openTool')}</Link> : <p className="mt-5 text-xs text-muted-foreground">{t('plannedNote')}</p>}
+              {available ? <Link href={href} className={storefrontButtonClasses('primary', 'mt-5 w-full text-sm')}>{t('openTool')}</Link> : <p className="mt-5 text-xs text-muted-foreground">{t('plannedNote')}</p>}
             </article>
           );
         })}

@@ -158,7 +158,7 @@
     "items": [
       { "name": "Name keychain", "description": "Create a raised-text name tag with colors, keyring hole, and STL export.", "status": "available" },
       { "name": "3D text and signs", "description": "Create raised lettering, desk nameplates, or hanging signs.", "status": "planned" },
-      { "name": "Organizer tray", "description": "Generate divided trays sized for a desk or drawer.", "status": "planned" },
+      { "name": "Organizer tray", "description": "Generate divided trays sized for a desk or drawer.", "status": "available" },
       { "name": "Decorative bowl", "description": "Generate revolved vessels with custom profiles and patterns.", "status": "planned" },
       { "name": "Jigsaw maker", "description": "Turn an image or shape into printable puzzle pieces.", "status": "planned" },
       { "name": "Hinged box", "description": "Generate a parametric box, lid, fitting clearance, and hinge.", "status": "planned" },

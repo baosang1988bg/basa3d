@@ -158,7 +158,7 @@
     "items": [
       { "name": "Móc khoá khắc tên", "description": "Tạo name tag có chữ nổi, chọn màu, lỗ khoen và xuất STL.", "status": "available" },
       { "name": "Chữ và bảng tên 3D", "description": "Tạo chữ nổi, bảng tên bàn hoặc biển treo từ nội dung tuỳ chỉnh.", "status": "planned" },
-      { "name": "Khay organizer", "description": "Tạo khay nhiều ngăn theo kích thước bàn hoặc ngăn kéo.", "status": "planned" },
+      { "name": "Khay organizer", "description": "Tạo khay nhiều ngăn theo kích thước bàn hoặc ngăn kéo.", "status": "available" },
       { "name": "Bát và chậu trang trí", "description": "Tạo vật thể xoay với biên dạng và hoa văn tuỳ chỉnh.", "status": "planned" },
       { "name": "Ghép hình jigsaw", "description": "Chuyển ảnh hoặc hình dạng thành bộ mảnh ghép có thể in.", "status": "planned" },
       { "name": "Hộp có bản lề", "description": "Tạo hộp, nắp, khe hở lắp ghép và bản lề theo tham số.", "status": "planned" },

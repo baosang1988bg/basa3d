@@ -1,0 +1,11 @@
+export const MAX_TRAY_WIDTH_MM = 250;
+export const MAX_TRAY_DEPTH_MM = 250;
+export const MAX_TRAY_HEIGHT_MM = 120;
+export const MIN_TRAY_DIMENSION_MM = 30;
+export const MAX_GRID_ROWS = 12;
+export const MAX_GRID_COLS = 12;
+export const MIN_WALL_THICKNESS_MM = 1.0;
+export const MAX_WALL_THICKNESS_MM = 4.0;
+export const MIN_BOTTOM_THICKNESS_MM = 1.2;
+export const MAX_BOTTOM_THICKNESS_MM = 5.0;
+export const WALL_OVERLAP_EPSILON_MM = 0.2;
