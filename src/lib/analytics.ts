@@ -119,3 +119,15 @@ export function trackOrganizerExportDownload(data: { rows: number; cols: number 
 export function trackOrganizerExportToRequest(data: { rows: number; cols: number }) {
   sendGAEvent('tool_organizer_export_to_request', { rows: data.rows, cols: data.cols });
 }
+
+export function trackCarPreview(data: { widthMm: number }) {
+  sendGAEvent('tool_car_preview', { width_mm: data.widthMm });
+}
+
+export function trackCarExportDownload(data: { widthMm: number; format: 'stl' | '3mf' }) {
+  sendGAEvent('tool_car_export_download', { width_mm: data.widthMm, format: data.format });
+}
+
+export function trackCarExportToRequest(data: { widthMm: number }) {
+  sendGAEvent('tool_car_export_to_request', { width_mm: data.widthMm });
+}
