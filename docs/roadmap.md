@@ -20,4 +20,7 @@ Phase 16: deposit/payment reconciliation (bank transfer webhook matching)
 Phase 17: public 3D text/keychain generator (browser-side) → custom request with advisory server-side price range
 Phase 18: storefront i18n (VI/EN, VI default) — nav/footer/home/products list & detail/4 policy pages translated; cart/checkout/custom-print/blog/quotes deferred to a later phase
 
+Phase 19: 3D tools roadmap and shared `(tools)` architecture — closed
+Phase 20: Flex Organizer tray generator, shared tool price estimate, STL → custom request — implementation under review; physical print validation pending
+
 Do not start a phase by coding immediately. Follow the Phase Start Protocol in the main project plan.

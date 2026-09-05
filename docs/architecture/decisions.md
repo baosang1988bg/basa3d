@@ -414,3 +414,9 @@ Content translation is scoped to nav/footer/home/products list & detail/4 static
 content, with a `<UntranslatedNotice />` banner (added via a nested `layout.tsx` per route, since
 it's a server component and several of those pages are client components) making that explicit
 rather than silently mixing languages.
+
+
+## Phase 20 — Organizer implementation clarifications
+- Auto-fit preserves preceding custom cells and fills the last cell with remaining clear space after all walls; it rejects nonpositive cells. The 30mm minimum applies to all three outer tray dimensions.
+- The locked overlapping-box merge produces intersecting closed shells, not a boolean-unioned manifold. The unchanged mesh estimator counts overlap volume; advisory estimates can consequently be slightly high. Slicer inspection and owner physical prints remain required.
+- `(tools)` inherits the locale provider; route groups do not change URLs. Existing middleware applies i18n to public tool URLs and Supabase session handling only to `/admin`. No middleware changes are required.
