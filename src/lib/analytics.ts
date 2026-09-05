@@ -120,6 +120,30 @@ export function trackOrganizerExportToRequest(data: { rows: number; cols: number
   sendGAEvent('tool_organizer_export_to_request', { rows: data.rows, cols: data.cols });
 }
 
+export function trackKeychainBlocksPreview(data: { blockCount: number; format?: 'stl-zip' | '3mf' | 'stl' }) {
+  sendGAEvent('tool_keychain_blocks_preview', { block_count: data.blockCount, ...(data.format ? { format: data.format } : {}) });
+}
+
+export function trackKeychainBlocksExportDownload(data: { blockCount: number; format?: 'stl-zip' | '3mf' | 'stl' }) {
+  sendGAEvent('tool_keychain_blocks_export_download', { block_count: data.blockCount, ...(data.format ? { format: data.format } : {}) });
+}
+
+export function trackKeychainBlocksExportToRequest(data: { blockCount: number; format?: 'stl-zip' | '3mf' | 'stl' }) {
+  sendGAEvent('tool_keychain_blocks_export_to_request', { block_count: data.blockCount, ...(data.format ? { format: data.format } : {}) });
+}
+
+export function trackDualTextPreview(data: { blockCount: number }) {
+  sendGAEvent('tool_dual_text_preview', { block_count: data.blockCount });
+}
+
+export function trackDualTextExportDownload(data: { blockCount: number; format: 'stl' | '3mf' }) {
+  sendGAEvent('tool_dual_text_export_download', { block_count: data.blockCount, format: data.format });
+}
+
+export function trackDualTextExportToRequest(data: { blockCount: number }) {
+  sendGAEvent('tool_dual_text_export_to_request', { block_count: data.blockCount });
+}
+
 export function trackCarPreview(data: { widthMm: number }) {
   sendGAEvent('tool_car_preview', { width_mm: data.widthMm });
 }
@@ -130,4 +154,40 @@ export function trackCarExportDownload(data: { widthMm: number; format: 'stl' | 
 
 export function trackCarExportToRequest(data: { widthMm: number }) {
   sendGAEvent('tool_car_export_to_request', { width_mm: data.widthMm });
+}
+
+export function trackLampPreview(data: { pattern: string }) {
+  sendGAEvent('tool_lamp_preview', { pattern: data.pattern });
+}
+
+export function trackLampExportDownload(data: { pattern: string; format: 'stl' | '3mf' }) {
+  sendGAEvent('tool_lamp_export_download', { pattern: data.pattern, format: data.format });
+}
+
+export function trackLampExportToRequest(data: { pattern: string }) {
+  sendGAEvent('tool_lamp_export_to_request', { pattern: data.pattern });
+}
+
+export function trackHingeBoxPreview(data: { rows: number; cols: number }) {
+  sendGAEvent('tool_hinge_box_preview', { rows: data.rows, cols: data.cols });
+}
+
+export function trackHingeBoxExportDownload(data: { rows: number; cols: number; format: 'stl' | '3mf' }) {
+  sendGAEvent('tool_hinge_box_export_download', { rows: data.rows, cols: data.cols, format: data.format });
+}
+
+export function trackHingeBoxExportToRequest(data: { rows: number; cols: number }) {
+  sendGAEvent('tool_hinge_box_export_to_request', { rows: data.rows, cols: data.cols });
+}
+
+export function trackJigsawPreview(data: { pieceCount: number }) {
+  sendGAEvent('tool_jigsaw_preview', { piece_count: data.pieceCount });
+}
+
+export function trackJigsawExportDownload(data: { pieceCount: number; format: 'stl-zip' | '3mf' }) {
+  sendGAEvent('tool_jigsaw_export_download', { piece_count: data.pieceCount, format: data.format });
+}
+
+export function trackJigsawExportToRequest(data: { pieceCount: number }) {
+  sendGAEvent('tool_jigsaw_export_to_request', { piece_count: data.pieceCount });
 }

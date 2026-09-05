@@ -24,15 +24,18 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": [
+        "./src/*"
+      ]
     }
   },
   "include": [
-    "src/**/*.ts",
-    "tests/**/*.ts",
+    ".next/types/**/*.ts",
     "e2e/**/*.ts",
     "playwright.config.ts",
-    ".next/types/**/*.ts"
+    "src/**/*.ts",
+    "tests/**/*.ts",
+    ".next-test/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"
