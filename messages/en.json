@@ -48,27 +48,64 @@
     "toolFeatureRequest": "Quick quote request",
     "toolCta": "Open the design tool",
     "heroValueProps": [
-      { "label": "24h fast printing", "href": "/#workflow" },
-      { "label": "Premium virgin-grade filament", "href": "/#materials" },
-      { "label": "Quote in 30 minutes", "href": "/custom-print" }
+      {
+        "label": "24h fast printing",
+        "href": "/#workflow"
+      },
+      {
+        "label": "Premium virgin-grade filament",
+        "href": "/#materials"
+      },
+      {
+        "label": "Quote in 30 minutes",
+        "href": "/custom-print"
+      }
     ],
     "categoriesEyebrow": "Categories",
     "categoriesTitle": "Browse by category",
     "categories": [
-      { "name": "Models / Art Toys", "description": "Highly detailed collectible figures and models" },
-      { "name": "Desk decor", "description": "Decorative pieces, lamps, mini planters" },
-      { "name": "Everyday accessories", "description": "Stands, organizers, everyday-use accessories" },
-      { "name": "Engineering parts", "description": "Mechanical parts, mounts, prototypes" }
+      {
+        "name": "Models / Art Toys",
+        "description": "Highly detailed collectible figures and models"
+      },
+      {
+        "name": "Desk decor",
+        "description": "Decorative pieces, lamps, mini planters"
+      },
+      {
+        "name": "Everyday accessories",
+        "description": "Stands, organizers, everyday-use accessories"
+      },
+      {
+        "name": "Engineering parts",
+        "description": "Mechanical parts, mounts, prototypes"
+      }
     ],
     "featuredEyebrow": "Featured",
     "featuredTitle": "Featured products",
     "workflowEyebrow": "Process",
     "workflowTitle": "Custom printing in just 4 steps",
     "workflowSteps": [
-      { "step": "1", "title": "Send your file", "description": "Send a .stl/.step/.obj/.3mf file or a reference image" },
-      { "step": "2", "title": "Consult & optimize", "description": "Our technical team reviews it and recommends the right material" },
-      { "step": "3", "title": "30-minute quote", "description": "Get a transparent quote within 30 minutes" },
-      { "step": "4", "title": "Print & deliver", "description": "We produce and deliver straight to you" }
+      {
+        "step": "1",
+        "title": "Send your file",
+        "description": "Send a .stl/.step/.obj/.3mf file or a reference image"
+      },
+      {
+        "step": "2",
+        "title": "Consult & optimize",
+        "description": "Our technical team reviews it and recommends the right material"
+      },
+      {
+        "step": "3",
+        "title": "30-minute quote",
+        "description": "Get a transparent quote within 30 minutes"
+      },
+      {
+        "step": "4",
+        "title": "Print & deliver",
+        "description": "We produce and deliver straight to you"
+      }
     ],
     "ctaStartOrder": "Start your order",
     "materialsEyebrow": "Materials",
@@ -156,20 +193,108 @@
     "keychainTitle": "3D name keychain generator",
     "keychainDescription": "Enter Vietnamese or English text and inspect the model in your browser. Download one merged STL or send it directly to the workshop for a quote.",
     "items": [
-      { "name": "Name keychain", "description": "Create a raised-text name tag with colors, keyring hole, and STL export.", "status": "available" },
-      { "name": "3D text and signs", "description": "Create raised lettering, desk nameplates, or hanging signs.", "status": "planned" },
-      { "name": "Organizer tray", "description": "Generate divided trays sized for a desk or drawer.", "status": "available" },
-      { "name": "Decorative bowl", "description": "Generate revolved vessels with custom profiles and patterns.", "status": "planned" },
-      { "name": "Jigsaw maker", "description": "Turn an image or shape into printable puzzle pieces.", "status": "planned" },
-      { "name": "Hinged box", "description": "Generate a parametric box, lid, fitting clearance, and hinge.", "status": "planned" },
-      { "name": "Image lithophane", "description": "Turn an image into a printable translucent relief panel.", "status": "planned" },
-      { "name": "Cookie cutter", "description": "Convert an outline into a cutter with a reinforced handle.", "status": "planned" },
-      { "name": "3MF color splitter", "description": "Read 3MF color regions and prepare separate printable parts.", "status": "planned" },
-      { "name": "STL/3MF viewer", "description": "Open local files, orbit, measure dimensions, and inspect meshes.", "status": "planned" },
-      { "name": "Model scale calculator", "description": "Calculate scale percentage from current and target dimensions.", "status": "planned" },
-      { "name": "Parametric primitives", "description": "Create spacers, rings, tubes, and basic measured parts.", "status": "planned" },
-      { "name": "Mesh split and merge", "description": "Plane-cut models or merge compatible model parts.", "status": "planned" },
-      { "name": "Basic sculpting", "description": "Pull, push, and smooth mesh surfaces in the browser.", "status": "planned" }
+      {
+        "name": "Name keychain",
+        "description": "Create a raised-text name tag with colors, keyring hole, and STL export.",
+        "status": "available",
+        "slug": "keychain-generator"
+      },
+      {
+        "name": "3D text and signs",
+        "description": "Create raised lettering, desk nameplates, or hanging signs.",
+        "status": "planned",
+        "slug": null
+      },
+      {
+        "name": "Organizer tray",
+        "description": "Generate divided trays sized for a desk or drawer.",
+        "status": "available",
+        "slug": "organizer"
+      },
+      {
+        "name": "Decorative bowl",
+        "description": "Generate revolved vessels with custom profiles and patterns.",
+        "status": "planned",
+        "slug": null
+      },
+      {
+        "name": "Jigsaw maker",
+        "description": "Upload an STL/OBJ model, cut it into an interlocking puzzle grid, and export each piece.",
+        "status": "available",
+        "slug": "jigsaw"
+      },
+      {
+        "name": "Hinged box",
+        "description": "Generate a parametric box, lid, fitting clearance, and hinge.",
+        "status": "available",
+        "slug": "hinge-box"
+      },
+      {
+        "name": "Image lithophane",
+        "description": "Turn an image into a printable translucent relief panel.",
+        "status": "planned",
+        "slug": null
+      },
+      {
+        "name": "Cookie cutter",
+        "description": "Convert an outline into a cutter with a reinforced handle.",
+        "status": "planned",
+        "slug": null
+      },
+      {
+        "name": "3MF color splitter",
+        "description": "Read 3MF color regions and prepare separate printable parts.",
+        "status": "planned",
+        "slug": null
+      },
+      {
+        "name": "STL/3MF viewer",
+        "description": "Open local files, orbit, measure dimensions, and inspect meshes.",
+        "status": "planned",
+        "slug": null
+      },
+      {
+        "name": "Model scale calculator",
+        "description": "Calculate scale percentage from current and target dimensions.",
+        "status": "planned",
+        "slug": null
+      },
+      {
+        "name": "Parametric primitives",
+        "description": "Create spacers, rings, tubes, and basic measured parts.",
+        "status": "planned",
+        "slug": null
+      },
+      {
+        "name": "Mesh split and merge",
+        "description": "Plane-cut models or merge compatible model parts.",
+        "status": "planned",
+        "slug": null
+      },
+      {
+        "name": "Basic sculpting",
+        "description": "Pull, push, and smooth mesh surfaces in the browser.",
+        "status": "planned",
+        "slug": null
+      },
+      {
+        "name": "Block keychain",
+        "description": "One keycap block per character, pick block and glyph colors, export multi-color 3MF.",
+        "status": "available",
+        "slug": "keychain-blocks"
+      },
+      {
+        "name": "Illusion car nameplate",
+        "description": "A two-view illusion plate: a car silhouette from one angle, text from the other.",
+        "status": "available",
+        "slug": "car-nameplate"
+      },
+      {
+        "name": "Patterned lamp shade",
+        "description": "Pick a perforation pattern, ring/row counts, sized to fit a bulb socket.",
+        "status": "available",
+        "slug": "lamp-shade"
+      }
     ]
   },
   "policies": {

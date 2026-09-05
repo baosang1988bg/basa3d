@@ -48,27 +48,64 @@
     "toolFeatureRequest": "Gửi báo giá nhanh",
     "toolCta": "Mở công cụ tạo mẫu",
     "heroValueProps": [
-      { "label": "In nhanh 24h", "href": "/#workflow" },
-      { "label": "Nhựa nguyên sinh cao cấp", "href": "/#materials" },
-      { "label": "Báo giá nhanh trong 30p", "href": "/custom-print" }
+      {
+        "label": "In nhanh 24h",
+        "href": "/#workflow"
+      },
+      {
+        "label": "Nhựa nguyên sinh cao cấp",
+        "href": "/#materials"
+      },
+      {
+        "label": "Báo giá nhanh trong 30p",
+        "href": "/custom-print"
+      }
     ],
     "categoriesEyebrow": "Danh mục",
     "categoriesTitle": "Khám phá theo danh mục",
     "categories": [
-      { "name": "Mô hình / Art Toys", "description": "Nhân vật, mô hình sưu tầm chi tiết cao" },
-      { "name": "Decor bàn làm việc", "description": "Vật trang trí, đèn, chậu cây mini" },
-      { "name": "Phụ kiện tiện ích", "description": "Giá đỡ, hộp đựng, phụ kiện đời sống" },
-      { "name": "Linh kiện kỹ thuật", "description": "Chi tiết máy, gá lắp, prototype" }
+      {
+        "name": "Mô hình / Art Toys",
+        "description": "Nhân vật, mô hình sưu tầm chi tiết cao"
+      },
+      {
+        "name": "Decor bàn làm việc",
+        "description": "Vật trang trí, đèn, chậu cây mini"
+      },
+      {
+        "name": "Phụ kiện tiện ích",
+        "description": "Giá đỡ, hộp đựng, phụ kiện đời sống"
+      },
+      {
+        "name": "Linh kiện kỹ thuật",
+        "description": "Chi tiết máy, gá lắp, prototype"
+      }
     ],
     "featuredEyebrow": "Nổi bật",
     "featuredTitle": "Sản phẩm tiêu biểu",
     "workflowEyebrow": "Quy trình",
     "workflowTitle": "Đặt in theo yêu cầu chỉ với 4 bước",
     "workflowSteps": [
-      { "step": "1", "title": "Gửi file", "description": "Gửi file .stl/.step/.obj/.3mf hoặc ảnh vẽ mẫu" },
-      { "step": "2", "title": "Tư vấn & Tối ưu", "description": "Đội ngũ kỹ thuật kiểm tra và tư vấn vật liệu phù hợp" },
-      { "step": "3", "title": "Báo giá 30 phút", "description": "Nhận báo giá minh bạch trong vòng 30 phút" },
-      { "step": "4", "title": "In & Giao hàng", "description": "Sản xuất và giao hàng tận nơi" }
+      {
+        "step": "1",
+        "title": "Gửi file",
+        "description": "Gửi file .stl/.step/.obj/.3mf hoặc ảnh vẽ mẫu"
+      },
+      {
+        "step": "2",
+        "title": "Tư vấn & Tối ưu",
+        "description": "Đội ngũ kỹ thuật kiểm tra và tư vấn vật liệu phù hợp"
+      },
+      {
+        "step": "3",
+        "title": "Báo giá 30 phút",
+        "description": "Nhận báo giá minh bạch trong vòng 30 phút"
+      },
+      {
+        "step": "4",
+        "title": "In & Giao hàng",
+        "description": "Sản xuất và giao hàng tận nơi"
+      }
     ],
     "ctaStartOrder": "Bắt đầu đặt in",
     "materialsEyebrow": "Vật liệu",
@@ -156,20 +193,108 @@
     "keychainTitle": "Tạo móc khoá khắc tên 3D",
     "keychainDescription": "Nhập tên tiếng Việt, xoay và phóng to mẫu ngay trên trình duyệt. Tải một file STL gộp hoặc gửi thẳng tới xưởng để nhận báo giá.",
     "items": [
-      { "name": "Móc khoá khắc tên", "description": "Tạo name tag có chữ nổi, chọn màu, lỗ khoen và xuất STL.", "status": "available" },
-      { "name": "Chữ và bảng tên 3D", "description": "Tạo chữ nổi, bảng tên bàn hoặc biển treo từ nội dung tuỳ chỉnh.", "status": "planned" },
-      { "name": "Khay organizer", "description": "Tạo khay nhiều ngăn theo kích thước bàn hoặc ngăn kéo.", "status": "available" },
-      { "name": "Bát và chậu trang trí", "description": "Tạo vật thể xoay với biên dạng và hoa văn tuỳ chỉnh.", "status": "planned" },
-      { "name": "Ghép hình jigsaw", "description": "Chuyển ảnh hoặc hình dạng thành bộ mảnh ghép có thể in.", "status": "planned" },
-      { "name": "Hộp có bản lề", "description": "Tạo hộp, nắp, khe hở lắp ghép và bản lề theo tham số.", "status": "planned" },
-      { "name": "Lithophane từ ảnh", "description": "Chuyển ảnh thành tấm relief xuyên sáng để in 3D.", "status": "planned" },
-      { "name": "Cookie cutter", "description": "Chuyển đường bao thành khuôn cắt bánh có tay cầm.", "status": "planned" },
-      { "name": "Tách màu 3MF", "description": "Đọc vùng màu của file 3MF và chuẩn bị các phần riêng để in.", "status": "planned" },
-      { "name": "Xem file STL/3MF", "description": "Mở file cục bộ, xoay, đo kích thước và kiểm tra mesh.", "status": "planned" },
-      { "name": "Tính tỷ lệ model", "description": "Tính phần trăm scale theo kích thước hiện tại và mục tiêu.", "status": "planned" },
-      { "name": "Tạo hình khối tham số", "description": "Tạo spacer, vòng, ống và khối cơ bản theo số đo.", "status": "planned" },
-      { "name": "Tách và ghép mesh", "description": "Cắt model theo mặt phẳng hoặc gộp các phần tương thích.", "status": "planned" },
-      { "name": "Sculpt cơ bản", "description": "Chỉnh sửa bề mặt mesh bằng các thao tác kéo, đẩy và làm mịn.", "status": "planned" }
+      {
+        "name": "Móc khoá khắc tên",
+        "description": "Tạo name tag có chữ nổi, chọn màu, lỗ khoen và xuất STL.",
+        "status": "available",
+        "slug": "keychain-generator"
+      },
+      {
+        "name": "Chữ và bảng tên 3D",
+        "description": "Tạo chữ nổi, bảng tên bàn hoặc biển treo từ nội dung tuỳ chỉnh.",
+        "status": "planned",
+        "slug": null
+      },
+      {
+        "name": "Khay organizer",
+        "description": "Tạo khay nhiều ngăn theo kích thước bàn hoặc ngăn kéo.",
+        "status": "available",
+        "slug": "organizer"
+      },
+      {
+        "name": "Bát và chậu trang trí",
+        "description": "Tạo vật thể xoay với biên dạng và hoa văn tuỳ chỉnh.",
+        "status": "planned",
+        "slug": null
+      },
+      {
+        "name": "Ghép hình jigsaw",
+        "description": "Tải mô hình STL/OBJ, cắt thành lưới mảnh ghép khớp lồi lõm, xuất từng mảnh để in.",
+        "status": "available",
+        "slug": "jigsaw"
+      },
+      {
+        "name": "Hộp có bản lề",
+        "description": "Tạo hộp, nắp, khe hở lắp ghép và bản lề theo tham số.",
+        "status": "available",
+        "slug": "hinge-box"
+      },
+      {
+        "name": "Lithophane từ ảnh",
+        "description": "Chuyển ảnh thành tấm relief xuyên sáng để in 3D.",
+        "status": "planned",
+        "slug": null
+      },
+      {
+        "name": "Cookie cutter",
+        "description": "Chuyển đường bao thành khuôn cắt bánh có tay cầm.",
+        "status": "planned",
+        "slug": null
+      },
+      {
+        "name": "Tách màu 3MF",
+        "description": "Đọc vùng màu của file 3MF và chuẩn bị các phần riêng để in.",
+        "status": "planned",
+        "slug": null
+      },
+      {
+        "name": "Xem file STL/3MF",
+        "description": "Mở file cục bộ, xoay, đo kích thước và kiểm tra mesh.",
+        "status": "planned",
+        "slug": null
+      },
+      {
+        "name": "Tính tỷ lệ model",
+        "description": "Tính phần trăm scale theo kích thước hiện tại và mục tiêu.",
+        "status": "planned",
+        "slug": null
+      },
+      {
+        "name": "Tạo hình khối tham số",
+        "description": "Tạo spacer, vòng, ống và khối cơ bản theo số đo.",
+        "status": "planned",
+        "slug": null
+      },
+      {
+        "name": "Tách và ghép mesh",
+        "description": "Cắt model theo mặt phẳng hoặc gộp các phần tương thích.",
+        "status": "planned",
+        "slug": null
+      },
+      {
+        "name": "Sculpt cơ bản",
+        "description": "Chỉnh sửa bề mặt mesh bằng các thao tác kéo, đẩy và làm mịn.",
+        "status": "planned",
+        "slug": null
+      },
+      {
+        "name": "Móc khoá dạng khối",
+        "description": "Móc khoá mỗi ký tự một khối rời, tự chọn màu khối và màu chữ, xuất 3MF đa màu.",
+        "status": "available",
+        "slug": "keychain-blocks"
+      },
+      {
+        "name": "Bảng tên xe ảo ảnh",
+        "description": "Bảng tên ghép ảo ảnh 2 góc nhìn: hình xe từ 1 hướng, dòng chữ từ hướng kia.",
+        "status": "available",
+        "slug": "car-nameplate"
+      },
+      {
+        "name": "Chụp đèn hoa văn",
+        "description": "Chọn kiểu hoa văn đục lỗ, số lượng quanh vòng và hàng, lắp vừa đế bóng đèn.",
+        "status": "available",
+        "slug": "lamp-shade"
+      }
     ]
   },
   "policies": {
