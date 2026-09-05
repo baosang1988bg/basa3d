@@ -1,5 +1,10 @@
 # Phase 16 — Deposit/Payment Reconciliation (Bank Transfer Webhook Matching)
 
+> **Trạng thái**: IDEA / CHƯA BẮT ĐẦU — Block bởi 1 quyết định của Owner: chọn 1 nhà cung cấp
+> webhook cụ thể (Casso/SePay/...) trước khi có thể giao Codex (mục "Trước khi giao Codex" chưa có
+> checkbox nào hoàn tất). Chuyển sang `docs/exec-plans/pending/` (2026-09-05) vì chưa có code nào
+> được viết — đây thuần là ý tưởng/thiết kế chờ quyết định, không phải việc đang dở dang.
+
 > **Mục đích**: Giảm thao tác thủ công "staff tự nhìn sao kê ngân hàng, đối chiếu nội dung chuyển
 > khoản, rồi tự bấm đổi `payment_status`" — vốn sẽ nhân đôi khối lượng công việc khi Phase 13 thêm
 > luồng cọc cho custom quote bên cạnh luồng order sẵn có.
