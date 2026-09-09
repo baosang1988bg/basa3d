@@ -1,3 +1,4 @@
+import { ConfirmedActionForm } from '@/components/admin/confirmed-action-form';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -157,9 +158,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
                     <div className="flex items-center gap-2">
                       <Link href={`/admin/expenses/${expense.id}`} className="text-sm text-muted-foreground hover:underline">Sửa</Link>
                       {expense.status !== 'CANCELLED' ? (
-                        <form action={cancelExpenseAction.bind(null, expense.id)}>
-                          <Button type="submit" size="sm" variant="ghost" className="cursor-pointer text-destructive">Hủy</Button>
-                        </form>
+                        <ConfirmedActionForm action={cancelExpenseAction.bind(null, expense.id)} label="Hủy" confirmation={`Hủy khoản chi ${expense.title}? Khoản chi sẽ được đánh dấu đã hủy và giữ lại lịch sử.`} />
                       ) : null}
                     </div>
                   </TableCell>

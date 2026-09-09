@@ -1,3 +1,5 @@
+import { ActionForm } from '@/components/admin/action-form';
+import { AdminPagination } from '@/components/admin/admin-pagination';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -18,10 +20,10 @@ const FILTER_GROUPS: StatusFilterGroup[] = [
   { key: 'cancelled', label: 'Đã từ chối', statuses: ['REJECTED'] },
 ];
 
-export default async function CustomRequestsPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
-  const { filter } = await searchParams;
+export default async function CustomRequestsPage({ searchParams }: { searchParams: Promise<{ filter?: string; page?: string }> }) {
+  const { filter, page: pageParam } = await searchParams;
   const { activeKey, statuses } = resolveStatusFilter(FILTER_GROUPS, filter);
-  const { items: customRequests } = await listCustomRequests({ limit: 100, statuses });
+  const { items: customRequests, page, hasNext } = await listCustomRequests({ page: Number(pageParam), statuses });
 
   return (
     <div className="flex flex-col gap-6">
@@ -32,7 +34,7 @@ export default async function CustomRequestsPage({ searchParams }: { searchParam
       <Card>
         <CardHeader><CardTitle>Ghi nhận yêu cầu mới</CardTitle></CardHeader>
         <CardContent>
-          <form action={createCustomRequestAction} className="grid grid-cols-2 gap-4">
+          <ActionForm action={createCustomRequestAction} className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="sourceChannel">Kênh</Label>
               <select id="sourceChannel" name="sourceChannel" className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm" required>
@@ -78,7 +80,7 @@ export default async function CustomRequestsPage({ searchParams }: { searchParam
             <div className="col-span-2">
               <Button type="submit">Ghi nhận yêu cầu</Button>
             </div>
-          </form>
+          </ActionForm>
         </CardContent>
       </Card>
 
@@ -109,6 +111,7 @@ export default async function CustomRequestsPage({ searchParams }: { searchParam
               ))}
             </TableBody>
           </Table>
+          <AdminPagination basePath="/admin/custom-requests" page={page} hasNext={hasNext} filters={{ filter: activeKey }} />
         </CardContent>
       </Card>
     </div>

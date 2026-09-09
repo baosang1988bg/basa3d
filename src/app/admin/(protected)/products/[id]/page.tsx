@@ -80,6 +80,27 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
               <Label htmlFor="seoDescription">SEO description</Label>
               <Input id="seoDescription" name="seoDescription" maxLength={500} defaultValue={product.seoDescription ?? ''} />
             </div>
+            <div className="col-span-2 grid grid-cols-3 gap-4 rounded-lg border border-border p-3">
+              <div className="col-span-3 text-sm font-semibold">Bản quyền &amp; nguồn model</div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="licenseType">Loại license</Label>
+                <select id="licenseType" name="licenseType" defaultValue={product.licenseType} className="h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <option value="OWN_DESIGN">Tự thiết kế</option>
+                  <option value="CC_BY">CC BY</option>
+                  <option value="CC0">CC0 / Public Domain</option>
+                  <option value="COMMERCIAL_LICENSE">Đã mua Commercial License</option>
+                  <option value="OTHER">Khác</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="licenseSourceUrl">Link nguồn model</Label>
+                <Input id="licenseSourceUrl" name="licenseSourceUrl" type="url" defaultValue={product.licenseSourceUrl ?? ''} placeholder="https://makerworld.com/..." />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="licenseProofUrl">Link bằng chứng license</Label>
+                <Input id="licenseProofUrl" name="licenseProofUrl" type="url" defaultValue={product.licenseProofUrl ?? ''} placeholder="Link ảnh chụp màn hình license" />
+              </div>
+            </div>
             <div className="col-span-2"><Button type="submit">Lưu thay đổi</Button></div>
           </form>
         </CardContent>

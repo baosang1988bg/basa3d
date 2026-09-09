@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test, { after } from 'node:test';
-import nextEnv from '@next/env';
+import { configureTestEnvironment } from './helpers/test-environment';
 import { getPool } from '../src/lib/db.js';
 import sitemap from '../src/app/sitemap.js';
 import robots from '../src/app/robots.js';
 
-nextEnv.loadEnvConfig(process.cwd());
+configureTestEnvironment();
 after(async () => { if (process.env.DATABASE_URL) await getPool().end(); });
 
 test('sitemap never lists an admin route and includes the public static routes', { skip: !process.env.DATABASE_URL }, async () => {

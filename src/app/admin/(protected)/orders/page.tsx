@@ -1,3 +1,4 @@
+import { AdminPagination } from '@/components/admin/admin-pagination';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
@@ -14,10 +15,10 @@ const FILTER_GROUPS: StatusFilterGroup[] = [
   { key: 'cancelled', label: 'Đã huỷ', statuses: ['CANCELLED'] },
 ];
 
-export default async function OrdersPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
-  const { filter } = await searchParams;
+export default async function OrdersPage({ searchParams }: { searchParams: Promise<{ filter?: string; page?: string }> }) {
+  const { filter, page: pageParam } = await searchParams;
   const { activeKey, statuses } = resolveStatusFilter(FILTER_GROUPS, filter);
-  const { items: orders } = await listOrders({ limit: 100, statuses });
+  const { items: orders, page, hasNext } = await listOrders({ page: Number(pageParam), statuses });
 
   return (
     <div className="flex flex-col gap-6">
@@ -56,6 +57,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
               ))}
             </TableBody>
           </Table>
+          <AdminPagination basePath="/admin/orders" page={page} hasNext={hasNext} filters={{ filter: activeKey }} />
         </CardContent>
       </Card>
     </div>

@@ -420,3 +420,20 @@ rather than silently mixing languages.
 - Auto-fit preserves preceding custom cells and fills the last cell with remaining clear space after all walls; it rejects nonpositive cells. The 30mm minimum applies to all three outer tray dimensions.
 - The locked overlapping-box merge produces intersecting closed shells, not a boolean-unioned manifold. The unchanged mesh estimator counts overlap volume; advisory estimates can consequently be slightly high. Slicer inspection and owner physical prints remain required.
 - `(tools)` inherits the locale provider; route groups do not change URLs. Existing middleware applies i18n to public tool URLs and Supabase session handling only to `/admin`. No middleware changes are required.
+
+## Admin correction UX — 2026-09-05
+
+Owner reports that accidental admin input cannot conveniently be corrected. First slice:
+spool metadata editing and reversible archival, using the existing ACTIVE/ARCHIVED status
+and phase-12 inventory semantics. Admins may edit spool code, core flag and notes; stock
+corrections still require a reason and an immutable movement. Material, warehouse, purchase
+cost and original weight are deliberately outside this metadata patch to avoid rewriting
+inventory/financial history. Archive hides the spool from the default active list and active
+spool totals, without changing weight or ledger entries; restoring makes it active again.
+An archived spool cannot be consumed (existing recordSpoolUsage row lock/status check).
+Archive does not cancel assigned print jobs: operators must pick an active spool before
+starting them. Archive is not a reversal of an erroneous PURCHASE movement.
+
+Existing admin auth is enforced by every new server action; all successful edits/status
+changes write audit records in the same transaction. Repeated status submissions are no-ops.
+The UI asks for confirmation before archive/restore and exposes recoverable error messages.

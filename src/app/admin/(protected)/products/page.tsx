@@ -1,3 +1,4 @@
+import { AdminPagination } from '@/components/admin/admin-pagination';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -11,9 +12,10 @@ import { getCurrentPricingConfig } from '@/services/pricing-config.service';
 import { listCategories, listProducts } from '@/services/product.service';
 import { archiveProductAction, createCategoryAction, createProductAction, unarchiveProductAction } from './actions';
 
-export default async function ProductsPage() {
-  const [{ items: products }, { items: categories }, materials, pricingConfig] = await Promise.all([
-    listProducts({ limit: 100 }),
+export default async function ProductsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  const params = await searchParams;
+  const [{ items: products, page, hasNext }, { items: categories }, materials, pricingConfig] = await Promise.all([
+    listProducts({ page: Number(params.page) }),
     listCategories({ limit: 100 }),
     listMaterials(),
     getCurrentPricingConfig(),
@@ -120,7 +122,7 @@ export default async function ProductsPage() {
                 <TableRow key={product.id}>
                   <TableCell className="font-medium">{product.name}</TableCell>
                   <TableCell><Badge variant={product.status === 'ACTIVE' ? 'default' : 'secondary'}>{product.status}</Badge></TableCell>
-                  <TableCell>{product.basePrice ? Number(product.basePrice).toLocaleString('vi-VN') + 'đ' : '—'}</TableCell>
+                  <TableCell>{product.basePrice != null ? Number(product.basePrice).toLocaleString('vi-VN') + 'đ' : '—'}</TableCell>
                   <TableCell>{product.variants?.length ?? 0}</TableCell>
                   <TableCell className="flex justify-end gap-2">
                     <Link href={`/admin/products/${product.id}`} className={buttonVariants({ size: 'sm', variant: 'outline' })}>Chi tiết</Link>
@@ -134,6 +136,7 @@ export default async function ProductsPage() {
               ))}
             </TableBody>
           </Table>
+          <AdminPagination basePath="/admin/products" page={page} hasNext={hasNext} />
         </CardContent>
       </Card>
     </div>

@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test, { after } from 'node:test';
-import nextEnv from '@next/env';
+import { configureTestEnvironment } from './helpers/test-environment';
 import { getPool, query } from '../src/lib/db.js';
 import { createSupabaseAdminClient } from '../src/lib/supabase/admin.js';
 import { createBlogPost, createBlogPostWithCover, deleteBlogCoverImage, getPublishedPostBySlug, listPublishedPosts, updateBlogPost, updateBlogPostWithCover, uploadBlogCoverImage } from '../src/services/blog.service.js';
 
-nextEnv.loadEnvConfig(process.cwd());
+configureTestEnvironment();
 after(async () => { if (process.env.DATABASE_URL) await getPool().end(); });
 
 const ACTOR_ID = '00000000-0000-4000-8000-0000000000aa';

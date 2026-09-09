@@ -1,3 +1,4 @@
+import { ActionForm } from '@/components/admin/action-form';
 import { notFound } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -37,6 +38,10 @@ function formatVariance(estimated: number | null, actual: number | null) {
   return `${sign}${diff}g${percent !== null ? ` (${sign}${percent}%)` : ''}`;
 }
 
+function statusLabel(status: string) {
+  return [...PRINT_JOB_STEPS, ...PRINT_JOB_TERMINAL_STATUSES].find((item) => item.status === status)?.label ?? status;
+}
+
 export default async function PrintJobDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [session, printJob, materials, movements] = await Promise.all([
@@ -57,7 +62,7 @@ export default async function PrintJobDetailPage({ params }: { params: Promise<{
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Việc in {printJob.id}</h1>
-        <Badge>{printJob.status}</Badge>
+        <Badge>{statusLabel(printJob.status)}</Badge>
       </div>
 
       <Card>
@@ -77,19 +82,19 @@ export default async function PrintJobDetailPage({ params }: { params: Promise<{
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Trạng thái: <Badge>{printJob.status}</Badge></CardTitle></CardHeader>
+        <CardHeader><CardTitle>Trạng thái: <Badge>{statusLabel(printJob.status)}</Badge></CardTitle></CardHeader>
         <CardContent>
-          <form action={updatePrintJobStatusAction.bind(null, id)} className="flex items-end gap-2">
+          <ActionForm action={updatePrintJobStatusAction.bind(null, id)} className="flex items-end gap-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="status">Cập nhật trạng thái</Label>
               <select id="status" name="status" defaultValue="" required className="h-8 cursor-pointer rounded-lg border border-input bg-transparent px-2.5 text-sm">
                 <option value="" disabled>— Chọn trạng thái —</option>
-                {statusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
+                {statusOptions.map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)}
               </select>
             </div>
             {session.role === 'OWNER' ? <Input name="overrideReason" placeholder="Lý do nếu override" className="w-64" /> : null}
             <Button type="submit" size="sm" className="cursor-pointer" disabled={statusOptions.length === 0}>Lưu</Button>
-          </form>
+          </ActionForm>
           <p className="mt-2 text-xs text-muted-foreground">
             Chuyển sang PRINTING sẽ tự động trừ kho nguyên liệu theo khối lượng ước tính bên dưới — cần gán vật liệu trước.
           </p>
@@ -103,7 +108,7 @@ export default async function PrintJobDetailPage({ params }: { params: Promise<{
             <div><p className="text-muted-foreground">Vật liệu đã gán</p><p>{materials.find((m) => m.id === printJob.materialId)?.name ?? '—'}</p></div>
             <div><p className="text-muted-foreground">Khối lượng ước tính</p><p>{printJob.estimatedWeightGrams != null ? `${printJob.estimatedWeightGrams}g` : '—'}</p></div>
           </div>
-          <form action={assignPrintJobMaterialAction.bind(null, id)} className="grid grid-cols-2 gap-4 border-t border-border pt-4">
+          <ActionForm action={assignPrintJobMaterialAction.bind(null, id)} className="grid grid-cols-2 gap-4 border-t border-border pt-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="materialId">Vật liệu</Label>
               <select key={printJob.materialId ?? 'unset'} id="materialId" name="materialId" required defaultValue={printJob.materialId ?? ''} className="h-9 cursor-pointer rounded-lg border border-input bg-transparent px-2.5 text-sm">
@@ -118,7 +123,7 @@ export default async function PrintJobDetailPage({ params }: { params: Promise<{
             <div className="col-span-2">
               <Button type="submit" className="cursor-pointer">Gán vật liệu</Button>
             </div>
-          </form>
+          </ActionForm>
         </CardContent>
       </Card>
 
@@ -130,7 +135,7 @@ export default async function PrintJobDetailPage({ params }: { params: Promise<{
               <p className="text-muted-foreground">Cuộn đã chọn</p>
               <p>{activeSpools.find((s) => s.id === printJob.spoolId)?.spoolCode ?? '— Chưa chọn —'}</p>
             </div>
-            <form action={assignPrintJobSpoolAction.bind(null, id)} className="grid grid-cols-2 gap-4 border-t border-border pt-4">
+            <ActionForm action={assignPrintJobSpoolAction.bind(null, id)} className="grid grid-cols-2 gap-4 border-t border-border pt-4">
               <div className="col-span-2 flex flex-col gap-1.5">
                 <Label htmlFor="spoolId">Chọn cuộn (ACTIVE, cùng loại vật liệu)</Label>
                 <select key={printJob.spoolId ?? 'unset'} id="spoolId" name="spoolId" required defaultValue={printJob.spoolId ?? ''} className="h-9 cursor-pointer rounded-lg border border-input bg-transparent px-2.5 text-sm">
@@ -145,7 +150,7 @@ export default async function PrintJobDetailPage({ params }: { params: Promise<{
               <div className="col-span-2">
                 <Button type="submit" className="cursor-pointer">Gán cuộn nhựa</Button>
               </div>
-            </form>
+            </ActionForm>
             <p className="text-xs text-muted-foreground">
               Vật liệu này đang được theo dõi theo cuộn — bắt buộc chọn cuộn cụ thể trước khi chuyển sang PRINTING.
             </p>
@@ -162,7 +167,7 @@ export default async function PrintJobDetailPage({ params }: { params: Promise<{
               <p className="font-medium">{variance ?? '—'}</p>
             </div>
           ) : null}
-          <form action={recordPrintJobActualsAction.bind(null, id)} className="grid grid-cols-2 gap-4 border-t border-border pt-4">
+          <ActionForm action={recordPrintJobActualsAction.bind(null, id)} className="grid grid-cols-2 gap-4 border-t border-border pt-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="actualWeightGrams">Khối lượng thực tế (gram)</Label>
               <Input key={printJob.actualWeightGrams ?? 'unset'} id="actualWeightGrams" name="actualWeightGrams" type="number" min={0} defaultValue={printJob.actualWeightGrams ?? ''} />
@@ -174,7 +179,7 @@ export default async function PrintJobDetailPage({ params }: { params: Promise<{
             <div className="col-span-2">
               <Button type="submit" variant="outline" className="cursor-pointer">Lưu số liệu thực tế</Button>
             </div>
-          </form>
+          </ActionForm>
           {printJob.actualWeightGrams != null && printJob.estimatedWeightGrams != null && printJob.actualWeightGrams !== printJob.estimatedWeightGrams ? (
             <p className="text-xs text-muted-foreground">
               Nếu chênh lệch quá lớn, điều chỉnh tồn kho nguyên liệu thủ công bằng ADJUSTMENT_OUT ở trang Tồn kho.

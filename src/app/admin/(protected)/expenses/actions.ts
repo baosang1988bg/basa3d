@@ -1,5 +1,6 @@
 'use server';
 
+import { DomainError } from '@/lib/domain-error';
 import { revalidatePath } from 'next/cache';
 import { requireOwner } from '@/lib/auth/require-admin';
 import { createExpenseInputSchema, updateExpenseInputSchema } from '@/domain/schemas';
@@ -49,6 +50,8 @@ export async function updateExpenseAction(id: string, formData: FormData) {
 
 export async function cancelExpenseAction(id: string) {
   const { actorId } = await requireOwner();
-  await deleteExpense(id, actorId);
+  try { await deleteExpense(id, actorId); }
+  catch (error) { if (error instanceof DomainError) return { error: error.message }; throw error; }
   revalidatePath('/admin/expenses');
+  return {};
 }

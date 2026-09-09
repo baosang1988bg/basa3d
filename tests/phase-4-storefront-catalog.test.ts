@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test, { after } from 'node:test';
-import nextEnv from '@next/env';
+import { configureTestEnvironment } from './helpers/test-environment';
 import { Client } from 'pg';
 import { listStorefrontProducts, getStorefrontProductBySlug } from '../src/services/storefront-catalog.service.js';
 import { getPool } from '../src/lib/db.js';
 
-nextEnv.loadEnvConfig(process.cwd());
+configureTestEnvironment();
 after(async () => { if (process.env.DATABASE_URL) await getPool().end(); });
 
 test('storefront catalog never returns cost_price or exact stock, and excludes non-ACTIVE products', { skip: !process.env.DATABASE_URL }, async () => {

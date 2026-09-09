@@ -1,8 +1,8 @@
 import { spawn } from 'node:child_process';
 import { readdir, readFile, writeFile } from 'node:fs/promises';
-import nextEnv from '@next/env';
+import { configureTestEnvironment } from './test-environment';
 
-nextEnv.loadEnvConfig(process.cwd());
+configureTestEnvironment();
 process.env.ORDER_CONFIRMATION_SECRET ??= 'hardening-followup-test-secret-at-least-32-characters';
 // Isolated from the default `.next` a developer's `npm run dev` is using — `next dev` and
 // `next build`/`next start` write incompatible webpack module-ID layouts into their distDir, so

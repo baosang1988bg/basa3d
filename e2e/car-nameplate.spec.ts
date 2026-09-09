@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
-import nextEnv from '@next/env';
+import { configureTestEnvironment } from '../tests/helpers/test-environment';
 import { Client } from 'pg';
 import { createClient } from '@supabase/supabase-js';
 
-nextEnv.loadEnvConfig(process.cwd());
+configureTestEnvironment();
 
 test('visitor generates a Car nameplate STL, submits it, and admin can see the request', async ({ page }, testInfo) => {
   const phone = `09${Date.now().toString().slice(-8)}`;

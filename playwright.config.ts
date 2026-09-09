@@ -1,4 +1,10 @@
 import { defineConfig } from '@playwright/test';
+import { configureTestEnvironment } from './tests/helpers/test-environment';
+
+configureTestEnvironment();
+if (!process.env.DATABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error('E2E requires a disposable local TEST_DATABASE_URL and TEST_SUPABASE_URL / TEST_SUPABASE_ANON_KEY / TEST_SUPABASE_SERVICE_ROLE_KEY. App credentials are never used.');
+}
 
 export default defineConfig({
   testDir: './e2e',

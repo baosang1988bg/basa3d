@@ -167,11 +167,11 @@ export async function listOrders(input: { page?: number; limit?: number; status?
   const statusSql = input.statuses?.length
     ? (values.push(input.statuses), `and status = any($${values.length})`)
     : input.status ? (values.push(input.status), `and status = $${values.length}`) : '';
-  values.push(limit, offset);
+  values.push(limit + 1, offset);
   const rows = await query<OrderListRow>(`
     select id, order_number as "orderNumber", customer_name as "customerName", status, payment_status as "paymentStatus", total, created_at as "createdAt"
-    from orders where true ${statusSql} order by created_at desc limit $${values.length - 1} offset $${values.length}`, values);
-  return { page, limit, items: rows.rows };
+    from orders where true ${statusSql} order by created_at desc, id limit $${values.length - 1} offset $${values.length}`, values);
+  return { page, limit, hasNext: rows.rows.length > limit, items: rows.rows.slice(0, limit) };
 }
 
 type OrderDetail = {

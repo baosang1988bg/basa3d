@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { test, expect, type Page } from '@playwright/test';
-import nextEnv from '@next/env';
+import { configureTestEnvironment } from '../tests/helpers/test-environment';
 import { createClient } from '@supabase/supabase-js';
 import { Client } from 'pg';
 
-nextEnv.loadEnvConfig(process.cwd());
+configureTestEnvironment();
 
 // Phase 9 pricing engine — full DoD browser flow with deterministic waits (Codex's second-pass
 // review flagged that manually driving the "upload .3mf then pick a material" path timed out

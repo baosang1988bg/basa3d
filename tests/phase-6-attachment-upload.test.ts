@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import nextEnv from '@next/env';
+import { configureTestEnvironment } from './helpers/test-environment';
 import { DomainError } from '../src/lib/domain-error.js';
 import { createCustomRequestAttachmentSignedUrl, uploadCustomRequestAttachment } from '../src/services/custom-request.service.js';
 import { createSupabaseAdminClient } from '../src/lib/supabase/admin.js';
 
-nextEnv.loadEnvConfig(process.cwd());
+configureTestEnvironment();
 
 // These validate before any Supabase Storage call, so they run without service-role credentials.
 test('rejects a file with a disallowed extension', async () => {

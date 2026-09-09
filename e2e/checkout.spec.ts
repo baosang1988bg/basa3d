@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
-import nextEnv from '@next/env';
+import { configureTestEnvironment } from '../tests/helpers/test-environment';
 import { Client } from 'pg';
 
-nextEnv.loadEnvConfig(process.cwd());
+configureTestEnvironment();
 
 // Covers required flows #1 and #2 from .agents/skills/e2e-testing/SKILL.md — "Browse product ->
 // detail -> cart" and "Checkout -> order created" — now that Phase 5 ships the public cart/

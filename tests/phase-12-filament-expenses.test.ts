@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test, { after } from 'node:test';
-import nextEnv from '@next/env';
+import { configureTestEnvironment } from './helpers/test-environment';
 import { Client } from 'pg';
 import { getPool, withTransaction } from '../src/lib/db.js';
 import { DomainError } from '../src/lib/domain-error.js';
@@ -14,7 +14,7 @@ import {
 import { assignPrintJobMaterial, assignPrintJobSpool, updatePrintJobStatus } from '../src/services/print-job.service.js';
 import { createExpense, deleteExpense, getExpenseFinancialSummary, listExpenses } from '../src/services/expense.service.js';
 
-nextEnv.loadEnvConfig(process.cwd());
+configureTestEnvironment();
 after(async () => { if (process.env.DATABASE_URL) await getPool().end(); });
 
 const ACTOR_ID = '00000000-0000-4000-8000-0000000000aa';

@@ -45,8 +45,8 @@ export interface MaterialHealthOverview {
   byMaterialType: { materialType: string; count: number; totalWeightKg: number }[];
 }
 
-// STAFF-safe (ADR-0011 boundary #2): reachable from getOperationalMetrics(), which the protected
-// layout calls for every admin request regardless of role. pendingOrders deliberately carries no
+// STAFF-safe (ADR-0011 boundary #2): reachable from the dashboard operational metrics.
+// pendingOrders deliberately carries no
 // money field (no `total`) — the phase-11.md draft originally included one, which would have
 // leaked order value into a STAFF-reachable type; corrected here, see phase-11.md Slice 1 note.
 export interface ActionableRecentItems {
@@ -156,9 +156,23 @@ async function getActionableItems(): Promise<ActionableRecentItems> {
   };
 }
 
+// Small STAFF-safe navigation counts; deliberately independent of dashboard analytics.
+export const getAdminNavBadges = cache(async () => {
+  const [pendingOrders, customRequestsOpen, printJobsActive] = await Promise.all([
+    query<{ count: string }>(`select count(*) from orders where status in ('NEW','CONFIRMED')`),
+    query<{ count: string }>(`select count(*) from custom_requests where status in ('NEW','REVIEWING','NEED_INFO','QUOTED')`),
+    query<{ count: string }>(`select count(*) from print_jobs where status in ('QUEUED','PRINTING')`),
+  ]);
+  return {
+    pendingOrders: Number(pendingOrders.rows[0].count),
+    customRequestsOpen: Number(customRequestsOpen.rows[0].count),
+    printJobsActive: Number(printJobsActive.rows[0].count),
+  };
+});
+
 // STAFF-visible (ADR-0011 boundary #2: STAFF sees operational counts only, no money) — none of
-// the queries below select a money column. Memoized via cache() so the layout (nav badges) and
-// the dashboard page calling this in the same request share 1 set of queries.
+// the queries below select a money column. Memoized via cache() for repeated dashboard reads
+// within one render request; navigation uses the smaller getAdminNavBadges() above.
 export const getOperationalMetrics = cache(async () => {
   const [
     ordersToday, pendingOrders, customRequestsOpen, printJobsActive, lowStock,

@@ -1,3 +1,6 @@
+import Link from 'next/link';
+import { ConfirmedActionForm } from '@/components/admin/confirmed-action-form';
+import { SpoolEditForm } from '@/components/admin/spool-edit-form';
 import { notFound } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { requireAdmin } from '@/lib/auth/require-admin';
 import { getFilamentSpoolById, listSpoolUsageHistory } from '@/services/filament.service';
-import { adjustSpoolStockAction } from '../actions';
+import { adjustSpoolStockAction, updateFilamentSpoolAction, setFilamentSpoolStatusAction } from '../actions';
 
 function formatVnd(value: number | null) {
   if (value === null) return '—';
@@ -24,6 +27,7 @@ export default async function FilamentSpoolDetailPage({ params }: { params: Prom
 
   return (
     <div className="flex flex-col gap-6">
+      <Link href="/admin/materials" className="text-sm underline">← Danh sách cuộn nhựa</Link>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Cuộn nhựa {spool.spoolCode}</h1>
         <Badge variant={spool.status === 'ACTIVE' ? 'secondary' : 'outline'}>{spool.status}</Badge>
@@ -40,6 +44,18 @@ export default async function FilamentSpoolDetailPage({ params }: { params: Prom
           <div><p className="text-muted-foreground">Còn lại</p><p>{spool.remainingWeightGrams}g ({Math.round(spool.remainingPct)}%)</p></div>
           {session.role === 'OWNER' ? <div><p className="text-muted-foreground">Giá mua</p><p>{formatVnd(spool.purchaseCost)}</p></div> : null}
           <div><p className="text-muted-foreground">Ghi chú</p><p>{spool.note ?? '—'}</p></div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Sửa thông tin cuộn nhựa</CardTitle></CardHeader>
+        <CardContent><SpoolEditForm spool={{ spoolCode: spool.spoolCode, hasSpool: spool.hasSpool, note: spool.note }} action={updateFilamentSpoolAction.bind(null, id)} /></CardContent>
+      </Card>
+      <Card>
+        <CardHeader><CardTitle>{spool.status === 'ACTIVE' ? 'Lưu trữ cuộn nhựa' : 'Khôi phục cuộn nhựa'}</CardTitle></CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <p className="text-sm text-muted-foreground">Cuộn lưu trữ được ẩn khỏi danh sách đang dùng và tổng tồn cuộn. Lịch sử, khối lượng vẫn được giữ để có thể khôi phục. Việc in chưa bắt đầu cần chọn cuộn đang hoạt động.</p>
+          <ConfirmedActionForm action={setFilamentSpoolStatusAction.bind(null, id, spool.status === 'ACTIVE' ? 'ARCHIVED' : 'ACTIVE')} label={spool.status === 'ACTIVE' ? 'Lưu trữ cuộn' : 'Khôi phục cuộn'} confirmation={`${spool.status === 'ACTIVE' ? 'Lưu trữ' : 'Khôi phục'} cuộn ${spool.spoolCode}?`} />
         </CardContent>
       </Card>
 

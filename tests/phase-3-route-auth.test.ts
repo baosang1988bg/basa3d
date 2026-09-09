@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test, { before, after } from 'node:test';
-import nextEnv from '@next/env';
+import { configureTestEnvironment } from './helpers/test-environment';
 import { mintStaffAccount, type MintedStaffAccount } from './helpers/rbac-accounts.js';
 
-nextEnv.loadEnvConfig(process.cwd());
+configureTestEnvironment();
 
 const PORT = 3411;
 const BASE_URL = `http://localhost:${PORT}`;

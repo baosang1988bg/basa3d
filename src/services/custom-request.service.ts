@@ -100,13 +100,13 @@ export async function listCustomRequests(input: { page?: number; limit?: number;
   const statusSql = input.statuses?.length
     ? (values.push(input.statuses), `and status = any($${values.length})`)
     : input.status ? (values.push(input.status), `and status = $${values.length}`) : '';
-  values.push(limit, offset);
+  values.push(limit + 1, offset);
   const result = await query<CustomRequestSummary>(
     `select id, request_number as "requestNumber", source_channel as "sourceChannel", status, created_at as "createdAt"
-     from custom_requests where true ${statusSql} order by created_at desc limit $${values.length - 1} offset $${values.length}`,
+     from custom_requests where true ${statusSql} order by created_at desc, id limit $${values.length - 1} offset $${values.length}`,
     values,
   );
-  return { page, limit, items: result.rows };
+  return { page, limit, hasNext: result.rows.length > limit, items: result.rows.slice(0, limit) };
 }
 
 type CustomRequestDetail = {

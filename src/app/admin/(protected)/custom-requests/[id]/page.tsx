@@ -1,3 +1,4 @@
+import { ActionForm } from '@/components/admin/action-form';
 import { notFound } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,10 @@ const CUSTOM_REQUEST_TERMINAL_STATUSES = [{ status: 'REJECTED', label: 'Yêu c�
 // normalize it onto the REVIEWING step so the stepper doesn't render it as regressing.
 function stepperStatus(status: string) {
   return status === 'NEED_INFO' ? 'REVIEWING' : status;
+}
+
+function statusLabel(status: string) {
+  return [...CUSTOM_REQUEST_STEPS, ...CUSTOM_REQUEST_TERMINAL_STATUSES].find((item) => item.status === status)?.label ?? (status === 'NEED_INFO' ? 'Cần bổ sung thông tin' : status);
 }
 
 export default async function CustomRequestDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -97,19 +102,19 @@ export default async function CustomRequestDetailPage({ params }: { params: Prom
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Trạng thái: <Badge>{customRequest.status}</Badge></CardTitle></CardHeader>
+        <CardHeader><CardTitle>Trạng thái: <Badge>{statusLabel(customRequest.status)}</Badge></CardTitle></CardHeader>
         <CardContent>
-          <form action={updateCustomRequestStatusAction.bind(null, id)} className="flex items-end gap-2">
+          <ActionForm action={updateCustomRequestStatusAction.bind(null, id)} className="flex items-end gap-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="status">Cập nhật trạng thái</Label>
               <select id="status" name="status" defaultValue="" required className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm">
                 <option value="" disabled>— Chọn trạng thái —</option>
-                {statusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
+                {statusOptions.map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)}
               </select>
             </div>
             {session.role === 'OWNER' ? <Input name="overrideReason" placeholder="Lý do nếu override" className="w-64" /> : null}
             <Button type="submit" size="sm" disabled={statusOptions.length === 0}>Lưu</Button>
-          </form>
+          </ActionForm>
         </CardContent>
       </Card>
 
@@ -151,9 +156,9 @@ export default async function CustomRequestDetailPage({ params }: { params: Prom
                         token={isExpired ? null : mintQuoteAccessToken(quote.id, new Date(quote.validUntil))}
                       />
                       {canAccept ? (
-                        <form action={acceptQuoteAction.bind(null, quote.id, id)}>
+                        <ActionForm action={acceptQuoteAction.bind(null, quote.id, id)}>
                           <Button type="submit" size="sm">Chấp nhận báo giá</Button>
-                        </form>
+                        </ActionForm>
                       ) : null}
                     </TableCell>
                   </TableRow>
@@ -162,7 +167,7 @@ export default async function CustomRequestDetailPage({ params }: { params: Prom
             </TableBody>
           </Table>
 
-          <form action={createQuoteAction.bind(null, id)} className="grid grid-cols-2 gap-4 border-t border-border pt-4">
+          <ActionForm action={createQuoteAction.bind(null, id)} className="grid grid-cols-2 gap-4 border-t border-border pt-4">
             <div className="col-span-2">
               <MakerWorldQuotePanel materials={materials} config={pricingConfig} priceInputIds={['subtotal', 'total']} />
             </div>
@@ -196,7 +201,7 @@ export default async function CustomRequestDetailPage({ params }: { params: Prom
             <div className="col-span-2">
               <Button type="submit">Tạo báo giá</Button>
             </div>
-          </form>
+          </ActionForm>
         </CardContent>
       </Card>
     </div>

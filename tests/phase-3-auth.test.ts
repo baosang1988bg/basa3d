@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import test, { after } from 'node:test';
-import nextEnv from '@next/env';
+import { configureTestEnvironment } from './helpers/test-environment';
 import { createClient } from '@supabase/supabase-js';
 import { DomainError } from '../src/lib/domain-error.js';
 import { resolveStaffSession } from '../src/lib/auth/require-admin.js';
 import { getPool, query } from '../src/lib/db.js';
 
-nextEnv.loadEnvConfig(process.cwd());
+configureTestEnvironment();
 after(async () => { if (process.env.DATABASE_URL) await getPool().end(); });
 
 test('resolveStaffSession rejects an anonymous caller', { skip: !process.env.DATABASE_URL }, async () => {

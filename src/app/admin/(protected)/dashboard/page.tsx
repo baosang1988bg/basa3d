@@ -17,8 +17,10 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
 
 export default async function DashboardPage() {
   const { role } = await requireAdmin();
-  const operational = await getOperationalMetrics();
-  const financial = role === 'OWNER' ? await getFinancialMetrics() : null;
+  const [operational, financial] = await Promise.all([
+    getOperationalMetrics(),
+    role === 'OWNER' ? getFinancialMetrics() : Promise.resolve(null),
+  ]);
   const today = new Date();
 
   return (

@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test, { after } from 'node:test';
-import nextEnv from '@next/env';
+import { configureTestEnvironment } from './helpers/test-environment';
 import { Client } from 'pg';
 import { getPool } from '../src/lib/db.js';
 import { createPricingConfig, getCurrentPricingConfig, listPricingConfigs } from '../src/services/pricing-config.service.js';
 
-nextEnv.loadEnvConfig(process.cwd());
+configureTestEnvironment();
 after(async () => { if (process.env.DATABASE_URL) await getPool().end(); });
 
 const ACTOR_ID = '00000000-0000-4000-8000-0000000000aa';

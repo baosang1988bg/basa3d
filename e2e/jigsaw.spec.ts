@@ -3,11 +3,11 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test, expect } from '@playwright/test';
-import nextEnv from '@next/env';
+import { configureTestEnvironment } from '../tests/helpers/test-environment';
 import { Client } from 'pg';
 import { createClient } from '@supabase/supabase-js';
 
-nextEnv.loadEnvConfig(process.cwd());
+configureTestEnvironment();
 
 const ASCII_CUBE_STL = `solid cube
 facet normal 0 0 -1

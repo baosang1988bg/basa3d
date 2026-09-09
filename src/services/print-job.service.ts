@@ -16,12 +16,12 @@ export async function listPrintJobs(input: { page?: number; limit?: number; stat
   const statusSql = input.statuses?.length
     ? (values.push(input.statuses), `and status = any($${values.length})`)
     : input.status ? (values.push(input.status), `and status = $${values.length}`) : '';
-  values.push(limit, offset);
+  values.push(limit + 1, offset);
   const result = await query<PrintJobSummary>(`
     select id, order_id as "orderId", custom_request_id as "customRequestId", quote_id as "quoteId",
       material_id as "materialId", printer_name as "printerName", status, created_at as "createdAt"
-    from print_jobs where true ${statusSql} order by created_at desc limit $${values.length - 1} offset $${values.length}`, values);
-  return { page, limit, items: result.rows };
+    from print_jobs where true ${statusSql} order by created_at desc, id limit $${values.length - 1} offset $${values.length}`, values);
+  return { page, limit, hasNext: result.rows.length > limit, items: result.rows.slice(0, limit) };
 }
 
 type PrintJobDetail = PrintJobSummary & {

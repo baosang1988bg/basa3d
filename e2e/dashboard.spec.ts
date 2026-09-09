@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { test, expect, type Page } from '@playwright/test';
-import nextEnv from '@next/env';
+import { configureTestEnvironment } from '../tests/helpers/test-environment';
 import { createClient } from '@supabase/supabase-js';
 import { Client } from 'pg';
 
-nextEnv.loadEnvConfig(process.cwd());
+configureTestEnvironment();
 
 // Phase 11 — real-browser verification for the admin command-center dashboard, nav, process
 // steppers, and status-filter tabs. Covers the "OWNER sees money, STAFF never does" boundary

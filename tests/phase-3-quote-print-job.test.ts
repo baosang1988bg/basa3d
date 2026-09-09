@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test, { after } from 'node:test';
-import nextEnv from '@next/env';
+import { configureTestEnvironment } from './helpers/test-environment';
 import { getPool, query } from '../src/lib/db.js';
 import { DomainError } from '../src/lib/domain-error.js';
 import { acceptQuote, createQuote } from '../src/services/quote.service.js';
 
-nextEnv.loadEnvConfig(process.cwd());
+configureTestEnvironment();
 after(async () => { if (process.env.DATABASE_URL) await getPool().end(); });
 
 test('accepting an already-accepted quote is rejected and does not create a second print_job', { skip: !process.env.DATABASE_URL }, async () => {

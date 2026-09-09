@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import test, { after } from 'node:test';
-import nextEnv from '@next/env';
+import { configureTestEnvironment } from './helpers/test-environment';
 import { getPool } from '../src/lib/db.js';
 import { getFinancialMetrics, getOperationalMetrics } from '../src/services/dashboard.service.js';
 
-nextEnv.loadEnvConfig(process.cwd());
+configureTestEnvironment();
 after(async () => { if (process.env.DATABASE_URL) await getPool().end(); });
 
 test(

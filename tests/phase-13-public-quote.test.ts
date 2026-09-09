@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test, { after } from 'node:test';
-import nextEnv from '@next/env';
+import { configureTestEnvironment } from './helpers/test-environment';
 import { Client } from 'pg';
 import { getPool } from '../src/lib/db.js';
 import { mintQuoteAccessToken, getPublicQuoteByPhoneSuffix, getPublicQuoteByToken } from '../src/services/quote.service.js';
 import { createOrderConfirmationToken } from '../src/lib/order-confirmation-token.js';
 
-nextEnv.loadEnvConfig(process.cwd());
+configureTestEnvironment();
 process.env.ORDER_CONFIRMATION_SECRET ??= 'phase-13-public-quote-test-secret-at-least-32-chars';
 
 const PORT = 3411;

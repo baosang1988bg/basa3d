@@ -1,3 +1,5 @@
+import { AdminPagination } from '@/components/admin/admin-pagination';
+import { ConfirmedActionForm } from '@/components/admin/confirmed-action-form';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +15,7 @@ import {
   listFilamentSpools,
   type FilamentWarningTier,
 } from '@/services/filament.service';
-import { createFilamentSpoolAction } from './actions';
+import { createFilamentSpoolAction, setFilamentSpoolStatusAction } from './actions';
 
 const WARNING_LABEL: Record<FilamentWarningTier, string> = {
   CON_NHIEU: 'Còn nhiều',
@@ -34,16 +36,16 @@ function formatVnd(value: number | null) {
   return `${value.toLocaleString('vi-VN')}đ`;
 }
 
-export default async function MaterialsPage({ searchParams }: { searchParams: Promise<{ materialType?: string; color?: string; warningTier?: string }> }) {
+export default async function MaterialsPage({ searchParams }: { searchParams: Promise<{ materialType?: string; color?: string; warningTier?: string; status?: string; page?: string }> }) {
   const params = await searchParams;
   const session = await requireAdmin();
-  const [materials, warehouses, stats, { items: allSpools }] = await Promise.all([
+  const status = params.status === 'ARCHIVED' ? 'ARCHIVED' : 'ACTIVE';
+  const [materials, warehouses, stats, { items: spools, page, hasNext }] = await Promise.all([
     listMaterials(),
     listWarehouses(),
     getFilamentInventoryStats(),
-    listFilamentSpools({ materialType: params.materialType || undefined, color: params.color || undefined, limit: 200 }, session.role),
+    listFilamentSpools({ status, materialType: params.materialType || undefined, color: params.color || undefined, warningTier: params.warningTier || undefined, page: Number(params.page) }, session.role),
   ]);
-  const spools = allSpools.filter((spool) => !params.warningTier || spool.warningTier === params.warningTier);
 
   const materialTypes = Array.from(new Set(materials.map((m) => m.materialType))).sort();
   const colors = Array.from(new Set(materials.map((m) => m.color).filter((c): c is string => Boolean(c)))).sort();
@@ -64,6 +66,10 @@ export default async function MaterialsPage({ searchParams }: { searchParams: Pr
         <CardHeader><CardTitle>Bộ lọc</CardTitle></CardHeader>
         <CardContent>
           <form className="flex flex-wrap items-end gap-4" method="get">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="spoolStatus">Hiển thị</Label>
+              <select id="spoolStatus" name="status" defaultValue={status} className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm"><option value="ACTIVE">Đang sử dụng</option><option value="ARCHIVED">Đã lưu trữ</option></select>
+            </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="materialType">Dòng nhựa</Label>
               <select id="materialType" name="materialType" defaultValue={params.materialType ?? ''} className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm">
@@ -151,6 +157,7 @@ export default async function MaterialsPage({ searchParams }: { searchParams: Pr
                 <TableHead>% còn lại</TableHead>
                 <TableHead>Trạng thái</TableHead>
                 {session.role === 'OWNER' ? <TableHead className="text-right">Giá mua</TableHead> : null}
+                <TableHead>Thao tác</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -176,13 +183,18 @@ export default async function MaterialsPage({ searchParams }: { searchParams: Pr
                   </TableCell>
                   <TableCell><Badge variant={WARNING_BADGE_VARIANT[spool.warningTier]}>{WARNING_LABEL[spool.warningTier]}</Badge></TableCell>
                   {session.role === 'OWNER' ? <TableCell className="text-right">{formatVnd(spool.purchaseCost)}</TableCell> : null}
+                  <TableCell><div className="flex items-center gap-3">
+                    <Link href={`/admin/materials/${spool.id}`} className="text-sm underline">Sửa / Kiểm kê</Link>
+                    <ConfirmedActionForm action={setFilamentSpoolStatusAction.bind(null, spool.id, status === 'ACTIVE' ? 'ARCHIVED' : 'ACTIVE')} label={status === 'ACTIVE' ? 'Lưu trữ' : 'Khôi phục'} confirmation={`${status === 'ACTIVE' ? 'Lưu trữ' : 'Khôi phục'} cuộn ${spool.spoolCode}? ${status === 'ACTIVE' ? 'Cuộn sẽ không còn trong danh sách đang dùng. Bạn có thể khôi phục ở mục Đã lưu trữ.' : ''}`} />
+                  </div></TableCell>
                 </TableRow>
               ))}
               {!spools.length ? (
-                <TableRow><TableCell colSpan={session.role === 'OWNER' ? 8 : 7} className="text-center text-muted-foreground">Chưa có cuộn nhựa nào khớp bộ lọc</TableCell></TableRow>
+                <TableRow><TableCell colSpan={session.role === 'OWNER' ? 9 : 8} className="text-center text-muted-foreground">Chưa có cuộn nhựa nào khớp bộ lọc</TableCell></TableRow>
               ) : null}
             </TableBody>
           </Table>
+          <AdminPagination basePath="/admin/materials" page={page} hasNext={hasNext} filters={{ status, materialType: params.materialType, color: params.color, warningTier: params.warningTier }} />
         </CardContent>
       </Card>
     </div>

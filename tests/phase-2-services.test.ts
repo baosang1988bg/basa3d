@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test, { after } from 'node:test';
-import nextEnv from '@next/env';
+import { configureTestEnvironment } from './helpers/test-environment';
 import { Client } from 'pg';
 import { availableStock, recordInventoryMovement } from '../src/services/inventory.service.js';
 import { canTransitionOrderStatus, createOrder, nextPaymentStatuses, nextShippingStatuses, reconcileOrderTotal, updateOrderStatus } from '../src/services/order.service.js';
@@ -9,7 +9,7 @@ import { canAcceptQuote } from '../src/services/quote.service.js';
 import { DomainError } from '../src/lib/domain-error.js';
 import { getPool } from '../src/lib/db.js';
 
-nextEnv.loadEnvConfig(process.cwd());
+configureTestEnvironment();
 after(async () => { if (process.env.DATABASE_URL) await getPool().end(); });
 
 test('available stock subtracts only NEW and CONFIRMED reservations', () => {

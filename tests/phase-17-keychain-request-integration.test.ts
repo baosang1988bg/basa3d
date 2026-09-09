@@ -2,12 +2,12 @@ import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test, { after } from 'node:test';
-import nextEnv from '@next/env';
+import { configureTestEnvironment } from './helpers/test-environment';
 import { Client } from 'pg';
 import * as opentype from 'opentype.js';
 import { buildKeychainModel, exportKeychainStl } from '../src/lib/keychain/keychain-engine';
 
-nextEnv.loadEnvConfig(process.cwd());
+configureTestEnvironment();
 const BASE_URL = 'http://localhost:3411';
 const TEST_IP = `phase-17-${randomUUID()}`;
 const HEADERS = { 'x-forwarded-for': TEST_IP };

@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test, { after, mock } from 'node:test';
-import nextEnv from '@next/env';
+import { configureTestEnvironment } from './helpers/test-environment';
 import { Client } from 'pg';
 import { getPool } from '../src/lib/db.js';
 import { mintStaffAccount } from './helpers/rbac-accounts.js';
 
-nextEnv.loadEnvConfig(process.cwd());
+configureTestEnvironment();
 process.env.RESEND_API_KEY ??= 'test-resend-key';
 process.env.RESEND_FROM_EMAIL ??= 'staff@example.test';
 after(async () => { if (process.env.DATABASE_URL) await getPool().end(); });

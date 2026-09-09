@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { test, expect, type Page } from '@playwright/test';
-import nextEnv from '@next/env';
+import { configureTestEnvironment } from '../tests/helpers/test-environment';
 import { createClient } from '@supabase/supabase-js';
 import { Client } from 'pg';
 
-nextEnv.loadEnvConfig(process.cwd());
+configureTestEnvironment();
 
 // e2e-testing skill (.agents/skills/e2e-testing/SKILL.md) lists 5 required flows; only
 // "Admin updates product" and "Inventory adjustment" are in scope for Phase 3 — the other three

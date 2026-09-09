@@ -44,19 +44,19 @@ export async function listProducts(input: { page?: number; limit?: number; statu
   const { page, limit, offset } = pagination(input);
   const values: unknown[] = [];
   const statusSql = input.status ? (values.push(input.status), `and p.status = $${values.length}`) : '';
-  values.push(limit, offset);
+  values.push(limit + 1, offset);
   const rows = await query<{ id: string; name: string; slug: string; productType: string; status: string; basePrice: number | null; categoryId: string | null; variants: { id: string; sku: string; name: string; price: number }[] }>(`
     select p.id, p.name, p.slug, p.product_type as "productType", p.status, p.base_price as "basePrice",
       p.category_id as "categoryId", coalesce(jsonb_agg(jsonb_build_object('id', v.id, 'sku', v.sku, 'name', v.name, 'price', v.price)) filter (where v.id is not null), '[]') as variants
     from products p left join product_variants v on v.product_id = p.id and v.is_active = true
-    where true ${statusSql} group by p.id order by p.created_at desc limit $${values.length - 1} offset $${values.length}`, values);
-  return { page, limit, items: rows.rows };
+    where true ${statusSql} group by p.id order by p.created_at desc, p.id limit $${values.length - 1} offset $${values.length}`, values);
+  return { page, limit, hasNext: rows.rows.length > limit, items: rows.rows.slice(0, limit) };
 }
 
 // Public listing (GET /api/products/variants, no auth) — cost_price is COGS, never exposed here.
 export async function listVariants(input: { page?: number; limit?: number } = {}) {
   const { page, limit, offset } = pagination(input);
-  const result = await query(`select id, product_id as "productId", sku, name, attributes, price, weight_grams as "weightGrams", is_active as "isActive" from product_variants where is_active = true order by created_at desc limit $1 offset $2`, [limit, offset]);
+  const result = await query(`select id, product_id as "productId", sku, name, attributes, price, weight_grams as "weightGrams", is_active as "isActive" from product_variants where is_active = true order by created_at desc, id limit $1 offset $2`, [limit, offset]);
   return { page, limit, items: result.rows };
 }
 

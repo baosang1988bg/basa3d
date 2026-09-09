@@ -438,3 +438,10 @@ export const createExpenseInputSchema = z.object({
 }).strict();
 
 export const updateExpenseInputSchema = createExpenseInputSchema.omit({ expenseCode: true }).partial();
+
+// Spool identity/notes only. Stock corrections must use the immutable movement ledger.
+export const updateFilamentSpoolInputSchema = z.object({
+  spoolCode: z.string().trim().min(1).max(60),
+  hasSpool: z.boolean(),
+  note: z.string().trim().max(2000).nullable(),
+}).strict();

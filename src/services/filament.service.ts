@@ -87,7 +87,7 @@ const SPOOL_SELECT = `
   from filament_spools fs join materials m on m.id = fs.material_id`;
 
 export async function listFilamentSpools(
-  filters: { materialId?: string; materialType?: string; color?: string; status?: 'ACTIVE' | 'ARCHIVED'; page?: number; limit?: number } = {},
+  filters: { materialId?: string; materialType?: string; color?: string; status?: 'ACTIVE' | 'ARCHIVED'; warningTier?: string; page?: number; limit?: number } = {},
   actorRole: StaffRole,
 ) {
   const { page, limit, offset } = pagination(filters);
@@ -97,13 +97,22 @@ export async function listFilamentSpools(
   if (filters.materialType) { values.push(filters.materialType); clauses.push(`m.material_type = $${values.length}`); }
   if (filters.color) { values.push(filters.color); clauses.push(`m.color = $${values.length}`); }
   if (filters.status) { values.push(filters.status); clauses.push(`fs.status = $${values.length}`); }
+  if (filters.warningTier) {
+    values.push(filters.warningTier);
+    // Match warningTier(): 0g, <=20%, <=50%, otherwise plenty; evaluated before LIMIT.
+    clauses.push(`(case
+      when fs.initial_weight_grams - fs.used_weight_grams <= 0 then 'DA_HET'
+      when (fs.initial_weight_grams - fs.used_weight_grams)::numeric / nullif(fs.initial_weight_grams, 0) <= 0.2 then 'SAP_HET'
+      when (fs.initial_weight_grams - fs.used_weight_grams)::numeric / nullif(fs.initial_weight_grams, 0) <= 0.5 then 'CAN_THEO_DOI'
+      else 'CON_NHIEU' end) = $${values.length}`);
+  }
   const whereSql = clauses.length ? `where ${clauses.join(' and ')}` : '';
-  values.push(limit, offset);
+  values.push(limit + 1, offset);
   const result = await query<FilamentSpoolDbRow>(
-    `${SPOOL_SELECT} ${whereSql} order by fs.spool_code limit $${values.length - 1} offset $${values.length}`,
+    `${SPOOL_SELECT} ${whereSql} order by fs.spool_code, fs.id limit $${values.length - 1} offset $${values.length}`,
     values,
   );
-  return { page, limit, items: result.rows.map((row) => toFilamentSpoolRow(row, actorRole)) };
+  return { page, limit, hasNext: result.rows.length > limit, items: result.rows.slice(0, limit).map((row) => toFilamentSpoolRow(row, actorRole)) };
 }
 
 export async function getFilamentSpoolById(id: string, actorRole: StaffRole): Promise<FilamentSpoolRow | null> {
@@ -256,4 +265,32 @@ export async function listSpoolUsageHistory(spoolId: string) {
     [spoolId],
   );
   return result.rows;
+}
+
+export async function updateFilamentSpool(
+  id: string,
+  input: { spoolCode: string; hasSpool: boolean; note: string | null },
+  actorId: string,
+) {
+  return withTransaction(async (client) => {
+    const before = await client.query('select spool_code, has_spool, note from filament_spools where id = $1 for update', [id]);
+    if (!before.rowCount) throw new DomainError('SPOOL_NOT_FOUND', 'Không tìm thấy cuộn nhựa.', 404);
+    try {
+      await client.query('update filament_spools set spool_code = $2, has_spool = $3, note = $4 where id = $1', [id, input.spoolCode, input.hasSpool, input.note]);
+    } catch (error) {
+      if ((error as { code?: string }).code === '23505') throw new DomainError('SPOOL_CODE_EXISTS', 'Mã cuộn đã tồn tại. Hãy chọn mã khác.', 409);
+      throw error;
+    }
+    await writeAuditLog(client, { actorId, action: 'FILAMENT_SPOOL_UPDATED', entityType: 'filament_spool', entityId: id, beforeData: before.rows[0], afterData: input });
+  });
+}
+
+export async function setFilamentSpoolStatus(id: string, status: 'ACTIVE' | 'ARCHIVED', actorId: string) {
+  return withTransaction(async (client) => {
+    const before = await client.query<{ status: string }>('select status from filament_spools where id = $1 for update', [id]);
+    if (!before.rowCount) throw new DomainError('SPOOL_NOT_FOUND', 'Không tìm thấy cuộn nhựa.', 404);
+    if (before.rows[0].status === status) return;
+    await client.query('update filament_spools set status = $2 where id = $1', [id, status]);
+    await writeAuditLog(client, { actorId, action: status === 'ARCHIVED' ? 'FILAMENT_SPOOL_ARCHIVED' : 'FILAMENT_SPOOL_RESTORED', entityType: 'filament_spool', entityId: id, beforeData: before.rows[0], afterData: { status } });
+  });
 }

@@ -3,14 +3,13 @@ import { redirect } from 'next/navigation';
 import { AdminNav } from '@/components/admin/admin-nav';
 import { requireAdmin } from '@/lib/auth/require-admin';
 import { DomainError } from '@/lib/domain-error';
-import { getOperationalMetrics } from '@/services/dashboard.service';
+import { getAdminNavBadges } from '@/services/dashboard.service';
 
 export default async function ProtectedAdminLayout({ children }: { children: ReactNode }) {
   try {
     const session = await requireAdmin();
-    // requireAdmin() forces a per-request Supabase auth check, so this layout — and the badge
-    // counts below — always re-run on navigation; no client-side polling needed for "live" badges.
-    const operational = await getOperationalMetrics();
+    // Navigation needs only these counts, not the full dashboard analytics.
+    const operational = await getAdminNavBadges();
     return (
       <div className="flex min-h-screen">
         <AdminNav

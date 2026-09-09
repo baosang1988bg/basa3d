@@ -1,3 +1,5 @@
+import { ActionForm } from '@/components/admin/action-form';
+import { AdminPagination } from '@/components/admin/admin-pagination';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,10 +17,10 @@ const FILTER_GROUPS: StatusFilterGroup[] = [
   { key: 'cancelled', label: 'Đã huỷ', statuses: ['CANCELLED'] },
 ];
 
-export default async function PrintJobsPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
-  const { filter } = await searchParams;
+export default async function PrintJobsPage({ searchParams }: { searchParams: Promise<{ filter?: string; page?: string }> }) {
+  const { filter, page: pageParam } = await searchParams;
   const { activeKey, statuses } = resolveStatusFilter(FILTER_GROUPS, filter);
-  const { items: printJobs } = await listPrintJobs({ limit: 100, statuses });
+  const { items: printJobs, page, hasNext } = await listPrintJobs({ page: Number(pageParam), statuses });
 
   return (
     <div className="flex flex-col gap-6">
@@ -55,18 +57,19 @@ export default async function PrintJobsPage({ searchParams }: { searchParams: Pr
                   <TableCell><Badge>{job.status}</Badge></TableCell>
                   <TableCell>{new Date(job.createdAt).toLocaleString('vi-VN')}</TableCell>
                   <TableCell className="text-right">
-                    <form action={updatePrintJobStatusAction.bind(null, job.id)} className="flex justify-end gap-2">
+                    <ActionForm action={updatePrintJobStatusAction.bind(null, job.id)} className="flex justify-end gap-2">
                       <select name="status" defaultValue="" required className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm">
                         <option value="" disabled>— Chọn —</option>
                         {nextPrintJobStatuses(job.status).map((status) => <option key={status} value={status}>{status}</option>)}
                       </select>
                       <Button type="submit" size="sm" variant="outline" disabled={nextPrintJobStatuses(job.status).length === 0}>Lưu</Button>
-                    </form>
+                    </ActionForm>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+          <AdminPagination basePath="/admin/print-jobs" page={page} hasNext={hasNext} filters={{ filter: activeKey }} />
         </CardContent>
       </Card>
     </div>

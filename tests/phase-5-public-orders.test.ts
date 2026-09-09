@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
-import nextEnv from '@next/env';
+import { configureTestEnvironment } from './helpers/test-environment';
 import { Client } from 'pg';
 import { createOrderConfirmationToken } from '../src/lib/order-confirmation-token.js';
 
-nextEnv.loadEnvConfig(process.cwd());
+configureTestEnvironment();
 
 const PORT = 3411;
 const BASE_URL = `http://localhost:${PORT}`;

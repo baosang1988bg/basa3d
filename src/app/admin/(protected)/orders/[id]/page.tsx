@@ -1,3 +1,4 @@
+import { ActionForm } from '@/components/admin/action-form';
 import { notFound } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -23,6 +24,10 @@ const ORDER_TERMINAL_STATUSES = [{ status: 'CANCELLED', label: 'Đơn hàng đã
 const PAYMENT_STATUSES = ['UNPAID', 'DEPOSIT_PAID', 'PAID', 'REFUNDED'];
 const SHIPPING_STATUSES = ['PENDING', 'SHIPPED', 'DELIVERED', 'RETURNED'];
 
+function statusLabel(status: string) {
+  return [...ORDER_STEPS, ...ORDER_TERMINAL_STATUSES].find((item) => item.status === status)?.label ?? status;
+}
+
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [session, order] = await Promise.all([requireAdmin(), getOrderById(id)]);
@@ -37,7 +42,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Đơn hàng {order.orderNumber}</h1>
         <div className="flex gap-2">
-          <Badge>{order.status}</Badge>
+          <Badge>{statusLabel(order.status)}</Badge>
           <Badge variant="secondary">{order.paymentStatus}</Badge>
           <Badge variant="secondary">{order.shippingStatus}</Badge>
         </div>
@@ -112,25 +117,25 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
       <Card>
         <CardHeader><CardTitle>Trạng thái đơn</CardTitle></CardHeader>
         <CardContent>
-          <form action={updateOrderStatusAction.bind(null, id)} className="flex items-end gap-3">
+          <ActionForm action={updateOrderStatusAction.bind(null, id)} className="flex items-end gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="status">Chuyển sang trạng thái</Label>
               <select id="status" name="status" className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm" defaultValue="">
                 <option value="" disabled>— Chọn trạng thái —</option>
                 {nextStatusCandidates.map((candidate) => (
-                  <option key={candidate} value={candidate}>{candidate}</option>
+                  <option key={candidate} value={candidate}>{statusLabel(candidate)}</option>
                 ))}
               </select>
             </div>
             <Button type="submit" size="sm" disabled={nextStatusCandidates.length === 0}>Cập nhật</Button>
-          </form>
+          </ActionForm>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader><CardTitle>Thanh toán, vận chuyển & ghi chú nội bộ</CardTitle></CardHeader>
         <CardContent>
-          <form action={updateOrderAdminFieldsAction.bind(null, id)} className="flex flex-col gap-4">
+          <ActionForm action={updateOrderAdminFieldsAction.bind(null, id)} className="flex flex-col gap-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="paymentStatus">Trạng thái thanh toán</Label>
@@ -158,7 +163,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             <div>
               <Button type="submit" size="sm">Lưu thay đổi</Button>
             </div>
-          </form>
+          </ActionForm>
         </CardContent>
       </Card>
     </div>

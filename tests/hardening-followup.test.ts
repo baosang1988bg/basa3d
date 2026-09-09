@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test, { after } from 'node:test';
-import nextEnv from '@next/env';
+import { configureTestEnvironment } from './helpers/test-environment';
 import { Client } from 'pg';
 import { createOrderConfirmationToken, verifyOrderConfirmationToken } from '../src/lib/order-confirmation-token.js';
 import { createDatabaseRateLimiter } from '../src/lib/rate-limit.js';
 import { getOrderConfirmationByToken, getPublicOrderByNumber } from '../src/services/order.service.js';
 import { getPool } from '../src/lib/db.js';
 
-nextEnv.loadEnvConfig(process.cwd());
+configureTestEnvironment();
 process.env.ORDER_CONFIRMATION_SECRET ??= 'hardening-followup-test-secret-at-least-32-characters';
 after(async () => { if (process.env.DATABASE_URL) await getPool().end(); });
 

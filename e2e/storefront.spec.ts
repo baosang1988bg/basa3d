@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
-import nextEnv from '@next/env';
+import { configureTestEnvironment } from '../tests/helpers/test-environment';
 import { Client } from 'pg';
 
-nextEnv.loadEnvConfig(process.cwd());
+configureTestEnvironment();
 
 test('a visitor can load /custom-print, fill the form, and submit successfully', async ({ page }) => {
   const phone = `09${randomUUID().replace(/\D/g, '').slice(0, 8)}`;
