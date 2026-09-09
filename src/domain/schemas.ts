@@ -110,6 +110,12 @@ export const warehouseInputSchema = z.object({
   address: z.string().trim().max(2_000).nullable().optional(),
 }).strict();
 
+// Phase 29: which license the model behind this product was made under, and where to find proof
+// of it — advisory metadata for copyright/IP compliance (docs/exec-plans/active/
+// phase-29-copyright-compliance.md), not enforced by any DB constraint (varchar(50) on the
+// products table, not a Postgres enum, so new license types don't require a migration).
+export const productLicenseTypeSchema = z.enum(['OWN_DESIGN', 'CC_BY', 'CC0', 'COMMERCIAL_LICENSE', 'OTHER']);
+
 export const productInputSchema = z.object({
   categoryId: uuidSchema.nullable(),
   name: nonEmptyText.max(200),
@@ -126,6 +132,9 @@ export const productInputSchema = z.object({
   seoDescription: z.string().trim().max(500).nullable().optional(),
   pricingBreakdown: pricingBreakdownSchema.nullable().optional(),
   pricingConfigId: uuidSchema.nullable().optional(),
+  licenseType: productLicenseTypeSchema.default('OWN_DESIGN'),
+  licenseSourceUrl: z.string().trim().url().max(2_000).nullable().optional(),
+  licenseProofUrl: z.string().trim().url().max(2_000).nullable().optional(),
 }).strict().superRefine(validatePricingSnapshotPair);
 
 export const productVariantInputSchema = z.object({
@@ -233,6 +242,12 @@ export const publicCustomRequestInputSchema = z.object({
   requestedSize: z.string().trim().max(100).nullable().optional(),
   attachmentPath: z.string().trim().min(1).max(500).regex(/^requests\/[0-9a-f-]+\.(?:jpg|jpeg|png|webp|stl|step|stp|obj|3mf)$/).nullable().optional(),
   honeypot: z.string().trim().max(200).optional().default(''),
+  // Phase 29: the customer must actively confirm they own the rights to the file/description they
+  // are submitting — z.literal(true) rejects both a missing field and an unchecked (false) box.
+  // tosVersion is sent by the client from a shared constant (src/lib/copyright/tos-version.ts), not
+  // typed by the customer, so it records which wording of the ToS they agreed to.
+  copyrightConfirmed: z.literal(true),
+  tosVersion: z.string().trim().min(1).max(50),
 }).strict();
 
 // Phase 13: immutable model metadata snapshot captured from the MakerWorld resolver at "Tạo báo
@@ -259,6 +274,10 @@ export const quoteInputSchema = z.object({
   pricingBreakdown: pricingBreakdownSchema.nullable().optional(),
   pricingConfigId: uuidSchema.nullable().optional(),
   modelSnapshot: quoteModelSnapshotSchema.nullable().optional(),
+  // Phase 29: soft gate, not schema-level enforced — createQuote (quote.service.ts) rejects this
+  // when the custom request's ip_risk_flag is true and this stays false. A normal (non-flagged)
+  // request never has to send it, so the field simply defaults to false here.
+  ipRiskAcknowledged: z.boolean().default(false),
 }).strict().superRefine((quote, context) => {
   validatePricingSnapshotPair(quote, context);
   if (quote.total !== quote.subtotal + quote.shippingFee - quote.discount) {
@@ -342,6 +361,9 @@ export const productUpdateInputSchema = z.object({
   seoDescription: z.string().trim().max(500).nullable().optional(),
   pricingBreakdown: pricingBreakdownSchema.nullable().optional(),
   pricingConfigId: uuidSchema.nullable().optional(),
+  licenseType: productLicenseTypeSchema.optional(),
+  licenseSourceUrl: z.string().trim().url().max(2_000).nullable().optional(),
+  licenseProofUrl: z.string().trim().url().max(2_000).nullable().optional(),
 }).strict().superRefine(validatePricingSnapshotPair);
 export const variantUpdateInputSchema = z.object({
   name: nonEmptyText.max(200).optional(),

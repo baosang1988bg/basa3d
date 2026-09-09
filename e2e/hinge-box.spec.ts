@@ -28,6 +28,7 @@ test('visitor generates a Hinge Box STL, submits it, and admin can see the reque
   await page.locator('#customerName').fill(customerName);
   await page.locator('#customerPhone').fill(phone);
   await page.locator('#quantity').fill('1');
+  await page.locator('#copyrightConfirmed').check();
   await page.getByRole('button', { name: 'Gửi yêu cầu đặt in 3D' }).click();
   await expect(page.getByText('Đã gửi yêu cầu thành công!')).toBeVisible();
 

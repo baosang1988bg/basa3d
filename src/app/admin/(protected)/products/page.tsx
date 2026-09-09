@@ -72,6 +72,27 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
               <Label htmlFor="seoDescription">SEO description</Label>
               <Input id="seoDescription" name="seoDescription" maxLength={500} placeholder="Để trống dùng mô tả ngắn" />
             </div>
+            <div className="col-span-2 grid grid-cols-3 gap-4 rounded-lg border border-border p-3">
+              <div className="col-span-3 text-sm font-semibold">Bản quyền &amp; nguồn model</div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="licenseType">Loại license</Label>
+                <select id="licenseType" name="licenseType" defaultValue="OWN_DESIGN" className="h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <option value="OWN_DESIGN">Tự thiết kế</option>
+                  <option value="CC_BY">CC BY</option>
+                  <option value="CC0">CC0 / Public Domain</option>
+                  <option value="COMMERCIAL_LICENSE">Đã mua Commercial License</option>
+                  <option value="OTHER">Khác</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="licenseSourceUrl">Link nguồn model</Label>
+                <Input id="licenseSourceUrl" name="licenseSourceUrl" type="url" placeholder="https://makerworld.com/..." />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="licenseProofUrl">Link bằng chứng license</Label>
+                <Input id="licenseProofUrl" name="licenseProofUrl" type="url" placeholder="Link ảnh chụp màn hình license" />
+              </div>
+            </div>
             <div className="col-span-2 flex flex-col gap-2 pt-2">
               <div className="flex items-center gap-3">
                 <Button type="submit">Tạo sản phẩm</Button>

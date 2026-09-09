@@ -100,7 +100,10 @@ export default async function CustomRequestsPage({ searchParams }: { searchParam
             <TableBody>
               {customRequests.map((item) => (
                 <TableRow key={item.id}>
-                  <TableCell className="font-medium">{item.requestNumber}</TableCell>
+                  <TableCell className="font-medium">
+                    {item.requestNumber}
+                    {item.ipRiskFlag ? <Badge variant="destructive" className="ml-2">⚠️ Rủi ro SHTT</Badge> : null}
+                  </TableCell>
                   <TableCell><Badge variant="secondary">{item.sourceChannel}</Badge></TableCell>
                   <TableCell><Badge>{item.status}</Badge></TableCell>
                   <TableCell>{new Date(item.createdAt).toLocaleString('vi-VN')}</TableCell>

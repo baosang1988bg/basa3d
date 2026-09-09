@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
 import { LegalPage } from '@/components/storefront/legal-page';
 import { SITE_CONFIG } from '@/config/site';
+import { CURRENT_TOS_VERSION } from '@/lib/copyright/tos-version';
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('policies.fileConfidentiality');
@@ -18,7 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function FileConfidentialityPolicyPage() {
   const t = await getTranslations('policies.fileConfidentiality');
   return (
-    <LegalPage title={t('title')} updatedAt="2026-08-31">
+    <LegalPage title={t('title')} updatedAt={CURRENT_TOS_VERSION}>
       <section>
         <h2>{t('section1Title')}</h2>
         <p>

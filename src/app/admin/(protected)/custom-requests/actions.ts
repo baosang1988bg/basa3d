@@ -80,6 +80,9 @@ export async function createQuoteAction(customRequestId: string, formData: FormD
       // Phase 13: set only when staff used the MakerWorld panel (see MakerWorldQuotePanel) —
       // otherwise undefined (manual/upload-.3mf quote, no model metadata to snapshot).
       modelSnapshot: modelSnapshotRaw ? JSON.parse(modelSnapshotRaw) : undefined,
+      // Phase 29: only rendered/submitted when the custom request is ip_risk_flag-ged — a normal
+      // request's form never includes this checkbox, so it stays the schema default (false).
+      ipRiskAcknowledged: formData.get('ipRiskAcknowledged') === 'on',
     });
     if (!parsed.success) return { error: 'Dữ liệu không hợp lệ. Vui lòng kiểm tra các trường đã nhập.' };
     const input = parsed.data;

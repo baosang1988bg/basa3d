@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
 import { configureTestEnvironment } from '../tests/helpers/test-environment';
 import { Client } from 'pg';
+import { CURRENT_TOS_VERSION } from '../src/lib/copyright/tos-version';
 
 configureTestEnvironment();
 
@@ -15,6 +16,10 @@ test('a visitor can load /custom-print, fill the form, and submit successfully',
   await page.locator('#customerPhone').fill(phone);
   await page.locator('#quantity').fill('2');
   await page.locator('#description').fill('E2E smoke test submission — vui lòng bỏ qua.');
+  // Phase 29: submit stays disabled until the copyright confirmation checkbox is checked.
+  await expect(page.getByRole('button', { name: 'Gửi yêu cầu đặt in' })).toBeDisabled();
+  await page.locator('#copyrightConfirmed').check();
+  await expect(page.getByRole('button', { name: 'Gửi yêu cầu đặt in' })).toBeEnabled();
   await page.getByRole('button', { name: 'Gửi yêu cầu đặt in' }).click();
 
   await expect(page.getByText('Đã gửi yêu cầu thành công!')).toBeVisible();
@@ -23,9 +28,11 @@ test('a visitor can load /custom-print, fill the form, and submit successfully',
     const client = new Client({ connectionString: process.env.DATABASE_URL });
     await client.connect();
     try {
-      const row = await client.query('select source_channel from custom_requests where customer_phone = $1', [phone]);
+      const row = await client.query('select source_channel, copyright_confirmed, tos_version from custom_requests where customer_phone = $1', [phone]);
       expect(row.rowCount).toBe(1);
       expect(row.rows[0].source_channel).toBe('WEBSITE');
+      expect(row.rows[0].copyright_confirmed).toBe(true);
+      expect(row.rows[0].tos_version).toBe(CURRENT_TOS_VERSION);
     } finally {
       await client.end();
     }

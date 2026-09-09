@@ -19,6 +19,7 @@ test('visitor generates a Vietnamese keychain STL, submits it, and admin can see
   await page.locator('#customerName').fill(customerName);
   await page.locator('#customerPhone').fill(phone);
   await page.locator('#quantity').fill('2');
+  await page.locator('#copyrightConfirmed').check();
   await page.getByRole('button', { name: 'Gửi yêu cầu đặt in 3D' }).click();
   await expect(page.getByText('Đã gửi yêu cầu thành công!')).toBeVisible();
 

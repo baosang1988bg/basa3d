@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, type FormEvent, type ClipboardEvent, type DragEvent, type ChangeEvent } from 'react';
+import NextLink from 'next/link';
 import { StorefrontButton } from '@/components/storefront/button';
 import { Upload, Link as LinkIcon, X, Image as ImageIcon, File as FileIcon } from 'lucide-react';
 import { trackCustomPrintQuote, trackFileUpload } from '@/lib/analytics';
+import { CURRENT_TOS_VERSION } from '@/lib/copyright/tos-version';
 
 type SubmitState = { status: 'idle' | 'submitting' | 'success' | 'error'; message?: string };
 type UploadState = { status: 'idle' | 'uploading' | 'done' | 'error'; fileName?: string; message?: string };
@@ -29,6 +31,7 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
     ? { status: 'done', fileName: prefill.attachmentFileName }
     : { status: 'idle' });
   const [isDragging, setIsDragging] = useState(false);
+  const [copyrightConfirmed, setCopyrightConfirmed] = useState(false);
 
   async function handleFile(file: File) {
     const extension = file.name.toLowerCase().split('.').pop() ?? '';
@@ -103,7 +106,7 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (isUploading) return;
+    if (isUploading || !copyrightConfirmed) return;
     const formElement = event.currentTarget;
     setState({ status: 'submitting' });
     const form = new FormData(formElement);
@@ -117,6 +120,8 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
       attachmentPath: attachmentPath.trim() !== '' ? attachmentPath.trim() : null,
       description: String(form.get('description') ?? ''),
       honeypot: String(form.get('company-website') ?? ''),
+      copyrightConfirmed: true as const,
+      tosVersion: CURRENT_TOS_VERSION,
     };
 
     try {
@@ -140,6 +145,7 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
       setImagePreview(null);
       setAttachmentPath('');
       setUpload({ status: 'idle' });
+      setCopyrightConfirmed(false);
     } catch {
       setState({ status: 'error', message: 'Không thể kết nối máy chủ, vui lòng thử lại.' });
     }
@@ -278,8 +284,25 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
 
       {state.status === 'error' && <p className="text-sm font-medium text-destructive md:col-span-2">{state.message}</p>}
 
+      <div className="flex items-start gap-2 md:col-span-2">
+        <input
+          id="copyrightConfirmed"
+          type="checkbox"
+          required
+          checked={copyrightConfirmed}
+          onChange={(event) => setCopyrightConfirmed(event.target.checked)}
+          className="mt-0.5 size-4 shrink-0"
+        />
+        <label htmlFor="copyrightConfirmed" className="cursor-pointer text-xs text-muted-foreground">
+          Tôi cam kết có quyền sử dụng hợp pháp file/mô tả này và đồng ý với{' '}
+          <NextLink href="/file-confidentiality-policy" target="_blank" className="font-medium text-primary hover:underline">
+            Chính sách bảo mật file thiết kế
+          </NextLink>.
+        </label>
+      </div>
+
       <div className="md:col-span-2 pt-2">
-        <StorefrontButton type="submit" variant="accent" disabled={state.status === 'submitting' || isUploading} className="w-full sm:w-auto">
+        <StorefrontButton type="submit" variant="accent" disabled={state.status === 'submitting' || isUploading || !copyrightConfirmed} className="w-full sm:w-auto">
           {isUploading ? 'Đang tải file lên...' : state.status === 'submitting' ? 'Đang gửi yêu cầu...' : 'Gửi yêu cầu đặt in 3D'}
         </StorefrontButton>
       </div>

@@ -57,7 +57,10 @@ export default async function CustomRequestDetailPage({ params }: { params: Prom
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">{customRequest.requestNumber}</h1>
-        <Badge variant="secondary">{customRequest.sourceChannel}</Badge>
+        <div className="flex items-center gap-2">
+          {customRequest.ipRiskFlag ? <Badge variant="destructive">⚠️ Rủi ro SHTT</Badge> : null}
+          <Badge variant="secondary">{customRequest.sourceChannel}</Badge>
+        </div>
       </div>
 
       <Card>
@@ -198,6 +201,14 @@ export default async function CustomRequestDetailPage({ params }: { params: Prom
               <Label htmlFor="note">Ghi chú</Label>
               <Textarea id="note" name="note" />
             </div>
+            {customRequest.ipRiskFlag ? (
+              <div className="col-span-2 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+                <input id="ipRiskAcknowledged" name="ipRiskAcknowledged" type="checkbox" required className="mt-0.5 size-4" />
+                <Label htmlFor="ipRiskAcknowledged" className="cursor-pointer text-sm font-normal">
+                  Đã kiểm tra yêu cầu này không vi phạm SHTT hoặc in chi tiết phi thương mại theo yêu cầu cá nhân.
+                </Label>
+              </div>
+            ) : null}
             <div className="col-span-2">
               <Button type="submit">Tạo báo giá</Button>
             </div>

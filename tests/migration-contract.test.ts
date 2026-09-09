@@ -70,6 +70,16 @@ test('Phase 12 migration adds filament_spools/expenses tables and per-spool ledg
   assert.doesNotMatch(sql, /LOW_STOCK|'EMPTY'/);
 });
 
+test('Phase 29 migration adds copyright/IP compliance columns to custom_requests and products', async () => {
+  const sql = await readFile('supabase/migrations/20260908000000_copyright_compliance.sql', 'utf8');
+  assert.match(sql, /alter table custom_requests[\s\S]*?add column copyright_confirmed boolean not null default false/);
+  assert.match(sql, /add column tos_version varchar\(50\)/);
+  assert.match(sql, /add column ip_risk_flag boolean not null default false/);
+  assert.match(sql, /alter table products[\s\S]*?add column license_type varchar\(50\) not null default 'OWN_DESIGN'/);
+  assert.match(sql, /add column license_source_url text/);
+  assert.match(sql, /add column license_proof_url text/);
+});
+
 test('Phase 12 seed migration links material_movements to filament_spools via a single CTE with RETURNING, not an independent insert', async () => {
   const sql = await readFile('supabase/migrations/20260903000001_filament_spools_and_expenses_seed.sql', 'utf8');
   // Q3: the material_movements PURCHASE rows must be SELECTed from the filament_spools insert's

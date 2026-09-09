@@ -3,6 +3,7 @@ import { query, withTransaction } from '../lib/db';
 import { DomainError } from '../lib/domain-error';
 import { createSupabaseAdminClient } from '../lib/supabase/admin';
 import { sendStaffNotification } from '../lib/notify/send-staff-notification';
+import { detectIpRiskKeywords } from '../lib/copyright/ip-risk-keywords';
 import { writeAuditLog } from './audit.service';
 import { pagination } from './product.service';
 
@@ -48,9 +49,18 @@ export async function createCustomRequestAttachmentSignedUrl(storagePath: string
 export async function createCustomRequest(input: Record<string, unknown>, actorId: string | null) {
   const created = await withTransaction(async (client) => {
     const requestNumber = `CR-${randomUUID().replaceAll('-', '').slice(0, 12).toUpperCase()}`;
+    // Phase 29: copyright_confirmed/tos_version only come from the public form
+    // (publicCustomRequestInputSchema) — the admin-entered variant (customRequestInputSchema, staff
+    // typing on a customer's behalf) has no such fields, so they default to false/null there.
+    // ip_risk_flag is computed for every channel, not just public — a heuristic keyword check on the
+    // description, advisory only (see ip-risk-keywords.ts).
+    const ipRiskFlag = detectIpRiskKeywords(String(input.description ?? ''));
     const result = await client.query<{ id: string; request_number: string }>(`
-      insert into custom_requests (request_number, source_channel, customer_name, customer_phone, customer_email, description, quantity, requested_material, requested_color, requested_size, attachment_path)
-      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning id, request_number`, [requestNumber, input.sourceChannel, input.customerName, input.customerPhone, input.customerEmail ?? null, input.description, input.quantity, input.requestedMaterial ?? null, input.requestedColor ?? null, input.requestedSize ?? null, input.attachmentPath ?? null]);
+      insert into custom_requests (request_number, source_channel, customer_name, customer_phone, customer_email, description, quantity, requested_material, requested_color, requested_size, attachment_path, copyright_confirmed, tos_version, ip_risk_flag)
+      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) returning id, request_number`, [
+      requestNumber, input.sourceChannel, input.customerName, input.customerPhone, input.customerEmail ?? null, input.description, input.quantity, input.requestedMaterial ?? null, input.requestedColor ?? null, input.requestedSize ?? null, input.attachmentPath ?? null,
+      input.copyrightConfirmed === true, input.tosVersion ?? null, ipRiskFlag,
+    ]);
     const action = actorId ? 'CUSTOM_REQUEST_CREATED' : 'CUSTOM_REQUEST_CREATED_PUBLIC';
     await writeAuditLog(client, { actorId, action, entityType: 'custom_request', entityId: result.rows[0].id, afterData: input });
     return { id: result.rows[0].id, requestNumber: result.rows[0].request_number };
@@ -92,7 +102,7 @@ export async function updateCustomRequestStatus(id: string, status: string, acto
   });
 }
 
-type CustomRequestSummary = { id: string; requestNumber: string; sourceChannel: string; status: string; createdAt: Date };
+type CustomRequestSummary = { id: string; requestNumber: string; sourceChannel: string; status: string; createdAt: Date; ipRiskFlag: boolean };
 
 export async function listCustomRequests(input: { page?: number; limit?: number; status?: string; statuses?: string[] } = {}) {
   const { page, limit, offset } = pagination(input);
@@ -102,7 +112,7 @@ export async function listCustomRequests(input: { page?: number; limit?: number;
     : input.status ? (values.push(input.status), `and status = $${values.length}`) : '';
   values.push(limit + 1, offset);
   const result = await query<CustomRequestSummary>(
-    `select id, request_number as "requestNumber", source_channel as "sourceChannel", status, created_at as "createdAt"
+    `select id, request_number as "requestNumber", source_channel as "sourceChannel", status, created_at as "createdAt", ip_risk_flag as "ipRiskFlag"
      from custom_requests where true ${statusSql} order by created_at desc, id limit $${values.length - 1} offset $${values.length}`,
     values,
   );
@@ -114,6 +124,7 @@ type CustomRequestDetail = {
   customerEmail: string | null; description: string; quantity: number; requestedMaterial: string | null;
   requestedColor: string | null; requestedSize: string | null; attachmentPath: string | null;
   status: string; internalNote: string | null; createdAt: Date;
+  copyrightConfirmed: boolean; tosVersion: string | null; ipRiskFlag: boolean;
 };
 
 export async function getCustomRequestById(id: string): Promise<CustomRequestDetail | null> {
@@ -121,7 +132,8 @@ export async function getCustomRequestById(id: string): Promise<CustomRequestDet
     select id, request_number as "requestNumber", source_channel as "sourceChannel", customer_name as "customerName",
       customer_phone as "customerPhone", customer_email as "customerEmail", description, quantity,
       requested_material as "requestedMaterial", requested_color as "requestedColor", requested_size as "requestedSize",
-      attachment_path as "attachmentPath", status, internal_note as "internalNote", created_at as "createdAt"
+      attachment_path as "attachmentPath", status, internal_note as "internalNote", created_at as "createdAt",
+      copyright_confirmed as "copyrightConfirmed", tos_version as "tosVersion", ip_risk_flag as "ipRiskFlag"
     from custom_requests where id = $1`, [id]);
   return result.rows[0] ?? null;
 }

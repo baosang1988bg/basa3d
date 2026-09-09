@@ -39,9 +39,18 @@ export async function listQuotesByCustomRequest(customRequestId: string): Promis
 export async function createQuote(input: {
   customRequestId: string; subtotal: number; shippingFee?: number; discount?: number; total: number;
   validUntil: Date; note?: string | null; pricingBreakdown?: unknown | null; pricingConfigId?: string | null;
-  modelSnapshot?: QuoteModelSnapshot | null;
+  modelSnapshot?: QuoteModelSnapshot | null; ipRiskAcknowledged?: boolean;
 }, actorId: string) {
   return withTransaction(async (client) => {
+    // Phase 29 soft gate: a custom request flagged for third-party IP risk (ip-risk-keywords.ts)
+    // requires staff to explicitly acknowledge they checked it before a quote can be created — does
+    // not touch CUSTOM_REQUEST_STATUS_TRANSITIONS (custom-request.service.ts), only blocks this one
+    // write. A request that was never flagged never needs ipRiskAcknowledged.
+    const customRequest = await client.query<{ ip_risk_flag: boolean }>('select ip_risk_flag from custom_requests where id = $1 for update', [input.customRequestId]);
+    if (!customRequest.rowCount) throw new DomainError('CUSTOM_REQUEST_NOT_FOUND', 'Custom request was not found.', 404);
+    if (customRequest.rows[0].ip_risk_flag && !input.ipRiskAcknowledged) {
+      throw new DomainError('IP_RISK_ACKNOWLEDGEMENT_REQUIRED', 'Yêu cầu này có rủi ro SHTT — cần xác nhận đã kiểm tra trước khi tạo báo giá.', 409);
+    }
     const quoteNumber = `Q-${randomUUID().replaceAll('-', '').slice(0, 12).toUpperCase()}`;
     const result = await client.query<{ id: string; quote_number: string }>(`
       insert into quotes (custom_request_id, quote_number, subtotal, shipping_fee, discount, total, valid_until, note, pricing_breakdown, pricing_config_id, model_snapshot)

@@ -44,6 +44,11 @@ export async function createProductAction(formData: FormData) {
     // Phase 9: set together only when staff used the pricing calculator panel.
     pricingBreakdown: pricingBreakdownRaw ? JSON.parse(pricingBreakdownRaw) : undefined,
     pricingConfigId: readFormValue(formData, 'pricingConfigId') ?? undefined,
+    // Phase 29: license/source of the model this product is printed from — defaults to OWN_DESIGN
+    // in the schema when the field is left unset.
+    licenseType: readFormValue(formData, 'licenseType') ?? undefined,
+    licenseSourceUrl: readFormValue(formData, 'licenseSourceUrl') ?? null,
+    licenseProofUrl: readFormValue(formData, 'licenseProofUrl') ?? null,
   });
   await createProduct(input, actorId);
   revalidatePath('/admin/products');
@@ -75,6 +80,9 @@ export async function updateProductAction(productId: string, formData: FormData)
     seoDescription: readFormValue(formData, 'seoDescription') ?? null,
     pricingBreakdown: pricingBreakdownRaw ? JSON.parse(pricingBreakdownRaw) : undefined,
     pricingConfigId: readFormValue(formData, 'pricingConfigId') ?? undefined,
+    licenseType: readFormValue(formData, 'licenseType'),
+    licenseSourceUrl: readFormValue(formData, 'licenseSourceUrl') ?? null,
+    licenseProofUrl: readFormValue(formData, 'licenseProofUrl') ?? null,
   });
   await updateProduct(productId, patch, actorId);
   revalidatePath(`/admin/products/${productId}`);

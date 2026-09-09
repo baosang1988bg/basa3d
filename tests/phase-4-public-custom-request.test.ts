@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
-import nextEnv from '@next/env';
+import { configureTestEnvironment } from './helpers/test-environment';
 import { Client } from 'pg';
 
-nextEnv.loadEnvConfig(process.cwd());
+configureTestEnvironment();
 
 const PORT = 3411;
 const BASE_URL = `http://localhost:${PORT}`;
@@ -16,6 +16,10 @@ function validPayload(overrides: Record<string, unknown> = {}) {
     description: 'Cần in 1 mô hình test',
     quantity: 1,
     attachmentPath: `requests/${randomUUID()}.stl`,
+    // Phase 29: required on the public schema (z.literal(true)/non-empty string) — every payload
+    // built here must include them or every test in this file 400s on VALIDATION_ERROR.
+    copyrightConfirmed: true,
+    tosVersion: '2026-09-08',
     // NOTE: no sourceChannel here — publicCustomRequestInputSchema is .strict() and has no
     // sourceChannel field (see domain/schemas.ts), so a client-sent sourceChannel is rejected
     // with a 400 VALIDATION_ERROR before it ever reaches the route/service layer, not silently

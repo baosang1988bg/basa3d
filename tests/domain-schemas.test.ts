@@ -52,7 +52,7 @@ test('publicCustomRequestInputSchema rejects a client-supplied sourceChannel', (
 });
 
 test('publicCustomRequestInputSchema accepts a server-issued attachment path and rejects URLs', () => {
-  const base = { customerName: 'Test', customerPhone: '0900000000', description: 'Test request', quantity: 1 };
+  const base = { customerName: 'Test', customerPhone: '0900000000', description: 'Test request', quantity: 1, copyrightConfirmed: true as const, tosVersion: '2026-09-08' };
   assert.equal(publicCustomRequestInputSchema.safeParse({ ...base, attachmentPath: 'requests/00000000-0000-4000-8000-000000000001.stl' }).success, true);
   assert.equal(publicCustomRequestInputSchema.safeParse({ ...base, attachmentPath: 'https://example.com/model.stl' }).success, false);
 });
