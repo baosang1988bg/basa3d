@@ -1,0 +1,30 @@
+# VNX Governance Profiles
+# Each profile defines approval requirements and gate thresholds.
+
+profiles:
+  default:
+    description: Standard governance — human gate at every dispatch
+    approval_required: true
+    gates:
+      codex: true
+      review: true
+      ci: true
+
+  lightweight:
+    description: Reduced gates for rapid prototyping
+    approval_required: true
+    gates:
+      codex: false
+      review: true
+      ci: true
+
+  strict:
+    description: Regulated environments — all gates mandatory
+    approval_required: true
+    gates:
+      codex: true
+      review: true
+      ci: true
+    extra:
+      require_two_reviewers: true
+      audit_trail: true

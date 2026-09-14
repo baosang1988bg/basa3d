@@ -13,3 +13,6 @@ test-results/
 .vitest/
 *.tsbuildinfo
 .local-backups/
+
+# VNX runtime state
+.vnx-data/
