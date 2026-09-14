@@ -1,0 +1,6 @@
+
+# VNX attestation trust-root — provisioned by vnx init.
+# Replace @your-github-handle with your actual GitHub username.
+.vnx-attest/allowed_signers @baosang1988bg
+.github/workflows/attestation-gate.yml @baosang1988bg
+.vnx/governance_enforcement.yaml @baosang1988bg
