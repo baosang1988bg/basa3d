@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { requireOwner } from '@/lib/auth/require-admin';
-import { listExpenses, type ExpenseCategory, type ExpenseStatus } from '@/services/expense.service';
+import { getExpenseById, type ExpenseCategory, type ExpenseStatus } from '@/services/expense.service';
 import { updateExpenseAction } from '../actions';
 
 const CATEGORIES: ExpenseCategory[] = ['EQUIPMENT', 'MATERIAL', 'ACCESSORIES', 'UTILITIES', 'LOGISTICS', 'MARKETING', 'OTHER'];
@@ -19,10 +19,7 @@ function toDateInputValue(date: Date) {
 export default async function ExpenseEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   await requireOwner();
-  // No getExpenseById in expense.service.ts (Slice 2 only lists/creates/updates/soft-cancels) —
-  // reuse listExpenses' shared row shape rather than adding a near-duplicate single-row query.
-  const { items } = await listExpenses({ limit: 500 });
-  const expense = items.find((item) => item.id === id);
+  const expense = await getExpenseById(id);
   if (!expense) notFound();
 
   return (

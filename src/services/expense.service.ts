@@ -57,6 +57,11 @@ export async function listExpenses(
   return { page, limit, items: result.rows.map(toExpenseRow) };
 }
 
+export async function getExpenseById(id: string): Promise<ExpenseRow | null> {
+  const result = await query<ExpenseDbRow>(`${EXPENSE_SELECT} where id = $1`, [id]);
+  return result.rows[0] ? toExpenseRow(result.rows[0]) : null;
+}
+
 export type ExpenseFinancialSummary = {
   totalExpenses: number;
   expensesThisMonth: number;
