@@ -31,6 +31,16 @@ SKILL.md frontmatter) so Claude Code / Cowork auto-triggers them — those mirro
 just point back to the canonical file, so edit the checklist in `.agents/skills/`
 only, not in both places.
 
+## Internal CAD drafting skill
+`.agents/skills/cad/SKILL.md` (linked at `.claude/skills/cad/`) is the
+project-level `earthtojake/text-to-cad` CAD skill. Use it to draft CAD/STL/3MF
+for new product ideas or one-off custom print requests that do not fit the
+8 existing `/tools/*` engines. Outputs need human review before real use.
+Follow its Setup section in a Python virtual environment; dependencies are
+pinned in `.agents/skills/cad/requirements.txt`.
+Example prompt: "Use the cad skill to draft a 20 mm cube with a centered
+6 mm through-hole along Z, and export STEP and STL for internal review."
+
 ## Closing a phase
 `.agents/skills/close-phase/SKILL.md` (mirrored at `.claude/skills/close-phase/`)
 is the canonical procedure for Step 8 of `PHASE_START_PROTOCOL.md`: verify the
