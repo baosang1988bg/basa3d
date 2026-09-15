@@ -108,15 +108,34 @@ export function buildCompactBaseMesh(count: number, colorHex: string): THREE.Mes
   s.holes.push(new THREE.Path().absarc(-r,cy,C.KEYRING_HOLE_DIAMETER_MM/2,0,Math.PI*2,true));
   const mesh = new THREE.Mesh(new THREE.ExtrudeGeometry(s,{depth:C.BASE_THICKNESS_MM,bevelEnabled:false,curveSegments:12}),new THREE.MeshStandardMaterial({color:colorHex,roughness:0.65})); mesh.name='compact-base'; return mesh;
 }
+export function buildModularBaseMesh(count: number, colorHex: string): THREE.Mesh {
+  validateCount(count); validateColor(colorHex);
+  const width = count*C.BLOCK_WIDTH_MM+(count-1)*C.BLOCK_GAP_MM;
+  const r = C.KEYRING_TAB_RADIUS_MM, cy = C.BLOCK_DEPTH_MM/2, notch = C.MODULAR_NOTCH_DEPTH_MM;
+  const s = new THREE.Shape(); s.moveTo(0, 0);
+  for (let i = 1; i < count; i++) {
+    const gapCenter = i*C.BLOCK_WIDTH_MM + (i-0.5)*C.BLOCK_GAP_MM;
+    s.lineTo(gapCenter-C.BLOCK_GAP_MM, 0); s.quadraticCurveTo(gapCenter, notch, gapCenter+C.BLOCK_GAP_MM, 0);
+  }
+  s.lineTo(width, 0); s.lineTo(width, C.BLOCK_DEPTH_MM);
+  for (let i = count-1; i >= 1; i--) {
+    const gapCenter = i*C.BLOCK_WIDTH_MM + (i-0.5)*C.BLOCK_GAP_MM;
+    s.lineTo(gapCenter+C.BLOCK_GAP_MM, C.BLOCK_DEPTH_MM); s.quadraticCurveTo(gapCenter, C.BLOCK_DEPTH_MM-notch, gapCenter-C.BLOCK_GAP_MM, C.BLOCK_DEPTH_MM);
+  }
+  s.lineTo(0, C.BLOCK_DEPTH_MM);
+  s.lineTo(0,cy+r); s.lineTo(-r,cy+r); s.absarc(-r,cy,r,Math.PI/2,3*Math.PI/2,false); s.lineTo(0,cy-r); s.closePath();
+  s.holes.push(new THREE.Path().absarc(-r,cy,C.KEYRING_HOLE_DIAMETER_MM/2,0,Math.PI*2,true));
+  const mesh = new THREE.Mesh(new THREE.ExtrudeGeometry(s,{depth:C.BASE_THICKNESS_MM,bevelEnabled:false,curveSegments:12}),new THREE.MeshStandardMaterial({color:colorHex,roughness:0.65})); mesh.name='modular-base'; return mesh;
+}
 export function disposeBlocksScene(group: THREE.Group) {
   group.traverse(object => { if (object instanceof THREE.Mesh) { object.geometry.dispose(); const materials = Array.isArray(object.material) ? object.material : [object.material]; materials.forEach(m => m.dispose()); } });
 }
-export function generateKeychainBlocksScene(blocks: KeychainBlockConfig[], font: Font, baseColor = C.DEFAULT_BASE_COLOR): THREE.Group {
+export function generateKeychainBlocksScene(blocks: KeychainBlockConfig[], font: Font, baseColor = C.DEFAULT_BASE_COLOR, baseType: C.BaseType = 'compact'): THREE.Group {
   validateCount(blocks.length); validateColor(baseColor); blocks.forEach(block => validateBlock(block,font));
   if (new Set(blocks.map(block=>block.id)).size !== blocks.length) throw new RangeError('ID khối phải khác nhau.');
   const group = new THREE.Group();
   try {
-    group.add(buildCompactBaseMesh(blocks.length,baseColor));
+    group.add(baseType === 'modular' ? buildModularBaseMesh(blocks.length,baseColor) : buildCompactBaseMesh(blocks.length,baseColor));
     blocks.forEach((block,index) => { const mesh = buildSingleBlockMesh(block,font); mesh.position.x=index*(C.BLOCK_WIDTH_MM+C.BLOCK_GAP_MM); group.add(mesh); });
     group.updateMatrixWorld(true); return group;
   } catch (error) { disposeBlocksScene(group); throw error; }
