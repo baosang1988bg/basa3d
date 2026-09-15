@@ -29,6 +29,7 @@ Phase 24: Flex Lamp (lathe geometry & cutout patterns) — closed
 Phase 25: Hinge Box Studio (parametric living hinge box) — closed; physical validation pending
 Phase 26: Jigsaw Studio (STL/OBJ mesh grid interlock cutter) — closed; Web Worker & Voronoi pending/deferred; physical validation pending
 Phase 27: Flex Sculpt — dropped/canceled by Owner
+Phase 30: Text-to-CAD agent skill — project-level internal CAD/STL/3MF drafting tooling; implementation pending review
 
 
 Do not start a phase by coding immediately. Follow the Phase Start Protocol in the main project plan.
