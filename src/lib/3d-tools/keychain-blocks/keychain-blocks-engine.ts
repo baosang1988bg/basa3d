@@ -26,10 +26,11 @@ function validateBlock(block: KeychainBlockConfig, font: Font) {
   if (!block.id || block.id.length > 64) throw new RangeError('ID khối không hợp lệ.');
   validateColor(block.blockColor); validateColor(block.glyphColor);
   const char = block.char.normalize('NFC');
+  if (char === '') return;
   if (char.startsWith('icon:')) {
     if (!Object.hasOwn(C.ICON_PATHS, char.slice(5))) throw new RangeError('Icon không hợp lệ.');
-  } else if (!/^(?:\p{Script=Latin}|[0-9])$/u.test(char) || font.charToGlyphIndex(char) === 0) {
-    throw new RangeError('Mỗi khối cần một chữ Latin có dấu hoặc chữ số được font hỗ trợ.');
+  } else if (!/^(?:\p{Script=Latin}|[0-9]|[?!&@$])$/u.test(char) || font.charToGlyphIndex(char) === 0) {
+    throw new RangeError('Mỗi khối cần một chữ Latin có dấu, chữ số, ký hiệu được hỗ trợ, hoặc để trống.');
   }
 }
 export function buildKeycapBaseShape(): THREE.Shape {
@@ -61,9 +62,11 @@ function strokeShape(coordinates: number[][]): THREE.Shape {
 }
 export function buildGlyphShape(char: string, font: Font): THREE.Shape[] {
   validateBlock({ id: 'glyph', char, blockColor: '#000000', glyphColor: '#ffffff' }, font);
-  if (char.startsWith('icon:')) return C.ICON_PATHS[char.slice(5)].map(strokeShape);
+  const normalized = char.normalize('NFC');
+  if (normalized === '') return [];
+  if (normalized.startsWith('icon:')) return C.ICON_PATHS[normalized.slice(5)].map(strokeShape);
   const shape = new THREE.ShapePath();
-  for (const c of font.getPath(char.normalize('NFC'), 0, 0, 10).commands) {
+  for (const c of font.getPath(normalized, 0, 0, 10).commands) {
     switch (c.type) {
       case 'M': shape.moveTo(c.x, -c.y); break;
       case 'L': shape.lineTo(c.x, -c.y); break;
@@ -82,15 +85,17 @@ export function buildSingleBlockMesh(block: KeychainBlockConfig, font: Font): TH
   const cap = new THREE.ExtrudeGeometry(shape, { depth: C.BLOCK_HEIGHT_MM-0.6, bevelEnabled: true, bevelSize: 0.3, bevelThickness: 0.3, bevelSegments: 3, curveSegments: 4 });
   cap.scale(C.BLOCK_WIDTH_MM/(C.BLOCK_WIDTH_MM+0.6), C.BLOCK_DEPTH_MM/(C.BLOCK_DEPTH_MM+0.6), 1);
   cap.translate(0.3*C.BLOCK_WIDTH_MM/(C.BLOCK_WIDTH_MM+0.6), 0.3*C.BLOCK_DEPTH_MM/(C.BLOCK_DEPTH_MM+0.6), C.BASE_THICKNESS_MM-C.OVERLAP_MM+0.3);
-  const glyph = new THREE.ExtrudeGeometry(buildGlyphShape(block.char, font), { depth: C.GLYPH_EMBOSS_HEIGHT_MM+C.OVERLAP_MM, bevelEnabled: false, curveSegments: 4 });
-  glyph.computeBoundingBox(); const bounds = glyph.boundingBox!;
-  const size = bounds.getSize(new THREE.Vector3());
-  if (size.x <= 0 || size.y <= 0) { cap.dispose(); glyph.dispose(); throw new RangeError('Không tạo được hình chữ.'); }
-  const scale = Math.min(8/size.x, 8/size.y);
-  glyph.translate(-bounds.min.x, -bounds.min.y, 0); glyph.scale(scale, scale, 1);
-  glyph.translate((C.BLOCK_WIDTH_MM-size.x*scale)/2, (C.BLOCK_DEPTH_MM-size.y*scale)/2, C.BASE_THICKNESS_MM+C.BLOCK_HEIGHT_MM-2*C.OVERLAP_MM);
-  for (const [geometry, color, name] of [[cap, block.blockColor, 'block'], [glyph, block.glyphColor, 'glyph']] as const) {
-    const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color, roughness: 0.65 })); mesh.name = `${block.id}-${name}`; group.add(mesh);
+  const capMesh = new THREE.Mesh(cap, new THREE.MeshStandardMaterial({ color: block.blockColor, roughness: 0.65 })); capMesh.name = `${block.id}-block`; group.add(capMesh);
+  const char = block.char.normalize('NFC');
+  if (char !== '') {
+    const glyph = new THREE.ExtrudeGeometry(buildGlyphShape(char, font), { depth: C.GLYPH_EMBOSS_HEIGHT_MM+C.OVERLAP_MM, bevelEnabled: false, curveSegments: 4 });
+    glyph.computeBoundingBox(); const bounds = glyph.boundingBox!;
+    const size = bounds.getSize(new THREE.Vector3());
+    if (size.x <= 0 || size.y <= 0) { cap.dispose(); glyph.dispose(); throw new RangeError('Không tạo được hình chữ.'); }
+    const scale = Math.min(8/size.x, 8/size.y);
+    glyph.translate(-bounds.min.x, -bounds.min.y, 0); glyph.scale(scale, scale, 1);
+    glyph.translate((C.BLOCK_WIDTH_MM-size.x*scale)/2, (C.BLOCK_DEPTH_MM-size.y*scale)/2, C.BASE_THICKNESS_MM+C.BLOCK_HEIGHT_MM-2*C.OVERLAP_MM);
+    const glyphMesh = new THREE.Mesh(glyph, new THREE.MeshStandardMaterial({ color: block.glyphColor, roughness: 0.65 })); glyphMesh.name = `${block.id}-glyph`; group.add(glyphMesh);
   }
   return group;
 }
