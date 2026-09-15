@@ -12,7 +12,14 @@ export const MODULAR_NOTCH_DEPTH_MM = 1.5;
 export const DEFAULT_BASE_COLOR = '#334155';
 export const DEFAULT_BLOCK_COLOR = '#f59e0b';
 export const DEFAULT_GLYPH_COLOR = '#ffffff';
-export const FONTS = { 'Be Vietnam Pro': '/fonts/BeVietnamPro-Regular.ttf', Comfortaa: '/fonts/Comfortaa.ttf' } as const;
+export const FONTS = {
+  'Be Vietnam Pro': '/fonts/BeVietnamPro-Regular.ttf',
+  Comfortaa: '/fonts/Comfortaa.ttf',
+  Poppins: '/fonts/Poppins-Regular.ttf',
+  Bungee: '/fonts/Bungee-Regular.ttf',
+  'Titan One': '/fonts/TitanOne-Regular.ttf',
+  Bangers: '/fonts/Bangers-Regular.ttf',
+} as const;
 // Sampled Lucide 1.37.0 SVG centerlines (24-unit viewbox); ISC/MIT: LICENSE-Lucide.txt.
 export const ICON_PATHS: Record<string, number[][][]> = {
   heart: [
