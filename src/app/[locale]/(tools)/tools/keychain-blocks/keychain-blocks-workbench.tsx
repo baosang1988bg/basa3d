@@ -100,7 +100,7 @@ export default function KeychainBlocksWorkbench() {
       const response=await fetch('/api/public/custom-requests/attachments',{method:'POST',body});
       if(!response.ok)throw new Error((await response.json().catch(()=>null))?.message??'Không thể tải STL lên.');
       const {path}=await response.json() as {path:string};
-      setPrefill({attachmentPath:path,attachmentFileName:fileName,requestedMaterial:'PLA',requestedColor:'Đa màu',description:`Móc khoá khối Compact: ${blocks.map(b=>b.char).join(' ')}; font ${fontName}; màu đế ${baseColor}; ${blocks.map((b,i)=>`khối ${i+1}: ${b.char}, nền ${b.blockColor}, chữ ${b.glyphColor}`).join('; ')}`});
+      setPrefill({attachmentPath:path,attachmentFileName:fileName,requestedMaterial:'PLA',requestedColor:'Đa màu',description:`Móc khoá khối ${baseType==='modular'?'Modular':'Compact'}: ${blocks.map(b=>b.char).join(' ')}; font ${fontName}; switch ${switchType}; màu đế ${baseColor}; ${blocks.map((b,i)=>`khối ${i+1}: ${b.char}, nền ${b.blockColor}, chữ ${b.glyphColor}`).join('; ')}`});
       trackKeychainBlocksExportToRequest({blockCount:blocks.length,format:'stl'});
     } catch(reason) {setError(reason instanceof Error?reason.message:'Không thể chuẩn bị yêu cầu.');}
     finally {parts.forEach(p=>p.geometry.dispose());setUploading(false);}

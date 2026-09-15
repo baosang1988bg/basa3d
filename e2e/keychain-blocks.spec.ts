@@ -12,7 +12,7 @@ test('visitor generates a Keychain Blocks STL, submits it, and admin can see the
   await page.goto('/tools/keychain-blocks');
   await page.getByLabel('Tên trên móc khoá', { exact: true }).fill('BASA');
   await page.getByRole('combobox', { name: 'Font chữ', exact: true }).selectOption('Comfortaa');
-  await page.getByRole('combobox', { name: 'Icon khối 2', exact: true }).selectOption('icon:heart');
+  await page.getByRole('combobox', { name: 'Ký tự khối 2', exact: true }).selectOption('icon:heart');
   await page.getByLabel('Màu nền khối 1', { exact: true }).fill('#ff0000');
   await page.getByLabel('Màu chữ khối 2', { exact: true }).fill('#00ff00');
   await expect(page.locator('[data-testid="keychain-blocks-preview-canvas"]')).toBeVisible({ timeout: 15_000 });
