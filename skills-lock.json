@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "cad": {
+      "source": "earthtojake/text-to-cad",
+      "sourceType": "github",
+      "skillPath": "skills/cad/SKILL.md",
+      "computedHash": "cab4c4b9274bd3cb0ec07c23486d2d2d6191510b27c7aa5689320a0b4faa93ba"
+    }
+  }
+}
