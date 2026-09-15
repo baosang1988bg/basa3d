@@ -7,9 +7,8 @@ import { getAdminNavBadges } from '@/services/dashboard.service';
 
 export default async function ProtectedAdminLayout({ children }: { children: ReactNode }) {
   try {
-    const session = await requireAdmin();
     // Navigation needs only these counts, not the full dashboard analytics.
-    const operational = await getAdminNavBadges();
+    const [session, operational] = await Promise.all([requireAdmin(), getAdminNavBadges()]);
     return (
       <div className="flex min-h-screen">
         <AdminNav

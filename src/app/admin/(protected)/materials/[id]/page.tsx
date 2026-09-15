@@ -21,9 +21,11 @@ function formatVnd(value: number | null) {
 export default async function FilamentSpoolDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await requireAdmin();
-  const spool = await getFilamentSpoolById(id, session.role);
+  const [spool, history] = await Promise.all([
+    getFilamentSpoolById(id, session.role),
+    listSpoolUsageHistory(id),
+  ]);
   if (!spool) notFound();
-  const history = await listSpoolUsageHistory(id);
 
   return (
     <div className="flex flex-col gap-6">
