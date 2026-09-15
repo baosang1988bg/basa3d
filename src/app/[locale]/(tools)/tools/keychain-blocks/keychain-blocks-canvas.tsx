@@ -13,18 +13,22 @@ export default function KeychainBlocksCanvas({ group }: { group: THREE.Group }) 
     let renderer: THREE.WebGLRenderer;
     try { renderer = new THREE.WebGLRenderer({ antialias: true }); }
     catch { setError('Không thể mở xem trước 3D trên thiết bị này. Bạn vẫn có thể tải STL.'); return; }
-    const scene = new THREE.Scene(); scene.background = new THREE.Color('#eef2f6');
+    const scene = new THREE.Scene(); scene.background = new THREE.Color('#0b1220');
     const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 3000); camera.up.set(0, 0, 1);
     const bounds = new THREE.Box3().setFromObject(group);
     const size = bounds.getSize(new THREE.Vector3()).length();
+    const center = bounds.getCenter(new THREE.Vector3());
     camera.position.set(size, -size, size);
-    scene.add(group, new THREE.HemisphereLight(0xffffff, 0x555555, 2));
+    const grid = new THREE.GridHelper(size * 6, 30, 0x334155, 0x1e293b);
+    grid.rotation.x = Math.PI / 2;
+    grid.position.set(center.x, center.y, bounds.min.z);
+    scene.add(group, grid, new THREE.HemisphereLight(0x94a3b8, 0x0b1220, 2));
     const light = new THREE.DirectionalLight(0xffffff, 3); light.position.set(100, -100, 300); scene.add(light);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.domElement.dataset.testid = 'keychain-blocks-preview-canvas';
     host.appendChild(renderer.domElement);
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.copy(bounds.getCenter(new THREE.Vector3()));
+    controls.target.copy(center);
     controls.enableDamping = true; controls.minDistance = size * 0.3; controls.maxDistance = size * 5;
     const resize = new ResizeObserver(() => {
       const width = Math.max(1, host.clientWidth); const height = Math.max(1, host.clientHeight);

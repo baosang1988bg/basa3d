@@ -87,7 +87,7 @@ export default function KeychainBlocksWorkbench() {
   useEffect(()=>{if(prefill)document.getElementById('keychain-blocks-request-form')?.scrollIntoView({behavior:'smooth'});},[prefill]);
   return <>
     <div className="grid lg:h-[calc(100dvh-3.5rem)] lg:grid-cols-[minmax(0,1fr)_360px]">
-      <div className="h-[50dvh] min-h-[360px] bg-slate-100 lg:h-full lg:min-h-0">{group?<Canvas group={group}/>:<p className="p-6">{fontError||result.error?'Điều chỉnh nội dung để xem mẫu.':'Đang tải font...'}</p>}</div>
+      <div className="h-[50dvh] min-h-[360px] bg-[radial-gradient(ellipse_at_center,_#1e293b,_#020617)] lg:h-full lg:min-h-0">{group?<Canvas group={group}/>:<p className="p-6">{fontError||result.error?'Điều chỉnh nội dung để xem mẫu.':'Đang tải font...'}</p>}</div>
       <aside className="space-y-4 border-l p-5 lg:overflow-y-auto">
         <h1 className="text-2xl font-bold">Flex Keychain</h1><p className="text-sm">Móc khoá khối chữ nổi, liền đế Compact. Tối đa {C.MAX_BLOCKS} khối.</p>
         <fieldset disabled={uploading} className="space-y-3">
