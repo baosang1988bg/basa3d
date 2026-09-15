@@ -9,10 +9,10 @@ import { DomainError } from '../src/lib/domain-error.js';
 import { maskIfNotOwner } from '../src/lib/mask.js';
 import {
   adjustSpoolStock, createFilamentSpool, getFilamentInventoryStats, listFilamentSpools,
-  recordSpoolUsage, remainingPct, warningTier,
+  getFilamentSpoolById, listSpoolUsageHistory, recordSpoolUsage, remainingPct, warningTier,
 } from '../src/services/filament.service.js';
 import { assignPrintJobMaterial, assignPrintJobSpool, updatePrintJobStatus } from '../src/services/print-job.service.js';
-import { createExpense, deleteExpense, getExpenseFinancialSummary, listExpenses } from '../src/services/expense.service.js';
+import { createExpense, deleteExpense, getExpenseById, getExpenseFinancialSummary, listExpenses } from '../src/services/expense.service.js';
 
 configureTestEnvironment();
 after(async () => { if (process.env.DATABASE_URL) await getPool().end(); });
@@ -167,6 +167,28 @@ test('listFilamentSpools masks purchase_cost for STAFF but not OWNER', { skip: !
   }
 });
 
+test('materials detail readers return the spool and its usage history when run in parallel', { skip: !process.env.DATABASE_URL }, async () => {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    const { spoolId } = await seedSpoolFixture(client);
+    await withTransaction((txClient) => recordSpoolUsage(txClient, spoolId, 125, 'test', randomUUID(), ACTOR_ID));
+
+    const [spool, history] = await Promise.all([
+      getFilamentSpoolById(spoolId, 'OWNER'),
+      listSpoolUsageHistory(spoolId),
+    ]);
+
+    assert.equal(spool?.id, spoolId);
+    assert.equal(spool?.usedWeightGrams, 125);
+    assert.equal(history.length, 1);
+    assert.equal(history[0].movementType, 'PRODUCTION_OUT');
+    assert.equal(history[0].quantity, -125);
+  } finally {
+    await client.end();
+  }
+});
+
 async function seedPrintJobWithMaterial(client: Client) {
   const customRequestId = randomUUID();
   const printJobId = randomUUID();
@@ -288,6 +310,38 @@ test('deleteExpense soft-cancels instead of deleting the row (Rule #7)', { skip:
   assert.equal(cancelled.status, 'CANCELLED');
   const stillThere = await listExpenses({ status: 'CANCELLED' });
   assert.ok(stillThere.items.some((e) => e.id === created.id));
+});
+
+test('getExpenseById finds the requested expense beyond a 100-row listing and returns null outside the visible set', { skip: !process.env.DATABASE_URL }, async () => {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    const suffix = randomUUID().slice(0, 8).toUpperCase();
+    await client.query(
+      `insert into expenses (expense_code, title, category, amount, spent_at)
+       select $1 || '-' || n, 'Phase 31 filler ' || n, 'OTHER', n,
+         timezone('utc', now()) + (n || ' seconds')::interval
+       from generate_series(1, 101) as n`,
+      [`EXP-P31-${suffix}`],
+    );
+    const target = await createExpense({
+      expenseCode: `EXP-P31-TARGET-${suffix}`,
+      title: 'Phase 31 exact expense',
+      category: 'EQUIPMENT',
+      amount: 987_654,
+      spentAt: new Date('2000-01-01T00:00:00.000Z'),
+    }, ACTOR_ID);
+
+    const firstPage = await listExpenses({ limit: 100 });
+    assert.ok(!firstPage.items.some((expense) => expense.id === target.id));
+    const expense = await getExpenseById(target.id);
+    assert.equal(expense?.id, target.id);
+    assert.equal(expense?.title, 'Phase 31 exact expense');
+    assert.equal(expense?.amount, 987_654);
+    assert.equal(await getExpenseById(randomUUID()), null);
+  } finally {
+    await client.end();
+  }
 });
 
 test('running the seed migration twice leaves seeded spool/PURCHASE/expense row counts unchanged after the second run', { skip: !process.env.DATABASE_URL }, async () => {
