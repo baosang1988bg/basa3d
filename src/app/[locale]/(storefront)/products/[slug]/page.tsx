@@ -28,14 +28,18 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const [product, t] = await Promise.all([getStorefrontProductBySlug(slug), getTranslations('products')]);
+  const [product, t, categories] = await Promise.all([
+    getStorefrontProductBySlug(slug),
+    getTranslations('products'),
+    listCategories({ limit: 100 }),
+  ]);
   if (!product) notFound();
 
   const firstVariant = product.variants[0];
   const anyInStock = product.variants.some((variant) => variant.inStock);
 
   const category = product.categoryId
-    ? (await listCategories({ limit: 100 })).items.find((item) => item.id === product.categoryId)
+    ? categories.items.find((item) => item.id === product.categoryId)
     : undefined;
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: t('breadcrumbHome'), href: '/' },

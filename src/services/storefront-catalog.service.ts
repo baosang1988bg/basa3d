@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { query } from '../lib/db';
 import { pagination } from './product.service';
 import { availableStock } from './inventory.service';
@@ -101,7 +102,7 @@ export async function listAllActiveProductSlugs() {
   return result.rows;
 }
 
-export async function getStorefrontProductBySlug(slug: string): Promise<StorefrontProductDetail | null> {
+export const getStorefrontProductBySlug = cache(async (slug: string): Promise<StorefrontProductDetail | null> => {
   const productResult = await query<{
     id: string; name: string; slug: string; shortDescription: string | null; description: string | null;
     productType: string; basePrice: number | null; categoryId: string | null;
@@ -128,4 +129,4 @@ export async function getStorefrontProductBySlug(slug: string): Promise<Storefro
   }));
 
   return { ...product, variants, images };
-}
+});
