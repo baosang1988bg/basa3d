@@ -16,3 +16,6 @@ test-results/
 
 # VNX runtime state
 .vnx-data/
+
+# Personal MCP server config (pulls arbitrary code from a third-party git repo — not shared)
+.mcp.json
