@@ -31,7 +31,7 @@ Phase 26: Jigsaw Studio (STL/OBJ mesh grid interlock cutter) — closed; Web Wor
 Phase 27: Flex Sculpt — dropped/canceled by Owner
 Phase 28: admin performance & findability — implementation complete; disposable local DB/Supabase integration, RBAC and E2E verification pending
 Phase 29: copyright/IP compliance controls — code slices implemented; standing operational/legal checklist remains active by design
-Phase 30: Text-to-CAD agent skill — project-level internal CAD/STL/3MF drafting tooling; implementation and smoke test complete, awaiting close-phase commit
+Phase 30: Text-to-CAD agent skill — project-level internal CAD/STL/3MF drafting tooling; closed
 Phase 31: storefront/tools loading UX & request-waterfall cleanup — closed
 
 
