@@ -11,14 +11,23 @@ Do not make production depend on a developer laptop.
 
 ## Cloudflare/domain checklist for OWNER
 
-- [ ] Buy the domain and add it to Cloudflare; replace the registrar nameservers with the two Cloudflare nameservers shown for the zone.
-- [ ] Add the hosting provider's required `A`/`CNAME` records (Vercel or the production Node host), enable the orange-cloud proxy, and verify both apex and `www`.
-- [ ] Prevent direct public access to a self-hosted origin (allow Cloudflare IP ranges at the firewall). On managed hosting, ensure only the intended canonical/proxied host is used for security-sensitive traffic.
-- [ ] Redirect HTTP to HTTPS and `www` to the canonical apex domain.
-- [ ] Set SSL/TLS mode to **Full (Strict)** only after the production host has a valid origin certificate.
-- [ ] Enable TLS 1.3, Brotli, Automatic HTTPS Rewrites, then enable HSTS only after HTTPS works on every production hostname. HSTS is sticky in browsers; start with a short max-age before increasing it.
-- [ ] Add cache bypass rules for `/admin/*`, `/api/*`, `/cart`, `/checkout`, and `/order-confirmation/*`. Confirmation URLs contain customer access credentials and must never be edge-cached.
-- [ ] Set `NEXT_PUBLIC_SITE_URL` to the canonical HTTPS origin and obtain `NEXT_PUBLIC_GA_ID` from GA4 Admin > Data Streams.
-- [ ] Run the release checklist and smoke-test the storefront through the proxied domain.
+Decision (2026-09-17, see `docs/exec-plans/active/go-live-deployment-plan.md`): Cloudflare stays
+registrar + authoritative DNS, **DNS-only** — no orange-cloud proxy in front of Vercel. Vercel's own
+guidance (<https://vercel.com/kb/guide/cloudflare-with-vercel>) is that stacking Cloudflare's proxy
+in front of Vercel reduces the client signals available to Vercel's own Firewall/BotID, adds a hop,
+and creates overlapping caching behavior — and this project has no Cloudflare-specific feature
+(WAF/Turnstile/BotID) that would justify the extra layer.
 
-Security warning: once Cloudflare Proxy is enabled, do not trust `x-forwarded-for` for rate limits or audit identity. Use Cloudflare's edge-set `cf-connecting-ip`; `x-forwarded-for` is only the local/non-proxied fallback.
+- [ ] Buy the domain and add it to Cloudflare; replace the registrar nameservers with the two Cloudflare nameservers shown for the zone.
+- [ ] Add the domain (apex and `www`) to the Vercel project, then use Vercel's own domain-inspection output for the exact `A`/`CNAME` values to add in Cloudflare — do not hardcode values from memory. Set both records' proxy status to **DNS only** (grey cloud, not orange).
+- [ ] Keep the apex domain canonical; configure `www` → apex redirect at the Vercel level (DNS records don't perform HTTP redirects).
+- [ ] Set `NEXT_PUBLIC_SITE_URL` to the canonical HTTPS origin (no trailing slash) and obtain `NEXT_PUBLIC_GA_ID` from GA4 Admin > Data Streams.
+- [ ] Before going live on the real domain, verify the public rate-limited routes (order lookup, quote lookup, attachment upload, tool price estimate) are reading the client IP from `x-forwarded-for` via `getClientIp()` in `src/lib/rate-limit.ts` — not `cf-connecting-ip`, which is meaningless without a Cloudflare proxy in the request path and was a launch blocker fixed 2026-09-17.
+- [ ] Run the release checklist and smoke-test the storefront through the real domain.
+
+If a Cloudflare proxy is deliberately added later (e.g. for its WAF), this whole checklist needs
+revisiting: re-enable the orange-cloud proxy, add cache-bypass rules for `/admin/*`, `/api/*`,
+`/cart`, `/checkout`, and `/order-confirmation/*` (confirmation URLs carry customer access
+credentials and must never be edge-cached), set SSL/TLS to Full (Strict), and switch
+`getClientIp()` back to preferring `cf-connecting-ip` — the two configurations must not drift out
+of sync with each other.
