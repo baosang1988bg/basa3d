@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { apiError } from '@/lib/api';
-import { createDatabaseRateLimiter } from '@/lib/rate-limit';
+import { createDatabaseRateLimiter, getClientIp } from '@/lib/rate-limit';
 import { listMaterials } from '@/services/inventory.service';
 import { getCurrentPricingConfig } from '@/services/pricing-config.service';
 import { resolveMaterialUnitCostVndPerGram } from '@/services/pricing.service';
@@ -21,9 +21,7 @@ const isRateLimited = createDatabaseRateLimiter({
 
 export async function POST(request: Request) {
   try {
-    const ip = request.headers.get('cf-connecting-ip')?.trim()
-      || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-      || 'unknown';
+    const ip = getClientIp(request.headers);
     if (await isRateLimited(ip)) {
       return NextResponse.json({ code: 'RATE_LIMITED', message: 'Bạn đã yêu cầu ước tính quá nhiều lần, vui lòng thử lại sau.' }, { status: 429 });
     }

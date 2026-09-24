@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { apiError } from '../../../../../lib/api';
 import { uploadCustomRequestAttachment } from '../../../../../services/custom-request.service';
-import { createDatabaseRateLimiter } from '../../../../../lib/rate-limit';
+import { createDatabaseRateLimiter, getClientIp } from '../../../../../lib/rate-limit';
 
 // Shared Postgres-backed per-IP limiter, using the same implementation as public order lookup.
 // This endpoint writes to Storage rather than the DB, so the limit is intentionally tighter
@@ -14,9 +14,7 @@ const isRateLimited = createDatabaseRateLimiter({ scope: 'custom-request-attachm
 
 export async function POST(request: Request) {
   try {
-    const ip = request.headers.get('cf-connecting-ip')?.trim()
-      || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-      || 'unknown';
+    const ip = getClientIp(request.headers);
     if (await isRateLimited(ip)) {
       return NextResponse.json({ code: 'RATE_LIMITED', message: 'Bạn đã tải lên quá nhiều lần, vui lòng thử lại sau.' }, { status: 429 });
     }

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { apiError } from '../../../../../lib/api';
 import { getPublicOrderByNumber } from '../../../../../services/order.service';
-import { createDatabaseRateLimiter } from '../../../../../lib/rate-limit';
+import { createDatabaseRateLimiter, getClientIp } from '../../../../../lib/rate-limit';
 
 const RATE_LIMIT_MAX_REQUESTS = 30;
 const RATE_LIMIT_WINDOW_MS = 60_000;
@@ -9,9 +9,7 @@ const isRateLimited = createDatabaseRateLimiter({ scope: 'public-order-lookup', 
 
 export async function GET(request: Request, { params }: { params: Promise<{ orderNumber: string }> }) {
   try {
-    const ip = request.headers.get('cf-connecting-ip')?.trim()
-      || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-      || 'unknown';
+    const ip = getClientIp(request.headers);
     if (await isRateLimited(ip)) {
       return NextResponse.json({ code: 'RATE_LIMITED', message: 'Quá nhiều yêu cầu, vui lòng thử lại sau ít phút.' }, { status: 429 });
     }

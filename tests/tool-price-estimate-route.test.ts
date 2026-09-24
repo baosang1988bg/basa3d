@@ -8,6 +8,7 @@ const config = {
 const attempts = new Map<string, number>();
 let limiterOptions: { scope: string; maxRequests: number; windowMs: number };
 mock.module('../src/lib/rate-limit.ts', { namedExports: {
+  getClientIp: (headers: Headers) => headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown',
   createDatabaseRateLimiter: (options: typeof limiterOptions) => {
     limiterOptions = options;
     return async (ip: string) => { const n = (attempts.get(ip) ?? 0) + 1; attempts.set(ip, n); return n > options.maxRequests; };
@@ -22,7 +23,7 @@ mock.module('../src/services/pricing.service.ts', { namedExports: {
 } });
 const { POST } = await import('../src/app/api/public/tool-price-estimate/route.js');
 function request(body: unknown, ip = 'valid') {
-  return new Request('http://localhost/api/public/tool-price-estimate', { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': ip, 'x-forwarded-for': 'ignored' }, body: JSON.stringify(body) });
+  return new Request('http://localhost/api/public/tool-price-estimate', { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': 'spoofed', 'x-forwarded-for': ip }, body: JSON.stringify(body) });
 }
 test('route returns only advisory range and rejects invalid and extra fields', async () => {
   const response = await POST(request({ weightGrams: 10, printMinutes: 30 }));
@@ -38,5 +39,5 @@ test('route configures the original hourly allowance, keys on IP, and returns 42
   assert.deepEqual(limiterOptions, { scope: 'tool-price-estimate', maxRequests: 60, windowMs: 3600000 });
   for (let i = 0; i < 61; i++) assert.equal((await POST(request({ weightGrams: 10, printMinutes: 30 }, 'limited'))).status, i < 60 ? 200 : 429);
   assert.equal((await POST(request({ weightGrams: 10, printMinutes: 30 }, 'another'))).status, 200);
-  assert.equal(attempts.has('ignored'), false);
+  assert.equal(attempts.has('spoofed'), false);
 });

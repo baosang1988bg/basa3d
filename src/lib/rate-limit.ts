@@ -1,6 +1,15 @@
 import { withTransaction } from './db';
 import { createHash } from 'node:crypto';
 
+// Vercel overwrites x-forwarded-for on the edge for direct traffic to prevent spoofing
+// (https://vercel.com/docs/headers/request-headers), so it's the trusted client IP under this
+// project's DNS-only deployment (docs/exec-plans/active/go-live-deployment-plan.md). Do not
+// prefer cf-connecting-ip here — with no Cloudflare proxy in the request path, that header is
+// fully attacker-controlled and lets a caller mint a fresh rate-limit key on every request.
+export function getClientIp(requestHeaders: Headers): string {
+  return requestHeaders.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+}
+
 export function createDatabaseRateLimiter(input: { scope: string; maxRequests: number; windowMs: number }) {
   return async function isRateLimited(key: string): Promise<boolean> {
     const storedKey = createHash('sha256').update(key).digest('hex');

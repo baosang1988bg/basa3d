@@ -4,7 +4,7 @@ import test, { after } from 'node:test';
 import { configureTestEnvironment } from './helpers/test-environment';
 import { Client } from 'pg';
 import { createOrderConfirmationToken, verifyOrderConfirmationToken } from '../src/lib/order-confirmation-token.js';
-import { createDatabaseRateLimiter } from '../src/lib/rate-limit.js';
+import { createDatabaseRateLimiter, getClientIp } from '../src/lib/rate-limit.js';
 import { getOrderConfirmationByToken, getPublicOrderByNumber } from '../src/services/order.service.js';
 import { getPool } from '../src/lib/db.js';
 
@@ -28,6 +28,16 @@ test('order confirmation token accepts a valid token and rejects expired or modi
   tamperedSig[0] ^= 0xff;
   const tampered = `${orderIdPart}.${expiresAtPart}.${tamperedSig.toString('base64url')}`;
   assert.equal(verifyOrderConfirmationToken(tampered), null);
+});
+
+test('client IP uses Vercel x-forwarded-for and ignores a spoofed Cloudflare header', () => {
+  const headers = new Headers({
+    'cf-connecting-ip': '203.0.113.99',
+    'x-forwarded-for': '198.51.100.7, 10.0.0.1',
+  });
+
+  assert.equal(getClientIp(headers), '198.51.100.7');
+  assert.equal(getClientIp(new Headers()), 'unknown');
 });
 
 test('valid token returns unmasked order details while invalid token cannot bypass masked public lookup', { skip: !process.env.DATABASE_URL }, async () => {

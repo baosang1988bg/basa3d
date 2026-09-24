@@ -5,7 +5,7 @@ import { formatVnd } from '@/components/storefront/format';
 import { storefrontButtonClasses } from '@/components/storefront/button';
 import { QuoteCountdown } from '@/components/storefront/quote-countdown';
 import { buildVietQrUrl } from '@/lib/vietqr';
-import { createDatabaseRateLimiter } from '@/lib/rate-limit';
+import { createDatabaseRateLimiter, getClientIp } from '@/lib/rate-limit';
 
 // business-rules.md #18 (mirrors #14/ADR-0021): new scope, does not collide with
 // 'public-order-lookup' — a customer polling/refreshing a quote link is a different traffic
@@ -51,10 +51,7 @@ export default async function PublicQuotePage({
   const { quoteNumber } = await params;
   const { phoneSuffix = '', token = '' } = await searchParams;
 
-  const headerList = await headers();
-  const ip = headerList.get('cf-connecting-ip')?.trim()
-    || headerList.get('x-forwarded-for')?.split(',')[0]?.trim()
-    || 'unknown';
+  const ip = getClientIp(await headers());
   if (await isRateLimited(ip)) {
     return (
       <Shell>
