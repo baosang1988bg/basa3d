@@ -177,7 +177,9 @@
     "temporarilyOutOfStock": "Tạm hết hàng",
     "addedToCart": "Đã thêm vào giỏ hàng.",
     "viewCart": "Xem giỏ hàng",
-    "noVariants": "Sản phẩm hiện chưa có phân loại nào để đặt hàng."
+    "noVariants": "Sản phẩm hiện chưa có phân loại nào để đặt hàng.",
+    "contactToOrderZalo": "Nhắn Zalo để đặt hàng",
+    "contactToOrderHotline": "Hoặc gọi hotline {hotline}"
   },
   "tools": {
     "breadcrumbHome": "Trang chủ",

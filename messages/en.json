@@ -177,7 +177,9 @@
     "temporarilyOutOfStock": "Temporarily out of stock",
     "addedToCart": "Added to cart.",
     "viewCart": "View cart",
-    "noVariants": "This product has no orderable variants yet."
+    "noVariants": "This product has no orderable variants yet.",
+    "contactToOrderZalo": "Message us on Zalo to order",
+    "contactToOrderHotline": "Or call {hotline}"
   },
   "tools": {
     "breadcrumbHome": "Home",

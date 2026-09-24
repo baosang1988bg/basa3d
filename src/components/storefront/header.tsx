@@ -67,18 +67,20 @@ export function Header() {
           </a>
           <LanguageSwitcher />
           <ThemeToggle />
-          <Link
-            href="/cart"
-            aria-label={itemCount > 0 ? t('cartAriaLabelWithCount', { count: itemCount }) : t('cartAriaLabelEmpty')}
-            className="relative inline-flex size-8 cursor-pointer items-center justify-center rounded-lg border border-border text-foreground transition-colors duration-150 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          >
-            <ShoppingCart className="size-4" />
-            {itemCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#D97706] px-1 text-[10px] font-bold text-white dark:bg-[#F59E0B] dark:text-[#0F172A]">
-                {itemCount > 99 ? '99+' : itemCount}
-              </span>
-            )}
-          </Link>
+          {SITE_CONFIG.cartEnabled && (
+            <Link
+              href="/cart"
+              aria-label={itemCount > 0 ? t('cartAriaLabelWithCount', { count: itemCount }) : t('cartAriaLabelEmpty')}
+              className="relative inline-flex size-8 cursor-pointer items-center justify-center rounded-lg border border-border text-foreground transition-colors duration-150 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              <ShoppingCart className="size-4" />
+              {itemCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#D97706] px-1 text-[10px] font-bold text-white dark:bg-[#F59E0B] dark:text-[#0F172A]">
+                  {itemCount > 99 ? '99+' : itemCount}
+                </span>
+              )}
+            </Link>
+          )}
           <button
             type="button"
             aria-label={t('openMenu')}

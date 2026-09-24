@@ -2,15 +2,34 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Check, ShoppingCart } from 'lucide-react';
+import { Check, MessageCircle, ShoppingCart } from 'lucide-react';
 import { Link } from '@/i18n/navigation';
 import { StorefrontButton } from '@/components/storefront/button';
 import { useCart } from '@/lib/cart/cart-context';
-import { trackAddToCart } from '@/lib/analytics';
+import { trackAddToCart, trackContactClick } from '@/lib/analytics';
+import { SITE_CONFIG } from '@/config/site';
 
 type Variant = {
   id: string; sku: string; name: string; attributes: Record<string, string>; price: number; inStock: boolean;
 };
+
+function ContactToOrder({ productName }: { productName: string }) {
+  const t = useTranslations('products');
+  return (
+    <div className="flex flex-col gap-2">
+      <a
+        href={SITE_CONFIG.zaloUrl}
+        target="_blank"
+        rel="noreferrer"
+        onClick={() => trackContactClick('zalo', `product:${productName}`)}
+        className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-[#0068FF] px-4 py-2.5 text-sm font-semibold text-white transition-opacity duration-150 hover:opacity-90 sm:w-auto"
+      >
+        <MessageCircle className="size-4" /> {t('contactToOrderZalo')}
+      </a>
+      <p className="text-sm text-muted-foreground">{t('contactToOrderHotline', { hotline: SITE_CONFIG.hotline })}</p>
+    </div>
+  );
+}
 
 export function AddToCartForm({ productSlug, productName, productType, imageUrl, variants }: { productSlug: string; productName: string; productType: string; imageUrl: string | null; variants: Variant[] }) {
   const t = useTranslations('products');
@@ -38,6 +57,10 @@ export function AddToCartForm({ productSlug, productName, productType, imageUrl,
     setJustAdded(true);
     setQuantity(1);
     setTimeout(() => setJustAdded(false), 3000);
+  }
+
+  if (!SITE_CONFIG.cartEnabled) {
+    return <ContactToOrder productName={productName} />;
   }
 
   if (!variants.length) {
