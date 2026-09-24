@@ -3,56 +3,65 @@
 @tailwind utilities;
 
 @layer base {
+  /*
+   * Color tokens below are space-separated R G B triplets (not hex, not rgb()) so Tailwind's
+   * opacity-modifier syntax (bg-primary/10, ring-destructive/40, ...) can wrap them as
+   * `rgb(var(--x) / <alpha-value>)` per tailwind.config.ts — a hex custom property can't take an
+   * alpha modifier that way and silently resolves to transparent instead.
+   * --border / --input / --sidebar-border are the exception: dark mode needs them as a
+   * translucent white overlay (baked-in alpha), so they stay literal hex/rgba() and are read
+   * directly in tailwind.config.ts without the rgb()-wrapper treatment.
+   */
   :root {
-    --background: #FAFAFA;
-    --foreground: #0F172A;
-    --card: #FFFFFF;
-    --card-foreground: #0F172A;
-    --popover: #FFFFFF;
-    --popover-foreground: #0F172A;
-    --primary: #0F766E;
-    --primary-foreground: #FFFFFF;
-    --accent: #D97706;
-    --accent-foreground: #FFFFFF;
-    --secondary: #F1F5F9;
-    --secondary-foreground: #0F766E;
-    --muted: #F1F5F9;
-    --muted-foreground: #64748B;
+    --background: 250 250 250;
+    --foreground: 15 23 42;
+    --card: 255 255 255;
+    --card-foreground: 15 23 42;
+    --popover: 255 255 255;
+    --popover-foreground: 15 23 42;
+    --primary: 15 118 110;
+    --primary-foreground: 255 255 255;
+    --accent: 217 119 6;
+    --accent-foreground: 255 255 255;
+    --secondary: 241 245 249;
+    --secondary-foreground: 15 118 110;
+    --muted: 241 245 249;
+    --muted-foreground: 100 116 139;
     --border: #E2E8F0;
     --input: #CBD5E1;
-    --ring: #0F766E;
-    --destructive: #DC2626;
-    --destructive-foreground: #FFFFFF;
-    --chart-1: #0F766E; --chart-2: #D97706; --chart-3: #64748B; --chart-4: #94A3B8; --chart-5: #DC2626;
+    --ring: 15 118 110;
+    --destructive: 220 38 38;
+    --destructive-foreground: 255 255 255;
+    --chart-1: 15 118 110; --chart-2: 217 119 6; --chart-3: 100 116 139; --chart-4: 148 163 184; --chart-5: 220 38 38;
     --radius: 0.875rem;
-    --sidebar: #FAFAFA; --sidebar-foreground: #0F172A; --sidebar-primary: #0F766E; --sidebar-primary-foreground: #FFFFFF;
-    --sidebar-accent: #F1F5F9; --sidebar-accent-foreground: #0F766E; --sidebar-border: #E2E8F0; --sidebar-ring: #0F766E;
+    --sidebar: 250 250 250; --sidebar-foreground: 15 23 42; --sidebar-primary: 15 118 110; --sidebar-primary-foreground: 255 255 255;
+    --sidebar-accent: 241 245 249; --sidebar-accent-foreground: 15 118 110; --sidebar-border: #E2E8F0; --sidebar-ring: 15 118 110;
     --shadow-tactile-color: rgba(15, 118, 110, 0.9);
     --shadow-tactile-accent-color: rgba(154, 52, 18, 0.9);
   }
   .dark {
-    --background: #0B1117;
-    --foreground: #F8FAFC;
-    --card: #131C26;
-    --card-foreground: #F1F5F9;
-    --popover: #131C26;
-    --popover-foreground: #F1F5F9;
-    --primary: #2DD4BF;
-    --primary-foreground: #042F2E;
-    --accent: #F59E0B;
-    --accent-foreground: #0F172A;
-    --secondary: #1E293B;
-    --secondary-foreground: #E2E8F0;
-    --muted: #1E293B;
-    --muted-foreground: #94A3B8;
+    --background: 11 17 23;
+    --foreground: 248 250 252;
+    --card: 19 28 38;
+    --card-foreground: 241 245 249;
+    --popover: 19 28 38;
+    --popover-foreground: 241 245 249;
+    --primary: 45 212 191;
+    --primary-foreground: 4 47 46;
+    --accent: 245 158 11;
+    --accent-foreground: 15 23 42;
+    --secondary: 30 41 59;
+    --secondary-foreground: 226 232 240;
+    --muted: 30 41 59;
+    --muted-foreground: 148 163 184;
     --border: rgba(255, 255, 255, 0.10);
     --input: rgba(255, 255, 255, 0.15);
-    --ring: #2DD4BF;
-    --destructive: #EF4444;
-    --destructive-foreground: #FFFFFF;
-    --chart-1: #2DD4BF; --chart-2: #F59E0B; --chart-3: #94A3B8; --chart-4: #64748B; --chart-5: #EF4444;
-    --sidebar: #0B1117; --sidebar-foreground: #F8FAFC; --sidebar-primary: #2DD4BF; --sidebar-primary-foreground: #042F2E;
-    --sidebar-accent: #1E293B; --sidebar-accent-foreground: #E2E8F0; --sidebar-border: rgba(255, 255, 255, 0.10); --sidebar-ring: #2DD4BF;
+    --ring: 45 212 191;
+    --destructive: 239 68 68;
+    --destructive-foreground: 255 255 255;
+    --chart-1: 45 212 191; --chart-2: 245 158 11; --chart-3: 148 163 184; --chart-4: 100 116 139; --chart-5: 239 68 68;
+    --sidebar: 11 17 23; --sidebar-foreground: 248 250 252; --sidebar-primary: 45 212 191; --sidebar-primary-foreground: 4 47 46;
+    --sidebar-accent: 30 41 59; --sidebar-accent-foreground: 226 232 240; --sidebar-border: rgba(255, 255, 255, 0.10); --sidebar-ring: 45 212 191;
     --shadow-tactile-color: rgba(45, 212, 191, 0.7);
     --shadow-tactile-accent-color: rgba(217, 119, 6, 0.7);
   }

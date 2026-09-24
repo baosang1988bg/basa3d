@@ -1,12 +1,12 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Plus_Jakarta_Sans, Inter } from 'next/font/google';
+import { Space_Grotesk, Inter } from 'next/font/google';
 import { getLocale } from 'next-intl/server';
 import { cn } from '@/lib/utils';
 import { themeBootstrapScript } from '@/lib/theme-script';
 import { GoogleAnalytics } from '@/components/analytics/google-analytics';
 
-const headingFont = Plus_Jakarta_Sans({ subsets: ['latin', 'vietnamese'], weight: ['600', '700', '800'], variable: '--font-heading' });
+const headingFont = Space_Grotesk({ subsets: ['latin', 'vietnamese'], weight: ['500', '600', '700'], variable: '--font-heading' });
 const bodyFont = Inter({ subsets: ['latin', 'vietnamese'], weight: ['400', '500', '600'], variable: '--font-sans' });
 
 // metadataBase turns every relative `alternates.canonical`/`openGraph.images` in child routes'

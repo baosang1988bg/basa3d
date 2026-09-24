@@ -12,25 +12,28 @@ export default {
         sm: 'calc(var(--radius) - 4px)',
       },
       colors: {
-        background: 'var(--background)',
-        foreground: 'var(--foreground)',
-        card: { DEFAULT: 'var(--card)', foreground: 'var(--card-foreground)' },
-        popover: { DEFAULT: 'var(--popover)', foreground: 'var(--popover-foreground)' },
-        primary: { DEFAULT: 'var(--primary)', foreground: 'var(--primary-foreground)' },
-        secondary: { DEFAULT: 'var(--secondary)', foreground: 'var(--secondary-foreground)' },
-        muted: { DEFAULT: 'var(--muted)', foreground: 'var(--muted-foreground)' },
-        accent: { DEFAULT: 'var(--accent)', foreground: 'var(--accent-foreground)' },
-        destructive: { DEFAULT: 'var(--destructive)', foreground: 'var(--destructive-foreground)' },
+        // Wrapped as rgb(var(--x) / <alpha-value>) so opacity modifiers (bg-primary/10, ...) work
+        // — see the comment above the token declarations in globals.css. border/input/sidebar-border
+        // are the exception: they're read as plain var() because dark mode bakes their own alpha in.
+        background: 'rgb(var(--background) / <alpha-value>)',
+        foreground: 'rgb(var(--foreground) / <alpha-value>)',
+        card: { DEFAULT: 'rgb(var(--card) / <alpha-value>)', foreground: 'rgb(var(--card-foreground) / <alpha-value>)' },
+        popover: { DEFAULT: 'rgb(var(--popover) / <alpha-value>)', foreground: 'rgb(var(--popover-foreground) / <alpha-value>)' },
+        primary: { DEFAULT: 'rgb(var(--primary) / <alpha-value>)', foreground: 'rgb(var(--primary-foreground) / <alpha-value>)' },
+        secondary: { DEFAULT: 'rgb(var(--secondary) / <alpha-value>)', foreground: 'rgb(var(--secondary-foreground) / <alpha-value>)' },
+        muted: { DEFAULT: 'rgb(var(--muted) / <alpha-value>)', foreground: 'rgb(var(--muted-foreground) / <alpha-value>)' },
+        accent: { DEFAULT: 'rgb(var(--accent) / <alpha-value>)', foreground: 'rgb(var(--accent-foreground) / <alpha-value>)' },
+        destructive: { DEFAULT: 'rgb(var(--destructive) / <alpha-value>)', foreground: 'rgb(var(--destructive-foreground) / <alpha-value>)' },
         border: 'var(--border)',
         input: 'var(--input)',
-        ring: 'var(--ring)',
+        ring: 'rgb(var(--ring) / <alpha-value>)',
         chart: {
-          '1': 'var(--chart-1)', '2': 'var(--chart-2)', '3': 'var(--chart-3)', '4': 'var(--chart-4)', '5': 'var(--chart-5)',
+          '1': 'rgb(var(--chart-1) / <alpha-value>)', '2': 'rgb(var(--chart-2) / <alpha-value>)', '3': 'rgb(var(--chart-3) / <alpha-value>)', '4': 'rgb(var(--chart-4) / <alpha-value>)', '5': 'rgb(var(--chart-5) / <alpha-value>)',
         },
         sidebar: {
-          DEFAULT: 'var(--sidebar)', foreground: 'var(--sidebar-foreground)', primary: 'var(--sidebar-primary)',
-          'primary-foreground': 'var(--sidebar-primary-foreground)', accent: 'var(--sidebar-accent)',
-          'accent-foreground': 'var(--sidebar-accent-foreground)', border: 'var(--sidebar-border)', ring: 'var(--sidebar-ring)',
+          DEFAULT: 'rgb(var(--sidebar) / <alpha-value>)', foreground: 'rgb(var(--sidebar-foreground) / <alpha-value>)', primary: 'rgb(var(--sidebar-primary) / <alpha-value>)',
+          'primary-foreground': 'rgb(var(--sidebar-primary-foreground) / <alpha-value>)', accent: 'rgb(var(--sidebar-accent) / <alpha-value>)',
+          'accent-foreground': 'rgb(var(--sidebar-accent-foreground) / <alpha-value>)', border: 'var(--sidebar-border)', ring: 'rgb(var(--sidebar-ring) / <alpha-value>)',
         },
       },
       fontFamily: {
@@ -40,6 +43,12 @@ export default {
       boxShadow: {
         tactile: '3px 3px 0px 0px var(--shadow-tactile-color)',
         'tactile-accent': '3px 3px 0px 0px var(--shadow-tactile-accent-color)',
+      },
+      keyframes: {
+        shimmer: { '100%': { transform: 'translateX(100%)' } },
+      },
+      animation: {
+        shimmer: 'shimmer 1.6s ease-in-out infinite',
       },
     },
   },

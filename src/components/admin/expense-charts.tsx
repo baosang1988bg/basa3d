@@ -28,7 +28,7 @@ export function ExpenseDonutChart({ data }: { data: { category: string; total: n
   return (
     <div className="flex flex-col items-center gap-4 sm:flex-row">
       <svg viewBox="0 0 160 160" className="h-40 w-40 shrink-0" role="img" aria-label="Phân bổ chi phí theo nhóm">
-        <circle cx="80" cy="80" r={radius} fill="none" stroke="var(--muted)" strokeWidth="20" />
+        <circle cx="80" cy="80" r={radius} fill="none" stroke="rgb(var(--muted))" strokeWidth="20" />
         {segments.map((segment) => (
           <circle
             key={segment.category}

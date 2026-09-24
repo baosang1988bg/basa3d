@@ -114,15 +114,17 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-12">
-        <SectionHeader eyebrow={t('categoriesEyebrow')} title={t('categoriesTitle')} />
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          {categories.map((category) => (
-            <div key={category.name} className="rounded-xl border border-border bg-card p-4">
-              <h3 className="font-heading text-base font-semibold text-foreground">{category.name}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">{category.description}</p>
-            </div>
-          ))}
+      <section className="bg-secondary/40">
+        <div className="mx-auto max-w-6xl px-4 py-12">
+          <SectionHeader eyebrow={t('categoriesEyebrow')} title={t('categoriesTitle')} />
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            {categories.map((category) => (
+              <div key={category.name} className="rounded-xl bg-card p-4 shadow-tactile">
+                <h3 className="font-heading text-base font-semibold text-foreground">{category.name}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{category.description}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -135,34 +137,36 @@ export default async function HomePage() {
         </section>
       )}
 
-      <section id="workflow" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-12">
-        <SectionHeader eyebrow={t('workflowEyebrow')} title={t('workflowTitle')} />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-          {workflowSteps.map((item) => (
-            <div key={item.step} className="rounded-xl border border-border bg-card p-4">
-              <span className="font-heading inline-flex size-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">{item.step}</span>
-              <h3 className="font-heading mt-3 text-base font-semibold text-foreground">{item.title}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>
-            </div>
-          ))}
-        </div>
-        <div className="mt-6 text-center">
-          <Link href="/custom-print" className={storefrontButtonClasses('primary')}>{t('ctaStartOrder')}</Link>
+      <section id="workflow" className="scroll-mt-20 bg-secondary/40">
+        <div className="mx-auto max-w-6xl px-4 py-12">
+          <SectionHeader eyebrow={t('workflowEyebrow')} title={t('workflowTitle')} />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            {workflowSteps.map((item) => (
+              <div key={item.step} className="rounded-xl bg-card p-4 shadow-tactile">
+                <span className="font-heading inline-flex size-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">{item.step}</span>
+                <h3 className="font-heading mt-3 text-base font-semibold text-foreground">{item.title}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-6 text-center">
+            <Link href="/custom-print" className={storefrontButtonClasses('primary')}>{t('ctaStartOrder')}</Link>
+          </div>
         </div>
       </section>
 
       <section id="materials" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-12">
         <SectionHeader eyebrow={t('materialsEyebrow')} title={t('materialsTitle')} />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="rounded-xl border border-border bg-card p-4">
+          <div className="rounded-xl bg-card p-4 shadow-tactile">
             <MaterialBadge material="PLA" />
             <p className="mt-2 text-sm text-muted-foreground">{t('materialPlaDescription')}</p>
           </div>
-          <div className="rounded-xl border border-border bg-card p-4">
+          <div className="rounded-xl bg-card p-4 shadow-tactile">
             <MaterialBadge material="PETG" />
             <p className="mt-2 text-sm text-muted-foreground">{t('materialPetgDescription')}</p>
           </div>
-          <div className="rounded-xl border border-border bg-card p-4">
+          <div className="rounded-xl bg-card p-4 shadow-tactile">
             <MaterialBadge material="RESIN" />
             <p className="mt-2 text-sm text-muted-foreground">{t('materialResinDescription')}</p>
           </div>
@@ -177,8 +181,10 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-12">
-        <SectionHeader title={t('qualityTitle')} description={t('qualityDescription')} />
+      <section className="bg-secondary/40">
+        <div className="mx-auto max-w-6xl px-4 py-12">
+          <SectionHeader title={t('qualityTitle')} description={t('qualityDescription')} />
+        </div>
       </section>
 
       <section className="mx-auto max-w-6xl px-4 py-12">

@@ -53,7 +53,7 @@ export function RevenueOrdersChart({
               <rect x={x} y={0} width={barWidth} height={chartHeight} fill="transparent" />
               <rect
                 x={x} y={y} width={barWidth} height={Math.max(barHeight, 1)} rx={3}
-                fill={hoverIndex === index ? 'var(--chart-1)' : 'color-mix(in srgb, var(--chart-1) 70%, transparent)'}
+                fill={hoverIndex === index ? 'rgb(var(--chart-1))' : 'color-mix(in srgb, rgb(var(--chart-1)) 70%, transparent)'}
               />
               <text x={x + barWidth / 2} y={height - 6} textAnchor="middle" className="fill-muted-foreground text-[9px]">
                 {point.dayLabel}
@@ -61,9 +61,9 @@ export function RevenueOrdersChart({
             </g>
           );
         })}
-        <polyline points={polyline} fill="none" stroke="var(--chart-2)" strokeWidth={2} />
+        <polyline points={polyline} fill="none" stroke="rgb(var(--chart-2))" strokeWidth={2} />
         {linePoints.map((p, index) => (
-          <circle key={points[index].date} cx={p.x} cy={p.y} r={hoverIndex === index ? 4 : 2.5} fill="var(--chart-2)" />
+          <circle key={points[index].date} cx={p.x} cy={p.y} r={hoverIndex === index ? 4 : 2.5} fill="rgb(var(--chart-2))" />
         ))}
       </svg>
       {hovered ? (
@@ -74,8 +74,8 @@ export function RevenueOrdersChart({
         </div>
       ) : null}
       <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-sm" style={{ background: 'var(--chart-1)' }} /> {showRevenue ? 'Doanh thu' : 'Số đơn'}</span>
-        <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full" style={{ background: 'var(--chart-2)' }} /> Xu hướng số đơn</span>
+        <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-sm" style={{ background: 'rgb(var(--chart-1))' }} /> {showRevenue ? 'Doanh thu' : 'Số đơn'}</span>
+        <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full" style={{ background: 'rgb(var(--chart-2))' }} /> Xu hướng số đơn</span>
       </div>
     </div>
   );
