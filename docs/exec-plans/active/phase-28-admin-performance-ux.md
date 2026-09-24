@@ -1,7 +1,8 @@
 # Phase 28 — Admin performance & findability
 
-**Status: IMPLEMENTED — VERIFICATION PENDING (2026-09-08).** Slice 1–5 đã có code;
-integration/E2E/RBAC thực và production build còn chờ môi trường test local.
+**Status: IMPLEMENTED — VERIFICATION PENDING (rechecked 2026-09-24).** Slice 1–5 đã
+có code; unit quality gates pass, nhưng integration/E2E/RBAC thực và production build
+còn chờ môi trường test local.
 Chưa đóng phase hoặc đánh dấu toàn bộ acceptance đạt. Chi tiết:
 `docs/operations/phase-28-implementation-review.md`.
 

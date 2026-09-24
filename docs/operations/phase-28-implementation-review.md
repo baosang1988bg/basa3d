@@ -123,3 +123,23 @@ Không đổi RLS/rate limit. Không khẳng định hệ thống đã an toàn 
 3. Claude/Owner review diff và acceptance. Chưa chuyển phase sang completed.
 
 EXPLAIN/index/dashboard SQL rewrite, filter workaround và sidebar vẫn hoãn theo scope đã chốt.
+
+## Verification follow-up — 2026-09-24
+
+- `npm run lint`, `npm run typecheck` và `git diff --check`: pass. ESLint đã bỏ qua
+  `.claude/worktrees/**` và `.vnx-data/**`, nên lệnh lint chuẩn không còn đỏ vì các
+  worktree nội bộ nằm ngoài source tree chính.
+- `npm test`: 259 tests, 165 pass, 0 fail, 94 skip. Test mock của route ước tính giá
+  đã được cập nhật theo `getClientIp()`; thêm regression test xác nhận chỉ dùng phần tử
+  đầu của `x-forwarded-for` và bỏ qua `cf-connecting-ip` giả mạo dưới kiến trúc DNS-only.
+- 94 test vẫn skip vì `TEST_DATABASE_URL` và toàn bộ `TEST_SUPABASE_*` đang rỗng.
+  Máy review không có Supabase CLI, Docker, PostgreSQL/`psql`; các cổng local 5432,
+  54321 và 54322 đều đóng. Không dùng database app/hosted để né isolation guard.
+- Production build với DB/Auth env bị ép rỗng compile thành công và qua bước kiểm tra
+  type/lint của Next.js, sau đó dừng đúng tại prerender `/sitemap.xml` vì
+  `DATABASE_URL` không được cấu hình. Thư mục build cô lập và thay đổi tự sinh trong
+  `tsconfig.json`/`next-env.d.ts` đã được dọn và hoàn nguyên.
+
+**Kết luận:** blocker verification của Phase 28 chưa đổi. Cần một Supabase/PostgreSQL
+local disposable đã apply migrations/seed rồi mới chạy integration, RBAC, Playwright
+và production build đầy đủ; chưa đủ bằng chứng để chuyển phase sang `completed/`.
