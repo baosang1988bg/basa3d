@@ -19,3 +19,6 @@ test-results/
 
 # Personal MCP server config (pulls arbitrary code from a third-party git repo — not shared)
 .mcp.json
+
+# Phase 32 spike output (local previews of Drive models — never commit)
+.model-previews/
