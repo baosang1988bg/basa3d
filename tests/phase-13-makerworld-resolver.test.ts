@@ -81,16 +81,20 @@ test('parseMakerWorldUrl rejects a malformed URL string', () => {
 
 test('resolveMakerWorldUrl parses the Ace Snail fixture into 8 plates / 792 minutes (13.2h) / 7 filaments', async () => {
   const html = buildAceSnailFixtureHtml();
-  const profile = await resolveMakerWorldUrl(ACE_SNAIL_URL, {
+  const resolution = await resolveMakerWorldUrl(ACE_SNAIL_URL, {
     fetchImpl: fetchImplReturning(new Response(html, { status: 200 })),
   });
-  assert.equal(profile.title, 'Ace Snail Controller Stand');
+  assert.equal(resolution.modelTitle, 'Ace Snail Controller Stand');
+  assert.equal(resolution.modelCoverImageUrl, 'https://makerworld.com/covers/ace-snail.jpg');
+  assert.equal(resolution.activeProfileId, '3334843');
+  assert.equal(resolution.profiles.length, 1);
+  const [profile] = resolution.profiles;
   assert.equal(profile.platesCount, 8);
-  assert.equal(profile.totalPrintMinutes, 792);
-  assert.equal(profile.totalPrintMinutes / 60, 13.2);
+  assert.equal(profile.printTimeMinutes, 792);
+  assert.equal(profile.printTimeMinutes / 60, 13.2);
   assert.equal(profile.filaments.length, 7);
   assert.equal(profile.filaments[0].materialType, 'PLA');
-  assert.equal(profile.coverImageUrl, 'https://makerworld.com/covers/ace-snail.jpg');
+  assert.equal(profile.netWeightGrams, 143);
 });
 
 test('resolveMakerWorldUrl throws MakerWorldBlockedOrTimeoutError on fetch abort (timeout)', async () => {
@@ -114,10 +118,21 @@ test('resolveMakerWorldUrl throws MakerWorldNotFoundError on a 404', async () =>
   );
 });
 
-test('resolveMakerWorldUrl throws MakerWorldProfileNotFoundError when the page has no matching profileId', async () => {
+// makerworld-profile-verification Phase A: a stale #profileId no longer throws — the remaining
+// profiles are still returned so staff can pick one, flagged requestedProfileMissing (no silent pick).
+test('resolveMakerWorldUrl flags requestedProfileMissing (and selects nothing) when the page has no matching profileId', async () => {
   const nextData = {
     props: { pageProps: { designDetail: { title: 'Some model', coverUrl: null, instances: [{ id: '999999', plateCount: 1, printTimeMinutes: 10, filaments: [] }] } } },
   };
+  const html = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify(nextData)}</script>`;
+  const resolution = await resolveMakerWorldUrl(ACE_SNAIL_URL, { fetchImpl: fetchImplReturning(new Response(html, { status: 200 })) });
+  assert.equal(resolution.requestedProfileMissing, true);
+  assert.equal(resolution.activeProfileId, null);
+  assert.equal(resolution.profiles.length, 1);
+});
+
+test('resolveMakerWorldUrl throws MakerWorldProfileNotFoundError when the page has no instances at all', async () => {
+  const nextData = { props: { pageProps: { designDetail: { title: 'Some model', instances: [] } } } };
   const html = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify(nextData)}</script>`;
   await assert.rejects(
     resolveMakerWorldUrl(ACE_SNAIL_URL, { fetchImpl: fetchImplReturning(new Response(html, { status: 200 })) }),
@@ -143,9 +158,9 @@ test('resolveMakerWorldUrl follows a redirect to an allowlisted makerworld.com h
     assert.equal(init?.redirect, 'manual');
     return new Response(html, { status: 200 });
   };
-  const profile = await resolveMakerWorldUrl(ACE_SNAIL_URL, { fetchImpl });
+  const resolution = await resolveMakerWorldUrl(ACE_SNAIL_URL, { fetchImpl });
   assert.equal(callCount, 2);
-  assert.equal(profile.platesCount, 8);
+  assert.equal(resolution.profiles[0].platesCount, 8);
 });
 
 test('resolveMakerWorldUrl refuses to follow a redirect to a non-allowlisted host (SSRF-via-redirect)', async () => {
