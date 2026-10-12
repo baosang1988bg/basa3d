@@ -38,6 +38,9 @@ nvm install 22 && nvm use 22
    ```
 5. `npm run dev`, then open `http://localhost:3000/admin/login`.
 
+Step-by-step local testing (manual checklist, local PostgreSQL via `npm run test:db:setup`,
+full `npm test` + Playwright with local Supabase): `docs/operations/local-testing.md`.
+
 ### Checks
 - `npm run typecheck` / `npm run lint` / `npm run build`
 - `npm test` — unit + integration tests (`tests/*.test.ts`); the DB-touching ones

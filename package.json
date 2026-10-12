@@ -12,7 +12,8 @@
     "start": "next start",
     "test": "tsx tests/helpers/test-runner.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:db:setup": "tsx scripts/test-db-setup.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
