@@ -100,8 +100,12 @@ npm run typecheck && npm run lint
 node --import tsx --test tests/makerworld-pricing.test.ts tests/makerworld-profile-verification.test.ts \
   tests/makerworld-price-preset.test.ts tests/makerworld-estimate.test.ts tests/makerworld-intake.test.ts \
   tests/phase-13-makerworld-resolver.test.ts tests/domain-schemas.test.ts
-rm -rf .next && npm run dev
+pkill -f "next dev" ; pkill -f "next-server" ; sleep 2   # tắt MỌI dev server cũ (kể cả cái Owner đang chạy)
+lsof -nP -iTCP:3000 -iTCP:3001 -sTCP:LISTEN               # phải không còn dòng nào
+rm -rf .next && npm run dev                                # chỉ chạy DUY NHẤT 1 dev server
 ```
+
+Lỗi `Cannot find module './vendor-chunks/…'` hoặc `'./NNNN.js'` = có 2 tiến trình Next cùng ghi `.next` (2 dev server, hoặc build/test chạy song song). Làm lại đúng 3 lệnh trên.
 
 Các test có DB sẽ tự **skip** (chưa có `TEST_DATABASE_URL`) — bình thường. Ghi số pass/fail/skip.
 
