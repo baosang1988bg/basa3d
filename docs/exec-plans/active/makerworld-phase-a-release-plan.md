@@ -42,6 +42,15 @@ Supabase Security Advisor báo "RLS Disabled in Public" (CRITICAL): anon key n�
 
 Không cần deploy code cho bước này — migration chỉ thay đổi quyền trong DB.
 
+## Migration Phase B (storefront) — sau migration RLS
+
+Thứ tự trên **mỗi** môi trường (Dev trước, rồi Prod): `20261012000000_enable_rls_public_tables.sql` → `20261013000000_makerworld_storefront_pricing.sql` (SQL Editor, dán nguyên file, Run). Migration Phase B chỉ thêm bảng/cột mới (`makerworld_price_presets`, `makerworld_resolver_cache`, `custom_requests.makerworld_snapshot`), không sửa dữ liệu cũ. **Phải chạy trước khi deploy code Phase B**, nếu không trang `/custom-print` và form gửi yêu cầu sẽ lỗi (cột `makerworld_snapshot` chưa tồn tại).
+
+Trước khi mở thẻ MakerWorld cho khách trên Production:
+- [ ] Tạo Vercel Firewall rule `makerworld-estimate-rate-limit` (`docs/operations/deployment.md`).
+- [ ] Để trống `MAKERWORLD_PUBLIC_RESOLVER_ENABLED` (Đợt 2 mới bật).
+- [ ] Staff duyệt giá 5–10 mẫu phổ biến ("Lưu làm giá Storefront") → kiểm tra ở `/admin/settings/makerworld-prices`.
+
 ## Bước 1 — Đưa code lên nhánh riêng
 
 Các commit Phase A đang nằm trên `main` local (đi trước `origin/main`). Không push thẳng `main`; đẩy sang nhánh tính năng và mở PR:

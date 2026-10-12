@@ -34,6 +34,20 @@ Mở 1 custom request → khối "Báo giá" → tab **Từ link MakerWorld** (m
 | 10 | Tạo thêm báo giá **Bản hoàn thiện** cùng link → bấm **Chấp nhận** 1 trong 2 | Báo giá còn lại tự chuyển `REJECTED`, chỉ tạo 1 print job |
 | 11 | Chuyển tab **Công cụ tính giá** | Panel MakerWorld biến mất, ô giá bị xoá — chỉ 1 công cụ hoạt động |
 
+### Checklist bấm thử Phase B (Storefront)
+
+Cần chạy migration `20261013000000_makerworld_storefront_pricing.sql` trên DB Dev trước.
+
+| # | Thao tác | Kỳ vọng |
+|---|---|---|
+| B1 | Admin: báo giá 1 profile như checklist trên tới bước "Dùng giá này", chọn **Bản kit** → bấm **Lưu làm giá Storefront**; chọn **Bản ráp sẵn** → Dùng giá này → Lưu lần nữa | Hiện "Đã lưu giá Storefront: …đ" cho từng phương án |
+| B2 | Mở `/admin/settings/makerworld-prices` | 2 dòng (Ráp sẵn, Kit), cột "Giá hiện tại" có số |
+| B3 | Mở `/custom-print` (tab ẩn danh) → dán đúng link đó → **Xem giá** | Chip "Giá BaSa3D đã kiểm tra", card profile, 2 giá **khớp** cột "Giá hiện tại" ở B2 |
+| B4 | Dán link một mẫu chưa duyệt | Không hiện giá, thông báo "chưa có giá sẵn", vẫn gửi yêu cầu được |
+| B5 | Gửi yêu cầu: 2 ô xác nhận **không** được tick sẵn; thiếu tick → báo lỗi; tick đủ → gửi | Hiện mã `CR-…` |
+| B6 | Admin mở custom request vừa tạo | Khối xanh "Yêu cầu từ MakerWorld" với giá khách đã thấy; panel MakerWorld đã điền sẵn link + phương án |
+| B7 | Tạo cấu hình giá mới (đổi giá công) → quay lại B3 | Giá storefront đổi theo (tự cập nhật) |
+
 Lưu ý: gọi MakerWorld từ máy Mac của bạn (IP nhà) ít bị Cloudflare chặn hơn so với từ Vercel (IP datacenter). Kết quả "lấy được dữ liệu" ở local **không** đảm bảo Production cũng lấy được — xem log `[MAKERWORLD_RESOLVER]` sau khi deploy.
 
 ---

@@ -1,6 +1,6 @@
 # Phase B — Báo giá MakerWorld trên Storefront dựa trên phân tích giá của Admin
 
-**Status:** draft 2026-10-12 (Claude). Kế thừa `makerworld-profile-verification-and-instant-quote.md` (Phase A đã xong: resolver đa profile, card xác nhận, tier ASSEMBLED/KIT, snapshot v2, B1–B11, ADR-0030..0032) và `makerworld-phase-a-release-plan.md`.
+**Status:** Đợt 1 đã triển khai 2026-10-12 (Claude; Owner đồng ý mặc định D1–D5). Đợt 2 chờ số liệu Cloudflare. Kế thừa `makerworld-profile-verification-and-instant-quote.md` (Phase A đã xong: resolver đa profile, card xác nhận, tier ASSEMBLED/KIT, snapshot v2, B1–B11, ADR-0030..0032) và `makerworld-phase-a-release-plan.md`.
 **Ưu tiên:** gấp. Plan chia 2 đợt release để đợt 1 lên nhanh nhưng không hy sinh độ chính xác giá.
 
 ---
@@ -248,3 +248,19 @@ alter table custom_requests add column makerworld_snapshot jsonb;
 | D3 | Giá preset tự cập nhật theo config/giá nhựa mới? | Có (tính lại khi tra cứu) |
 | D4 | Bật Tầng 2 (ước tính tự động) ngay đợt 1? | Không — chờ số liệu Cloudflare |
 | D5 | Thời gian cam kết phản hồi hiển thị cho khách (Tầng 3) | "trong 2 giờ làm việc" |
+
+---
+
+## 11. Trạng thái triển khai Đợt 1 (2026-10-12)
+
+| Slice | Commit | Ghi chú |
+|---|---|---|
+| S1 | `15a9c5b` | `src/lib/pricing/makerworld-pricing.ts`; panel admin dùng chung; `tests/makerworld-pricing.test.ts` |
+| S2 | `9f4bfb5` | Migration `20261013000000_makerworld_storefront_pricing.sql`; `makerworld-price-preset.service.ts`; nút "Lưu làm giá Storefront"; `/admin/settings/makerworld-prices`; test parity admin = storefront |
+| S3 | `8a523ae` | Endpoint viết lại (thay prototype), `makerworld-estimate.service.ts`, Tầng 2 sau cờ `MAKERWORLD_PUBLIC_RESOLVER_ENABLED` |
+| S4 | `c1407b8` | Thẻ intake viết lại logic (giữ giao diện), `makerworld_snapshot`, khối hiển thị + điền sẵn panel admin. **Sửa luôn bug có từ trước:** route public không lưu `copyright_confirmed`/`tos_version` (Phase 29) |
+| S5 | (commit này) | ADR-0033, Vercel Firewall rule (`docs/operations/deployment.md`), `.env.example`, `e2e/makerworld-storefront.spec.ts` |
+
+Kiểm chứng: typecheck/lint/build pass; `npm test` (không DB) 217 pass / 0 fail; test DB local 271 pass, 7 fail **giống hệt trước Phase B** (phụ thuộc seed/Resend, không liên quan); chạy thật endpoint + intake qua `next dev` với DB local: VERIFIED trả đúng giá, link giả mạo 400, `weightGrams` bị từ chối, intake lưu snapshot + consent. E2E Playwright chưa chạy được trong môi trường Claude (thiếu thư viện hệ thống cho Chromium) — cần chạy trên máy Owner.
+
+Giữ nguyên, không thuộc Phase B: thay đổi chưa commit ở `src/app/layout.tsx` (VisualAiInspector) và `next.config.mjs` (xoá comment).

@@ -31,3 +31,15 @@ revisiting: re-enable the orange-cloud proxy, add cache-bypass rules for `/admin
 credentials and must never be edge-cached), set SSL/TLS to Full (Strict), and switch
 `getClientIp()` back to preferring `cf-connecting-ip` — the two configurations must not drift out
 of sync with each other.
+
+## Vercel Firewall rule — MakerWorld estimate (ADR-0033)
+
+The public MakerWorld estimate endpoint has no in-app/DB rate limiter by design (makerworld plan B5).
+Before enabling the storefront card in Production, add in Vercel → Project → Firewall → Rules:
+
+- Name: `makerworld-estimate-rate-limit`
+- If: Request Path **equals** `/api/public/makerworld-estimate`
+- Then: **Rate Limit** — Fixed window, 60 s, **20 requests**, key: IP → action **Deny** (429)
+
+Rate-limit rules depend on the Vercel plan — check the Firewall page shows the Rate Limit action for this project; if not, keep the storefront card's estimate behind the VERIFIED path only (it reads the DB, never MakerWorld) and revisit. The storefront card already shows a friendly message on 429. Leave `MAKERWORLD_PUBLIC_RESOLVER_ENABLED`
+unset (off) until the `[MAKERWORLD_RESOLVER]` logs show MakerWorld is reachable from Vercel.
