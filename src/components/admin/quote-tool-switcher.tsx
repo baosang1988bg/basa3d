@@ -23,7 +23,9 @@ export function QuoteToolSwitcher({
   materials,
   config,
   priceInputIds,
+  initialMakerWorld = null,
 }: {
+  initialMakerWorld?: { url: string; tier: 'ASSEMBLED' | 'KIT' } | null;
   materials: ComponentProps<typeof MakerWorldQuotePanel>['materials'] & ComponentProps<typeof PricingCalculatorPanel>['materials'];
   config: ComponentProps<typeof MakerWorldQuotePanel>['config'] & ComponentProps<typeof PricingCalculatorPanel>['config'];
   priceInputIds: string[];
@@ -52,7 +54,7 @@ export function QuoteToolSwitcher({
           </label>
         ))}
       </div>
-      {tool === 'MAKERWORLD' ? <MakerWorldQuotePanel materials={materials} config={config} priceInputIds={priceInputIds} /> : null}
+      {tool === 'MAKERWORLD' ? <MakerWorldQuotePanel materials={materials} config={config} priceInputIds={priceInputIds} initialUrl={initialMakerWorld?.url} initialTier={initialMakerWorld?.tier ?? null} /> : null}
       {tool === 'CALCULATOR' ? <PricingCalculatorPanel materials={materials} config={config} priceInputIds={priceInputIds} /> : null}
     </div>
   );

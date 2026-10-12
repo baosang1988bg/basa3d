@@ -97,6 +97,25 @@ export default async function CustomRequestDetailPage({ params }: { params: Prom
               <p className="text-muted-foreground">Chưa có file đính kèm</p>
             )}
           </div>
+          {customRequest.makerworldSnapshot ? (
+            <div className="col-span-2 rounded-lg border border-emerald-600/40 bg-emerald-600/5 p-3">
+              <p className="font-medium">Yêu cầu từ MakerWorld (Storefront)</p>
+              <a href={customRequest.makerworldSnapshot.sourceUrl} target="_blank" rel="noreferrer" className="break-all text-primary hover:underline">
+                {customRequest.makerworldSnapshot.modelTitle ?? customRequest.makerworldSnapshot.sourceUrl}
+              </a>
+              <p className="mt-1 text-muted-foreground">
+                Profile: {customRequest.makerworldSnapshot.profileTitle ?? (customRequest.makerworldSnapshot.profileId ? `#${customRequest.makerworldSnapshot.profileId}` : 'khách chưa chọn')}
+                {' · '}{ASSEMBLY_TIERS[customRequest.makerworldSnapshot.tier].label}
+              </p>
+              <p className="text-muted-foreground">
+                Giá tham khảo khách đã thấy:{' '}
+                {customRequest.makerworldSnapshot.estimatedPriceVnd !== null
+                  ? `${customRequest.makerworldSnapshot.estimatedPriceVnd.toLocaleString('vi-VN')}đ (${customRequest.makerworldSnapshot.estimateSource === 'VERIFIED' ? 'giá đã duyệt' : 'ước tính tự động'})`
+                  : 'không có (chưa có giá)'}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">Panel báo giá bên dưới đã điền sẵn link và phương án — bấm &quot;Tự động lấy dữ liệu&quot; hoặc nhập tay.</p>
+            </div>
+          ) : null}
           <div className="col-span-2"><p className="text-muted-foreground">Mô tả</p><p className="whitespace-pre-wrap">{customRequest.description}</p></div>
           {customRequest.internalNote ? (
             <div className="col-span-2"><p className="text-muted-foreground">Ghi chú nội bộ</p><p className="whitespace-pre-wrap">{customRequest.internalNote}</p></div>
@@ -182,7 +201,10 @@ export default async function CustomRequestDetailPage({ params }: { params: Prom
           <ActionForm action={createQuoteAction.bind(null, id)} className="grid grid-cols-2 gap-4 border-t border-border pt-4">
             <div className="col-span-2">
               {/* B7: exactly one pricing tool mounted at a time — see QuoteToolSwitcher. */}
-              <QuoteToolSwitcher materials={materials} config={pricingConfig} priceInputIds={['subtotal', 'total']} />
+              <QuoteToolSwitcher
+                materials={materials} config={pricingConfig} priceInputIds={['subtotal', 'total']}
+                initialMakerWorld={customRequest.makerworldSnapshot ? { url: customRequest.makerworldSnapshot.sourceUrl, tier: customRequest.makerworldSnapshot.tier } : null}
+              />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="subtotal">Tạm tính (VND)</Label>

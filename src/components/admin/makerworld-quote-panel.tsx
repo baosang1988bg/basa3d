@@ -132,14 +132,19 @@ export function MakerWorldQuotePanel({
   config,
   priceInputIds,
   laborMinutesInputId,
+  initialUrl = '',
+  initialTier = null,
 }: {
   materials: MakerWorldQuoteMaterialOption[];
   config: MakerWorldPricingConfigOption | null;
   priceInputIds: string[];
   /** Optional sibling <input id=...> for labor minutes — filled on "Dùng giá này", cleared with it. */
   laborMinutesInputId?: string;
+  /** Phase B: prefilled from the customer's storefront MakerWorld intake (link incl. #profileId). */
+  initialUrl?: string;
+  initialTier?: AssemblyTier | null;
 }) {
-  const [url, setUrl] = useState('');
+  const [url, setUrl] = useState(initialUrl);
   const [state, setState] = useState<FetchState>({ kind: 'idle' });
   const [selectedProfileId, setSelectedProfileId] = useState('');
   const [manualOpen, setManualOpen] = useState(false);
@@ -418,6 +423,7 @@ export function MakerWorldQuotePanel({
           config={config}
           priceInputIds={priceInputIds}
           laborMinutesInputId={laborMinutesInputId}
+          initialTier={initialTier}
         />
       ) : null}
     </div>
@@ -441,8 +447,9 @@ type AppliedQuote = { breakdown: PricingBreakdown; snapshot: QuoteModelSnapshot;
  * stale price can never be submitted with a different profile's snapshot.
  */
 function ProfilePricing({
-  source, materials, config, priceInputIds, laborMinutesInputId,
+  source, materials, config, priceInputIds, laborMinutesInputId, initialTier = null,
 }: {
+  initialTier?: AssemblyTier | null;
   source: PricingSource;
   materials: MakerWorldQuoteMaterialOption[];
   config: MakerWorldPricingConfigOption | null;
@@ -452,8 +459,8 @@ function ProfilePricing({
   const { profile, colorsCount } = source;
   const [rows, setRows] = useState<FilamentRow[]>(() => profile.filaments.map(() => ({ materialId: '', wastePreset: 'DEFAULT', customWasteGrams: '' })));
   const [amsRequired, setAmsRequired] = useState<boolean | null>(profile.amsRequired);
-  const [tier, setTier] = useState<AssemblyTier | null>(null);
-  const [laborMinutes, setLaborMinutes] = useState(String(defaultLaborMinutes(null, profile.platesCount)));
+  const [tier, setTier] = useState<AssemblyTier | null>(initialTier);
+  const [laborMinutes, setLaborMinutes] = useState(String(defaultLaborMinutes(initialTier, profile.platesCount)));
   const [consumableMaterialId, setConsumableMaterialId] = useState('');
   const [consumableGrams, setConsumableGrams] = useState('');
   const [verified, setVerified] = useState(false);

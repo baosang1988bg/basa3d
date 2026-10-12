@@ -251,6 +251,9 @@ export const publicCustomRequestInputSchema = z.object({
   // typed by the customer, so it records which wording of the ToS they agreed to.
   copyrightConfirmed: z.literal(true),
   tosVersion: z.string().trim().min(1).max(50),
+  // Phase B (makerworld-phase-b-storefront-estimate.md §4): what the customer picked on the MakerWorld
+  // intake card. Lazy because the schema is declared further down (it reuses the MakerWorld URL refine).
+  makerworld: z.lazy(() => publicMakerWorldIntakeSchema).optional(),
 }).strict();
 
 // Phase 13: immutable model metadata snapshot captured from the MakerWorld resolver at "Tạo báo

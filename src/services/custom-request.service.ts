@@ -56,10 +56,12 @@ export async function createCustomRequest(input: Record<string, unknown>, actorI
     // description, advisory only (see ip-risk-keywords.ts).
     const ipRiskFlag = detectIpRiskKeywords(String(input.description ?? ''));
     const result = await client.query<{ id: string; request_number: string }>(`
-      insert into custom_requests (request_number, source_channel, customer_name, customer_phone, customer_email, description, quantity, requested_material, requested_color, requested_size, attachment_path, copyright_confirmed, tos_version, ip_risk_flag)
-      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) returning id, request_number`, [
+      insert into custom_requests (request_number, source_channel, customer_name, customer_phone, customer_email, description, quantity, requested_material, requested_color, requested_size, attachment_path, copyright_confirmed, tos_version, ip_risk_flag, makerworld_snapshot)
+      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) returning id, request_number`, [
       requestNumber, input.sourceChannel, input.customerName, input.customerPhone, input.customerEmail ?? null, input.description, input.quantity, input.requestedMaterial ?? null, input.requestedColor ?? null, input.requestedSize ?? null, input.attachmentPath ?? null,
       input.copyrightConfirmed === true, input.tosVersion ?? null, ipRiskFlag,
+      // Phase B: built server-side by the public route (never the raw client object).
+      input.makerworldSnapshot ? JSON.stringify(input.makerworldSnapshot) : null,
     ]);
     const action = actorId ? 'CUSTOM_REQUEST_CREATED' : 'CUSTOM_REQUEST_CREATED_PUBLIC';
     await writeAuditLog(client, { actorId, action, entityType: 'custom_request', entityId: result.rows[0].id, afterData: input });
@@ -125,6 +127,22 @@ type CustomRequestDetail = {
   requestedColor: string | null; requestedSize: string | null; attachmentPath: string | null;
   status: string; internalNote: string | null; createdAt: Date;
   copyrightConfirmed: boolean; tosVersion: string | null; ipRiskFlag: boolean;
+  makerworldSnapshot: CustomRequestMakerWorldSnapshot | null;
+};
+
+/** Phase B (makerworld-phase-b-storefront-estimate.md §4): what a storefront customer picked and the
+ * reference price they were shown — computed server-side at submission, never sent by the browser. */
+export type CustomRequestMakerWorldSnapshot = {
+  sourceUrl: string;
+  modelId: string;
+  profileId: string | null;
+  modelTitle: string | null;
+  profileTitle: string | null;
+  tier: 'ASSEMBLED' | 'KIT';
+  profileConfirmed: true;
+  estimateSource: 'VERIFIED' | 'AUTO' | 'NONE';
+  estimatedPriceVnd: number | null;
+  estimatedAt: string;
 };
 
 export async function getCustomRequestById(id: string): Promise<CustomRequestDetail | null> {
@@ -133,7 +151,8 @@ export async function getCustomRequestById(id: string): Promise<CustomRequestDet
       customer_phone as "customerPhone", customer_email as "customerEmail", description, quantity,
       requested_material as "requestedMaterial", requested_color as "requestedColor", requested_size as "requestedSize",
       attachment_path as "attachmentPath", status, internal_note as "internalNote", created_at as "createdAt",
-      copyright_confirmed as "copyrightConfirmed", tos_version as "tosVersion", ip_risk_flag as "ipRiskFlag"
+      copyright_confirmed as "copyrightConfirmed", tos_version as "tosVersion", ip_risk_flag as "ipRiskFlag",
+      makerworld_snapshot as "makerworldSnapshot"
     from custom_requests where id = $1`, [id]);
   return result.rows[0] ?? null;
 }

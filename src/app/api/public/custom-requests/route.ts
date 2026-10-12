@@ -3,7 +3,9 @@ import { NextResponse } from 'next/server';
 import { apiError } from '../../../../lib/api';
 import { query } from '../../../../lib/db';
 import { publicCustomRequestInputSchema } from '../../../../domain/schemas';
-import { createCustomRequest } from '../../../../services/custom-request.service';
+import { createCustomRequest, type CustomRequestMakerWorldSnapshot } from '../../../../services/custom-request.service';
+import { referencePriceFor } from '../../../../services/makerworld-estimate.service';
+import { parseMakerWorldUrl } from '../../../../lib/parsers/makerworld-resolver';
 
 // MVP spam defense (phase-4.md Risks section) — honeypot + phone-based rate limiting only.
 // No CAPTCHA in Phase 4; revisit with Cloudflare Turnstile (or similar) if spam becomes a real
@@ -30,6 +32,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ code: 'RATE_LIMITED', message: 'Bạn đã gửi yêu cầu quá nhiều lần, vui lòng thử lại sau ít phút.' }, { status: 429 });
     }
 
+    // Phase B: the reference price the customer saw is recomputed here, never taken from the browser.
+    let makerworldSnapshot: CustomRequestMakerWorldSnapshot | null = null;
+    if (input.makerworld) {
+      const { modelId } = parseMakerWorldUrl(input.makerworld.sourceUrl);
+      const reference = await referencePriceFor(input.makerworld.sourceUrl, input.makerworld.profileId, input.makerworld.tier);
+      makerworldSnapshot = {
+        sourceUrl: input.makerworld.sourceUrl,
+        modelId,
+        profileId: input.makerworld.profileId,
+        modelTitle: reference.modelTitle,
+        profileTitle: reference.profileTitle,
+        tier: input.makerworld.tier,
+        profileConfirmed: true,
+        estimateSource: reference.source,
+        estimatedPriceVnd: reference.priceVnd,
+        estimatedAt: new Date().toISOString(),
+      };
+    }
+
     // sourceChannel is never client-settable here — always hardcoded server-side, same
     // defense-in-depth pattern as the Phase 3 fix that forced status: 'ACTIVE' in GET /api/products.
     // Explicit allowlist (rather than spreading `input`) so honeypot never reaches the service
@@ -44,6 +65,11 @@ export async function POST(request: Request) {
       requestedColor: input.requestedColor,
       requestedSize: input.requestedSize,
       attachmentPath: input.attachmentPath,
+      makerworldSnapshot,
+      // Phase 29 consent record — validated above (z.literal(true)) but previously never forwarded,
+      // so copyright_confirmed/tos_version were stored as false/null for every public request.
+      copyrightConfirmed: input.copyrightConfirmed,
+      tosVersion: input.tosVersion,
       sourceChannel: 'WEBSITE',
     }, null);
     return NextResponse.json(created, { status: 201 });
