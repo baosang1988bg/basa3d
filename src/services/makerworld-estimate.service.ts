@@ -27,6 +27,9 @@ import {
 import { ASSEMBLY_TIER_KEYS, type AssemblyTier } from '../lib/pricing/assembly-tiers';
 
 export const RESOLVER_CACHE_TTL_HOURS = 24;
+/** Failed lookups (Cloudflare block, timeout) are only cached briefly so a transient block doesn't
+ * hide a model's price for a whole day. */
+export const RESOLVER_NEGATIVE_CACHE_TTL_MINUTES = 10;
 export const RESOLVER_GLOBAL_BUDGET_PER_HOUR = 30;
 export const AUTO_ESTIMATE_ROUNDING_VND = 5_000;
 
@@ -107,7 +110,10 @@ type CachedResolution = { resolution: MakerWorldResolution | null; outcome: stri
 async function resolveWithCacheAndBudget(rawUrl: string, modelId: string, fetchImpl?: FetchLike): Promise<CachedResolution | 'BUSY'> {
   const cached = await query<{ resolution: MakerWorldResolution | null; outcome: string }>(
     `select resolution, outcome from makerworld_resolver_cache
-     where model_id = $1 and fetched_at > now() - ($2::int * interval '1 hour')`, [modelId, RESOLVER_CACHE_TTL_HOURS]);
+     where model_id = $1 and (
+       (outcome = 'OK' and fetched_at > now() - ($2::int * interval '1 hour'))
+       or (outcome <> 'OK' and fetched_at > now() - ($3::int * interval '1 minute')))`,
+    [modelId, RESOLVER_CACHE_TTL_HOURS, RESOLVER_NEGATIVE_CACHE_TTL_MINUTES]);
   if (cached.rowCount) return cached.rows[0];
   // Global budget: count only cache writes (one per real MakerWorld call) — bounded work, no per-IP rows.
   const recent = await query<{ count: string }>(`select count(*) from makerworld_resolver_cache where fetched_at > now() - interval '1 hour'`);
