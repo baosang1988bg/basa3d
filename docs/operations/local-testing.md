@@ -68,6 +68,8 @@ node --import tsx --test --test-concurrency=1 \
   tests/domain-schemas.test.ts
 ```
 
+Một số test DB khác (`filament-management`, `phase-28-*`, `phase-2-services` "overlapping order", `pricing-config-service`, thông báo Resend) phụ thuộc dữ liệu seed/cấu hình riêng và đang fail giống nhau trên DB local trắng **kể cả trước Phase A** — không phải lỗi do thay đổi mới.
+
 Không chạy `npm test` ở mức này: khi có `TEST_DATABASE_URL`, `npm test` sẽ build + bật server Next, mà middleware cần Supabase Auth → server không lên được.
 
 Typecheck/lint/build thì chạy bình thường: `npm run typecheck && npm run lint && npm run build`.
