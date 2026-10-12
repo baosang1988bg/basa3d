@@ -32,6 +32,7 @@ grep -o 'https://[a-z0-9]*\.supabase\.co' .env   # phải là https://nijkumwwca
 Thứ tự **bắt buộc**:
 1. `supabase/migrations/20261012000000_enable_rls_public_tables.sql` — bật RLS mọi bảng `public` + thu hồi quyền `anon`/`authenticated` (sửa cảnh báo CRITICAL "RLS Disabled in Public").
 2. `supabase/migrations/20261013000000_makerworld_storefront_pricing.sql` — thêm `makerworld_price_presets`, `makerworld_resolver_cache`, cột `custom_requests.makerworld_snapshot`.
+3. `supabase/migrations/20261014000000_custom_request_quote_estimate.sql` — thêm cột `custom_requests.quote_estimate_snapshot` (chạy lại được, có `if not exists`).
 
 ### 2a. Kiểm tra trước (SQL Editor của project Dev → New query → Run)
 
@@ -48,14 +49,14 @@ Ghi lại kết quả. Nếu `phase_b_tables_exist = true` → migration 2 đã 
 
 ### 2b. Chạy migration
 
-**Cách A (ưu tiên) — SQL Editor:** New query → dán **nguyên văn toàn bộ** file 1 → Run → phải "Success". Query mới → dán toàn bộ file 2 → Run → "Success".
+**Cách A (ưu tiên) — SQL Editor:** New query → dán **nguyên văn toàn bộ** file 1 → Run → phải "Success". Lặp lại lần lượt với file 2 và file 3.
 
 **Cách B — nếu không mở được dashboard:** dùng `DATABASE_URL` trong `.env` (chỉ sau khi bước 1 xác nhận đúng project Dev):
 
 ```bash
 node --env-file=.env -e '
 const { Client } = require("pg"); const fs = require("fs");
-const files = ["20261012000000_enable_rls_public_tables.sql", "20261013000000_makerworld_storefront_pricing.sql"];
+const files = ["20261012000000_enable_rls_public_tables.sql", "20261013000000_makerworld_storefront_pricing.sql", "20261014000000_custom_request_quote_estimate.sql"];
 (async () => {
   const url = new URL(process.env.DATABASE_URL);
   if (!url.username.endsWith(".nijkumwwcayjynbswowk")) throw new Error("DATABASE_URL không phải project Dev nijkumwwcayjynbswowk — DỪNG");
@@ -99,7 +100,8 @@ Mở Supabase → Advisors → Security: cảnh báo "RLS Disabled in Public" ph
 npm run typecheck && npm run lint
 node --import tsx --test tests/makerworld-pricing.test.ts tests/makerworld-profile-verification.test.ts \
   tests/makerworld-price-preset.test.ts tests/makerworld-estimate.test.ts tests/makerworld-intake.test.ts \
-  tests/phase-13-makerworld-resolver.test.ts tests/domain-schemas.test.ts
+  tests/phase-13-makerworld-resolver.test.ts tests/domain-schemas.test.ts \
+  tests/instant-estimate.test.ts tests/file-estimate.test.ts
 pkill -f "next dev" ; pkill -f "next-server" ; sleep 2   # tắt MỌI dev server cũ (kể cả cái Owner đang chạy)
 lsof -nP -iTCP:3000 -iTCP:3001 -sTCP:LISTEN               # phải không còn dòng nào
 rm -rf .next && npm run dev                                # chỉ chạy DUY NHẤT 1 dev server
@@ -148,6 +150,8 @@ Nếu trang nào báo `Internal Server Error` trơn: tắt dev → `rm -rf .next
 | B7 | `/admin/settings/pricing` tạo cấu hình mới (tăng giá công) → lặp lại B3 | Giá storefront đổi theo | |
 | B8 | DevTools → Network khi bấm "Xem giá" ở B3 | Request body **chỉ có** `url`; response **không** có `margin`, `breakdown`, `unitCost`, `pricingConfig`, `materialId` | |
 
+### Báo giá tức thì (spec dán tay + file) — làm theo bảng C1–C9 trong `docs/operations/local-testing.md` và điền kết quả vào báo cáo.
+
 Dọn dẹp sau test: ở B2, OWNER có thể "Tắt" các giá thử nếu không muốn khách thấy; custom request/báo giá thử có thể chuyển trạng thái REJECTED.
 
 ---
@@ -163,7 +167,8 @@ Dọn dẹp sau test: ở B2, OWNER có thể "Tắt" các giá thử nếu khô
 - App role dưới RLS: current_user=<...>, bypassrls=<...>, owner=<...>, configs=<...>
 - Advisor "RLS Disabled in Public": còn/hết
 - typecheck/lint: pass/fail ; unit tests: <pass>/<fail>/<skip>
-- Bảng A1–A11, B1–B8: điền cột Kết quả (✅ / ❌ + mô tả + ảnh chụp nếu ❌)
+- Migration 3: OK/FAIL
+- Bảng A1–A11, B1–B8, C1–C9: điền cột Kết quả (✅ / ❌ + mô tả + ảnh chụp nếu ❌)
 - Lỗi/nghi vấn khác:
 ```
 

@@ -48,6 +48,22 @@ Cần chạy migration `20261013000000_makerworld_storefront_pricing.sql` trên 
 | B6 | Admin mở custom request vừa tạo | Khối xanh "Yêu cầu từ MakerWorld" với giá khách đã thấy; panel MakerWorld đã điền sẵn link + phương án |
 | B7 | Tạo cấu hình giá mới (đổi giá công) → quay lại B3 | Giá storefront đổi theo (tự cập nhật) |
 
+### Checklist bấm thử báo giá tức thì (ADR-0034)
+
+Cần chạy thêm migration `20261014000000_custom_request_quote_estimate.sql`.
+
+| # | Thao tác | Kỳ vọng |
+|---|---|---|
+| C1 | `/custom-print` → dán link MakerWorld chưa duyệt → Xem giá | Báo không đọc được/ chưa có giá **và** hiện ô "Xem giá ngay bằng thông số profile" |
+| C2 | Dán `0.2mm layer, 2 walls, 15% infill · P1S · 7.4 h · 6 plates · 168 g · No AMS` → "Tính giá từ thông số" | Chip "Giá ước tính từ thông số bạn dán", 2 giá ráp sẵn/kit dạng `~xxx.000đ` |
+| C3 | Gửi yêu cầu từ C2 → admin mở request | Giá khách đã thấy ghi "ước tính từ thông số khách dán" + dòng thông số khách dán |
+| C4 | Form "Tải file lên để xem giá ngay": tải 1 file **.3mf đã slice** | Hiện giờ in, gram, số plate + giá (2 phương án nếu > 1 plate); **chưa** thấy ô họ tên/SĐT |
+| C5 | Tải 1 file **.stl** | Hiện kích thước mm + **khoảng giá** `a – b` |
+| C6 | Tải .3mf **chưa slice** / .step / ảnh | Thông báo phù hợp, không có giá, vẫn gửi yêu cầu được |
+| C7 | Đổi vật liệu sang PETG | Giá tính lại (nếu có cuộn PETG có giá; không có → "Chưa có giá tự động cho vật liệu này") |
+| C8 | "Ưng giá — đặt in mẫu này" → điền liên hệ → gửi → admin mở request | Khối vàng "Giá tự động khách đã thấy (từ file)" đúng phương án/giá |
+| C9 | Công cụ tạo mẫu (vd móc khoá) → "Hoàn tất yêu cầu" | Form liên hệ hiện ngay như cũ, không hiện thêm giá |
+
 Lưu ý: gọi MakerWorld từ máy Mac của bạn (IP nhà) ít bị Cloudflare chặn hơn so với từ Vercel (IP datacenter). Kết quả "lấy được dữ liệu" ở local **không** đảm bảo Production cũng lấy được — xem log `[MAKERWORLD_RESOLVER]` sau khi deploy.
 
 ---

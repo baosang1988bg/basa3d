@@ -44,7 +44,7 @@ Không cần deploy code cho bước này — migration chỉ thay đổi quyề
 
 ## Migration Phase B (storefront) — sau migration RLS
 
-Thứ tự trên **mỗi** môi trường (Dev trước, rồi Prod): `20261012000000_enable_rls_public_tables.sql` → `20261013000000_makerworld_storefront_pricing.sql` (SQL Editor, dán nguyên file, Run). Migration Phase B chỉ thêm bảng/cột mới (`makerworld_price_presets`, `makerworld_resolver_cache`, `custom_requests.makerworld_snapshot`), không sửa dữ liệu cũ. **Phải chạy trước khi deploy code Phase B**, nếu không trang `/custom-print` và form gửi yêu cầu sẽ lỗi (cột `makerworld_snapshot` chưa tồn tại).
+Thứ tự trên **mỗi** môi trường (Dev trước, rồi Prod): `20261012000000_enable_rls_public_tables.sql` → `20261013000000_makerworld_storefront_pricing.sql` → `20261014000000_custom_request_quote_estimate.sql` (SQL Editor, dán nguyên file, Run). Migration Phase B chỉ thêm bảng/cột mới (`makerworld_price_presets`, `makerworld_resolver_cache`, `custom_requests.makerworld_snapshot`), không sửa dữ liệu cũ. **Phải chạy trước khi deploy code Phase B**, nếu không trang `/custom-print` và form gửi yêu cầu sẽ lỗi (cột `makerworld_snapshot` chưa tồn tại).
 
 Trước khi mở thẻ MakerWorld cho khách trên Production:
 - [ ] Tạo Vercel Firewall rule `makerworld-estimate-rate-limit` (`docs/operations/deployment.md`).

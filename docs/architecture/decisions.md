@@ -481,3 +481,14 @@ Status: accepted (makerworld Phase B, 2026-10-12; owner decisions D1–D5 in `do
 - B6 is superseded by the owner's personal/non-commercial print policy (ADR-0032): MakerWorld requests are not auto-flagged `ip_risk_flag`.
 - STAFF and OWNER may save presets; only OWNER may enable/disable them (D2). VERIFIED prices are shown exactly (D1).
 - **Update 2026-10-12 (Owner, D4 changed):** the AUTO estimate is turned on (`MAKERWORLD_PUBLIC_RESOLVER_ENABLED=true`) so pasting any link returns a price immediately. When MakerWorld doesn't state AMS for a multi-color profile, AUTO prices it as AMS (higher waste) so an automatic estimate never undercharges. The flag stays as a kill-switch if Cloudflare blocking or abuse shows up in the `[MAKERWORLD_RESOLVER]` logs.
+
+## ADR-0034 — Quote-first instant estimates without MakerWorld's servers (spec paste, sliced 3MF, mesh)
+
+Status: accepted (Owner, 2026-10-12)
+
+- Context: MakerWorld now puts a Cloudflare challenge in front of every automated request (its own JSON API returns 403 without a browser-solved `cf_clearance`), so server-side reads fail even from a home IP. Bypassing that (headless solvers, borrowed cookies, proxies) is out of scope (non-goal; bot-detection must not be circumvented).
+- Decision — all estimates use the same shared rules as the admin panel (`makerworld-pricing.ts` → `computePricingBreakdown`), rounded to 5.000đ, labelled "ước tính", recomputed server-side at submission (the browser never sends a price):
+  1. **MakerWorld link, no verified price** → the card asks the customer to paste the profile's spec line from the MakerWorld page; `/api/public/makerworld-estimate` accepts `{ url, specText }`, parses it with the admin spec-text parser and returns both tiers (`source: SPEC`). Unknown AMS on multi-color is priced as AMS.
+  2. **Uploaded file** (`/custom-print`) → quote-first: upload (existing rate-limited private upload) → `/api/public/file-estimate { attachmentPath, materialType }`: sliced `.3mf` = exact (slice_info time + grams, no extra waste; ráp sẵn/kit tiers when >1 plate); `.stl/.obj` = price range from mesh volume × PLA density × fill 0.35–0.75; `.step`, images, resin = staff quote. Contact details are asked only after the customer chooses to go ahead. The chosen option is stored in `custom_requests.quote_estimate_snapshot` (migration `20261014000000`).
+  3. Verified presets (ADR-0033) remain the exact path and are unaffected.
+- Trade-off accepted by the Owner: SPEC lets a customer feed arbitrary minutes/grams, so a determined person can approximate the shop's rates; mitigated by 5.000đ rounding, server-side parsing bounds and the Vercel Firewall rule. File parsing is bounded (20MB, 3M triangles, strict storage-path regex) and rate-limited per IP (DB limiter, same precedent as `tool-price-estimate`).
