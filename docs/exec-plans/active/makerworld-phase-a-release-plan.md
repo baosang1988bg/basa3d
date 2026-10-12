@@ -6,7 +6,7 @@
 
 | Hạng mục | Đánh giá |
 |---|---|
-| Migration DB | **Không có.** `model_snapshot` vẫn là JSONB, v2 chỉ là shape mới. |
+| Migration DB | Phase A: **không có** (`model_snapshot` vẫn là JSONB). **Có 1 migration bảo mật đi kèm:** `20261012000000_enable_rls_public_tables.sql` — xem mục "Migration bảo mật RLS" bên dưới. |
 | Env var mới | **Không có.** Nhưng `ORDER_CONFIRMATION_SECRET` (blocker #1 của go-live plan) phải có, nếu không link báo giá public lỗi 500. |
 | Tương thích dữ liệu cũ | Quote Phase 13 (v1, không có `schemaVersion`) vẫn đọc được — có test. |
 | Rollback | **An toàn.** Code cũ đọc snapshot v2 vẫn được (v2 giữ nguyên mọi field v1: `title`, `coverImageUrl`, `platesCount`, `totalPrintMinutes`, `colorsCount`, `sourceUrl`; field mới bị bỏ qua). Không có thay đổi schema DB cần hoàn tác. |
@@ -29,6 +29,18 @@
     ```
     (Secret là lâu dài — đổi sau này sẽ vô hiệu mọi link báo giá đã gửi khách.)
   - **Preview đang trỏ vào Supabase nào?** `vercel env pull .env.preview.local --environment=preview` rồi xem `DATABASE_URL` (đặt tên `.env.preview.local` để `.gitignore` chặn, không lỡ commit secret; xem xong thì xoá file). Nếu Preview dùng chung DB **Production** thì *không* tạo báo giá thử trên Preview (sẽ ghi vào dữ liệu thật) — hoặc đổi Preview sang project Development trước.
+
+## Migration bảo mật RLS (làm NGAY, độc lập với Phase A)
+
+Supabase Security Advisor báo "RLS Disabled in Public" (CRITICAL): anon key nằm sẵn trong trình duyệt, nên ai cũng có thể đọc/sửa mọi bảng `public` (đơn hàng, SĐT khách, báo giá, staff…) qua `https://<project>.supabase.co/rest/v1/...`. App không dùng REST API cho các bảng này (chỉ dùng `pg` phía server bằng role chủ bảng), nên bật RLS không ảnh hưởng app.
+
+1. **Development trước:** Supabase Dashboard (project Development) → SQL Editor → dán toàn bộ nội dung `supabase/migrations/20261012000000_enable_rls_public_tables.sql` → Run.
+2. Chạy `npm run dev`, bấm thử: trang chủ, đăng nhập admin, mở custom request, tạo báo giá, mở link báo giá public. Tất cả phải chạy như cũ.
+3. Advisor (Database → Advisors → Security) → mục "RLS Disabled in Public" phải hết.
+4. **Production:** chạy lại đúng file đó trong SQL Editor của project Production, rồi smoke test trang chủ + admin trên `basa3d.vercel.app`.
+5. Nếu có gì bất thường: chạy `alter table public.<bảng> disable row level security;` cho bảng đó để mở lại tạm thời, rồi báo lại để xem.
+
+Không cần deploy code cho bước này — migration chỉ thay đổi quyền trong DB.
 
 ## Bước 1 — Đưa code lên nhánh riêng
 
