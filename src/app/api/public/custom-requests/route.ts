@@ -6,6 +6,8 @@ import { publicCustomRequestInputSchema } from '../../../../domain/schemas';
 import { createCustomRequest, type CustomRequestMakerWorldSnapshot } from '../../../../services/custom-request.service';
 import { referencePriceFor } from '../../../../services/makerworld-estimate.service';
 import { parseMakerWorldUrl } from '../../../../lib/parsers/makerworld-resolver';
+import { estimateAttachment } from '../../../../services/file-estimate.service';
+import type { CustomRequestQuoteEstimateSnapshot } from '../../../../services/custom-request.service';
 
 // MVP spam defense (phase-4.md Risks section) — honeypot + phone-based rate limiting only.
 // No CAPTCHA in Phase 4; revisit with Cloudflare Turnstile (or similar) if spam becomes a real
@@ -52,6 +54,25 @@ export async function POST(request: Request) {
       };
     }
 
+    // ADR-0034: the file estimate the customer saw, recomputed from the stored attachment. A failure
+    // here never blocks the request — staff just quote it without the automatic number.
+    let quoteEstimateSnapshot: CustomRequestQuoteEstimateSnapshot | null = null;
+    if (input.fileEstimateOption && input.attachmentPath) {
+      try {
+        const result = await estimateAttachment(input.attachmentPath, input.requestedMaterial ?? null);
+        const option = result.estimate?.options.find((o) => o.key === input.fileEstimateOption);
+        if (result.estimate && (result.estimate.kind === 'SLICED' || result.estimate.kind === 'MESH') && option) {
+          quoteEstimateSnapshot = {
+            kind: result.estimate.kind, option: option.key, priceVnd: option.priceVnd,
+            minVnd: option.minVnd ?? null, maxVnd: option.maxVnd ?? null,
+            materialType: result.estimate.materialType, specs: result.estimate.specs, estimatedAt: new Date().toISOString(),
+          };
+        }
+      } catch (error) {
+        console.warn('[FILE_ESTIMATE_AT_SUBMIT_FAILED]', error instanceof Error ? error.message : error);
+      }
+    }
+
     // sourceChannel is never client-settable here — always hardcoded server-side, same
     // defense-in-depth pattern as the Phase 3 fix that forced status: 'ACTIVE' in GET /api/products.
     // Explicit allowlist (rather than spreading `input`) so honeypot never reaches the service
@@ -67,6 +88,7 @@ export async function POST(request: Request) {
       requestedSize: input.requestedSize,
       attachmentPath: input.attachmentPath,
       makerworldSnapshot,
+      quoteEstimateSnapshot,
       // Phase 29 consent record — validated above (z.literal(true)) but previously never forwarded,
       // so copyright_confirmed/tos_version were stored as false/null for every public request.
       copyrightConfirmed: input.copyrightConfirmed,

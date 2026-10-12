@@ -155,10 +155,11 @@ export function estimateFromMesh(ctx: PricingContext, mesh: MeshVolumeResult, ma
   };
   const low = priceAt(MESH_FILL_RANGE.low);
   const high = priceAt(MESH_FILL_RANGE.high);
-  if (low === null || high === null) return null;
+  const specs = { printMinutes: null, netWeightGrams: null, platesCount: null, colorsCount: 1, amsRequired: false, sizeMm: mesh.sizeMm };
+  // No priced active material of this type → no range (caller reports NO_MATERIAL_PRICE).
+  if (low === null || high === null) return { kind: 'MESH', materialType: type, specs, options: [{ key: 'STANDARD', priceVnd: null }] };
   return {
-    kind: 'MESH', materialType: type,
-    specs: { printMinutes: null, netWeightGrams: null, platesCount: null, colorsCount: 1, amsRequired: false, sizeMm: mesh.sizeMm },
+    kind: 'MESH', materialType: type, specs,
     options: [{ key: 'STANDARD', priceVnd: null, minVnd: Math.min(low, high), maxVnd: Math.max(low, high) }],
   };
 }

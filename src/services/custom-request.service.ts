@@ -38,6 +38,17 @@ export async function uploadCustomRequestAttachment(input: { file: Blob; fileNam
   return { path: storagePath };
 }
 
+/** ADR-0034: server-side read of a just-uploaded attachment so the storefront can price it before the
+ * customer leaves contact details. Path shape is re-validated here (never trust the client). */
+export const ATTACHMENT_PATH_RE = /^requests\/[0-9a-f-]+\.(?:jpg|jpeg|png|webp|stl|step|stp|obj|3mf)$/;
+export async function downloadCustomRequestAttachment(storagePath: string): Promise<Uint8Array> {
+  if (!ATTACHMENT_PATH_RE.test(storagePath)) throw new DomainError('INVALID_ATTACHMENT_PATH', 'Đường dẫn file không hợp lệ.', 400);
+  const { data, error } = await createSupabaseAdminClient().storage.from(ATTACHMENT_BUCKET).download(storagePath);
+  if (error || !data) throw new DomainError('ATTACHMENT_NOT_FOUND', 'Không tìm thấy file đã tải lên — vui lòng tải lại.', 404);
+  if (data.size > MAX_ATTACHMENT_SIZE_BYTES) throw new DomainError('FILE_TOO_LARGE', 'File tối đa 20MB.', 400);
+  return new Uint8Array(await data.arrayBuffer());
+}
+
 export async function createCustomRequestAttachmentSignedUrl(storagePath: string, expiresInSeconds = 15 * 60) {
   const { data, error } = await createSupabaseAdminClient().storage
     .from(ATTACHMENT_BUCKET)
@@ -56,12 +67,13 @@ export async function createCustomRequest(input: Record<string, unknown>, actorI
     // description, advisory only (see ip-risk-keywords.ts).
     const ipRiskFlag = detectIpRiskKeywords(String(input.description ?? ''));
     const result = await client.query<{ id: string; request_number: string }>(`
-      insert into custom_requests (request_number, source_channel, customer_name, customer_phone, customer_email, description, quantity, requested_material, requested_color, requested_size, attachment_path, copyright_confirmed, tos_version, ip_risk_flag, makerworld_snapshot)
-      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) returning id, request_number`, [
+      insert into custom_requests (request_number, source_channel, customer_name, customer_phone, customer_email, description, quantity, requested_material, requested_color, requested_size, attachment_path, copyright_confirmed, tos_version, ip_risk_flag, makerworld_snapshot, quote_estimate_snapshot)
+      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) returning id, request_number`, [
       requestNumber, input.sourceChannel, input.customerName, input.customerPhone, input.customerEmail ?? null, input.description, input.quantity, input.requestedMaterial ?? null, input.requestedColor ?? null, input.requestedSize ?? null, input.attachmentPath ?? null,
       input.copyrightConfirmed === true, input.tosVersion ?? null, ipRiskFlag,
       // Phase B: built server-side by the public route (never the raw client object).
       input.makerworldSnapshot ? JSON.stringify(input.makerworldSnapshot) : null,
+      input.quoteEstimateSnapshot ? JSON.stringify(input.quoteEstimateSnapshot) : null,
     ]);
     const action = actorId ? 'CUSTOM_REQUEST_CREATED' : 'CUSTOM_REQUEST_CREATED_PUBLIC';
     await writeAuditLog(client, { actorId, action, entityType: 'custom_request', entityId: result.rows[0].id, afterData: input });
@@ -128,6 +140,19 @@ type CustomRequestDetail = {
   status: string; internalNote: string | null; createdAt: Date;
   copyrightConfirmed: boolean; tosVersion: string | null; ipRiskFlag: boolean;
   makerworldSnapshot: CustomRequestMakerWorldSnapshot | null;
+  quoteEstimateSnapshot: CustomRequestQuoteEstimateSnapshot | null;
+};
+
+/** ADR-0034: automatic estimate shown for an uploaded file, recomputed at submission. */
+export type CustomRequestQuoteEstimateSnapshot = {
+  kind: 'SLICED' | 'MESH';
+  option: 'ASSEMBLED' | 'KIT' | 'STANDARD';
+  priceVnd: number | null;
+  minVnd: number | null;
+  maxVnd: number | null;
+  materialType: string;
+  specs: { printMinutes: number | null; netWeightGrams: number | null; platesCount: number | null; colorsCount: number; sizeMm?: { x: number; y: number; z: number } };
+  estimatedAt: string;
 };
 
 /** Phase B (makerworld-phase-b-storefront-estimate.md §4): what a storefront customer picked and the
@@ -154,7 +179,7 @@ export async function getCustomRequestById(id: string): Promise<CustomRequestDet
       requested_material as "requestedMaterial", requested_color as "requestedColor", requested_size as "requestedSize",
       attachment_path as "attachmentPath", status, internal_note as "internalNote", created_at as "createdAt",
       copyright_confirmed as "copyrightConfirmed", tos_version as "tosVersion", ip_risk_flag as "ipRiskFlag",
-      makerworld_snapshot as "makerworldSnapshot"
+      makerworld_snapshot as "makerworldSnapshot", quote_estimate_snapshot as "quoteEstimateSnapshot"
     from custom_requests where id = $1`, [id]);
   return result.rows[0] ?? null;
 }

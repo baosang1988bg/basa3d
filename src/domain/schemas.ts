@@ -254,6 +254,9 @@ export const publicCustomRequestInputSchema = z.object({
   // Phase B (makerworld-phase-b-storefront-estimate.md §4): what the customer picked on the MakerWorld
   // intake card. Lazy because the schema is declared further down (it reuses the MakerWorld URL refine).
   makerworld: z.lazy(() => publicMakerWorldIntakeSchema).optional(),
+  // ADR-0034: which option of the file estimate the customer picked. The price itself is recomputed
+  // server-side from attachmentPath + requestedMaterial — never accepted from the browser.
+  fileEstimateOption: z.enum(['ASSEMBLED', 'KIT', 'STANDARD']).optional(),
 }).strict();
 
 // Phase 13: immutable model metadata snapshot captured from the MakerWorld resolver at "Tạo báo

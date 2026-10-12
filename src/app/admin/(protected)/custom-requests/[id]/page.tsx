@@ -110,11 +110,33 @@ export default async function CustomRequestDetailPage({ params }: { params: Prom
               <p className="text-muted-foreground">
                 Giá tham khảo khách đã thấy:{' '}
                 {customRequest.makerworldSnapshot.estimatedPriceVnd !== null
-                  ? `${customRequest.makerworldSnapshot.estimatedPriceVnd.toLocaleString('vi-VN')}đ (${customRequest.makerworldSnapshot.estimateSource === 'VERIFIED' ? 'giá đã duyệt' : 'ước tính tự động'})`
+                  ? `${customRequest.makerworldSnapshot.estimatedPriceVnd.toLocaleString('vi-VN')}đ (${customRequest.makerworldSnapshot.estimateSource === 'VERIFIED' ? 'giá đã duyệt' : customRequest.makerworldSnapshot.estimateSource === 'SPEC' ? 'ước tính từ thông số khách dán' : 'ước tính tự động'})`
                   : 'không có (chưa có giá)'}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">Panel báo giá bên dưới đã điền sẵn link và phương án — bấm &quot;Tự động lấy dữ liệu&quot; hoặc nhập tay.</p>
             </div>
+          ) : null}
+          {customRequest.quoteEstimateSnapshot ? (
+            <div className="col-span-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
+              <p className="font-medium">Giá tự động khách đã thấy (từ file)</p>
+              <p className="text-muted-foreground">
+                {customRequest.quoteEstimateSnapshot.option === 'STANDARD' ? 'Giá in' : ASSEMBLY_TIERS[customRequest.quoteEstimateSnapshot.option].label}:{' '}
+                {customRequest.quoteEstimateSnapshot.priceVnd !== null
+                  ? `${customRequest.quoteEstimateSnapshot.priceVnd.toLocaleString('vi-VN')}đ`
+                  : `${(customRequest.quoteEstimateSnapshot.minVnd ?? 0).toLocaleString('vi-VN')}đ – ${(customRequest.quoteEstimateSnapshot.maxVnd ?? 0).toLocaleString('vi-VN')}đ`}
+                {' · '}{customRequest.quoteEstimateSnapshot.kind === 'SLICED' ? 'từ file .3mf đã slice' : 'ước tính sơ bộ từ thể tích'}
+                {' · '}{customRequest.quoteEstimateSnapshot.materialType}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {customRequest.quoteEstimateSnapshot.specs.printMinutes !== null ? `${Math.round((customRequest.quoteEstimateSnapshot.specs.printMinutes / 60) * 10) / 10}h · ` : ''}
+                {customRequest.quoteEstimateSnapshot.specs.netWeightGrams !== null ? `${customRequest.quoteEstimateSnapshot.specs.netWeightGrams}g · ` : ''}
+                {customRequest.quoteEstimateSnapshot.specs.platesCount !== null ? `${customRequest.quoteEstimateSnapshot.specs.platesCount} plates` : ''}
+                {customRequest.quoteEstimateSnapshot.specs.sizeMm ? `kích thước ${customRequest.quoteEstimateSnapshot.specs.sizeMm.x}×${customRequest.quoteEstimateSnapshot.specs.sizeMm.y}×${customRequest.quoteEstimateSnapshot.specs.sizeMm.z} mm` : ''}
+              </p>
+            </div>
+          ) : null}
+          {customRequest.makerworldSnapshot?.specText ? (
+            <div className="col-span-2 text-xs text-muted-foreground">Thông số khách dán (cần đối chiếu MakerWorld): <span className="font-mono">{customRequest.makerworldSnapshot.specText}</span></div>
           ) : null}
           <div className="col-span-2"><p className="text-muted-foreground">Mô tả</p><p className="whitespace-pre-wrap">{customRequest.description}</p></div>
           {customRequest.internalNote ? (

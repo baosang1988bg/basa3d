@@ -6,9 +6,9 @@ import { storefrontButtonClasses } from '@/components/storefront/button';
 import { MakerWorldIntakeCard } from '@/components/storefront/makerworld-intake-card';
 
 const STEPS = [
-  { step: '1', title: 'Gửi file', description: 'Gửi file .stl, .step, .obj, .3mf hoặc ảnh vẽ mẫu qua form bên dưới' },
+  { step: '1', title: 'Tải file, xem giá ngay', description: 'File .3mf đã slice cho giá ước tính tức thì; .stl/.obj cho khoảng giá; .step hoặc ảnh mẫu thì xưởng báo giá' },
   { step: '2', title: 'Tư vấn & Tối ưu', description: 'Đội ngũ kỹ thuật kiểm tra tính khả thi và tối ưu thiết kế để in' },
-  { step: '3', title: 'Báo giá 30 phút', description: 'Nhận báo giá minh bạch, chi tiết trong vòng 30 phút làm việc' },
+  { step: '3', title: 'Chốt giá chính thức', description: 'Ưng giá thì để lại liên hệ — xưởng xác nhận giá chính thức trong 2 giờ làm việc' },
   { step: '4', title: 'In & Giao hàng', description: 'Sản xuất theo đúng thông số đã thống nhất và giao hàng tận nơi' },
 ];
 
