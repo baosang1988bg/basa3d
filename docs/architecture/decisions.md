@@ -437,3 +437,34 @@ starting them. Archive is not a reversal of an erroneous PURCHASE movement.
 Existing admin auth is enforced by every new server action; all successful edits/status
 changes write audit records in the same transaction. Repeated status submissions are no-ops.
 The UI asks for confirmation before archive/restore and exposes recoverable error messages.
+
+## ADR-0030 — `QuoteModelSnapshot` is versioned (v1 | v2) and read tolerantly
+
+Status: accepted (makerworld-profile-verification Phase A, 2026-10-12)
+
+- `quotes.model_snapshot` (JSONB) now has two shapes. v1 = Phase 13 (`sourceUrl`, `title`, `coverImageUrl`, `platesCount`, `totalPrintMinutes`, `colorsCount`); legacy rows carry no `schemaVersion` and are tagged `1` by a `z.preprocess` step. v2 adds the verified print profile (`profileId`, `profileTitle`, `profileCoverImageUrl`, `printerTarget`, `netWeightGrams`, `amsRequired`, `tier`, `dataSource`, `license`, `licenseAcknowledged`) and the hard gate `profileVerified: z.literal(true)`.
+- `z.discriminatedUnion('schemaVersion', …)` instead of `z.union([v2, v1])`: a plain union reports the v1 branch's "unrecognized keys" error and hides the real v2 failure (e.g. `profileVerified`). `.default(2)` was rejected because it would turn every legacy v1 row into an invalid v2.
+- The TS type is `z.infer` of the schema, so UI code must narrow on `schemaVersion` — a field legacy rows lack can't be assumed.
+- Reads go through `readQuoteModelSnapshot()` (`safeParse`; corrupted → `null` + `[QUOTE_SNAPSHOT_CORRUPTED]` log). An image URL that no longer passes the allowlist is dropped (placeholder), not the whole snapshot.
+- Immutability is unchanged (ADR-0022): no update path; v2 is only produced at quote creation. No migration (JSONB).
+- Server-side consistency (B10): when a quote has both `pricing_breakdown` and a snapshot, `createQuote` inverts `machineDepreciationVnd`/`electricityCostVnd` with the referenced `pricing_configs` row to recover the print minutes the price was computed from, and rejects (`QUOTE_SNAPSHOT_MISMATCH`) if it differs from `totalPrintMinutes` by > ±15% (floor 3 min) or if priced grams are > 15% below a v2 `netWeightGrams`. Manual price edits are allowed and audited as `MANUAL_PRICE_OVERRIDE`.
+
+## ADR-0031 — MakerWorld resolver: verified payload shape and exact-host image allowlist
+
+Status: accepted (makerworld-profile-verification Phase A, 2026-10-12)
+
+- Verified on the live page of model 3246150: data is at `props.pageProps.design` (Phase 13 assumed `designDetail` and could never have parsed a real page). `#profileId-<n>` in model URLs matches `instances[].id` (not `instances[].profileId`). `prediction` = seconds, `weight` and `instanceFilaments[].usedG` = grams (usedG is a string), plates = `extention.modelInfo.plates.length`, printer = `extention.modelInfo.compatibility.devProductName`, `needAms` boolean, `design.license` string.
+- Every third-party value is Zod-bounded; profiles with missing time/grams are returned with `dataIncomplete: true` and cannot be priced from resolver data (they would otherwise become 0đ cost lines that B10 cannot catch, since 0 = 0).
+- One 6 s deadline for the whole redirect chain + body read; body streamed and capped at 3 MB.
+- Image URLs (rendered on the PUBLIC quote page next to the VietQR code) are restricted to EXACT hosts: `makerworld.com`, `image.makerworld.com`, `makerworld.bblmw.com` (the real CDN). Rejected wildcards: `*.aliyuncs.com` (any Alibaba OSS customer — owner decision), `*.bambulab.com` / `*.makerworld.com` (forum/wiki hosts serve user uploads). Add a host only after seeing it in a real payload. Residual risk: an allowlisted profile cover is still chosen by whoever uploaded the model — staff verification is the control.
+- Measured, not assumed: the admin route logs `[MAKERWORLD_RESOLVER] { outcome }` so the Cloudflare block rate from the datacenter IP is known before any public (Phase B) flow is built.
+
+## ADR-0032 — Two finishing tiers = two quotes; same-link siblings auto-reject; license acknowledgement
+
+Status: accepted (makerworld-profile-verification Phase A, 2026-10-12)
+
+- One quote carries exactly one price and one `snapshot.tier` (`ASSEMBLED` | `KIT`), so `quotes.total`, the 50% deposit and its VietQR stay a single immutable number. Storing `options[]` in one quote was rejected (would make the deposit/QR dynamic and break ADR-0022).
+- When the customer has not chosen, staff create one quote per tier. `acceptQuote` then rejects the still-open (`DRAFT`/`SENT`) quotes with the exact same `model_snapshot.sourceUrl` (audit `QUOTE_AUTO_REJECTED_SIBLING`) and refuses to accept a same-link sibling once one is `ACCEPTED` (`QUOTE_SIBLING_ALREADY_ACCEPTED`). Quotes without a snapshot, or for a different link/profile, are never touched. `sourceUrl` is canonicalised to the model URL + `#profileId-<selected profile>` (manual entries get `#manual-<fingerprint>`), so tiers of one profile group together and different profiles don't.
+- Lock order in `acceptQuote` is `custom_requests` row → quote row (same as `createQuote`), which serialises concurrent accepts of siblings instead of deadlocking.
+- Tier default labor lives in code (`ASSEMBLY_TIERS`: ASSEMBLED 50 min + optional glue/consumable line, KIT 20 min) and stays staff-editable; move it to `pricing_configs` if it starts changing often.
+- B6 (Phase A part): when the design's license is known to forbid paid printing (MakerWorld's default "Standard Digital File License", CC *-NC), a v2 snapshot must carry `licenseAcknowledged: true` — staff confirm they have the author's permission or that the print is non-commercial. Server-enforced in the schema, same pattern as Phase 29's `ipRiskAcknowledged`. The parser never classifies a license as "allowed"; that is the owner's legal call.
