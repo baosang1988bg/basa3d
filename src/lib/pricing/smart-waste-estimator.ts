@@ -12,6 +12,19 @@ export function defaultWasteRatioPctForColorCount(colorCount: number): number {
   return 35;
 }
 
+/** No-AMS profiles print each color as separate parts/plates — no purge tower, no color-change
+ * flush — so their waste is the single-color baseline regardless of how many colors the model has
+ * (makerworld-profile-verification plan §4.3). */
+export const NO_AMS_WASTE_RATIO_PCT = 5;
+
+/** AMS-aware default: `amsRequired === false` → NO_AMS_WASTE_RATIO_PCT; true or unknown (null) →
+ * the color-count default above. Callers should force staff to resolve `null` for multi-color
+ * profiles before pricing — this function only picks the number. */
+export function defaultWasteRatioPctForProfile(colorCount: number, amsRequired: boolean | null): number {
+  if (amsRequired === false) return NO_AMS_WASTE_RATIO_PCT;
+  return defaultWasteRatioPctForColorCount(colorCount);
+}
+
 /** Staff quick-select override presets (independent of the color-count default above) — 15/30/50%,
  * or CUSTOM to type an exact gram value directly (bypassing the ratio entirely). */
 export const WASTE_RATIO_OVERRIDE_PRESETS: Record<Exclude<WasteRatioPreset, 'CUSTOM'>, number> = {

@@ -6,6 +6,7 @@ import { storefrontButtonClasses } from '@/components/storefront/button';
 import { QuoteCountdown } from '@/components/storefront/quote-countdown';
 import { buildVietQrUrl } from '@/lib/vietqr';
 import { createDatabaseRateLimiter, getClientIp } from '@/lib/rate-limit';
+import { ProfileVerificationCard } from '@/components/makerworld/profile-verification-card';
 
 // business-rules.md #18 (mirrors #14/ADR-0021): new scope, does not collide with
 // 'public-order-lookup' — a customer polling/refreshing a quote link is a different traffic
@@ -80,12 +81,31 @@ export default async function PublicQuotePage({
         <div className="mt-2"><QuoteCountdown validUntil={quote.validUntil} /></div>
       </div>
 
-      {quote.modelSnapshot ? (
+      {quote.modelSnapshot?.schemaVersion === 2 ? (
+        // makerworld-profile-verification Phase A: the exact print profile staff verified. Image URLs
+        // here already passed the MakerWorld/Bambu Lab allowlist at the schema boundary (B2).
+        <div className="mt-8 flex flex-col gap-2">
+          <p className="text-sm font-semibold text-foreground">Mẫu &amp; profile in đã xác nhận</p>
+          <ProfileVerificationCard
+            profileTitle={quote.modelSnapshot.profileTitle}
+            modelTitle={quote.modelSnapshot.dataSource === 'RESOLVER' ? quote.modelSnapshot.title : null}
+            imageUrl={quote.modelSnapshot.profileCoverImageUrl ?? quote.modelSnapshot.coverImageUrl ?? null}
+            printerTarget={quote.modelSnapshot.printerTarget ?? null}
+            printMinutes={quote.modelSnapshot.totalPrintMinutes}
+            platesCount={quote.modelSnapshot.platesCount}
+            netWeightGrams={quote.modelSnapshot.netWeightGrams}
+            amsRequired={quote.modelSnapshot.amsRequired ?? null}
+            dataSource={quote.modelSnapshot.dataSource}
+            tier={quote.modelSnapshot.tier ?? null}
+            verified
+          />
+        </div>
+      ) : quote.modelSnapshot ? (
         <div className="mt-8 flex items-start gap-4 rounded-xl border border-border bg-card p-6 shadow-xs">
           {quote.modelSnapshot.coverImageUrl ? (
             <Image
               src={quote.modelSnapshot.coverImageUrl} alt={quote.modelSnapshot.title}
-              width={96} height={96} unoptimized className="size-24 rounded-lg border border-border object-cover"
+              width={96} height={96} unoptimized referrerPolicy="no-referrer" className="size-24 rounded-lg border border-border object-cover"
             />
           ) : null}
           <div>

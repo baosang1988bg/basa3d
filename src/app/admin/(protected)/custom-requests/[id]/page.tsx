@@ -7,8 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PricingCalculatorPanel } from '@/components/admin/pricing-calculator-panel';
-import { MakerWorldQuotePanel } from '@/components/admin/makerworld-quote-panel';
+import { QuoteToolSwitcher } from '@/components/admin/quote-tool-switcher';
+import { ASSEMBLY_TIERS } from '@/lib/pricing/assembly-tiers';
 import { CopyZaloQuoteButton } from '@/components/admin/copy-zalo-quote-button';
 import { ProcessStepper } from '@/components/admin/process-stepper';
 import { createCustomRequestAttachmentSignedUrl, getCustomRequestById, nextCustomRequestStatuses } from '@/services/custom-request.service';
@@ -141,7 +141,16 @@ export default async function CustomRequestDetailPage({ params }: { params: Prom
                 const canAccept = !isFinal && !isExpired;
                 return (
                   <TableRow key={quote.id}>
-                    <TableCell className="font-medium">{quote.quoteNumber}</TableCell>
+                    <TableCell className="font-medium">
+                      {quote.quoteNumber}
+                      {quote.modelSnapshot?.schemaVersion === 2 ? (
+                        <p className="text-xs font-normal text-muted-foreground">
+                          {quote.modelSnapshot.profileTitle}
+                          {quote.modelSnapshot.tier ? ` · ${ASSEMBLY_TIERS[quote.modelSnapshot.tier].label}` : ''}
+                          {quote.modelSnapshot.dataSource === 'MANUAL' ? ' · nhập tay' : ''}
+                        </p>
+                      ) : null}
+                    </TableCell>
                     <TableCell>{Number(quote.total).toLocaleString('vi-VN')}đ</TableCell>
                     <TableCell>{new Date(quote.validUntil).toLocaleString('vi-VN')}</TableCell>
                     <TableCell><Badge variant={quote.status === 'ACCEPTED' ? 'default' : 'secondary'}>{quote.status}</Badge></TableCell>
@@ -172,10 +181,8 @@ export default async function CustomRequestDetailPage({ params }: { params: Prom
 
           <ActionForm action={createQuoteAction.bind(null, id)} className="grid grid-cols-2 gap-4 border-t border-border pt-4">
             <div className="col-span-2">
-              <MakerWorldQuotePanel materials={materials} config={pricingConfig} priceInputIds={['subtotal', 'total']} />
-            </div>
-            <div className="col-span-2">
-              <PricingCalculatorPanel materials={materials} config={pricingConfig} priceInputIds={['subtotal', 'total']} />
+              {/* B7: exactly one pricing tool mounted at a time — see QuoteToolSwitcher. */}
+              <QuoteToolSwitcher materials={materials} config={pricingConfig} priceInputIds={['subtotal', 'total']} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="subtotal">Tạm tính (VND)</Label>
