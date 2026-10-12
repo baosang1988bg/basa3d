@@ -5,17 +5,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { resolveMaterialUnitCostVndPerGram, type PricingBreakdown } from '@/services/pricing.service';
+import { defaultWasteRatioPctForProfile, WASTE_RATIO_OVERRIDE_PRESETS } from '@/lib/pricing/smart-waste-estimator';
 import {
-  computePricingBreakdown,
-  resolveMaterialUnitCostVndPerGram,
-  type PricingBreakdown,
-} from '@/services/pricing.service';
-import {
-  defaultWasteRatioPctForProfile,
-  estimateWaste,
-  estimateWasteWithCustomGrams,
-  WASTE_RATIO_OVERRIDE_PRESETS,
-} from '@/lib/pricing/smart-waste-estimator';
+  buildMakerWorldMaterialLines,
+  defaultLaborMinutes,
+  needsAmsChoice as profileNeedsAmsChoice,
+  priceMakerWorldLines,
+  type MakerWorldMaterialLine,
+} from '@/lib/pricing/makerworld-pricing';
 import { matchAllFilaments, type AutoMatchMaterialOption } from '@/lib/pricing/material-auto-match';
 import { ASSEMBLY_TIERS, ASSEMBLY_TIER_KEYS, type AssemblyTier } from '@/lib/pricing/assembly-tiers';
 import {
@@ -454,7 +452,7 @@ function ProfilePricing({
   const [rows, setRows] = useState<FilamentRow[]>(() => profile.filaments.map(() => ({ materialId: '', wastePreset: 'DEFAULT', customWasteGrams: '' })));
   const [amsRequired, setAmsRequired] = useState<boolean | null>(profile.amsRequired);
   const [tier, setTier] = useState<AssemblyTier | null>(null);
-  const [laborMinutes, setLaborMinutes] = useState(String(profile.platesCount * 15));
+  const [laborMinutes, setLaborMinutes] = useState(String(defaultLaborMinutes(null, profile.platesCount)));
   const [consumableMaterialId, setConsumableMaterialId] = useState('');
   const [consumableGrams, setConsumableGrams] = useState('');
   const [verified, setVerified] = useState(false);
@@ -492,44 +490,38 @@ function ProfilePricing({
     () => matchAllFilaments(profile.filaments.map((f) => f.materialType), materials),
     [profile, materials],
   );
-  const needsAmsChoice = colorsCount > 1 && amsRequired === null;
+  const needsAmsChoice = profileNeedsAmsChoice(colorsCount, amsRequired);
   const defaultWastePct = defaultWasteRatioPctForProfile(colorsCount, amsRequired);
 
-  const materialLines = useMemo(() => {
-    const lines = profile.filaments.map((filament, index) => {
-      const row = rows[index];
-      const material = materials.find((m) => m.id === row.materialId);
-      const unitCost = material ? resolveMaterialUnitCostVndPerGram(material) : 0;
-      const customGrams = Number(row.customWasteGrams);
-      const estimate = row.wastePreset === 'CUSTOM'
-        ? estimateWasteWithCustomGrams(filament.netWeightGrams, Number.isFinite(customGrams) && customGrams >= 0 ? customGrams : 0)
-        : estimateWaste({
-          netWeightGrams: filament.netWeightGrams,
-          wasteRatioPct: row.wastePreset === 'DEFAULT' ? defaultWastePct : WASTE_RATIO_OVERRIDE_PRESETS[row.wastePreset],
-        });
-      return {
-        label: `${filament.name} (${filament.materialType})`,
-        gram: Math.round(estimate.totalWeightGrams * 100) / 100,
-        unitCostVndPerGram: unitCost,
-      };
-    });
-    const grams = Number(consumableGrams);
+  // Shared with the storefront estimate + verified price presets (makerworld-pricing.ts) so staff and
+  // customers always get numbers from the same rules. Unchosen spool = 0đ/g here (staff sees the
+  // partial price while picking); "Dùng giá này" still requires every color to have a spool.
+  const materialLines = useMemo<MakerWorldMaterialLine[]>(() => {
     const consumable = materials.find((m) => m.id === consumableMaterialId);
-    if (tier && ASSEMBLY_TIERS[tier].consumableLine && consumable && Number.isFinite(grams) && grams > 0) {
-      lines.push({ label: 'Keo/vật tư hoàn thiện', gram: grams, unitCostVndPerGram: resolveMaterialUnitCostVndPerGram(consumable) });
-    }
-    return lines;
-  }, [profile, rows, materials, defaultWastePct, tier, consumableMaterialId, consumableGrams]);
+    const consumableGramsValue = Number(consumableGrams);
+    return buildMakerWorldMaterialLines({
+      filaments: profile.filaments,
+      colorsCount,
+      amsRequired,
+      tier,
+      choices: profile.filaments.map((_, index) => {
+        const row = rows[index];
+        const material = materials.find((m) => m.id === row.materialId);
+        return {
+          unitCostVndPerGram: material ? resolveMaterialUnitCostVndPerGram(material) : 0,
+          materialId: material?.id ?? null,
+          waste: row.wastePreset === 'DEFAULT' ? { mode: 'DEFAULT' as const }
+            : row.wastePreset === 'CUSTOM' ? { mode: 'CUSTOM_GRAMS' as const, grams: Number(row.customWasteGrams) }
+            : { mode: 'PRESET' as const, preset: row.wastePreset },
+        };
+      }),
+      consumable: consumable ? { grams: consumableGramsValue, unitCostVndPerGram: resolveMaterialUnitCostVndPerGram(consumable), materialId: consumable.id } : null,
+    }) ?? [];
+  }, [profile, colorsCount, amsRequired, tier, rows, materials, consumableMaterialId, consumableGrams]);
 
   const breakdown = useMemo<PricingBreakdown | null>(() => {
     if (!config || needsAmsChoice || !materialLines.length) return null;
-    const labor = Number(laborMinutes);
-    if (!Number.isFinite(labor) || labor < 0) return null;
-    try {
-      return computePricingBreakdown({ materials: materialLines, printMinutes: profile.printTimeMinutes, laborMinutes: labor, config });
-    } catch {
-      return null;
-    }
+    return priceMakerWorldLines({ lines: materialLines, printMinutes: profile.printTimeMinutes, laborMinutes: Number(laborMinutes), config });
   }, [config, needsAmsChoice, materialLines, laborMinutes, profile.printTimeMinutes]);
 
   const allMaterialsChosen = rows.every((row) => row.materialId);
@@ -575,7 +567,7 @@ function ProfilePricing({
   function selectTier(next: AssemblyTier | null) {
     edit(() => {
       setTier(next);
-      setLaborMinutes(String(next ? ASSEMBLY_TIERS[next].laborMinutes : profile.platesCount * 15));
+      setLaborMinutes(String(defaultLaborMinutes(next, profile.platesCount)));
     });
   }
 
