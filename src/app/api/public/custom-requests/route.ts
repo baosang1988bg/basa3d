@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     let makerworldSnapshot: CustomRequestMakerWorldSnapshot | null = null;
     if (input.makerworld) {
       const { modelId } = parseMakerWorldUrl(input.makerworld.sourceUrl);
-      const reference = await referencePriceFor(input.makerworld.sourceUrl, input.makerworld.profileId, input.makerworld.tier);
+      const reference = await referencePriceFor(input.makerworld.sourceUrl, input.makerworld.profileId, input.makerworld.tier, input.makerworld.specText);
       makerworldSnapshot = {
         sourceUrl: input.makerworld.sourceUrl,
         modelId,
@@ -48,6 +48,7 @@ export async function POST(request: Request) {
         estimateSource: reference.source,
         estimatedPriceVnd: reference.priceVnd,
         estimatedAt: new Date().toISOString(),
+        ...(input.makerworld.specText ? { specText: input.makerworld.specText } : {}),
       };
     }
 

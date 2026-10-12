@@ -140,9 +140,11 @@ export type CustomRequestMakerWorldSnapshot = {
   profileTitle: string | null;
   tier: 'ASSEMBLED' | 'KIT';
   profileConfirmed: true;
-  estimateSource: 'VERIFIED' | 'AUTO' | 'NONE';
+  estimateSource: 'VERIFIED' | 'AUTO' | 'SPEC' | 'NONE';
   estimatedPriceVnd: number | null;
   estimatedAt: string;
+  /** ADR-0034: the spec line the customer pasted (estimateSource SPEC) — staff should double-check it. */
+  specText?: string;
 };
 
 export async function getCustomRequestById(id: string): Promise<CustomRequestDetail | null> {

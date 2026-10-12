@@ -25,6 +25,8 @@ import {
   priceMakerWorldLines,
 } from '../lib/pricing/makerworld-pricing';
 import { ASSEMBLY_TIER_KEYS, type AssemblyTier } from '../lib/pricing/assembly-tiers';
+import { parseMakerWorldSpecText } from '../lib/parsers/makerworld-spec-text';
+import { estimateFromSpec, loadPricingContext } from './instant-estimate.service';
 
 export const RESOLVER_CACHE_TTL_HOURS = 24;
 /** Failed lookups (Cloudflare block, timeout) are only cached briefly so a transient block doesn't
@@ -33,8 +35,8 @@ export const RESOLVER_NEGATIVE_CACHE_TTL_MINUTES = 10;
 export const RESOLVER_GLOBAL_BUDGET_PER_HOUR = 30;
 export const AUTO_ESTIMATE_ROUNDING_VND = 5_000;
 
-export type EstimateSource = 'VERIFIED' | 'AUTO' | 'NONE';
-export type EstimateReason = 'OK' | 'BLOCKED' | 'BUSY' | 'NO_PRICING_CONFIG' | 'INCOMPLETE' | 'NOT_VERIFIED';
+export type EstimateSource = 'VERIFIED' | 'AUTO' | 'SPEC' | 'NONE';
+export type EstimateReason = 'OK' | 'BLOCKED' | 'BUSY' | 'NO_PRICING_CONFIG' | 'INCOMPLETE' | 'NOT_VERIFIED' | 'SPEC_UNREADABLE';
 
 export type PublicEstimateProfile = {
   profileId: string;
@@ -192,11 +194,52 @@ export async function estimateMakerWorldUrl(rawUrl: string, options: { fetchImpl
   return { modelId: parsed.modelId, modelTitle: null, sourceUrl, source: 'NONE', reason: 'NOT_VERIFIED', license: null, profiles: [], selectedProfileId: null, requestedProfileId: parsed.profileId };
 }
 
+/**
+ * Option 1 (ADR-0034): MakerWorld blocks automated reads (Cloudflare), so when there is no
+ * VERIFIED price the customer pastes the profile's spec line from the MakerWorld page and we price it
+ * with the same rules. Always returns both tiers (MakerWorld models are usually multi-part).
+ */
+export async function estimateMakerWorldWithSpec(rawUrl: string, specText: string): Promise<PublicMakerWorldEstimate> {
+  const parsed = parseMakerWorldUrl(rawUrl);
+  const sourceUrl = canonicalSourceUrl(rawUrl);
+  const base = { modelId: parsed.modelId, modelTitle: null, sourceUrl, license: null, selectedProfileId: null, requestedProfileId: parsed.profileId };
+  const verified = await verifiedEstimate(parsed.modelId, parsed.profileId, sourceUrl);
+  if (verified && verified.source === 'VERIFIED') return verified;
+  const ctx = await loadPricingContext();
+  if (!ctx) return { ...base, source: 'NONE', reason: 'NO_PRICING_CONFIG', profiles: [] };
+  const spec = parseMakerWorldSpecText(specText);
+  const estimate = estimateFromSpec(ctx, spec, { forceTiers: true });
+  if (!estimate) return { ...base, source: 'NONE', reason: 'SPEC_UNREADABLE', profiles: [] };
+  const price = (key: AssemblyTier) => estimate.options.find((o) => o.key === key)?.priceVnd ?? null;
+  const profileId = parsed.profileId ?? 'SPEC';
+  return {
+    ...base,
+    source: price('ASSEMBLED') !== null || price('KIT') !== null ? 'SPEC' : 'NONE',
+    reason: price('ASSEMBLED') !== null || price('KIT') !== null ? 'OK' : 'INCOMPLETE',
+    selectedProfileId: profileId,
+    profiles: [{
+      profileId,
+      profileTitle: spec.profileTitle ?? 'Profile bạn đã chọn trên MakerWorld',
+      imageUrl: null,
+      printerTarget: spec.printerTarget,
+      printMinutes: estimate.specs.printMinutes ?? 0,
+      platesCount: estimate.specs.platesCount ?? 1,
+      netWeightGrams: estimate.specs.netWeightGrams ?? 0,
+      amsRequired: estimate.specs.amsRequired,
+      prices: { ASSEMBLED: price('ASSEMBLED'), KIT: price('KIT') },
+    }],
+  };
+}
+
 /** Reference price for one (profile, tier), recomputed server-side — stored with a customer's intake
  * so staff see which number the customer was shown. Never taken from the browser. */
-export async function referencePriceFor(rawUrl: string, profileId: string | null, tier: AssemblyTier): Promise<{ source: EstimateSource; priceVnd: number | null; modelTitle: string | null; profileTitle: string | null }> {
+export async function referencePriceFor(rawUrl: string, profileId: string | null, tier: AssemblyTier, specText?: string | null): Promise<{ source: EstimateSource; priceVnd: number | null; modelTitle: string | null; profileTitle: string | null }> {
   try {
-    const estimate = await estimateMakerWorldUrl(rawUrl);
+    let estimate = await estimateMakerWorldUrl(rawUrl);
+    if (estimate.source === 'NONE' && specText) {
+      estimate = await estimateMakerWorldWithSpec(rawUrl, specText);
+      profileId = estimate.selectedProfileId;
+    }
     const profile = profileId ? estimate.profiles.find((p) => p.profileId === profileId) : estimate.profiles.length === 1 ? estimate.profiles[0] : undefined;
     return { source: profile ? estimate.source : 'NONE', priceVnd: profile?.prices[tier] ?? null, modelTitle: estimate.modelTitle, profileTitle: profile?.profileTitle ?? null };
   } catch {

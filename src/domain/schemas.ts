@@ -377,6 +377,8 @@ export const publicMakerWorldIntakeSchema = z.object({
   profileId: z.string().trim().min(1).max(100).regex(/^[A-Za-z0-9_-]+$/).nullable(),
   tier: z.enum(['ASSEMBLED', 'KIT']),
   profileConfirmed: z.literal(true),
+  /** ADR-0034: spec line the customer pasted when MakerWorld couldn't be read automatically. */
+  specText: z.string().trim().min(3).max(2_000).optional(),
 }).strict();
 
 export const quoteInputSchema = z.object({

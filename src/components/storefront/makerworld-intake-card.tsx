@@ -35,7 +35,12 @@ const REASON_TEXT: Record<Exclude<EstimateReason, 'OK'>, string> = {
   BUSY: 'Hệ thống đang bận. Bạn vẫn có thể gửi yêu cầu, BaSa3D sẽ báo giá cho bạn.',
   NO_PRICING_CONFIG: 'Hiện chưa thể hiển thị giá tự động. Gửi yêu cầu để BaSa3D báo giá cho bạn.',
   INCOMPLETE: 'Mẫu này thiếu thông số in trên MakerWorld nên chưa tính được giá tự động. Gửi yêu cầu để BaSa3D báo giá cho bạn.',
+  SPEC_UNREADABLE: 'Chưa đọc được thời gian in và số gram trong đoạn bạn dán. Hãy copy cả dòng có dạng "7.4 h · 6 plates · 168 g" rồi thử lại.',
 };
+
+// Option 1 (ADR-0034): MakerWorld blocks automated reads, so the customer copies the profile's spec
+// line from the MakerWorld page; the server parses and prices it with the admin rules.
+const SPEC_HELP = 'Mở link trên MakerWorld → ở mục "Print Profile", copy dòng thông số của profile bạn chọn (tên profile, số giờ, số plate, số gram) rồi dán vào đây.';
 
 /**
  * Phase B storefront MakerWorld intake (makerworld-phase-b-storefront-estimate.md §7, ADR-0033).
@@ -49,6 +54,8 @@ export function MakerWorldIntakeCard() {
   const [estimate, setEstimate] = useState<PublicMakerWorldEstimate | null>(null);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [tier, setTier] = useState<Tier>('ASSEMBLED');
+  const [specText, setSpecText] = useState('');
+  const [usedSpecText, setUsedSpecText] = useState<string | null>(null);
   const inflight = useRef<AbortController | null>(null);
 
   const [showDetailForm, setShowDetailForm] = useState(false);
@@ -66,10 +73,11 @@ export function MakerWorldIntakeCard() {
   useEffect(() => () => inflight.current?.abort(), []);
 
   const selectedProfile = estimate?.profiles.find((p) => p.profileId === selectedProfileId) ?? null;
-  const hasPrices = estimate?.source === 'VERIFIED' || estimate?.source === 'AUTO';
+  const hasPrices = estimate?.source === 'VERIFIED' || estimate?.source === 'AUTO' || estimate?.source === 'SPEC';
+  const isEstimateSource = estimate?.source === 'AUTO' || estimate?.source === 'SPEC';
   const needsProfilePick = Boolean(estimate && estimate.profiles.length > 1 && !selectedProfile);
 
-  async function handleEstimate(targetUrl?: string) {
+  async function handleEstimate(targetUrl?: string, spec?: string) {
     const urlToTest = (targetUrl ?? url).trim();
     if (!urlToTest) {
       setEstimateError('Vui lòng dán link mô hình từ MakerWorld.');
@@ -88,7 +96,7 @@ export function MakerWorldIntakeCard() {
       const response = await fetch('/api/public/makerworld-estimate', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ url: urlToTest }),
+        body: JSON.stringify(spec ? { url: urlToTest, specText: spec } : { url: urlToTest }),
         signal: controller.signal,
       });
       const data = await response.json().catch(() => null);
@@ -101,6 +109,7 @@ export function MakerWorldIntakeCard() {
       }
       const result = data as PublicMakerWorldEstimate;
       setEstimate(result);
+      setUsedSpecText(spec && result.source === 'SPEC' ? spec : null);
       setSelectedProfileId(result.selectedProfileId ?? (result.profiles.length === 1 ? result.profiles[0].profileId : null));
       if (targetUrl) setUrl(targetUrl);
     } catch (error) {
@@ -148,6 +157,7 @@ export function MakerWorldIntakeCard() {
             profileId: selectedProfile?.profileId ?? estimate.requestedProfileId ?? null,
             tier,
             profileConfirmed,
+            ...(usedSpecText ? { specText: usedSpecText } : {}),
           },
         }),
       });
@@ -166,6 +176,8 @@ export function MakerWorldIntakeCard() {
   }
 
   function handleReset() {
+    setSpecText('');
+    setUsedSpecText(null);
     inflight.current?.abort();
     setUrl('');
     setEstimate(null);
@@ -291,6 +303,8 @@ export function MakerWorldIntakeCard() {
               </span>
             ) : estimate.source === 'AUTO' ? (
               <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300">Giá ước tính tự động</span>
+            ) : estimate.source === 'SPEC' ? (
+              <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300">Giá ước tính từ thông số bạn dán</span>
             ) : null}
           </div>
 
@@ -298,6 +312,31 @@ export function MakerWorldIntakeCard() {
             <div className="flex items-start gap-2.5 rounded-xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
               <AlertCircle className="mt-0.5 size-4 shrink-0" />
               <span>{REASON_TEXT[estimate.reason]}</span>
+            </div>
+          ) : null}
+
+          {estimate.source === 'NONE' && estimate.reason !== 'NO_PRICING_CONFIG' ? (
+            <div className="flex flex-col gap-2 rounded-xl border border-primary/30 bg-primary/5 p-4">
+              <p className="text-sm font-semibold text-foreground">Xem giá ngay bằng thông số profile</p>
+              <p className="text-xs text-muted-foreground">{SPEC_HELP}</p>
+              <textarea
+                id="mw-spec-text"
+                rows={2}
+                maxLength={2000}
+                value={specText}
+                onChange={(e) => setSpecText(e.target.value)}
+                placeholder="Ví dụ: 0.2mm layer, 2 walls, 15% infill · P1S · 7.4 h · 6 plates · 168 g"
+                className="rounded-lg border border-input bg-background p-2.5 text-sm text-foreground shadow-xs focus:border-primary focus:outline-hidden focus:ring-2 focus:ring-primary/20"
+              />
+              <button
+                type="button"
+                onClick={() => handleEstimate(undefined, specText.trim())}
+                disabled={isEstimating || specText.trim().length < 3}
+                className="inline-flex items-center justify-center gap-2 self-start rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-md hover:opacity-90 disabled:opacity-50 transition-all cursor-pointer"
+              >
+                {isEstimating ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+                <span>Tính giá từ thông số</span>
+              </button>
             </div>
           ) : null}
 
@@ -355,7 +394,7 @@ export function MakerWorldIntakeCard() {
                     </span>
                     <span className="font-heading text-3xl font-extrabold text-foreground">
                       {price === null ? <span className="text-base font-semibold text-muted-foreground">Xưởng sẽ báo giá</span>
-                        : estimate.source === 'AUTO' ? `~${formatVnd(price)}` : formatVnd(price)}
+                        : isEstimateSource ? `~${formatVnd(price)}` : formatVnd(price)}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       {t === 'ASSEMBLED'
@@ -375,7 +414,9 @@ export function MakerWorldIntakeCard() {
               <span>
                 {estimate.source === 'VERIFIED'
                   ? 'Giá tham khảo do BaSa3D tính cho đúng profile này với cấu hình in và giá nhựa hiện tại. Giá chính thức sẽ được xác nhận khi xưởng kiểm tra màu nhựa bạn chọn.'
-                  : 'Giá ước tính tự động, làm tròn 5.000đ. Giá chính thức do BaSa3D xác nhận sau khi kiểm tra mẫu.'}
+                  : estimate.source === 'SPEC'
+                    ? 'Giá ước tính theo thông số bạn dán, làm tròn 5.000đ. BaSa3D sẽ kiểm tra lại đúng profile trên MakerWorld trước khi báo giá chính thức.'
+                    : 'Giá ước tính tự động, làm tròn 5.000đ. Giá chính thức do BaSa3D xác nhận sau khi kiểm tra mẫu.'}
               </span>
             </div>
           ) : null}

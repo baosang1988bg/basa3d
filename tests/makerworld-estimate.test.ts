@@ -10,6 +10,7 @@ import { savePricePreset } from '../src/services/makerworld-price-preset.service
 import {
   RESOLVER_GLOBAL_BUDGET_PER_HOUR,
   estimateMakerWorldUrl,
+  estimateMakerWorldWithSpec,
   isPublicResolverEnabled,
   referencePriceFor,
   roundAutoEstimate,
@@ -145,4 +146,21 @@ test('AUTO (flag on): multi-color profile with unknown AMS is priced conservativ
   assert.equal(estimate.source, 'AUTO');
   assert.ok((estimate.profiles[0].prices.KIT ?? 0) > 0);
   await query(`delete from makerworld_resolver_cache where fetched_at > now() - interval '1 hour'`);
+});
+
+test('SPEC (option 1): pasted MakerWorld spec line → two tier prices; unreadable text → SPEC_UNREADABLE', { skip: !hasDb }, async () => {
+  await seedConfigAndMaterial();
+  const url = `https://makerworld.com/en/models/${uniqueModelId()}#profileId-3678340`;
+  const estimate = await estimateMakerWorldWithSpec(url, '0.2mm layer, 2 walls, 15% infill · P1S · 7.4 h · 6 plates · 168 g · No AMS');
+  assert.equal(estimate.source, 'SPEC');
+  assert.equal(estimate.selectedProfileId, '3678340');
+  const [profile] = estimate.profiles;
+  assert.equal(profile.printMinutes, 444);
+  assert.equal(profile.platesCount, 6);
+  for (const price of [profile.prices.ASSEMBLED, profile.prices.KIT]) assert.ok(price !== null && price % 5_000 === 0);
+  const reference = await referencePriceFor(url, '3678340', 'KIT', '7.4 h · 6 plates · 168 g');
+  assert.equal(reference.source, 'SPEC');
+  assert.ok((reference.priceVnd ?? 0) > 0);
+  const bad = await estimateMakerWorldWithSpec(url, 'xin chào');
+  assert.deepEqual([bad.source, bad.reason], ['NONE', 'SPEC_UNREADABLE']);
 });
