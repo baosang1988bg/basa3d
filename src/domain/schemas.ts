@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { isSafeMakerWorldImageUrl } from '../lib/parsers/makerworld-image';
+import { isMakerWorldModelUrl } from '../lib/parsers/makerworld-resolver';
 
 export const uuidSchema = z.string().uuid();
 const nonEmptyText = z.string().trim().min(1);
@@ -254,14 +256,55 @@ export const publicCustomRequestInputSchema = z.object({
 // giá" time — see quote.service.ts's QuoteModelSnapshot. Re-validated here because it round-trips
 // through the browser (staff review/edit) before being submitted, same rationale as
 // pricingBreakdownSchema above (AGENTS.md rule #6).
-export const quoteModelSnapshotSchema = z.object({
-  sourceUrl: z.string().trim().url().max(2_000),
+//
+// makerworld-profile-verification Phase A: versioned v1 | v2 (B9).
+// - v1 = the Phase 13 shape. Legacy rows have NO `schemaVersion` key; the preprocess step below tags
+//   them `schemaVersion: 1` so `z.discriminatedUnion` reports errors against the right branch
+//   (a plain `z.union([v2, v1])` would hide the real v2 error behind a v1 "unrecognized keys" error).
+// - v2 adds the verified print-profile metadata and the hard gate `profileVerified: z.literal(true)`.
+// - Both versions refine `sourceUrl` to an https MakerWorld model URL and image URLs to the
+//   MakerWorld/Bambu Lab allowlist (B2) — these values round-trip through the browser and are
+//   rendered on the public quote page.
+const makerWorldSourceUrlSchema = z.string().trim().url().max(2_000)
+  .refine(isMakerWorldModelUrl, { message: 'sourceUrl must be an https makerworld.com model URL.' });
+const makerWorldImageUrlSchema = z.string().trim().max(2_000)
+  .refine(isSafeMakerWorldImageUrl, { message: 'Image URL must be an https MakerWorld/Bambu Lab image URL.' });
+
+const quoteModelSnapshotV1Schema = z.object({
+  schemaVersion: z.literal(1),
+  sourceUrl: makerWorldSourceUrlSchema,
   title: nonEmptyText.max(300),
-  coverImageUrl: z.string().trim().url().max(2_000).nullable().optional(),
+  coverImageUrl: makerWorldImageUrlSchema.nullable().optional(),
   platesCount: safeInteger.nonnegative(),
   totalPrintMinutes: safeInteger.nonnegative(),
   colorsCount: safeInteger.nonnegative(),
 }).strict();
+
+const quoteModelSnapshotV2Schema = quoteModelSnapshotV1Schema.extend({
+  schemaVersion: z.literal(2),
+  dataSource: z.enum(['RESOLVER', 'MANUAL']),
+  profileId: z.string().trim().min(1).max(100).regex(/^[A-Za-z0-9_-]+$/),
+  profileTitle: nonEmptyText.max(300),
+  profileCoverImageUrl: makerWorldImageUrlSchema.nullable().optional(),
+  printerTarget: z.string().trim().max(100).nullable().optional(),
+  netWeightGrams: z.number().finite().nonnegative().max(20_000),
+  amsRequired: z.boolean().nullable().optional(),
+  tier: z.enum(['ASSEMBLED', 'KIT']).nullable().optional(),
+  profileVerified: z.literal(true, {
+    errorMap: () => ({ message: 'Cần xác nhận đúng profile khách yêu cầu trước khi tạo báo giá.' }),
+  }),
+}).strict();
+
+export const quoteModelSnapshotSchema = z.preprocess(
+  (raw) => (raw && typeof raw === 'object' && !Array.isArray(raw) && !('schemaVersion' in raw)
+    ? { ...(raw as Record<string, unknown>), schemaVersion: 1 }
+    : raw),
+  z.discriminatedUnion('schemaVersion', [quoteModelSnapshotV1Schema, quoteModelSnapshotV2Schema]),
+);
+
+export type QuoteModelSnapshotV1 = z.infer<typeof quoteModelSnapshotV1Schema>;
+export type QuoteModelSnapshotV2 = z.infer<typeof quoteModelSnapshotV2Schema>;
+export type QuoteModelSnapshotData = QuoteModelSnapshotV1 | QuoteModelSnapshotV2;
 
 export const quoteInputSchema = z.object({
   customRequestId: uuidSchema,

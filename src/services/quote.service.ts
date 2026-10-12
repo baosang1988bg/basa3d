@@ -5,20 +5,63 @@ import { writeAuditLog } from './audit.service';
 import { createOrderConfirmationToken, verifyOrderConfirmationToken } from '../lib/order-confirmation-token';
 import { digitsOnly, maskCustomerName } from './order.service';
 import type { PricingBreakdown } from './pricing.service';
+import { quoteModelSnapshotSchema, type QuoteModelSnapshotData } from '../domain/schemas';
+import { sanitizeMakerWorldImageUrl } from '../lib/parsers/makerworld-image';
 
 export function canAcceptQuote(validUntil: Date, now = new Date()): boolean { return validUntil >= now; }
 
 // Phase 13: model metadata snapshot from the MakerWorld resolver, captured at "Tạo báo giá" time
 // (immutable, like pricingBreakdown/pricingConfigId — ADR-0022) so the public quote page can render
 // it without re-fetching MakerWorld. Optional — a manually-typed quote simply omits it.
-export type QuoteModelSnapshot = {
-  sourceUrl: string;
-  title: string;
-  coverImageUrl?: string | null;
-  platesCount: number;
-  totalPrintMinutes: number;
-  colorsCount: number;
-};
+// makerworld-profile-verification Phase A: versioned v1 | v2 — the type is inferred from the Zod
+// schema so the TS type can never claim a field that legacy rows don't actually have.
+export type QuoteModelSnapshot = QuoteModelSnapshotData;
+
+/** Tolerant read path for `quotes.model_snapshot` (JSONB). Legacy Phase 13 rows (no
+ * `schemaVersion`) parse as v1. A corrupted/unknown shape returns `null` and logs loudly instead of
+ * crashing the public quote page the customer pays from — the pricing part of the page still renders. */
+export function readQuoteModelSnapshot(raw: unknown, context: { quoteId?: string } = {}): QuoteModelSnapshot | null {
+  if (raw === null || raw === undefined) return null;
+  // Rows written before the B2 image allowlist existed may hold a cover URL on a host we no longer
+  // trust. Drop just the image (render the placeholder) instead of discarding the whole snapshot.
+  let candidate = raw;
+  if (typeof raw === 'object' && !Array.isArray(raw)) {
+    const record = { ...(raw as Record<string, unknown>) };
+    for (const key of ['coverImageUrl', 'profileCoverImageUrl'] as const) {
+      if (key in record && record[key] !== null && record[key] !== undefined) record[key] = sanitizeMakerWorldImageUrl(record[key]);
+    }
+    candidate = record;
+  }
+  const parsed = quoteModelSnapshotSchema.safeParse(candidate);
+  if (parsed.success) return parsed.data;
+  console.error('[QUOTE_SNAPSHOT_CORRUPTED]', { quoteId: context.quoteId ?? null, issues: parsed.error.issues });
+  return null;
+}
+
+/** Tolerance for the B10 server-side consistency check between `pricingBreakdown` and
+ * `modelSnapshot.totalPrintMinutes` (±15%, with a small absolute floor for per-line VND rounding). */
+export const SNAPSHOT_PRINT_MINUTES_TOLERANCE_PCT = 15;
+const SNAPSHOT_PRINT_MINUTES_ABSOLUTE_FLOOR = 3;
+
+type PrintCostConfig = { electricityVndPerKwh: number; machinePriceVnd: number; machineLifetimeHours: number; printerPowerKw: number };
+
+/** B10: PricingBreakdown does not store printMinutes, but computePricingBreakdown derives
+ * machineDepreciationVnd and electricityCostVnd linearly from it — invert whichever has the larger
+ * per-minute coefficient (less relative rounding error). Returns null when the config makes both
+ * coefficients zero (nothing to compare). Pure — exported for tests. */
+export function derivePrintMinutesFromBreakdown(breakdown: Pick<PricingBreakdown, 'machineDepreciationVnd' | 'electricityCostVnd'>, config: PrintCostConfig): number | null {
+  const depreciationPerMinute = config.machineLifetimeHours > 0 ? config.machinePriceVnd / config.machineLifetimeHours / 60 : 0;
+  const electricityPerMinute = (config.printerPowerKw * config.electricityVndPerKwh) / 60;
+  if (depreciationPerMinute <= 0 && electricityPerMinute <= 0) return null;
+  return depreciationPerMinute >= electricityPerMinute
+    ? breakdown.machineDepreciationVnd / depreciationPerMinute
+    : breakdown.electricityCostVnd / electricityPerMinute;
+}
+
+export function isPrintMinutesConsistent(derivedMinutes: number, snapshotMinutes: number): boolean {
+  const tolerance = Math.max(snapshotMinutes * (SNAPSHOT_PRINT_MINUTES_TOLERANCE_PCT / 100), SNAPSHOT_PRINT_MINUTES_ABSOLUTE_FLOOR);
+  return Math.abs(derivedMinutes - snapshotMinutes) <= tolerance;
+}
 
 type QuoteSummary = {
   id: string; quoteNumber: string; subtotal: number; shippingFee: number; discount: number; total: number;
@@ -30,7 +73,7 @@ export async function listQuotesByCustomRequest(customRequestId: string): Promis
     select id, quote_number as "quoteNumber", subtotal, shipping_fee as "shippingFee", discount, total,
       valid_until as "validUntil", status, note, created_at as "createdAt", model_snapshot as "modelSnapshot"
     from quotes where custom_request_id = $1 order by created_at desc`, [customRequestId]);
-  return result.rows;
+  return result.rows.map((row) => ({ ...row, modelSnapshot: readQuoteModelSnapshot(row.modelSnapshot, { quoteId: row.id }) }));
 }
 
 // pricingBreakdown/pricingConfigId are an optional immutable snapshot (Phase 9) — a Quote created
@@ -51,6 +94,34 @@ export async function createQuote(input: {
     if (customRequest.rows[0].ip_risk_flag && !input.ipRiskAcknowledged) {
       throw new DomainError('IP_RISK_ACKNOWLEDGEMENT_REQUIRED', 'Yêu cầu này có rủi ro SHTT — cần xác nhận đã kiểm tra trước khi tạo báo giá.', 409);
     }
+    // B10 server-side consistency check: when a quote carries BOTH the pricing breakdown and the
+    // model snapshot, the print time the price was computed from must match the snapshot's print
+    // time (±15%). Catches "price of profile A saved with snapshot of profile B" even if the
+    // client-side clearApplied() guard is bypassed. Manual price edits stay allowed — they are not
+    // a mismatch of these two fields, they are audited below as MANUAL_PRICE_OVERRIDE.
+    const breakdown = input.pricingBreakdown as PricingBreakdown | null | undefined;
+    if (breakdown && input.pricingConfigId && input.modelSnapshot) {
+      const config = await client.query<{ electricityVndPerKwh: string; machinePriceVnd: string; machineLifetimeHours: number; printerPowerKw: string }>(`
+        select electricity_vnd_per_kwh as "electricityVndPerKwh", machine_price_vnd as "machinePriceVnd",
+          machine_lifetime_hours as "machineLifetimeHours", printer_power_kw as "printerPowerKw"
+        from pricing_configs where id = $1`, [input.pricingConfigId]);
+      if (!config.rowCount) throw new DomainError('PRICING_CONFIG_NOT_FOUND', 'Pricing config was not found.', 404);
+      const row = config.rows[0];
+      const derivedMinutes = derivePrintMinutesFromBreakdown(breakdown, {
+        electricityVndPerKwh: Number(row.electricityVndPerKwh),
+        machinePriceVnd: Number(row.machinePriceVnd),
+        machineLifetimeHours: Number(row.machineLifetimeHours),
+        printerPowerKw: Number(row.printerPowerKw),
+      });
+      if (derivedMinutes !== null && !isPrintMinutesConsistent(derivedMinutes, input.modelSnapshot.totalPrintMinutes)) {
+        throw new DomainError(
+          'QUOTE_SNAPSHOT_MISMATCH',
+          'Giá tính toán không khớp với thời gian in của profile đã chọn — vui lòng bấm "Dùng giá này" lại cho đúng profile.',
+          422,
+        );
+      }
+    }
+
     const quoteNumber = `Q-${randomUUID().replaceAll('-', '').slice(0, 12).toUpperCase()}`;
     const result = await client.query<{ id: string; quote_number: string }>(`
       insert into quotes (custom_request_id, quote_number, subtotal, shipping_fee, discount, total, valid_until, note, pricing_breakdown, pricing_config_id, model_snapshot)
@@ -60,6 +131,13 @@ export async function createQuote(input: {
       input.modelSnapshot ? JSON.stringify(input.modelSnapshot) : null,
     ]);
     await writeAuditLog(client, { actorId, action: 'QUOTE_CREATED', entityType: 'quote', entityId: result.rows[0].id, afterData: input });
+    if (breakdown && input.subtotal !== breakdown.finalPriceVnd) {
+      await writeAuditLog(client, {
+        actorId, action: 'MANUAL_PRICE_OVERRIDE', entityType: 'quote', entityId: result.rows[0].id,
+        beforeData: { finalPriceVnd: breakdown.finalPriceVnd },
+        afterData: { subtotal: input.subtotal, deltaVnd: input.subtotal - breakdown.finalPriceVnd },
+      });
+    }
     return { id: result.rows[0].id, quoteNumber: result.rows[0].quote_number };
   });
 }
@@ -77,7 +155,9 @@ export function mintQuoteAccessToken(quoteId: string, validUntil: Date): string 
 
 export async function acceptQuote(id: string, actorId: string) {
   return withTransaction(async (client) => {
-    const quote = await client.query<{ valid_until: Date; custom_request_id: string; status: string }>('select valid_until, custom_request_id, status from quotes where id = $1 for update', [id]);
+    const quote = await client.query<{ valid_until: Date; custom_request_id: string; status: string; source_url: string | null }>(
+      `select valid_until, custom_request_id, status, model_snapshot->>'sourceUrl' as source_url
+       from quotes where id = $1 for update`, [id]);
     if (!quote.rowCount) throw new DomainError('QUOTE_NOT_FOUND', 'Quote was not found.', 404);
     if (quote.rows[0].status !== 'DRAFT' && quote.rows[0].status !== 'SENT') {
       throw new DomainError('QUOTE_ALREADY_FINALIZED', `Quote is already ${quote.rows[0].status} and cannot be accepted again.`, 409);
@@ -85,6 +165,25 @@ export async function acceptQuote(id: string, actorId: string) {
     if (!canAcceptQuote(quote.rows[0].valid_until)) throw new DomainError('QUOTE_EXPIRED', 'Expired quotes cannot be accepted.', 409);
     const result = await client.query('update quotes set status = $2 where id = $1 returning id, status', [id, 'ACCEPTED']);
     await writeAuditLog(client, { actorId, action: 'QUOTE_ACCEPTED', entityType: 'quote', entityId: id, afterData: result.rows[0] });
+
+    // B4/B8: tier alternatives (ASSEMBLED vs KIT) of the SAME MakerWorld link are separate quotes —
+    // accepting one auto-rejects its still-open siblings so only one print_job is ever created. Scoped
+    // to the exact same model_snapshot.sourceUrl so a multi-item request or a non-MakerWorld revision
+    // quote is never touched. Quotes without a snapshot (source_url null) never auto-reject anything.
+    const sourceUrl = quote.rows[0].source_url;
+    if (sourceUrl) {
+      const siblings = await client.query<{ id: string }>(`
+        update quotes set status = 'REJECTED'
+        where custom_request_id = $1 and id <> $2 and status in ('DRAFT', 'SENT')
+          and (model_snapshot->>'sourceUrl') is not null and (model_snapshot->>'sourceUrl') = $3
+        returning id`, [quote.rows[0].custom_request_id, id, sourceUrl]);
+      for (const sibling of siblings.rows) {
+        await writeAuditLog(client, {
+          actorId, action: 'QUOTE_AUTO_REJECTED_SIBLING', entityType: 'quote', entityId: sibling.id,
+          afterData: { status: 'REJECTED', acceptedQuoteId: id, sourceUrl },
+        });
+      }
+    }
 
     // ADR-0007: custom prints never become an `orders` row — accepting a quote moves the work
     // into production tracking via print_jobs instead. material_id is left null until staff
@@ -151,7 +250,7 @@ async function getQuoteRowByNumber(quoteNumber: string): Promise<QuoteRow | null
   // ADR-0023: subtotal/shippingFee/discount/total are bigint columns — node-postgres returns them
   // as strings, not numbers. Coerce here so this function's declared return type is actually true
   // at runtime (same class of bug ADR-0023 documents for pricing-config.service/inventory.service).
-  return { ...row, subtotal: Number(row.subtotal), shippingFee: Number(row.shippingFee), discount: Number(row.discount), total: Number(row.total) };
+  return { ...row, modelSnapshot: readQuoteModelSnapshot(row.modelSnapshot, { quoteId: row.id }), subtotal: Number(row.subtotal), shippingFee: Number(row.shippingFee), discount: Number(row.discount), total: Number(row.total) };
 }
 
 function toPublicQuotePricing(row: QuoteRow): PublicQuotePricing {
