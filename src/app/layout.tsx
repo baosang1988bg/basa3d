@@ -5,6 +5,7 @@ import { getLocale } from 'next-intl/server';
 import { cn } from '@/lib/utils';
 import { themeBootstrapScript } from '@/lib/theme-script';
 import { GoogleAnalytics } from '@/components/analytics/google-analytics';
+import { VisualAiInspector } from '@/components/dev/visual-ai-inspector';
 
 const headingFont = Space_Grotesk({ subsets: ['latin', 'vietnamese'], weight: ['500', '600', '700'], variable: '--font-heading' });
 const bodyFont = Inter({ subsets: ['latin', 'vietnamese'], weight: ['400', '500', '600'], variable: '--font-sans' });
@@ -32,7 +33,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <body className="[font-feature-settings:'tnum']">
         {children}
         <GoogleAnalytics />
+        {process.env.NODE_ENV === 'development' ? <VisualAiInspector /> : null}
       </body>
     </html>
   );
 }
+
