@@ -113,6 +113,9 @@ async function fillCalculator(page: Page) {
 test('OWNER creates a Quote via the pricing calculator (manual entry) and the snapshot is persisted', async ({ page }) => {
   await login(page, ownerEmail);
   await page.goto(`/admin/custom-requests/${customRequestId}`);
+  // makerworld-profile-verification B7: the quote form mounts ONE pricing tool at a time and
+  // defaults to the MakerWorld panel — pick the calculator explicitly.
+  await page.getByRole('radio', { name: /Công cụ tính giá/ }).check();
 
   await fillCalculator(page);
 
