@@ -28,6 +28,7 @@ import { quoteModelSnapshotSchema } from '@/domain/schemas';
 import type { QuoteModelSnapshot } from '@/services/quote.service';
 import { ProfileVerificationCard } from '@/components/makerworld/profile-verification-card';
 import { PRINT_SERVICE_POLICY } from '@/lib/copyright/print-service-policy';
+import { savePricePresetAction } from '@/app/admin/(protected)/settings/makerworld-prices/actions';
 
 export type MakerWorldQuoteMaterialOption = AutoMatchMaterialOption & {
   costPerSpool: number | null;
@@ -461,6 +462,7 @@ function ProfilePricing({
   const licenseRestricted = source.licenseCommercialUse === 'NOT_ALLOWED';
   const [applied, setApplied] = useState<AppliedQuote | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
+  const [presetStatus, setPresetStatus] = useState<{ kind: 'saving' } | { kind: 'saved'; priceVnd: number } | { kind: 'error'; message: string } | null>(null);
 
   const siblingIds = useMemo(() => [...priceInputIds, ...(laborMinutesInputId ? [laborMinutesInputId] : [])], [priceInputIds, laborMinutesInputId]);
   const appliedRef = useRef(false);
@@ -480,6 +482,7 @@ function ProfilePricing({
     }
     setApplied(null);
     setApplyError(null);
+    setPresetStatus(null);
   }
   function edit(fn: () => void) {
     fn();
@@ -562,6 +565,42 @@ function ProfilePricing({
     appliedRef.current = true;
     setApplied({ breakdown, snapshot: parsed.data, configId: config.id });
     setApplyError(null);
+  }
+
+  // Phase B Tầng 1 (ADR-0033): save the inputs behind the applied price as the storefront's verified
+  // price for this profile + tier. Only inputs are sent; the server recomputes the price.
+  async function saveAsStorefrontPrice() {
+    if (!applied || !tier || !config) return;
+    setPresetStatus({ kind: 'saving' });
+    try {
+      const result = await savePricePresetAction({
+        sourceUrl: source.sourceUrl,
+        profileId: profile.profileId,
+        tier,
+        profileSnapshot: {
+          modelTitle: source.modelTitle,
+          profileTitle: profile.profileTitle,
+          profileCoverImageUrl: profile.profileCoverImageUrl ?? source.modelCoverImageUrl,
+          printerTarget: profile.printerTarget,
+          platesCount: profile.platesCount,
+          printMinutes: profile.printTimeMinutes,
+          netWeightGrams: profile.netWeightGrams,
+          amsRequired,
+          colorsCount,
+          license: source.license,
+          dataSource: source.dataSource,
+        },
+        materialLines: materialLines.map(({ label, materialId, materialType, gram }) => ({ label, materialId, materialType, gram })),
+        printMinutes: profile.printTimeMinutes,
+        laborMinutes: Math.round(Number(laborMinutes)),
+        pricingConfigId: applied.configId,
+      });
+      setPresetStatus(result.error || result.finalPriceVnd === undefined
+        ? { kind: 'error', message: result.error ?? 'Không lưu được giá.' }
+        : { kind: 'saved', priceVnd: result.finalPriceVnd });
+    } catch {
+      setPresetStatus({ kind: 'error', message: 'Không kết nối được máy chủ để lưu giá.' });
+    }
   }
 
   function selectTier(next: AssemblyTier | null) {
@@ -717,6 +756,18 @@ function ProfilePricing({
             <p className="text-xs text-muted-foreground">
               Đã điền {formatVnd(applied.breakdown.finalPriceVnd)} cho profile &quot;{profile.profileTitle}&quot; — đổi bất kỳ thông số nào sẽ xoá giá đã điền.
             </p>
+          ) : null}
+          {applied && tier ? (
+            <div className="mt-1 flex flex-col gap-1 rounded-md border border-dashed border-border p-2">
+              <Button type="button" size="sm" variant="outline" disabled={presetStatus?.kind === 'saving'} onClick={saveAsStorefrontPrice}>
+                {presetStatus?.kind === 'saving' ? 'Đang lưu…' : `Lưu làm giá Storefront (${ASSEMBLY_TIERS[tier].label})`}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Khách dán link mẫu này ở /custom-print sẽ thấy giá tính theo đúng các lựa chọn ở trên (tự cập nhật theo cấu hình giá &amp; giá nhựa hiện hành). Lưu từng phương án riêng.
+              </p>
+              {presetStatus?.kind === 'saved' ? <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Đã lưu giá Storefront: {formatVnd(presetStatus.priceVnd)}</p> : null}
+              {presetStatus?.kind === 'error' ? <p className="text-xs text-destructive">{presetStatus.message}</p> : null}
+            </div>
           ) : null}
         </div>
       ) : (

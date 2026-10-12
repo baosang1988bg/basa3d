@@ -329,6 +329,53 @@ export type QuoteModelSnapshotV1 = z.infer<typeof quoteModelSnapshotV1Schema>;
 export type QuoteModelSnapshotV2 = z.infer<typeof quoteModelSnapshotV2Schema>;
 export type QuoteModelSnapshotData = QuoteModelSnapshotV1 | QuoteModelSnapshotV2;
 
+// Phase B (makerworld-phase-b-storefront-estimate.md §5, ADR-0033): a staff-approved "verified price"
+// for one MakerWorld profile + tier. Only pricing INPUTS are accepted — the price itself is always
+// recomputed server-side from pricing_configs + material costs, never taken from the browser.
+export const makerWorldProfileSnapshotSchema = z.object({
+  modelTitle: nonEmptyText.max(300),
+  profileTitle: nonEmptyText.max(300),
+  profileCoverImageUrl: makerWorldImageUrlSchema.nullable(),
+  printerTarget: z.string().trim().max(100).nullable(),
+  platesCount: safeInteger.nonnegative().max(200),
+  printMinutes: safeInteger.positive().max(20_000),
+  netWeightGrams: z.number().finite().positive().max(20_000),
+  amsRequired: z.boolean().nullable(),
+  colorsCount: safeInteger.positive().max(16),
+  license: z.string().trim().max(200).nullable(),
+  dataSource: z.enum(['RESOLVER', 'MANUAL']),
+}).strict();
+
+export const makerWorldPricePresetInputSchema = z.object({
+  sourceUrl: makerWorldSourceUrlSchema,
+  profileId: z.string().trim().min(1).max(100).regex(/^[A-Za-z0-9_-]+$/),
+  tier: z.enum(['ASSEMBLED', 'KIT']),
+  profileSnapshot: makerWorldProfileSnapshotSchema,
+  materialLines: z.array(z.object({
+    label: nonEmptyText.max(300),
+    materialId: uuidSchema,
+    materialType: nonEmptyText.max(40),
+    gram: z.number().finite().positive().max(20_000),
+  }).strict()).min(1).max(20),
+  printMinutes: safeInteger.positive().max(20_000),
+  laborMinutes: safeInteger.nonnegative().max(2_000),
+  pricingConfigId: uuidSchema,
+}).strict().superRefine((preset, context) => {
+  if (preset.printMinutes !== preset.profileSnapshot.printMinutes) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['printMinutes'], message: 'printMinutes must match the profile snapshot.' });
+  }
+});
+export type MakerWorldPricePresetInput = z.infer<typeof makerWorldPricePresetInputSchema>;
+
+// What a storefront customer picked (§4). No price fields: the reference price shown is recomputed
+// and stored server-side at submission time.
+export const publicMakerWorldIntakeSchema = z.object({
+  sourceUrl: makerWorldSourceUrlSchema,
+  profileId: z.string().trim().min(1).max(100).regex(/^[A-Za-z0-9_-]+$/).nullable(),
+  tier: z.enum(['ASSEMBLED', 'KIT']),
+  profileConfirmed: z.literal(true),
+}).strict();
+
 export const quoteInputSchema = z.object({
   customRequestId: uuidSchema,
   subtotal: vndSchema,

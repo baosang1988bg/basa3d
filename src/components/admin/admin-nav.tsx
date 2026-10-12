@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   BookOpen, Boxes, Calculator, FileEdit, LayoutDashboard, Layers, Package, Printer,
   Receipt, ShieldAlert, ShoppingBag, Users,
+  Tags,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
@@ -28,6 +29,7 @@ const NAV_ITEMS: { href: string; label: string; icon: typeof LayoutDashboard; ow
   { href: '/admin/staff', label: 'Nhân viên', icon: Users, ownerOnly: true },
   { href: '/admin/expenses', label: 'Chi tiêu', icon: Receipt, ownerOnly: true },
   { href: '/admin/settings/pricing', label: 'Cấu hình giá', icon: Calculator, ownerOnly: true },
+  { href: '/admin/settings/makerworld-prices', label: 'Giá MakerWorld', icon: Tags },
   { href: '/admin/audit-logs', label: 'Nhật ký hệ thống', icon: ShieldAlert, ownerOnly: true },
 ];
 
