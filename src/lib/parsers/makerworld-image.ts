@@ -14,7 +14,10 @@
 export const MAX_IMAGE_URL_LENGTH = 2_000;
 
 /** Hostnames matched exactly (case-insensitive). */
-const EXACT_HOSTS = new Set<string>(['makerworld.com']);
+// `makerworld.bblmw.com` = MakerWorld's real image CDN (verified on the live page of model 3246150,
+// 2026-10-12: design covers and per-instance covers both live there). Exact host only — not
+// `*.bblmw.com`, since we have not verified who controls other subdomains.
+const EXACT_HOSTS = new Set<string>(['makerworld.com', 'makerworld.bblmw.com']);
 
 /** Registrable domains owned by MakerWorld/Bambu Lab — any subdomain is accepted. */
 const OWNED_DOMAIN_SUFFIXES = ['.makerworld.com', '.bambulab.com'] as const;

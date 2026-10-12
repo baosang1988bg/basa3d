@@ -23,13 +23,21 @@
 //   hostname check alone — that would require a custom `dns.lookup`/undici `Agent` hook. Out of scope
 //   (the attacker only controls the pasted URL, not makerworld.com's DNS).
 //
-// PARSING STRATEGY (assumption, documented — still NOT verified against the live site, no public
-// MakerWorld API is documented anywhere):
-// MakerWorld's model detail page is assumed to be a Next.js app that embeds its page data in
-// `<script id="__NEXT_DATA__">` at `props.pageProps.designDetail`. Per-instance field names below
-// accept a few plausible aliases (`title`/`name`, `cover`/`coverUrl`/`pictureUrl`, ...). If the real
-// payload differs, `RawMakerWorldInstance` + `normalizeInstance` are the only place to fix — the HTTP
-// layer (allowlist, redirect validation, deadline, size cap, error classification) is independent.
+// PARSING STRATEGY — VERIFIED against the live page of model 3246150 on 2026-10-12 (no public
+// MakerWorld API is documented, so the Next.js hydration payload is still the source):
+//   `<script id="__NEXT_DATA__">` → `props.pageProps.design` (NOT `designDetail` as Phase 13 assumed —
+//   Phase 13's resolver could never have parsed a real page). Observed fields:
+//   design:   title, coverUrl, license ("Standard Digital File License"), defaultInstanceId, instances[]
+//   instance: id (= the `#profileId-<n>` in model URLs), profileId (a DIFFERENT internal id — do not
+//             match on it), title, cover, prediction (SECONDS), weight (grams, total), needAms,
+//             instanceFilaments[{ type, color (hex), usedG (string), usedM }],
+//             extention.modelInfo.plates[] (length = plate count),
+//             extention.modelInfo.compatibility.devProductName (e.g. "P1S")
+//   images:   https://makerworld.bblmw.com/... (allowlisted as an exact host in makerworld-image.ts)
+// The older assumed aliases (`designDetail`, `plateCount`, `printTimeMinutes`, `filaments[].weightGrams`)
+// are still accepted so existing fixtures keep working. If MakerWorld changes the payload again,
+// `RawMakerWorldInstance` + `normalizeInstance` are the only place to fix — the HTTP layer
+// (allowlist, redirect validation, deadline, size cap, error classification) is independent.
 
 import { z } from 'zod';
 import { sanitizeMakerWorldImageUrl } from './makerworld-image';
@@ -257,11 +265,24 @@ export type MakerWorldResolution = {
   activeProfileId: string | null;
   /** The URL named a profileId that no longer exists on the page — UI warns and asks staff to pick. */
   requestedProfileMissing: boolean;
+  /** Raw license name from the design (e.g. "Standard Digital File License"), cleaned. */
+  license: string | null;
+  /** NOT_ALLOWED when the license name is known to forbid paid/commercial printing; otherwise
+   * UNKNOWN. Deliberately never "ALLOWED" — that is a legal judgement for the owner, not the parser. */
+  licenseCommercialUse: 'NOT_ALLOWED' | 'UNKNOWN';
 };
+
+// Matched on the license NAME only. "Standard Digital File License" (MakerWorld's default) forbids
+// charging money for printed copies; CC "NC" variants are non-commercial.
+const NON_COMMERCIAL_LICENSE_RE = /standard digital file license|non[\s-]?commercial|\bBY-NC\b|\bNC\b/i;
+
+export function classifyMakerWorldLicense(license: string | null): 'NOT_ALLOWED' | 'UNKNOWN' {
+  return license && NON_COMMERCIAL_LICENSE_RE.test(license) ? 'NOT_ALLOWED' : 'UNKNOWN';
+}
 
 // Assumed Next.js hydration payload shape — see file header. Kept optional-everywhere so a shape
 // mismatch fails a controlled MakerWorldProfileNotFoundError instead of a raw TypeError.
-type RawMakerWorldFilament = { name?: unknown; colorHex?: unknown; color?: unknown; type?: unknown; weightGrams?: unknown; weight?: unknown };
+type RawMakerWorldFilament = { name?: unknown; colorHex?: unknown; color?: unknown; type?: unknown; weightGrams?: unknown; weight?: unknown; usedG?: unknown };
 type RawMakerWorldInstance = {
   id?: unknown;
   title?: unknown;
@@ -272,15 +293,22 @@ type RawMakerWorldInstance = {
   printerName?: unknown;
   printer?: unknown;
   printers?: unknown;
+  /** Real payload: total slicer estimate in SECONDS. */
+  prediction?: unknown;
+  /** Real payload: total grams. */
+  weight?: unknown;
   plateCount?: unknown;
   printTimeMinutes?: unknown;
   weightGrams?: unknown;
   needAms?: unknown;
   amsRequired?: unknown;
+  instanceFilaments?: unknown;
   filaments?: unknown;
+  extention?: { modelInfo?: { plates?: unknown; compatibility?: { devProductName?: unknown } } };
 };
+type RawMakerWorldDesign = { title?: unknown; coverUrl?: unknown; license?: unknown; instances?: unknown };
 type RawMakerWorldNextData = {
-  props?: { pageProps?: { designDetail?: { title?: unknown; coverUrl?: unknown; instances?: unknown } } };
+  props?: { pageProps?: { design?: RawMakerWorldDesign; designDetail?: RawMakerWorldDesign } };
 };
 
 const NEXT_DATA_SCRIPT_RE = /<script[^>]*id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i;
@@ -303,6 +331,8 @@ function optionalBoolean(value: unknown): boolean | null {
 }
 
 function printerTargetOf(instance: RawMakerWorldInstance): string | null {
+  const compatible = cleanText(instance.extention?.modelInfo?.compatibility?.devProductName, 100);
+  if (compatible) return compatible;
   if (Array.isArray(instance.printers)) {
     const names = instance.printers.map((p) => cleanText(p, 40)).filter((p): p is string => Boolean(p));
     if (names.length) return names.join('/').slice(0, 100);
@@ -329,16 +359,34 @@ const profileSchema = z.object({
   filaments: z.array(filamentSchema).max(MAKERWORLD_LIMITS.maxFilaments),
 });
 
+function printMinutesOf(instance: RawMakerWorldInstance): number {
+  const predictionSeconds = optionalNumber(instance.prediction);
+  if (predictionSeconds !== undefined) return predictionSeconds / 60;
+  return optionalNumber(instance.printTimeMinutes) ?? 0;
+}
+
+function platesCountOf(instance: RawMakerWorldInstance): number | undefined {
+  const plates = instance.extention?.modelInfo?.plates;
+  if (Array.isArray(plates)) return plates.length;
+  return optionalNumber(instance.plateCount);
+}
+
 function normalizeInstance(instance: RawMakerWorldInstance, index: number): unknown {
-  const rawFilaments = Array.isArray(instance.filaments) ? (instance.filaments as RawMakerWorldFilament[]) : [];
-  const filaments = rawFilaments.map((filament) => ({
-    name: cleanText(filament?.name, MAKERWORLD_LIMITS.maxTitleLength) ?? 'Unknown',
-    colorHex: cleanText(filament?.colorHex, 20) ?? cleanText(filament?.color, 20) ?? '#000000',
-    materialType: cleanText(filament?.type, 40) ?? 'PLA',
-    netWeightGrams: optionalNumber(filament?.weightGrams) ?? optionalNumber(filament?.weight) ?? 0,
-  }));
+  const rawFilamentList = Array.isArray(instance.instanceFilaments) ? instance.instanceFilaments
+    : Array.isArray(instance.filaments) ? instance.filaments : [];
+  const filaments = (rawFilamentList as RawMakerWorldFilament[]).map((filament) => {
+    const materialType = cleanText(filament?.type, 40) ?? 'PLA';
+    const colorHex = cleanText(filament?.colorHex, 20) ?? cleanText(filament?.color, 20) ?? '#000000';
+    return {
+      // The real payload has no filament name — "PLA #68724D" is what staff can match by eye.
+      name: cleanText(filament?.name, MAKERWORLD_LIMITS.maxTitleLength) ?? `${materialType} ${colorHex}`,
+      colorHex,
+      materialType,
+      netWeightGrams: optionalNumber(filament?.usedG) ?? optionalNumber(filament?.weightGrams) ?? optionalNumber(filament?.weight) ?? 0,
+    };
+  });
   const filamentGrams = filaments.reduce((sum, f) => sum + (Number.isFinite(f.netWeightGrams) ? f.netWeightGrams : Number.NaN), 0);
-  const printMinutes = optionalNumber(instance.printTimeMinutes) ?? 0;
+  const printMinutes = printMinutesOf(instance);
   return {
     profileId: instance.id === undefined || instance.id === null ? '' : String(instance.id),
     profileTitle: cleanText(instance.title, MAKERWORLD_LIMITS.maxTitleLength)
@@ -348,10 +396,10 @@ function normalizeInstance(instance: RawMakerWorldInstance, index: number): unkn
       ?? sanitizeMakerWorldImageUrl(instance.coverUrl)
       ?? sanitizeMakerWorldImageUrl(instance.pictureUrl),
     printerTarget: printerTargetOf(instance),
-    platesCount: optionalNumber(instance.plateCount) ?? 0,
+    platesCount: platesCountOf(instance) ?? 0,
     // Slicer estimates can be fractional minutes — round once here so snapshots stay integer.
     printTimeMinutes: Number.isFinite(printMinutes) ? Math.round(printMinutes) : Number.NaN,
-    netWeightGrams: optionalNumber(instance.weightGrams) ?? Math.round(filamentGrams * 100) / 100,
+    netWeightGrams: optionalNumber(instance.weight) ?? optionalNumber(instance.weightGrams) ?? Math.round(filamentGrams * 100) / 100,
     amsRequired: optionalBoolean(instance.amsRequired) ?? optionalBoolean(instance.needAms),
     filaments,
   };
@@ -369,7 +417,7 @@ export function extractResolutionFromHtml(html: string, parsed: ParsedMakerWorld
   } catch {
     throw new MakerWorldProfileNotFoundError('Dữ liệu mẫu trên trang MakerWorld không đúng định dạng JSON.');
   }
-  const design = data?.props?.pageProps?.designDetail;
+  const design = data?.props?.pageProps?.design ?? data?.props?.pageProps?.designDetail;
   const instances = design?.instances;
   if (!design || !Array.isArray(instances) || instances.length === 0) {
     throw new MakerWorldProfileNotFoundError();
@@ -389,6 +437,7 @@ export function extractResolutionFromHtml(html: string, parsed: ParsedMakerWorld
     throw new MakerWorldProfileNotFoundError('Dữ liệu profile in trên MakerWorld bị trùng mã profile.');
   }
 
+  const license = cleanText(design.license, 200);
   let activeProfileId: string | null = null;
   let requestedProfileMissing = false;
   if (parsed.profileId) {
@@ -407,6 +456,8 @@ export function extractResolutionFromHtml(html: string, parsed: ParsedMakerWorld
     profiles,
     activeProfileId,
     requestedProfileMissing,
+    license,
+    licenseCommercialUse: classifyMakerWorldLicense(license),
   };
 }
 

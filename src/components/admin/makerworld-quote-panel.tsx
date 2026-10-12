@@ -306,6 +306,14 @@ export function MakerWorldQuotePanel({
           {resolution.requestedProfileMissing ? (
             <p className="text-xs text-destructive">Profile trong link không còn tồn tại trên MakerWorld — hãy chọn profile khác hoặc hỏi lại khách.</p>
           ) : null}
+          {resolution.licenseCommercialUse === 'NOT_ALLOWED' ? (
+            <div className="rounded-md border border-destructive/40 bg-destructive/5 p-2 text-xs text-destructive">
+              ⚠️ License của mẫu: <strong>{resolution.license}</strong> — không cho phép in để bán/thu phí nếu chưa có sự đồng ý của tác giả.
+              Hãy xin phép tác giả hoặc chỉ nhận in phi thương mại theo yêu cầu cá nhân trước khi báo giá (xem gate SHTT Phase 29).
+            </div>
+          ) : resolution.license ? (
+            <p className="text-xs text-muted-foreground">License: {resolution.license} — tự kiểm tra điều khoản thương mại trước khi báo giá.</p>
+          ) : null}
           {!selectedProfileId && resolution.profiles.length > 1 ? (
             <p className="text-xs text-muted-foreground">Model này có nhiều profile in — bắt buộc chọn trước khi tính giá.</p>
           ) : null}

@@ -8,6 +8,7 @@ import { getPool, query } from '../src/lib/db.js';
 import { DomainError } from '../src/lib/domain-error.js';
 import {
   MAKERWORLD_LIMITS,
+  classifyMakerWorldLicense,
   MakerWorldBlockedOrTimeoutError,
   MakerWorldProfileNotFoundError,
   resolveMakerWorldUrl,
@@ -106,6 +107,80 @@ function validV2Snapshot(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+// ---------------------------------------------------------------------------------------------
+// Resolver — REAL payload shape (verified on the live page of model 3246150, 2026-10-12)
+// ---------------------------------------------------------------------------------------------
+
+// Trimmed copy of the real `props.pageProps.design` shape: `#profileId-<n>` matches instance.id
+// (NOT instance.profileId), prediction is SECONDS, weight is total grams, usedG is a string, plates
+// live under extention.modelInfo.plates, images on makerworld.bblmw.com.
+function realShapeHtml(): string {
+  const plates = (n: number) => Array.from({ length: n }, (_, i) => ({ index: i + 1 }));
+  const design = {
+    title: "Frankenstein's Monster Halloween Version / NO AMS",
+    coverUrl: 'https://makerworld.bblmw.com/makerworld/model/USb58f2ee542afc6/design/76e5fa370a72b6c2.png',
+    license: 'Standard Digital File License',
+    defaultInstanceId: 3678340,
+    instances: [
+      {
+        id: 3678340, profileId: 970500765, title: '0.2mm layer, 2 walls, 15% infill',
+        cover: 'https://makerworld.bblmw.com/makerworld/model/USb58f2ee542afc6/970500765/instance/76e5fa370a72b6c2.png',
+        prediction: 26571, weight: 168, needAms: false,
+        instanceFilaments: [
+          { type: 'PLA', color: '#6F5034', usedM: '7.54', usedG: '23' },
+          { type: 'PLA', color: '#68724D', usedM: '28.04', usedG: '90' },
+          { type: 'PLA', color: '#8E9089', usedM: '8.07', usedG: '25' },
+          { type: 'PLA', color: '#042F56', usedM: '6.39', usedG: '21' },
+          { type: 'PLA', color: '#000000', usedM: '1.59', usedG: '6' },
+          { type: 'PLA', color: '#D1D3D5', usedM: '0.79', usedG: '3' },
+        ],
+        extention: { modelInfo: { plates: plates(6), compatibility: { devModelName: 'C12', devProductName: 'P1S', nozzleDiameter: 0.4 } } },
+      },
+      {
+        id: 3678348, profileId: 970556084, title: 'a1 mini (0.2mm layer, 2 walls, 15% infill)',
+        cover: 'https://makerworld.bblmw.com/makerworld/model/USb58f2ee542afc6/970556084/instance/797bfd0f4c99bc74.png',
+        prediction: 31624, weight: 167, needAms: false, instanceFilaments: [{ type: 'PLA', color: '#68724D', usedG: '167' }],
+        extention: { modelInfo: { plates: plates(6), compatibility: { devProductName: 'A1 mini' } } },
+      },
+      {
+        id: 3685714, profileId: 973603885, title: 'bolts (0.2mm layer, 2 walls, 15% infill)',
+        cover: 'https://makerworld.bblmw.com/makerworld/model/USb58f2ee542afc6/973603885/instance/1571d014bcfe3d4c.jpg',
+        prediction: 529, weight: 1, needAms: false, instanceFilaments: [{ type: 'PLA', color: '#000000', usedG: '1' }],
+        extention: { modelInfo: { plates: plates(1), compatibility: { devProductName: 'P1S' } } },
+      },
+    ],
+  };
+  return `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({ props: { pageProps: { design } } })}</script>`;
+}
+
+test('resolver parses the REAL MakerWorld payload shape (props.pageProps.design, seconds, usedG strings, bblmw CDN)', async () => {
+  const resolution = await resolveMakerWorldUrl('https://makerworld.com/en/models/3246150-frankenstein#profileId-3678340', { fetchImpl: okFetch(realShapeHtml()) });
+  assert.equal(resolution.modelTitle, "Frankenstein's Monster Halloween Version / NO AMS");
+  assert.equal(resolution.modelCoverImageUrl, 'https://makerworld.bblmw.com/makerworld/model/USb58f2ee542afc6/design/76e5fa370a72b6c2.png');
+  assert.equal(resolution.activeProfileId, '3678340', '#profileId matches instance.id, not instance.profileId');
+  assert.equal(resolution.profiles.length, 3);
+  const main = resolution.profiles[0];
+  assert.equal(main.profileTitle, '0.2mm layer, 2 walls, 15% infill');
+  assert.equal(main.printTimeMinutes, 443); // 26571 s ≈ 7.4 h
+  assert.equal(main.platesCount, 6);
+  assert.equal(main.netWeightGrams, 168);
+  assert.equal(main.amsRequired, false);
+  assert.equal(main.printerTarget, 'P1S');
+  assert.equal(main.filaments.length, 6);
+  assert.equal(main.filaments[1].netWeightGrams, 90);
+  assert.equal(main.filaments[1].name, 'PLA #68724D');
+  assert.ok(main.profileCoverImageUrl?.startsWith('https://makerworld.bblmw.com/'));
+  assert.equal(resolution.license, 'Standard Digital File License');
+  assert.equal(resolution.licenseCommercialUse, 'NOT_ALLOWED');
+});
+
+test('classifyMakerWorldLicense never claims commercial use is allowed', () => {
+  assert.equal(classifyMakerWorldLicense('Standard Digital File License'), 'NOT_ALLOWED');
+  assert.equal(classifyMakerWorldLicense('CC BY-NC-SA 4.0'), 'NOT_ALLOWED');
+  assert.equal(classifyMakerWorldLicense('CC BY 4.0'), 'UNKNOWN');
+  assert.equal(classifyMakerWorldLicense(null), 'UNKNOWN');
+});
 
 // ---------------------------------------------------------------------------------------------
 // Resolver — multi-profile extraction
@@ -217,6 +292,8 @@ test('sanitizeMakerWorldImageUrl accepts https MakerWorld/Bambu Lab hosts', () =
   assert.equal(sanitizeMakerWorldImageUrl('https://makerworld.com/a.jpg'), 'https://makerworld.com/a.jpg');
   assert.equal(sanitizeMakerWorldImageUrl('https://image.makerworld.com/a.jpg'), 'https://image.makerworld.com/a.jpg');
   assert.equal(sanitizeMakerWorldImageUrl('https://public-cdn.bambulab.com/a.png'), 'https://public-cdn.bambulab.com/a.png');
+  const cdn = 'https://makerworld.bblmw.com/makerworld/model/X/design/a.png?x-oss-process=image/resize,w_400';
+  assert.ok(sanitizeMakerWorldImageUrl(cdn)?.startsWith('https://makerworld.bblmw.com/'));
 });
 
 test('sanitizeMakerWorldImageUrl rejects everything else', () => {
@@ -229,6 +306,7 @@ test('sanitizeMakerWorldImageUrl rejects everything else', () => {
     'https://user:pass@makerworld.com/a.jpg',
     'https://makerworld.com:8443/a.jpg',
     'https://attacker-bucket.oss-cn-hangzhou.aliyuncs.com/a.jpg', // owner decision: no shared-cloud wildcard
+    'https://other.bblmw.com/a.jpg', // only the exact verified CDN host
     'javascript:alert(1)',
     'data:image/png;base64,AAAA',
     `https://makerworld.com/${'a'.repeat(2_100)}`,
