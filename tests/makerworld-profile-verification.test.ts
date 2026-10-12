@@ -26,6 +26,7 @@ import {
 } from '../src/services/quote.service.js';
 import { computePricingBreakdown, type PricingConfigInput } from '../src/services/pricing.service.js';
 import { ASSEMBLY_TIERS } from '../src/lib/pricing/assembly-tiers.js';
+import { PRINT_SERVICE_POLICY } from '../src/lib/copyright/print-service-policy.js';
 import { defaultWasteRatioPctForProfile } from '../src/lib/pricing/smart-waste-estimator.js';
 
 configureTestEnvironment();
@@ -399,13 +400,17 @@ test('snapshot rejects a non-MakerWorld sourceUrl and non-allowlisted image URLs
   assert.equal(quoteModelSnapshotSchema.safeParse(legacyEvil).success, false);
 });
 
-test('v2 snapshot with a non-commercial license requires licenseAcknowledged (B6, server-enforced)', () => {
+test('v2 snapshot of a non-commercial-license design must record the shop policy basis (B6 audit trail)', () => {
   const restricted = validV2Snapshot({ license: 'Standard Digital File License' });
   const missing = quoteModelSnapshotSchema.safeParse(restricted);
   assert.equal(missing.success, false);
-  if (!missing.success) assert.deepEqual(missing.error.issues.map((issue) => issue.path.join('.')), ['licenseAcknowledged']);
-  assert.equal(quoteModelSnapshotSchema.safeParse({ ...restricted, licenseAcknowledged: false }).success, false);
-  assert.equal(quoteModelSnapshotSchema.safeParse({ ...restricted, licenseAcknowledged: true }).success, true);
+  if (!missing.success) assert.deepEqual(missing.error.issues.map((issue) => issue.path.join('.')), ['licenseBasis']);
+  // acknowledged without a basis is still incomplete
+  assert.equal(quoteModelSnapshotSchema.safeParse({ ...restricted, licenseAcknowledged: true }).success, false);
+  // what the admin panel writes automatically under PRINT_SERVICE_POLICY → quoting is allowed directly
+  assert.equal(quoteModelSnapshotSchema.safeParse({ ...restricted, licenseAcknowledged: true, licenseBasis: PRINT_SERVICE_POLICY.licenseBasis }).success, true);
+  assert.equal(quoteModelSnapshotSchema.safeParse({ ...restricted, licenseAcknowledged: true, licenseBasis: 'SOMETHING_ELSE' }).success, false);
+  // permissive / unknown licenses need nothing extra
   assert.equal(quoteModelSnapshotSchema.safeParse(validV2Snapshot({ license: 'CC BY 4.0' })).success, true);
 });
 

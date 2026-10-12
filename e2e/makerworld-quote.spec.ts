@@ -8,7 +8,7 @@ configureTestEnvironment();
 
 // makerworld-profile-verification Phase A — admin browser flow:
 // paste link → pick the exact profile (no silent default) → verification card → tier → confirm
-// profile (+ license acknowledgement) → "Dùng giá này" → create quote → snapshot v2 persisted.
+// profile → "Dùng giá này" → create quote → snapshot v2 persisted (license basis recorded automatically).
 // Also: switching profile after applying clears the price already written into the form (B3).
 //
 // The resolver route is mocked with page.route(): MakerWorld's real site sits behind Cloudflare, and
@@ -110,10 +110,10 @@ async function priceSelectedProfile(page: Page) {
   await page.getByRole('button', { name: /Bản kit \(tự ráp\)/ }).click();
   await expect(page.getByText('Giá đề xuất', { exact: true })).toBeVisible();
   const apply = page.getByRole('button', { name: /Dùng giá này/ });
-  await expect(apply).toBeDisabled(); // profile + license not confirmed yet
+  await expect(apply).toBeDisabled(); // profile not confirmed yet
   await page.getByText('Đã xác nhận đúng profile khách yêu cầu', { exact: false }).first().click();
-  await expect(apply).toBeDisabled(); // license acknowledgement still missing (Standard Digital File License)
-  await page.getByText(/không cho phép in để bán: tôi xác nhận/).click();
+  // No license checkbox: restricted licenses are quoted directly under the shop's
+  // personal/non-commercial print policy (print-service-policy.ts), recorded on the snapshot.
   await expect(apply).toBeEnabled();
   await apply.click();
   await expect(page.getByText(/Đã điền .* cho profile/)).toBeVisible();
@@ -124,7 +124,8 @@ test('no profile is pre-selected when the link has no #profileId; switching prof
   await openPanelWithMockedResolver(page);
 
   await expect(page.locator('#makerworld-profile-select')).toHaveValue('');
-  await expect(page.getByText('License của mẫu')).toBeVisible();
+  await expect(page.getByText(/License của mẫu/)).toBeVisible();
+  await expect(page.getByText(/In giúp cá nhân theo yêu cầu, phi thương mại/)).toBeVisible();
 
   await page.locator('#makerworld-profile-select').selectOption('3678340');
   await priceSelectedProfile(page);
@@ -166,6 +167,7 @@ test('creates a KIT quote with a verified v2 profile snapshot', async ({ page })
       tier: 'KIT',
       license: 'Standard Digital File License',
       licenseAcknowledged: true,
+      licenseBasis: 'PERSONAL_NON_COMMERCIAL',
       profileVerified: true,
       sourceUrl: `${MODEL_URL}#profileId-3678340`,
     });

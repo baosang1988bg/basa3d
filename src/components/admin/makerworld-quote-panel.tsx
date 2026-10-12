@@ -29,6 +29,7 @@ import { parseMakerWorldSpecText } from '@/lib/parsers/makerworld-spec-text';
 import { quoteModelSnapshotSchema } from '@/domain/schemas';
 import type { QuoteModelSnapshot } from '@/services/quote.service';
 import { ProfileVerificationCard } from '@/components/makerworld/profile-verification-card';
+import { PRINT_SERVICE_POLICY } from '@/lib/copyright/print-service-policy';
 
 export type MakerWorldQuoteMaterialOption = AutoMatchMaterialOption & {
   costPerSpool: number | null;
@@ -332,13 +333,13 @@ export function MakerWorldQuotePanel({
           {resolution.requestedProfileMissing ? (
             <p className="text-xs text-destructive">Profile trong link không còn tồn tại trên MakerWorld — hãy chọn profile khác hoặc hỏi lại khách.</p>
           ) : null}
-          {resolution.licenseCommercialUse === 'NOT_ALLOWED' ? (
-            <div className="rounded-md border border-destructive/40 bg-destructive/5 p-2 text-xs text-destructive">
-              ⚠️ License của mẫu: <strong>{resolution.license}</strong> — không cho phép in để bán/thu phí nếu chưa có sự đồng ý của tác giả.
-              Hãy xin phép tác giả hoặc chỉ nhận in phi thương mại theo yêu cầu cá nhân trước khi báo giá (xem gate SHTT Phase 29).
-            </div>
-          ) : resolution.license ? (
-            <p className="text-xs text-muted-foreground">License: {resolution.license} — tự kiểm tra điều khoản thương mại trước khi báo giá.</p>
+          {resolution.license ? (
+            <p className="rounded-md border border-border bg-muted/30 p-2 text-xs text-muted-foreground">
+              License của mẫu: <strong>{resolution.license}</strong>
+              {resolution.licenseCommercialUse === 'NOT_ALLOWED'
+                ? ` — không cho phép thương mại. Báo giá theo chính sách "${PRINT_SERVICE_POLICY.label}" và được ghi vào báo giá làm căn cứ.`
+                : ' — tự kiểm tra điều khoản trước khi báo giá.'}
+            </p>
           ) : null}
           {!selectedProfileId && resolution.profiles.length > 1 ? (
             <p className="text-xs text-muted-foreground">Model này có nhiều profile in — bắt buộc chọn trước khi tính giá.</p>
@@ -457,7 +458,8 @@ function ProfilePricing({
   const [consumableMaterialId, setConsumableMaterialId] = useState('');
   const [consumableGrams, setConsumableGrams] = useState('');
   const [verified, setVerified] = useState(false);
-  const [licenseAcknowledged, setLicenseAcknowledged] = useState(false);
+  // Owner policy (print-service-policy.ts): restricted licenses are quoted directly under the
+  // shop-wide "personal, non-commercial print-on-request" basis — recorded on the snapshot, no gate.
   const licenseRestricted = source.licenseCommercialUse === 'NOT_ALLOWED';
   const [applied, setApplied] = useState<AppliedQuote | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
@@ -532,7 +534,7 @@ function ProfilePricing({
 
   const allMaterialsChosen = rows.every((row) => row.materialId);
   const canApply = Boolean(breakdown && config && verified && allMaterialsChosen
-    && !profile.dataIncomplete && (!licenseRestricted || licenseAcknowledged));
+    && !profile.dataIncomplete);
 
   function applyToForm() {
     if (!breakdown || !config || !canApply) return;
@@ -553,7 +555,7 @@ function ProfilePricing({
       amsRequired,
       tier,
       license: source.license,
-      ...(licenseRestricted ? { licenseAcknowledged } : {}),
+      ...(licenseRestricted ? { licenseAcknowledged: true, licenseBasis: PRINT_SERVICE_POLICY.licenseBasis } : {}),
       profileVerified: verified,
     };
     // Same schema the server enforces — fail here with a readable message instead of a generic
@@ -716,19 +718,6 @@ function ProfilePricing({
             />
             <span>Đã xác nhận đúng profile khách yêu cầu (đối chiếu ảnh, tên profile, máy in và thông số với link khách gửi)</span>
           </label>
-          {licenseRestricted ? (
-            <label className="flex cursor-pointer items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-2 text-sm">
-              <input
-                type="checkbox" className="mt-0.5 size-4" checked={licenseAcknowledged}
-                onChange={(e) => {
-                  const next = e.target.checked;
-                  if (next) setLicenseAcknowledged(true);
-                  else edit(() => setLicenseAcknowledged(false));
-                }}
-              />
-              <span>License &quot;{source.license}&quot; không cho phép in để bán: tôi xác nhận đã được tác giả cho phép, hoặc đây là bản in phi thương mại theo yêu cầu cá nhân.</span>
-            </label>
-          ) : null}
           {!allMaterialsChosen ? <p className="text-xs text-muted-foreground">Chọn cuộn nhựa cho tất cả các màu để dùng giá.</p> : null}
           <Button type="button" size="sm" className="mt-1" onClick={applyToForm} disabled={!canApply}>Dùng giá này &amp; điền form</Button>
           {applyError ? <p className="text-xs text-destructive">{applyError}</p> : null}

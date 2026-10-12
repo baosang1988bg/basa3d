@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { isSafeMakerWorldImageUrl } from '../lib/parsers/makerworld-image';
 import { classifyMakerWorldLicense, isMakerWorldModelUrl } from '../lib/parsers/makerworld-resolver';
+import { PRINT_SERVICE_LICENSE_BASES } from '../lib/copyright/print-service-policy';
 
 export const uuidSchema = z.string().uuid();
 const nonEmptyText = z.string().trim().min(1);
@@ -292,8 +293,10 @@ const quoteModelSnapshotV2Schema = quoteModelSnapshotV1Schema.extend({
   tier: z.enum(['ASSEMBLED', 'KIT']).nullable().optional(),
   /** License name from the design page, kept for the audit trail (B6). */
   license: z.string().trim().max(200).nullable().optional(),
-  /** Required true when `license` is known to forbid paid printing — see superRefine below. */
+  /** Required true (with a `licenseBasis`) when `license` is known to forbid commercial use —
+   * see superRefine below and src/lib/copyright/print-service-policy.ts. */
   licenseAcknowledged: z.boolean().optional(),
+  licenseBasis: z.enum(PRINT_SERVICE_LICENSE_BASES).optional(),
   profileVerified: z.literal(true, {
     errorMap: () => ({ message: 'Cần xác nhận đúng profile khách yêu cầu trước khi tạo báo giá.' }),
   }),
@@ -305,17 +308,18 @@ export const quoteModelSnapshotSchema = z.preprocess(
     : raw),
   z.discriminatedUnion('schemaVersion', [quoteModelSnapshotV1Schema, quoteModelSnapshotV2Schema])
     .superRefine((snapshot, context) => {
-      // B6 (Phase A part): a design whose license forbids paid printing (MakerWorld's default
-      // "Standard Digital File License") can only be quoted after staff explicitly confirm they have
-      // the author's permission or this is a non-commercial personal print. Server-enforced, same
-      // pattern as Phase 29's ipRiskAcknowledged.
+      // B6 (Phase A part): a quote for a design whose license forbids commercial use (MakerWorld's
+      // default "Standard Digital File License") must record WHY the shop may still quote it.
+      // Owner decision 2026-10-12: the shop-wide basis is "personal, non-commercial print-on-request"
+      // (PRINT_SERVICE_POLICY) — the admin panel fills it automatically, so quoting is not blocked,
+      // but a snapshot without a basis is still rejected so the audit trail can't silently go missing.
       if (snapshot.schemaVersion === 2
           && classifyMakerWorldLicense(snapshot.license ?? null) === 'NOT_ALLOWED'
-          && snapshot.licenseAcknowledged !== true) {
+          && (snapshot.licenseAcknowledged !== true || !snapshot.licenseBasis)) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ['licenseAcknowledged'],
-          message: 'License mẫu không cho phép in thương mại — cần xác nhận đã xin phép tác giả hoặc in phi thương mại.',
+          path: ['licenseBasis'],
+          message: 'License mẫu không cho phép thương mại — báo giá phải ghi rõ căn cứ (chính sách in giúp cá nhân, phi thương mại).',
         });
       }
     }),
