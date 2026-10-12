@@ -5,7 +5,7 @@
 //   .3mf not sliced, .step, images       → no automatic price (staff quotes)
 import { DomainError } from '../lib/domain-error';
 import { parseThreeMfSliceInfo } from '../lib/parsers/threemf-slice-info';
-import { parseObjVolume, parseStlVolume } from '../lib/parsers/mesh-volume';
+import { parseObjVolume, parseStlVolume, parseThreeMfMeshVolume } from '../lib/parsers/mesh-volume';
 import { downloadCustomRequestAttachment, ATTACHMENT_PATH_RE } from './custom-request.service';
 import {
   estimateFromMesh,
@@ -16,7 +16,8 @@ import {
 } from './instant-estimate.service';
 
 export type FileEstimateStatus = 'OK' | 'NOT_SLICED' | 'UNSUPPORTED' | 'UNREADABLE' | 'NO_PRICING_CONFIG' | 'NO_MATERIAL_PRICE';
-export type PublicFileEstimate = { status: FileEstimateStatus; estimate: InstantEstimate | null };
+/** `SLICE_FOR_EXACT`: an unsliced .3mf priced from its geometry — slicing would give an exact price. */
+export type PublicFileEstimate = { status: FileEstimateStatus; estimate: InstantEstimate | null; hint?: 'SLICE_FOR_EXACT' };
 
 /** Materials the storefront can auto-price (FDM). RESIN and "not sure" fall back to PLA pricing only
  * when the customer didn't choose; an explicit RESIN gets no automatic price. */
@@ -32,8 +33,18 @@ export function estimateFileBytes(ctx: PricingContext, input: { fileName: string
       try {
         estimate = estimateFromSliceInfo(ctx, parseThreeMfSliceInfo(input.bytes), requested);
       } catch (error) {
-        if (error instanceof DomainError && error.code === '3MF_MISSING_SLICE_INFO') return { status: 'NOT_SLICED', estimate: null };
-        throw error;
+        if (!(error instanceof DomainError && error.code === '3MF_MISSING_SLICE_INFO')) throw error;
+        // Unsliced project (typical MakerWorld download): price the geometry as a range instead of
+        // giving up; fall back to NOT_SLICED only if the geometry can't be read either.
+        try {
+          estimate = estimateFromMesh(ctx, parseThreeMfMeshVolume(input.bytes), requested);
+        } catch (meshError) {
+          if (meshError instanceof DomainError) return { status: 'NOT_SLICED', estimate: null };
+          throw meshError;
+        }
+        if (!estimate) return { status: 'NOT_SLICED', estimate: null };
+        const ranged = estimate.options.some((o) => o.minVnd !== undefined);
+        return ranged ? { status: 'OK', estimate, hint: 'SLICE_FOR_EXACT' } : { status: 'NO_MATERIAL_PRICE', estimate: null };
       }
     } else if (extension === 'stl') {
       estimate = estimateFromMesh(ctx, parseStlVolume(input.bytes), requested);

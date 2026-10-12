@@ -373,7 +373,9 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
             <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-300">
               {priced.kind === 'SLICED'
                 ? 'Giá ước tính từ thời gian in và số gram trong file đã slice, làm tròn 5.000đ. Giá chính thức do BaSa3D xác nhận khi kiểm tra file.'
-                : 'Khoảng giá sơ bộ từ thể tích mô hình (chưa biết độ đặc/infill). Gửi file .3mf đã slice để có giá chính xác hơn; giá chính thức do BaSa3D xác nhận.'}
+                : result?.hint === 'SLICE_FOR_EXACT'
+                  ? 'File .3mf chưa slice nên đây là khoảng giá sơ bộ từ thể tích mô hình. Muốn giá chính xác: mở file bằng Bambu Studio/Orca → chọn máy (vd P2S) → Slice → "Export plate sliced file" rồi tải lên lại. Giá chính thức do BaSa3D xác nhận.'
+                  : 'Khoảng giá sơ bộ từ thể tích mô hình (chưa biết độ đặc/infill). Gửi file .3mf đã slice để có giá chính xác hơn; giá chính thức do BaSa3D xác nhận.'}
             </p>
           </div>
         ) : null}
