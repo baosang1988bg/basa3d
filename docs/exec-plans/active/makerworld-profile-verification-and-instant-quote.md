@@ -146,3 +146,11 @@ WHERE custom_request_id = $1
 - **E2E:** `e2e/makerworld-quote.spec.ts` (mock route resolver) + sửa `e2e/pricing.spec.ts` chọn tab "Công cụ tính giá" (B7 đổi tool mặc định). Chưa chạy được trong môi trường của Claude (cần Supabase local).
 - **Edge case thực tế:** model 3246150 có profile phụ "bolts" (1 plate, 1g) — mẫu hoàn chỉnh có thể cần in thêm profile phụ; staff tự cộng hoặc tạo dòng riêng.
 - **Chưa làm (follow-up):** upload screenshot lên Supabase cho Quick-Form (cần bucket public → migration, ngoài phạm vi "zero migration"); B6 phần Storefront (auto `ip_risk_flag`) thuộc Phase B.
+
+---
+
+## 7. Phase B
+
+Plan chi tiết: `makerworld-phase-b-storefront-estimate.md` (2026-10-12). Cập nhật so với bảng §3:
+- **B5:** endpoint ước tính công khai được giữ, nhưng chỉ nhận `{url}`, nguồn giá chính là thư viện giá admin đã duyệt (đọc DB, không gọi MakerWorld); chống lạm dụng bằng Vercel Firewall + cache/ngân sách gọi resolver — không dùng DB rate limiter.
+- **B6:** thay bằng quyết định Owner 2026-10-12 (in giúp cá nhân, phi thương mại — ADR-0032): không tự gắn `ip_risk_flag` cho mọi link MakerWorld.
