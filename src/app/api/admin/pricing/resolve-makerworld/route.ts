@@ -5,6 +5,7 @@ import {
   MakerWorldBlockedOrTimeoutError,
   MakerWorldNotFoundError,
   MakerWorldProfileNotFoundError,
+  MakerWorldResolverError,
   resolveMakerWorldUrl,
 } from '../../../../../lib/parsers/makerworld-resolver';
 
@@ -18,9 +19,13 @@ export async function POST(request: Request) {
     if (!body || typeof body.url !== 'string' || !body.url.trim()) {
       return NextResponse.json({ code: 'URL_REQUIRED', message: 'Vui lòng dán link MakerWorld.' }, { status: 400 });
     }
-    const profile = await resolveMakerWorldUrl(body.url);
-    return NextResponse.json({ data: profile });
+    const resolution = await resolveMakerWorldUrl(body.url);
+    // Measure how often the server-side resolver actually works from our datacenter IP before
+    // investing in a public (Phase B) flow — see makerworld-profile-verification plan.
+    console.info('[MAKERWORLD_RESOLVER]', { outcome: 'OK', profiles: resolution.profiles.length });
+    return NextResponse.json({ data: resolution });
   } catch (error) {
+    if (error instanceof MakerWorldResolverError) console.info('[MAKERWORLD_RESOLVER]', { outcome: error.kind });
     if (error instanceof MakerWorldBlockedOrTimeoutError) {
       return NextResponse.json({ code: 'MAKERWORLD_BLOCKED_OR_TIMEOUT', message: error.message }, { status: 504 });
     }
