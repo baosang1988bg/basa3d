@@ -12,7 +12,7 @@
 3. **Không cần upload để báo giá.** Thông tin để tính giá chỉ vài KB: `slice_info` trong .3mf đã slice, hoặc thể tích hình khối. Đọc ngay trên trình duyệt khách ⇒ giá trong 1–3 giây với file 60MB, không tốn băng thông, không chạm giới hạn nào.
 4. **Muốn giá chính xác cho file chưa slice (file dự án MakerWorld, STL)** thì chỉ có một cách đáng tin: **chạy slicer thật (OrcaSlicer/Bambu Studio CLI) trên một máy chủ riêng** với đúng profile máy của xưởng (P1S/P2S/A1…). Vercel không chạy được; Cloud Run/Fly.io chạy được, chi phí ~0,003 USD/lần slice.
 5. **Đề xuất:** làm theo 3 lớp — (1) giá tức thì trên trình duyệt, (2) giá chính xác bằng slicer chạy nền 10 giây–2 phút, (3) xưởng xác nhận giá chính thức (đã có). Chia 2 đợt: đợt 1 sửa lỗi upload + tính trên trình duyệt (~1,5 ngày), đợt 2 slicer server (~3–5 ngày).
-6. Trên thị trường Việt Nam, chưa tìm thấy xưởng nào có "tải file → có giá ngay" — các xưởng vẫn báo giá thủ công qua điện thoại. Đây là lợi thế cạnh tranh thật, đáng đầu tư làm đúng.
+6. Trên thị trường Việt Nam đã có xưởng báo giá tự động từ STL (in3dtudonghoa.com — xem §9: tính theo khối lượng ước tính × đơn giá/gram, phân tích ngay trên trình duyệt). Phần lớn xưởng khác vẫn báo giá thủ công. Muốn cạnh tranh cần ít nhất ngang mức đó, và hơn ở chỗ hỗ trợ .3mf/MakerWorld và tính cả thời gian in.
 
 ---
 
@@ -137,6 +137,37 @@ Khách chọn file (≤ 60MB)
 
 ---
 
+## 9. Đối thủ trong nước: in3dtudonghoa.com (3D Việt Production, Đồng Nai) — khảo sát 2026-10-12
+
+Thử bằng 1 file STL khối lập phương 40 mm (64 cm³), **không tạo đơn**. Mục này sửa lại kết luận ở §1 điểm 6: đã có ít nhất 1 xưởng VN báo giá tự động từ STL.
+
+**Luồng (4 bước: Tải mẫu → Cấu hình → Báo giá → Xác nhận):**
+- Kéo thả **một hoặc nhiều** file STL/OBJ; ghi rõ *"File chỉ tải lên khi bạn tạo đơn"* — phân tích ngay trên trình duyệt (đúng hướng Lớp 1 ở §6).
+- Xem trước 3D xoay/phóng to, hiện kích thước X/Y/Z, **thể tích**, cho **chỉnh kích thước (scale)**.
+- Có giá ngay sau khi tải (mặc định PETG, infill 15%), cột tóm tắt bên phải cập nhật trực tiếp.
+- Cấu hình: FDM (PLA/PETG, hiện **đơn giá/gram** trước & sau VAT) hoặc Resin; **độ đặc 10/15/20/30%**; màu (ngẫu nhiên/đen/trắng).
+- Số lượng có **mốc giảm giá** ("thêm 9 sản phẩm để giảm 5%"), phí vận chuyển, VAT 8%, mã ưu đãi, **tải PDF báo giá**; bước cuối: địa chỉ + voucher → "Tạo yêu cầu thanh toán".
+
+**Công thức giá suy ngược (khớp đến từng đồng với 4 lần thử):**
+
+| Cấu hình | Khối lượng mẫu | Giá 1 sp (gồm VAT) |
+|---|---|---|
+| PETG, infill 10% | 18,00 g | 14.583đ |
+| PETG, infill 15% | 21,52 g | 17.430đ |
+| PETG, infill 30% | 32,06 g | 25.973đ |
+| PLA, infill 10% | 17,72 g | 19.138đ |
+
+- Khối lượng = khối lượng riêng × (**vỏ** + phần ruột × infill). Với khối 40 mm: vỏ ≈ 8,6 cm³ ≈ diện tích bề mặt 96 cm² × **~0,9 mm**, ruột phần còn lại. Khối lượng riêng PETG ≈ 1,27, PLA ≈ 1,25.
+- Cộng **support cố định 25%** khối lượng (bất kể hình dạng).
+- Giá = tổng gram × **đơn giá/gram** (PLA 800đ, PETG 600đ, Resin 4.000đ, trước VAT) × 1,08. **Không có thành phần thời gian máy/công.**
+
+**Đánh giá:**
+- Điểm mạnh nên học: phân tích trên trình duyệt (không upload), xem trước 3D + kích thước, chỉnh scale, chọn infill → **ra 1 con số thay vì khoảng giá**, nhiều file, mốc giảm giá theo số lượng, PDF báo giá, thanh tóm tắt luôn hiển thị.
+- Điểm yếu: không tính thời gian in → mẫu cao/mảnh/nhiều chi tiết (in lâu, ít nhựa) bị báo giá thấp; support 25% cố định không theo hình dạng; không xử lý .3mf (file MakerWorld/Bambu).
+- **Áp dụng cho BaSa3D:** dùng mô hình khối lượng "vỏ + ruột × infill" thay cho hệ số 35–75% hiện tại (cho 1 giá thay vì khoảng giá), cho khách chọn infill/scale; **giữ engine cost-plus của BaSa3D** (có thời gian máy + công) nhưng cần ước lượng thời gian in từ hình khối — tạm dùng công thức theo gram rồi hiệu chỉnh bằng dữ liệu đơn thật (§6.4), về lâu dài dùng slicer (Lớp 2). Chỉ học ý tưởng/luồng, không sao chép mã, nội dung hay nhận diện của họ.
+
+---
+
 ## Nguồn
 
 - Vercel — giới hạn 4,5MB và cách vượt: [How to bypass Vercel body size limit](https://vercel.com/kb/guide/how-to-bypass-vercel-body-size-limit-serverless-functions), [How to upload and store files with Vercel](https://vercel.com/kb/guide/vercel-file-uploads), [File upload returning 413 (community)](https://community.vercel.com/t/file-upload-with-blob-returning-413/952)
@@ -144,6 +175,7 @@ Khách chọn file (≤ 60MB)
 - Slicer CLI: [Bambu Studio — Command Line Usage (wiki chính thức)](https://github.com/bambulab/BambuStudio/wiki/Command-Line-Usage), [OrcaSlicer wiki — CLI mode](https://www.orcaslicer.com/wiki/cli/cli_mode), [Printago — Orca Slicer CLI reference](https://printago.io/blog/orca-slicer-cli-reference), [Printago — Bambu Studio CLI reference](https://printago.io/blog/bambu-studio-cli-reference), [Printago — Orca in the cloud](https://printago.io/features/orca-slicer), [Printago — 3MF file format](https://printago.io/blog/3mf-file-format), [DeepWiki — OrcaSlicer CLI/headless](https://deepwiki.com/SoftFever/OrcaSlicer/10.2-cli-mode-and-headless-operation), [Bambu forum — CLI cannot apply external presets](https://forum.bambulab.com/t/cli-cannot-apply-external-presets/197842), [OrcaSlicer discussion #1603](https://github.com/SoftFever/OrcaSlicer/discussions/1603), [Prusa forum — duration & filament on CLI](https://forum.prusa3d.com/forum/prusaslicer/how-to-get-duration-and-filament-usage-on-cli/)
 - Hạ tầng: [Cloud Run pricing](https://cloud.google.com/run/pricing?hl=cs), [Cloud Run pricing guide (Cloudchipr)](https://cloudchipr.com/blog/cloud-run-pricing)
 - Dịch vụ/API báo giá: [Slicer API + WordPress instant quotes (Printables)](https://www.printables.com/article/slicer-api-with-wordpress-plugin-that-creates-inst-n5jba25), [Prodaxis Print Quote](https://wordpress.org/plugins/?p=334513), [SimplyPrint API](https://simplyprint.io/features/api), [Slant 3D API](https://www.fabbaloo.com/news/slant-3d-launches-api-for-direct-access-to-print-farms), [Price an STL on Slant3D](https://waylonwalker.com/price-an-stl-print-on-slant3d), [3DPrinterOS system description](https://3dprinteros.helpdocs.io/3dpos-basics/system-description), [3DPrint Lite](https://wordpress.org/plugins/3dprint-lite/), [FacFox — cost of 3D printing](https://facfox.com/docs/cost-of-3d-printing), [PrintPrice (Shopify)](https://apps.shopify.com/print-price?locale=tr), [IamRapid instant quotation](https://iamrapid.com/instant-quotation/), [Trang Vàng — dịch vụ in 3D](https://www.trangvangvietnam.com/products/395764391/dịch-vụ-in-3d.html)
+- Đối thủ: [in3dtudonghoa.com — 3D Việt Production](https://in3dtudonghoa.com/) (khảo sát trực tiếp 2026-10-12)
 - Slicer trong trình duyệt: [Kiri:Moto engine APIs](https://docs.grid.space/kiri-moto/engine-apis), [Kiri:Moto forum — metadata](https://forum.grid.space/t/get-model-metadata-from-engine-js/2953), [SimplyPrint — browser-based slicers](https://simplyprint.io/articles/browser-based-3d-slicer)
 - Độ chính xác: [SliceHub (arXiv)](https://arxiv.org/pdf/2109.14722), [Bambu forum — inaccurate print times](https://forum.bambulab.com/t/inaccurate-print-times-can-we-tweak-settings-to-be-more-accurate/2546), [Ultimaker community](https://community.ultimaker.com/profile/383473-emustwin/), [Duet forum](https://forum.duet3d.com/post/102344)
 - Đọc ZIP truy cập ngẫu nhiên: [unzipit](https://github.com/greggman/unzipit)
