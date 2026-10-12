@@ -128,3 +128,21 @@ test('AUTO (flag on): Cloudflare block â†’ NONE/BLOCKED; global hourly budget â†
   assert.equal(calls, 0);
   await query(`delete from makerworld_resolver_cache where fetched_at > now() - interval '1 hour'`);
 });
+
+test('AUTO (flag on): multi-color profile with unknown AMS is priced conservatively (as AMS), not left without a price', { skip: !hasDb }, async () => {
+  await seedConfigAndMaterial();
+  await query(`delete from makerworld_resolver_cache where fetched_at > now() - interval '1 hour'`);
+  const design = {
+    title: 'Unknown AMS model', coverUrl: null, license: null,
+    instances: [{
+      id: 222, title: 'multi', prediction: 3_600, weight: 100,
+      instanceFilaments: [{ type: 'PLA', color: '#000000', usedG: '60' }, { type: 'PLA', color: '#FFFFFF', usedG: '40' }],
+      extention: { modelInfo: { plates: [{}], compatibility: { devProductName: 'A1' } } },
+    }],
+  };
+  const html = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({ props: { pageProps: { design } } })}</script>`;
+  const estimate = await estimateMakerWorldUrl(`https://makerworld.com/en/models/${uniqueModelId()}`, { env: { MAKERWORLD_PUBLIC_RESOLVER_ENABLED: 'true' }, fetchImpl: async () => new Response(html) });
+  assert.equal(estimate.source, 'AUTO');
+  assert.ok((estimate.profiles[0].prices.KIT ?? 0) > 0);
+  await query(`delete from makerworld_resolver_cache where fetched_at > now() - interval '1 hour'`);
+});

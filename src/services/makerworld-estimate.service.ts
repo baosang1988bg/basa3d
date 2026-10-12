@@ -151,7 +151,9 @@ async function autoEstimate(rawUrl: string, modelId: string, requestedProfileId:
         const lines = buildMakerWorldMaterialLines({
           filaments: profile.filaments,
           colorsCount: profile.filaments.length,
-          amsRequired: profile.amsRequired,
+          // Customers can't be asked "AMS or not?". When MakerWorld doesn't say, price the
+          // conservative case (AMS purge waste) so an automatic estimate never undercharges.
+          amsRequired: profile.amsRequired ?? true,
           tier,
           choices: profile.filaments.map((f) => ({ unitCostVndPerGram: medians.get(f.materialType.trim().toUpperCase()) ?? null })),
         });

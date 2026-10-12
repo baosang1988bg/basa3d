@@ -48,7 +48,7 @@ Thứ tự trên **mỗi** môi trường (Dev trước, rồi Prod): `202610120
 
 Trước khi mở thẻ MakerWorld cho khách trên Production:
 - [ ] Tạo Vercel Firewall rule `makerworld-estimate-rate-limit` (`docs/operations/deployment.md`).
-- [ ] Để trống `MAKERWORLD_PUBLIC_RESOLVER_ENABLED` (Đợt 2 mới bật).
+- [ ] Đặt `MAKERWORLD_PUBLIC_RESOLVER_ENABLED=true` cho Preview + Production (Owner bật báo giá tự động 2026-10-12): `vercel env add MAKERWORLD_PUBLIC_RESOLVER_ENABLED production` (nhập `true`), lặp lại cho `preview`. Sau deploy, xem log `[MAKERWORLD_RESOLVER]`: nếu phần lớn là `BLOCKED_OR_TIMEOUT` thì Vercel đang bị Cloudflare chặn — khách sẽ thấy "chưa có giá" thay vì giá tự động.
 - [ ] Staff duyệt giá 5–10 mẫu phổ biến ("Lưu làm giá Storefront") → kiểm tra ở `/admin/settings/makerworld-prices`.
 
 ## Bước 1 — Đưa code lên nhánh riêng

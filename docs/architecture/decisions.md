@@ -480,3 +480,4 @@ Status: accepted (makerworld Phase B, 2026-10-12; owner decisions D1–D5 in `do
 - Intake stores `custom_requests.makerworld_snapshot` (choice + the reference price recomputed server-side at submission). Prices are never accepted from the browser.
 - B6 is superseded by the owner's personal/non-commercial print policy (ADR-0032): MakerWorld requests are not auto-flagged `ip_risk_flag`.
 - STAFF and OWNER may save presets; only OWNER may enable/disable them (D2). VERIFIED prices are shown exactly (D1).
+- **Update 2026-10-12 (Owner, D4 changed):** the AUTO estimate is turned on (`MAKERWORLD_PUBLIC_RESOLVER_ENABLED=true`) so pasting any link returns a price immediately. When MakerWorld doesn't state AMS for a multi-color profile, AUTO prices it as AMS (higher waste) so an automatic estimate never undercharges. The flag stays as a kill-switch if Cloudflare blocking or abuse shows up in the `[MAKERWORLD_RESOLVER]` logs.

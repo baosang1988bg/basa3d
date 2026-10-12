@@ -220,7 +220,7 @@ export function MakerWorldIntakeCard() {
         </div>
         <h2 className="font-heading text-2xl font-bold text-foreground md:text-3xl">Dán link MakerWorld để xem giá in</h2>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Với các mẫu BaSa3D đã kiểm tra, bạn thấy ngay giá cho bản ráp sẵn và bản kit tự ráp. Mẫu chưa có giá thì gửi yêu cầu, xưởng báo giá {RESPONSE_TIME_TEXT}.
+          Dán link là có ngay giá cho bản ráp sẵn và bản kit tự ráp — mẫu BaSa3D đã kiểm tra hiển thị giá chính xác, mẫu khác hiển thị giá ước tính tự động. Gửi yêu cầu để xưởng xác nhận giá chính thức {RESPONSE_TIME_TEXT}.
         </p>
       </div>
 
