@@ -252,6 +252,10 @@ export type MakerWorldProfileItem = {
   /** true = needs AMS, false = explicitly No-AMS, null = payload doesn't say (staff must choose). */
   amsRequired: boolean | null;
   filaments: MakerWorldFilament[];
+  /** True when the payload is missing numbers pricing needs (print time 0, no filaments, a filament
+   * at 0 g, or 0 plates). The panel must NOT price such a profile from resolver data — a missing
+   * field would otherwise silently become a 0đ cost line (and B10 would pass, since 0 = 0). */
+  dataIncomplete: boolean;
 };
 
 export type MakerWorldResolution = {
@@ -357,7 +361,13 @@ const profileSchema = z.object({
   netWeightGrams: boundedGrams,
   amsRequired: z.boolean().nullable(),
   filaments: z.array(filamentSchema).max(MAKERWORLD_LIMITS.maxFilaments),
-});
+}).transform((profile) => ({
+  ...profile,
+  dataIncomplete: profile.printTimeMinutes === 0
+    || profile.platesCount === 0
+    || profile.filaments.length === 0
+    || profile.filaments.some((filament) => filament.netWeightGrams <= 0),
+}));
 
 function printMinutesOf(instance: RawMakerWorldInstance): number {
   const predictionSeconds = optionalNumber(instance.prediction);

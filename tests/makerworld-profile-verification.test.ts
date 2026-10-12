@@ -223,6 +223,16 @@ test('resolver auto-selects the only profile when the URL has no #profileId and 
   assert.equal(resolution.activeProfileId, '3678340');
 });
 
+test('resolver marks a profile dataIncomplete when print time or filament grams are missing (no silent 0đ lines)', async () => {
+  const noTime = { ...frankensteinInstances()[0], printTimeMinutes: undefined };
+  const zeroGram = { ...frankensteinInstances()[1], filaments: [{ name: 'PLA', type: 'PLA' }] };
+  const resolution = await resolveMakerWorldUrl(MODEL_URL_NO_HASH, { fetchImpl: okFetch(pageHtml([noTime, zeroGram])) });
+  assert.equal(resolution.profiles[0].dataIncomplete, true);
+  assert.equal(resolution.profiles[1].dataIncomplete, true);
+  const complete = await resolveMakerWorldUrl(MODEL_URL_170G, { fetchImpl: okFetch(pageHtml(frankensteinInstances())) });
+  assert.equal(complete.profiles[0].dataIncomplete, false);
+});
+
 test('resolver leaves amsRequired null when the payload does not say', async () => {
   const instance = { ...frankensteinInstances()[0], needAms: undefined };
   const resolution = await resolveMakerWorldUrl(MODEL_URL_170G, { fetchImpl: okFetch(pageHtml([instance])) });
@@ -288,10 +298,9 @@ test('resolver deadline fires even when fetch never settles', async () => {
 // Image sanitizer (B2)
 // ---------------------------------------------------------------------------------------------
 
-test('sanitizeMakerWorldImageUrl accepts https MakerWorld/Bambu Lab hosts', () => {
+test('sanitizeMakerWorldImageUrl accepts only the exact allowlisted MakerWorld image hosts', () => {
   assert.equal(sanitizeMakerWorldImageUrl('https://makerworld.com/a.jpg'), 'https://makerworld.com/a.jpg');
   assert.equal(sanitizeMakerWorldImageUrl('https://image.makerworld.com/a.jpg'), 'https://image.makerworld.com/a.jpg');
-  assert.equal(sanitizeMakerWorldImageUrl('https://public-cdn.bambulab.com/a.png'), 'https://public-cdn.bambulab.com/a.png');
   const cdn = 'https://makerworld.bblmw.com/makerworld/model/X/design/a.png?x-oss-process=image/resize,w_400';
   assert.ok(sanitizeMakerWorldImageUrl(cdn)?.startsWith('https://makerworld.bblmw.com/'));
 });
@@ -307,6 +316,10 @@ test('sanitizeMakerWorldImageUrl rejects everything else', () => {
     'https://makerworld.com:8443/a.jpg',
     'https://attacker-bucket.oss-cn-hangzhou.aliyuncs.com/a.jpg', // owner decision: no shared-cloud wildcard
     'https://other.bblmw.com/a.jpg', // only the exact verified CDN host
+    'https://forum.bambulab.com/uploads/fake-bank.png', // user-upload hosts: no *.bambulab.com wildcard
+    'https://wiki.bambulab.com/x.png',
+    'https://evil.makerworld.com/x.png', // no *.makerworld.com wildcard either
+    'https://makerworld.com./a.jpg',
     'javascript:alert(1)',
     'data:image/png;base64,AAAA',
     `https://makerworld.com/${'a'.repeat(2_100)}`,
@@ -343,6 +356,8 @@ test('parseMakerWorldSpecText handles common time/weight formats', () => {
   assert.equal(parseMakerWorldSpecText('450 min').printMinutes, 450);
   assert.equal(parseMakerWorldSpecText('1.2 kg').netWeightGrams, 1200);
   assert.equal(parseMakerWorldSpecText('170.5g').netWeightGrams, 170.5);
+  assert.equal(parseMakerWorldSpecText('1,170 g').netWeightGrams, 1170, 'thousands separator, not 1.17 g');
+  assert.equal(parseMakerWorldSpecText('170,5 g').netWeightGrams, 170.5);
   assert.equal(parseMakerWorldSpecText('Requires AMS, 4 colors').amsRequired, true);
 });
 
@@ -382,6 +397,16 @@ test('snapshot rejects a non-MakerWorld sourceUrl and non-allowlisted image URLs
   assert.equal(quoteModelSnapshotSchema.safeParse(validV2Snapshot({ profileCoverImageUrl: 'https://evil.com/pixel.gif' })).success, false);
   const legacyEvil = { sourceUrl: MODEL_URL_170G, title: 'x', coverImageUrl: 'https://evil.com/x.png', platesCount: 1, totalPrintMinutes: 1, colorsCount: 1 };
   assert.equal(quoteModelSnapshotSchema.safeParse(legacyEvil).success, false);
+});
+
+test('v2 snapshot with a non-commercial license requires licenseAcknowledged (B6, server-enforced)', () => {
+  const restricted = validV2Snapshot({ license: 'Standard Digital File License' });
+  const missing = quoteModelSnapshotSchema.safeParse(restricted);
+  assert.equal(missing.success, false);
+  if (!missing.success) assert.deepEqual(missing.error.issues.map((issue) => issue.path.join('.')), ['licenseAcknowledged']);
+  assert.equal(quoteModelSnapshotSchema.safeParse({ ...restricted, licenseAcknowledged: false }).success, false);
+  assert.equal(quoteModelSnapshotSchema.safeParse({ ...restricted, licenseAcknowledged: true }).success, true);
+  assert.equal(quoteModelSnapshotSchema.safeParse(validV2Snapshot({ license: 'CC BY 4.0' })).success, true);
 });
 
 test('v2 snapshot rejects unknown keys (still .strict())', () => {
@@ -505,6 +530,20 @@ test('createQuote rejects a breakdown computed for a different print time than t
   );
 });
 
+test('createQuote rejects a breakdown whose material grams are far below the snapshot net weight (B10 grams check)', { skip: !hasDb }, async () => {
+  const customRequestId = await seedCustomRequest();
+  const pricingConfigId = await seedPricingConfig();
+  // Same print time as the snapshot (450 min) but priced on 100 g while the profile is 170 g net.
+  const breakdown = computePricingBreakdown({ materials: [{ label: 'PLA', gram: 100, unitCostVndPerGram: 300 }], printMinutes: 450, laborMinutes: 50, config });
+  await assert.rejects(
+    () => createQuote({
+      customRequestId, subtotal: breakdown.finalPriceVnd, total: breakdown.finalPriceVnd, validUntil: validUntil(),
+      pricingBreakdown: breakdown, pricingConfigId, modelSnapshot: quoteModelSnapshotSchema.parse(validV2Snapshot()),
+    }, ACTOR_ID),
+    (error: unknown) => error instanceof DomainError && error.code === 'QUOTE_SNAPSHOT_MISMATCH',
+  );
+});
+
 test('createQuote audits MANUAL_PRICE_OVERRIDE when staff edits the computed price', { skip: !hasDb }, async () => {
   const customRequestId = await seedCustomRequest();
   const pricingConfigId = await seedPricingConfig();
@@ -545,4 +584,31 @@ test('acceptQuote auto-rejects only open sibling quotes with the SAME sourceUrl 
   assert.equal(printJobs.rowCount, 1);
   const audit = await query(`select id from audit_logs where action = 'QUOTE_AUTO_REJECTED_SIBLING' and entity_id = $1`, [assembled.id]);
   assert.equal(audit.rowCount, 1);
+});
+
+test('acceptQuote refuses a same-link sibling created after another tier was already accepted', { skip: !hasDb }, async () => {
+  const customRequestId = await seedCustomRequest();
+  const kit = await createQuote({ customRequestId, subtotal: 135_000, total: 135_000, validUntil: validUntil(), modelSnapshot: quoteModelSnapshotSchema.parse(validV2Snapshot({ tier: 'KIT' })) }, ACTOR_ID);
+  await acceptQuote(kit.id, ACTOR_ID);
+  const lateAssembled = await createQuote({ customRequestId, subtotal: 175_000, total: 175_000, validUntil: validUntil(), modelSnapshot: quoteModelSnapshotSchema.parse(validV2Snapshot({ tier: 'ASSEMBLED' })) }, ACTOR_ID);
+  await assert.rejects(
+    () => acceptQuote(lateAssembled.id, ACTOR_ID),
+    (error: unknown) => error instanceof DomainError && error.code === 'QUOTE_SIBLING_ALREADY_ACCEPTED',
+  );
+  const printJobs = await query('select id from print_jobs where custom_request_id = $1', [customRequestId]);
+  assert.equal(printJobs.rowCount, 1);
+});
+
+test('two concurrent accepts of tier siblings do not deadlock: exactly one wins', { skip: !hasDb }, async () => {
+  const customRequestId = await seedCustomRequest();
+  const a = await createQuote({ customRequestId, subtotal: 175_000, total: 175_000, validUntil: validUntil(), modelSnapshot: quoteModelSnapshotSchema.parse(validV2Snapshot({ tier: 'ASSEMBLED' })) }, ACTOR_ID);
+  const b = await createQuote({ customRequestId, subtotal: 135_000, total: 135_000, validUntil: validUntil(), modelSnapshot: quoteModelSnapshotSchema.parse(validV2Snapshot({ tier: 'KIT' })) }, ACTOR_ID);
+  const results = await Promise.allSettled([acceptQuote(a.id, ACTOR_ID), acceptQuote(b.id, ACTOR_ID)]);
+  const fulfilled = results.filter((r) => r.status === 'fulfilled');
+  const rejected = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+  assert.equal(fulfilled.length, 1);
+  assert.equal(rejected.length, 1);
+  assert.ok(rejected[0].reason instanceof DomainError, `expected a DomainError, got ${String(rejected[0].reason)}`);
+  const printJobs = await query('select id from print_jobs where custom_request_id = $1', [customRequestId]);
+  assert.equal(printJobs.rowCount, 1);
 });

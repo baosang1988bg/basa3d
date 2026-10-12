@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { isSafeMakerWorldImageUrl } from '../lib/parsers/makerworld-image';
-import { isMakerWorldModelUrl } from '../lib/parsers/makerworld-resolver';
+import { classifyMakerWorldLicense, isMakerWorldModelUrl } from '../lib/parsers/makerworld-resolver';
 
 export const uuidSchema = z.string().uuid();
 const nonEmptyText = z.string().trim().min(1);
@@ -290,6 +290,10 @@ const quoteModelSnapshotV2Schema = quoteModelSnapshotV1Schema.extend({
   netWeightGrams: z.number().finite().nonnegative().max(20_000),
   amsRequired: z.boolean().nullable().optional(),
   tier: z.enum(['ASSEMBLED', 'KIT']).nullable().optional(),
+  /** License name from the design page, kept for the audit trail (B6). */
+  license: z.string().trim().max(200).nullable().optional(),
+  /** Required true when `license` is known to forbid paid printing — see superRefine below. */
+  licenseAcknowledged: z.boolean().optional(),
   profileVerified: z.literal(true, {
     errorMap: () => ({ message: 'Cần xác nhận đúng profile khách yêu cầu trước khi tạo báo giá.' }),
   }),
@@ -299,7 +303,22 @@ export const quoteModelSnapshotSchema = z.preprocess(
   (raw) => (raw && typeof raw === 'object' && !Array.isArray(raw) && !('schemaVersion' in raw)
     ? { ...(raw as Record<string, unknown>), schemaVersion: 1 }
     : raw),
-  z.discriminatedUnion('schemaVersion', [quoteModelSnapshotV1Schema, quoteModelSnapshotV2Schema]),
+  z.discriminatedUnion('schemaVersion', [quoteModelSnapshotV1Schema, quoteModelSnapshotV2Schema])
+    .superRefine((snapshot, context) => {
+      // B6 (Phase A part): a design whose license forbids paid printing (MakerWorld's default
+      // "Standard Digital File License") can only be quoted after staff explicitly confirm they have
+      // the author's permission or this is a non-commercial personal print. Server-enforced, same
+      // pattern as Phase 29's ipRiskAcknowledged.
+      if (snapshot.schemaVersion === 2
+          && classifyMakerWorldLicense(snapshot.license ?? null) === 'NOT_ALLOWED'
+          && snapshot.licenseAcknowledged !== true) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['licenseAcknowledged'],
+          message: 'License mẫu không cho phép in thương mại — cần xác nhận đã xin phép tác giả hoặc in phi thương mại.',
+        });
+      }
+    }),
 );
 
 export type QuoteModelSnapshotV1 = z.infer<typeof quoteModelSnapshotV1Schema>;

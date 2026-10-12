@@ -66,8 +66,18 @@ function setSiblingInputs(ids: readonly string[], value: string) {
 function sourceUrlForProfile(rawUrl: string, profileId: string | null): string {
   const url = new URL(parseMakerWorldUrl(rawUrl).url.toString());
   url.search = '';
-  url.hash = profileId && /^\d+$/.test(profileId) ? `profileId-${profileId}` : '';
+  url.hash = !profileId ? '' : /^\d+$/.test(profileId) ? `profileId-${profileId}` : profileId.toLowerCase();
   return url.toString();
+}
+
+/** Small stable non-crypto hash (FNV-1a) — only used to give manual profiles a distinct id. */
+function fingerprint(value: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(36);
 }
 
 type FetchState =
@@ -86,6 +96,8 @@ type PricingSource = {
   modelCoverImageUrl: string | null;
   colorsCount: number;
   profile: MakerWorldProfileItem;
+  license: string | null;
+  licenseCommercialUse: 'NOT_ALLOWED' | 'UNKNOWN';
 };
 
 type ManualDraft = {
@@ -185,6 +197,8 @@ export function MakerWorldQuotePanel({
       modelTitle: resolution.modelTitle,
       modelCoverImageUrl: resolution.modelCoverImageUrl,
       colorsCount: selectedProfile.filaments.length,
+      license: resolution.license,
+      licenseCommercialUse: resolution.licenseCommercialUse,
       profile: selectedProfile,
     };
   }, [resolution, selectedProfile]);
@@ -221,9 +235,9 @@ export function MakerWorldQuotePanel({
     const grams = Number(manualDraft.grams.replace(',', '.'));
     const colors = Number(manualDraft.colors);
     if (!manualDraft.profileTitle.trim()) return setManualError('Nhập tên profile (vd "0.2mm layer, 2 walls, 15% infill").');
-    if (!Number.isFinite(hours) || hours <= 0 || hours > 333) return setManualError('Giờ in không hợp lệ.');
+    if (!Number.isFinite(hours) || hours * 60 < 1 || hours > 333) return setManualError('Giờ in không hợp lệ (tối thiểu 1 phút).');
     if (!Number.isInteger(plates) || plates < 1 || plates > 200) return setManualError('Số plate không hợp lệ.');
-    if (!Number.isFinite(grams) || grams <= 0 || grams > 20_000) return setManualError('Gram nhựa không hợp lệ.');
+    if (!Number.isFinite(grams) || grams < 1 || grams > 20_000) return setManualError('Gram nhựa không hợp lệ (tối thiểu 1g).');
     if (!Number.isInteger(colors) || colors < 1 || colors > 16) return setManualError('Số màu không hợp lệ.');
     let imageUrl: string | null = null;
     if (manualDraft.imageUrl.trim()) {
@@ -231,24 +245,31 @@ export function MakerWorldQuotePanel({
       if (!imageUrl) return setManualError('Link ảnh chỉ chấp nhận https từ makerworld.com hoặc bambulab.com — để trống nếu không có.');
     }
     const parsedUrl = parseMakerWorldUrl(url);
-    const profileId = parsedUrl.profileId ?? 'MANUAL';
+    const printMinutes = Math.round(hours * 60);
+    const profileTitle = manualDraft.profileTitle.trim().slice(0, 300);
+    // Without a #profileId in the link, two DIFFERENT manually-typed profiles would otherwise share
+    // one sourceUrl and auto-reject each other on accept — fingerprint what staff typed instead.
+    const profileId = parsedUrl.profileId ?? `MANUAL-${fingerprint(`${profileTitle}|${printMinutes}|${grams}`)}`;
     manualRevision.current += 1;
     setManualSource({
       key: `manual:${manualRevision.current}`,
       dataSource: 'MANUAL',
-      sourceUrl: sourceUrlForProfile(url, parsedUrl.profileId),
-      modelTitle: manualDraft.profileTitle.trim().slice(0, 300),
+      sourceUrl: sourceUrlForProfile(url, profileId),
+      license: null,
+      licenseCommercialUse: 'UNKNOWN',
+      modelTitle: profileTitle,
       modelCoverImageUrl: null,
       colorsCount: colors,
       profile: {
         profileId,
-        profileTitle: manualDraft.profileTitle.trim().slice(0, 300),
+        profileTitle,
         profileCoverImageUrl: imageUrl,
         printerTarget: manualDraft.printerTarget.trim().slice(0, 100) || null,
         platesCount: plates,
-        printTimeMinutes: Math.round(hours * 60),
+        printTimeMinutes: printMinutes,
         netWeightGrams: grams,
         amsRequired: manualDraft.ams === 'unknown' ? null : manualDraft.ams === 'yes',
+        dataIncomplete: false,
         filaments: [{
           name: colors > 1 ? `Tổng nhựa (${colors} màu)` : 'Nhựa',
           colorHex: '',
@@ -268,6 +289,11 @@ export function MakerWorldQuotePanel({
           value={url}
           onChange={(e) => {
             setUrl(e.target.value);
+            // The resolved profiles belong to the OLD link — drop them (unmounting the pricing
+            // subtree also clears any applied price) so the snapshot can never disagree with the URL.
+            inflight.current?.abort();
+            setState({ kind: 'idle' });
+            setSelectedProfileId('');
             setManualSource(null);
           }}
           placeholder="https://makerworld.com/en/models/...#profileId-..."
@@ -431,13 +457,15 @@ function ProfilePricing({
   const [consumableMaterialId, setConsumableMaterialId] = useState('');
   const [consumableGrams, setConsumableGrams] = useState('');
   const [verified, setVerified] = useState(false);
+  const [licenseAcknowledged, setLicenseAcknowledged] = useState(false);
+  const licenseRestricted = source.licenseCommercialUse === 'NOT_ALLOWED';
   const [applied, setApplied] = useState<AppliedQuote | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
 
   const siblingIds = useMemo(() => [...priceInputIds, ...(laborMinutesInputId ? [laborMinutesInputId] : [])], [priceInputIds, laborMinutesInputId]);
   const appliedRef = useRef(false);
   const siblingIdsRef = useRef(siblingIds);
-  siblingIdsRef.current = siblingIds;
+  useEffect(() => { siblingIdsRef.current = siblingIds; }, [siblingIds]);
 
   // Unmount (profile switch, tool switch, new fetch): never leave an applied price behind.
   useEffect(() => () => {
@@ -503,7 +531,8 @@ function ProfilePricing({
   }, [config, needsAmsChoice, materialLines, laborMinutes, profile.printTimeMinutes]);
 
   const allMaterialsChosen = rows.every((row) => row.materialId);
-  const canApply = Boolean(breakdown && config && verified && allMaterialsChosen);
+  const canApply = Boolean(breakdown && config && verified && allMaterialsChosen
+    && !profile.dataIncomplete && (!licenseRestricted || licenseAcknowledged));
 
   function applyToForm() {
     if (!breakdown || !config || !canApply) return;
@@ -523,6 +552,8 @@ function ProfilePricing({
       netWeightGrams: profile.netWeightGrams,
       amsRequired,
       tier,
+      license: source.license,
+      ...(licenseRestricted ? { licenseAcknowledged } : {}),
       profileVerified: verified,
     };
     // Same schema the server enforces — fail here with a readable message instead of a generic
@@ -561,6 +592,13 @@ function ProfilePricing({
         tier={tier}
         verified={Boolean(applied)}
       />
+
+      {profile.dataIncomplete ? (
+        <p className="rounded-md border border-destructive/40 bg-destructive/5 p-2 text-xs text-destructive">
+          Profile này trên MakerWorld thiếu số liệu (thời gian in, số plate hoặc gram từng màu = 0) — không thể tính giá từ dữ liệu tự động.
+          Bấm &quot;Nhập tay thông số&quot; ở trên và nhập số liệu từ trang MakerWorld.
+        </p>
+      ) : null}
 
       {colorsCount > 1 ? (
         <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -678,6 +716,19 @@ function ProfilePricing({
             />
             <span>Đã xác nhận đúng profile khách yêu cầu (đối chiếu ảnh, tên profile, máy in và thông số với link khách gửi)</span>
           </label>
+          {licenseRestricted ? (
+            <label className="flex cursor-pointer items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-2 text-sm">
+              <input
+                type="checkbox" className="mt-0.5 size-4" checked={licenseAcknowledged}
+                onChange={(e) => {
+                  const next = e.target.checked;
+                  if (next) setLicenseAcknowledged(true);
+                  else edit(() => setLicenseAcknowledged(false));
+                }}
+              />
+              <span>License &quot;{source.license}&quot; không cho phép in để bán: tôi xác nhận đã được tác giả cho phép, hoặc đây là bản in phi thương mại theo yêu cầu cá nhân.</span>
+            </label>
+          ) : null}
           {!allMaterialsChosen ? <p className="text-xs text-muted-foreground">Chọn cuộn nhựa cho tất cả các màu để dùng giá.</p> : null}
           <Button type="button" size="sm" className="mt-1" onClick={applyToForm} disabled={!canApply}>Dùng giá này &amp; điền form</Button>
           {applyError ? <p className="text-xs text-destructive">{applyError}</p> : null}
@@ -689,7 +740,10 @@ function ProfilePricing({
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">
-          {!config ? 'Chưa có cấu hình giá hiện hành.' : needsAmsChoice ? 'Chọn có/không AMS để xem giá đề xuất.' : 'Nhập thời gian thao tác hợp lệ để xem giá đề xuất.'}
+          {!config ? 'Chưa có cấu hình giá hiện hành.'
+            : profile.filaments.length === 0 ? 'Profile không có thông tin nhựa — dùng "Nhập tay thông số".'
+            : needsAmsChoice ? 'Chọn có/không AMS để xem giá đề xuất.'
+            : 'Nhập thời gian thao tác hợp lệ để xem giá đề xuất.'}
         </p>
       )}
 

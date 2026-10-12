@@ -13,19 +13,18 @@
 
 export const MAX_IMAGE_URL_LENGTH = 2_000;
 
-/** Hostnames matched exactly (case-insensitive). */
-// `makerworld.bblmw.com` = MakerWorld's real image CDN (verified on the live page of model 3246150,
-// 2026-10-12: design covers and per-instance covers both live there). Exact host only — not
-// `*.bblmw.com`, since we have not verified who controls other subdomains.
-const EXACT_HOSTS = new Set<string>(['makerworld.com', 'makerworld.bblmw.com']);
-
-/** Registrable domains owned by MakerWorld/Bambu Lab — any subdomain is accepted. */
-const OWNED_DOMAIN_SUFFIXES = ['.makerworld.com', '.bambulab.com'] as const;
+/** Hostnames matched EXACTLY (case-insensitive) — no wildcards at all.
+ * - `makerworld.bblmw.com`: MakerWorld's real image CDN (verified on the live page of model 3246150,
+ *   2026-10-12 — design covers and per-instance covers both live there).
+ * - `makerworld.com`, `image.makerworld.com`: first-party hosts named in the phase plan.
+ * Review 2026-10-12 removed the `*.makerworld.com` / `*.bambulab.com` wildcards from the Gemini plan:
+ * hosts like forum.bambulab.com / wiki.bambulab.com serve USER uploads, so a wildcard would let
+ * anyone place an arbitrary image next to the VietQR code on the public quote page (the B2 risk).
+ * Add a new CDN host here only after seeing it in a real payload. */
+const EXACT_HOSTS = new Set<string>(['makerworld.com', 'image.makerworld.com', 'makerworld.bblmw.com']);
 
 export function isAllowedMakerWorldImageHost(hostname: string): boolean {
-  const host = hostname.toLowerCase();
-  if (EXACT_HOSTS.has(host)) return true;
-  return OWNED_DOMAIN_SUFFIXES.some((suffix) => host.endsWith(suffix) && host.length > suffix.length);
+  return EXACT_HOSTS.has(hostname.toLowerCase());
 }
 
 /** Returns a normalized https URL string when `raw` is a safe MakerWorld/Bambu Lab image URL,

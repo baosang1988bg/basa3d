@@ -18,7 +18,9 @@ export type MakerWorldSpecTextResult = {
 
 const MAX_INPUT_LENGTH = 5_000;
 
+/** "1,170" (thousands separator) → 1170; "7,5" (Vietnamese decimal comma) → 7.5. */
 function toNumber(raw: string): number {
+  if (/^\d{1,3}(?:,\d{3})+(?:\.\d+)?$/.test(raw)) return Number(raw.replaceAll(',', ''));
   return Number(raw.replace(',', '.'));
 }
 
@@ -54,7 +56,7 @@ function parseGrams(text: string): number | null {
     if (Number.isFinite(value)) return Math.round(value * 100) / 100;
   }
   // `(?<![\d.])` avoids matching the tail of "0.2"; `g(?![a-z])` avoids "gram"-less words like "glue".
-  const g = text.match(/(?<![\d.,])(\d+(?:[.,]\d+)?)\s*(?:g|gram|grams)(?![a-z])/i);
+  const g = text.match(/(?<![\d.,])(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:[.,]\d+)?)\s*(?:g|gram|grams)(?![a-z])/i);
   if (g) {
     const value = toNumber(g[1]);
     if (Number.isFinite(value)) return value;

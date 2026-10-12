@@ -113,7 +113,13 @@ export async function createQuote(input: {
         machineLifetimeHours: Number(row.machineLifetimeHours),
         printerPowerKw: Number(row.printerPowerKw),
       });
-      if (derivedMinutes !== null && !isPrintMinutesConsistent(derivedMinutes, input.modelSnapshot.totalPrintMinutes)) {
+      // Second, cheaper signal: the priced material can't be far BELOW the profile's net weight
+      // (waste/consumables only ever add grams). Catches two profiles with similar print times but
+      // different weights (e.g. 170g vs 285g) that the minutes check alone would let through.
+      const pricedGrams = breakdown.materialLines.reduce((sum, line) => sum + line.gram, 0);
+      const gramsTooLow = input.modelSnapshot.schemaVersion === 2
+        && pricedGrams < input.modelSnapshot.netWeightGrams * (1 - SNAPSHOT_PRINT_MINUTES_TOLERANCE_PCT / 100);
+      if (gramsTooLow || (derivedMinutes !== null && !isPrintMinutesConsistent(derivedMinutes, input.modelSnapshot.totalPrintMinutes))) {
         throw new DomainError(
           'QUOTE_SNAPSHOT_MISMATCH',
           'Giá tính toán không khớp với thời gian in của profile đã chọn — vui lòng bấm "Dùng giá này" lại cho đúng profile.',
@@ -155,6 +161,14 @@ export function mintQuoteAccessToken(quoteId: string, validUntil: Date): string 
 
 export async function acceptQuote(id: string, actorId: string) {
   return withTransaction(async (client) => {
+    // Lock order = custom_requests row FIRST, then the quote (same order as createQuote). Without the
+    // parent lock, two staff accepting two tier siblings at once each lock their own quote, then the
+    // sibling auto-reject UPDATE waits on the other's row → Postgres deadlock (40P01) → 500.
+    // Serializing on the parent row makes the second accept see the first one's result instead.
+    const parent = await client.query<{ custom_request_id: string }>('select custom_request_id from quotes where id = $1', [id]);
+    if (!parent.rowCount) throw new DomainError('QUOTE_NOT_FOUND', 'Quote was not found.', 404);
+    await client.query('select id from custom_requests where id = $1 for update', [parent.rows[0].custom_request_id]);
+
     const quote = await client.query<{ valid_until: Date; custom_request_id: string; status: string; source_url: string | null }>(
       `select valid_until, custom_request_id, status, model_snapshot->>'sourceUrl' as source_url
        from quotes where id = $1 for update`, [id]);
@@ -163,6 +177,17 @@ export async function acceptQuote(id: string, actorId: string) {
       throw new DomainError('QUOTE_ALREADY_FINALIZED', `Quote is already ${quote.rows[0].status} and cannot be accepted again.`, 409);
     }
     if (!canAcceptQuote(quote.rows[0].valid_until)) throw new DomainError('QUOTE_EXPIRED', 'Expired quotes cannot be accepted.', 409);
+    // A tier alternative of the same link created AFTER a sibling was accepted is still open — it must
+    // not become a second print_job for the same item.
+    if (quote.rows[0].source_url) {
+      const acceptedSibling = await client.query(
+        `select id from quotes where custom_request_id = $1 and id <> $2 and status = 'ACCEPTED'
+           and (model_snapshot->>'sourceUrl') = $3 limit 1`,
+        [quote.rows[0].custom_request_id, id, quote.rows[0].source_url]);
+      if (acceptedSibling.rowCount) {
+        throw new DomainError('QUOTE_SIBLING_ALREADY_ACCEPTED', 'Một phương án khác của cùng mẫu/profile này đã được chấp nhận — không thể chấp nhận thêm.', 409);
+      }
+    }
     const result = await client.query('update quotes set status = $2 where id = $1 returning id, status', [id, 'ACCEPTED']);
     await writeAuditLog(client, { actorId, action: 'QUOTE_ACCEPTED', entityType: 'quote', entityId: id, afterData: result.rows[0] });
 
