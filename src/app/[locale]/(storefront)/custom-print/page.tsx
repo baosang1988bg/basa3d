@@ -17,13 +17,12 @@ const MATERIALS = [
   { material: 'PETG' as const, durability: 'Cao', heat: 'Trung bình (~80°C)', finish: 'Bóng, dẻo dai', cost: 'Trung bình' },
   { material: 'ABS' as const, durability: 'Cao', heat: 'Cao (~100°C)', finish: 'Cần hậu xử lý để mịn', cost: 'Trung bình' },
   { material: 'TPU' as const, durability: 'Rất cao (đàn hồi)', heat: 'Trung bình', finish: 'Mềm dẻo', cost: 'Trung bình - cao' },
-  { material: 'RESIN' as const, durability: 'Trung bình (giòn hơn)', heat: 'Thấp', finish: 'Cực mịn, chi tiết cao nhất', cost: 'Cao' },
 ];
 
 export default function CustomPrintPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
-      <Breadcrumb items={[{ label: 'Trang chủ', href: '/' }, { label: 'Đặt in' }]} />
+      <Breadcrumb items={[{ label: 'Trang chủ', href: '/home' }, { label: 'Đặt in' }]} />
       <section className="text-center">
         <h1 className="font-heading text-3xl font-extrabold text-foreground md:text-4xl">Đặt in 3D theo yêu cầu</h1>
         <p className="mx-auto mt-3 max-w-xl text-base text-muted-foreground">
@@ -31,11 +30,12 @@ export default function CustomPrintPage() {
         </p>
       </section>
 
-      <MakerWorldIntakeCard />
-
-      <section className="mt-12 rounded-xl border border-primary/20 bg-primary/5 p-6 md:flex md:items-center md:justify-between">
-        <div><p className="text-sm font-semibold uppercase tracking-wide text-primary">Chưa có file 3D?</p><h2 className="font-heading mt-1 text-2xl font-bold">Tự tạo móc khoá khắc tên</h2><p className="mt-2 text-sm text-muted-foreground">Nhập tên, xem trước 3D và gửi file STL thẳng tới xưởng.</p></div>
-        <Link href="/tools/keychain-generator" className={storefrontButtonClasses('accent', 'mt-4 md:mt-0')}>Mở công cụ tạo mẫu</Link>
+      <section className="mt-8">
+        <h2 className="font-heading text-2xl font-bold text-foreground">Gửi yêu cầu đặt in</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Điền thông tin bên dưới, chúng tôi sẽ liên hệ lại sớm nhất.</p>
+        <div className="mt-4">
+          <CustomRequestForm />
+        </div>
       </section>
 
       <section className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-4">
@@ -46,6 +46,13 @@ export default function CustomPrintPage() {
             <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>
           </div>
         ))}
+      </section>
+
+      <MakerWorldIntakeCard />
+
+      <section className="mt-12 rounded-xl border border-primary/20 bg-primary/5 p-6 md:flex md:items-center md:justify-between">
+        <div><p className="text-sm font-semibold uppercase tracking-wide text-primary">Chưa có file 3D?</p><h2 className="font-heading mt-1 text-2xl font-bold">Tự tạo móc khoá khắc tên</h2><p className="mt-2 text-sm text-muted-foreground">Nhập tên, xem trước 3D và gửi file STL thẳng tới xưởng.</p></div>
+        <Link href="/tools/keychain-generator" className={storefrontButtonClasses('accent', 'mt-4 md:mt-0')}>Mở công cụ tạo mẫu</Link>
       </section>
 
       <section className="mt-12">
@@ -73,14 +80,6 @@ export default function CustomPrintPage() {
               ))}
             </tbody>
           </table>
-        </div>
-      </section>
-
-      <section className="mt-12">
-        <h2 className="font-heading text-2xl font-bold text-foreground">Gửi yêu cầu đặt in</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Điền thông tin bên dưới, chúng tôi sẽ liên hệ lại sớm nhất.</p>
-        <div className="mt-4">
-          <CustomRequestForm />
         </div>
       </section>
     </div>

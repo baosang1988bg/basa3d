@@ -73,9 +73,16 @@ export function MakerWorldIntakeCard() {
   useEffect(() => () => inflight.current?.abort(), []);
 
   const selectedProfile = estimate?.profiles.find((p) => p.profileId === selectedProfileId) ?? null;
+  const isSinglePlate = selectedProfile?.platesCount === 1;
   const hasPrices = estimate?.source === 'VERIFIED' || estimate?.source === 'AUTO' || estimate?.source === 'SPEC';
   const isEstimateSource = estimate?.source === 'AUTO' || estimate?.source === 'SPEC';
   const needsProfilePick = Boolean(estimate && estimate.profiles.length > 1 && !selectedProfile);
+
+  useEffect(() => {
+    if (isSinglePlate && tier !== 'ASSEMBLED') {
+      setTier('ASSEMBLED');
+    }
+  }, [isSinglePlate, tier]);
 
   async function handleEstimate(targetUrl?: string, spec?: string) {
     const urlToTest = (targetUrl ?? url).trim();
@@ -133,7 +140,11 @@ export function MakerWorldIntakeCard() {
 
     setDetailStatus('submitting');
     setDetailErrorMessage('');
-    const tierLabel = tier === 'ASSEMBLED' ? 'Bản Ráp sẵn hoàn thiện' : 'Bản Kit tự ráp';
+    const tierLabel = isSinglePlate
+      ? 'Bản in hoàn thiện (1 plate)'
+      : tier === 'ASSEMBLED'
+        ? 'Bản Ráp sẵn hoàn thiện'
+        : 'Bản Kit tự ráp';
     const description = [
       `[MakerWorld] ${estimate.modelTitle ?? estimate.sourceUrl}`,
       selectedProfile ? `Profile: ${selectedProfile.profileTitle}` : null,
@@ -232,7 +243,7 @@ export function MakerWorldIntakeCard() {
         </div>
         <h2 className="font-heading text-2xl font-bold text-foreground md:text-3xl">Dán link MakerWorld để xem giá in</h2>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Dán link là có ngay giá cho bản ráp sẵn và bản kit tự ráp — mẫu BaSa3D đã kiểm tra hiển thị giá chính xác, mẫu khác hiển thị giá ước tính tự động. Gửi yêu cầu để xưởng xác nhận giá chính thức {RESPONSE_TIME_TEXT}.
+          Dán link là có ngay giá cho bản in hoàn thiện và bản kit tự ráp — mẫu BaSa3D đã kiểm tra hiển thị giá chính xác, mẫu khác hiển thị giá ước tính tự động. Gửi yêu cầu để xưởng xác nhận giá chính thức {RESPONSE_TIME_TEXT}.
         </p>
       </div>
 
@@ -376,8 +387,8 @@ export function MakerWorldIntakeCard() {
           ) : null}
 
           {hasPrices && selectedProfile ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {(['ASSEMBLED', 'KIT'] as const).map((t) => {
+            <div className={`grid grid-cols-1 gap-4 ${isSinglePlate ? '' : 'sm:grid-cols-2'}`}>
+              {(isSinglePlate ? (['ASSEMBLED'] as const) : (['ASSEMBLED', 'KIT'] as const)).map((t) => {
                 const price = priceFor(t);
                 const isSelected = tier === t;
                 return (
@@ -390,16 +401,18 @@ export function MakerWorldIntakeCard() {
                   >
                     <span className={`inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider ${t === 'ASSEMBLED' ? 'text-primary' : 'text-muted-foreground'}`}>
                       {t === 'ASSEMBLED' ? <PackageCheck className="size-4" /> : <Wrench className="size-4" />}
-                      {t === 'ASSEMBLED' ? 'Bản ráp sẵn hoàn thiện' : 'Bản kit tự ráp'}
+                      {isSinglePlate ? 'Bản in hoàn thiện' : t === 'ASSEMBLED' ? 'Bản ráp sẵn hoàn thiện' : 'Bản kit tự ráp'}
                     </span>
                     <span className="font-heading text-3xl font-extrabold text-foreground">
                       {price === null ? <span className="text-base font-semibold text-muted-foreground">Xưởng sẽ báo giá</span>
                         : isEstimateSource ? `~${formatVnd(price)}` : formatVnd(price)}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {t === 'ASSEMBLED'
-                        ? 'Xưởng in đủ chi tiết, làm sạch support và ráp hoàn chỉnh.'
-                        : 'Các mảnh in rời đã làm sạch cơ bản, bạn tự ráp.'}
+                      {isSinglePlate
+                        ? 'Mẫu in 1 plate (1 bàn in) không cần lắp ráp, xưởng in và làm sạch hoàn thiện.'
+                        : t === 'ASSEMBLED'
+                          ? 'Xưởng in đủ chi tiết, làm sạch support và ráp hoàn chỉnh.'
+                          : 'Các mảnh in rời đã làm sạch cơ bản, bạn tự ráp.'}
                       {quantity > 1 ? ' Giá cho 1 sản phẩm.' : ''}
                     </span>
                   </button>
@@ -479,7 +492,11 @@ export function MakerWorldIntakeCard() {
             <span>
               <span className="font-medium text-foreground">Đúng mẫu tôi muốn in: </span>
               {selectedProfile ? `profile "${selectedProfile.profileTitle}", ` : 'link MakerWorld ở trên, '}
-              {tier === 'ASSEMBLED' ? 'bản ráp sẵn hoàn thiện' : 'bản kit tự ráp'}.
+              {isSinglePlate
+                ? 'bản in hoàn thiện (1 plate).'
+                : tier === 'ASSEMBLED'
+                  ? 'bản ráp sẵn hoàn thiện.'
+                  : 'bản kit tự ráp.'}
             </span>
           </label>
 

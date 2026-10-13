@@ -314,7 +314,6 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
               <option value="PETG">PETG (Bền cơ học, chịu nhiệt nhẹ)</option>
               <option value="ABS">ABS/ASA (Chịu lực & chịu nhiệt cao)</option>
               <option value="TPU">TPU (Vật liệu dẻo/cao su)</option>
-              <option value="RESIN">Resin (Độ nét cực cao cho mô hình)</option>
             </select>
           </div>
           <div className="flex flex-col gap-1.5">
