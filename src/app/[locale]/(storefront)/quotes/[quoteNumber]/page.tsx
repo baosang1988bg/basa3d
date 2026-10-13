@@ -133,6 +133,7 @@ export default async function PublicQuotePage({
           {quote.pricing.packagingFeeVnd > 0 && <div className="flex justify-between text-muted-foreground"><span>Đóng gói</span><span>{formatVnd(quote.pricing.packagingFeeVnd)}</span></div>}
           {quote.pricing.shippingFeeVnd > 0 && <div className="flex justify-between text-muted-foreground"><span>Phí vận chuyển</span><span>{formatVnd(quote.pricing.shippingFeeVnd)}</span></div>}
           {quote.pricing.discountVnd > 0 && <div className="flex justify-between text-muted-foreground"><span>Giảm giá</span><span>-{formatVnd(quote.pricing.discountVnd)}</span></div>}
+          {quote.pricing.vatAmountVnd > 0 && <div className="flex justify-between text-muted-foreground"><span>VAT ({quote.pricing.vatRateBps / 100}%)</span><span>{formatVnd(quote.pricing.vatAmountVnd)}</span></div>}
           <div className="flex justify-between text-base font-bold text-foreground"><span>Tổng cộng</span><span>{formatVnd(quote.pricing.totalVnd)}</span></div>
         </div>
       </div>

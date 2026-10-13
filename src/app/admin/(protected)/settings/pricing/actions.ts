@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { requireOwner } from '@/lib/auth/require-admin';
 import { pricingConfigInputSchema } from '@/domain/schemas';
 import { createPricingConfig } from '@/services/pricing-config.service';
+import { vatPercentToBps } from '@/lib/pricing/vat';
 
 // OWNER-only (ADR-0011 boundary #1-style: system pricing parameters are financial configuration,
 // not a day-to-day STAFF task) — requireOwner() enforces this even if someone navigates here
@@ -19,6 +20,8 @@ export async function createPricingConfigAction(formData: FormData) {
     failureBufferPct: Number(formData.get('failureBufferPct')),
     marginPct: Number(formData.get('marginPct')),
     packagingFeeVnd: Number(formData.get('packagingFeeVnd')),
+    vatEnabled: formData.get('vatEnabled') === 'on',
+    vatRateBps: vatPercentToBps(formData.get('vatRatePct')),
   });
   await createPricingConfig(input, actorId);
   revalidatePath('/admin/settings/pricing');

@@ -48,7 +48,8 @@ test('admin sees IP risk badges and must acknowledge risk before creating a quot
   await expect(acknowledgement).not.toBeChecked();
   const form = page.locator('form').filter({ has: acknowledgement });
   await form.locator('#subtotal').fill('100000');
-  await form.locator('#total').fill('100000');
+  // Phase 33 S1: #total is read-only, derived from subtotal (+ VAT when enabled).
+  await expect(form.locator('#total')).toHaveValue('100000');
   const tomorrow = new Date(Date.now() + 86_400_000);
   await form.locator('#validUntil').fill(tomorrow.toISOString().slice(0, 16));
   // Bypass native required validation to exercise createQuoteAction's server-side gate.

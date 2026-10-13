@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { QuoteToolSwitcher } from '@/components/admin/quote-tool-switcher';
+import { QuoteTotalsFields } from '@/components/admin/quote-totals-fields';
 import { ASSEMBLY_TIERS } from '@/lib/pricing/assembly-tiers';
 import { CopyZaloQuoteButton } from '@/components/admin/copy-zalo-quote-button';
 import { ProcessStepper } from '@/components/admin/process-stepper';
@@ -192,7 +193,12 @@ export default async function CustomRequestDetailPage({ params }: { params: Prom
                         </p>
                       ) : null}
                     </TableCell>
-                    <TableCell>{Number(quote.total).toLocaleString('vi-VN')}đ</TableCell>
+                    <TableCell>
+                      {Number(quote.total).toLocaleString('vi-VN')}đ
+                      {quote.vatAmount > 0 ? (
+                        <p className="text-xs text-muted-foreground">gồm VAT {quote.vatRateBps / 100}%: {quote.vatAmount.toLocaleString('vi-VN')}đ</p>
+                      ) : null}
+                    </TableCell>
                     <TableCell>{new Date(quote.validUntil).toLocaleString('vi-VN')}</TableCell>
                     <TableCell><Badge variant={quote.status === 'ACCEPTED' ? 'default' : 'secondary'}>{quote.status}</Badge></TableCell>
                     <TableCell className="flex flex-wrap justify-end gap-2 text-right">
@@ -224,26 +230,12 @@ export default async function CustomRequestDetailPage({ params }: { params: Prom
             <div className="col-span-2">
               {/* B7: exactly one pricing tool mounted at a time — see QuoteToolSwitcher. */}
               <QuoteToolSwitcher
-                materials={materials} config={pricingConfig} priceInputIds={['subtotal', 'total']}
+                materials={materials} config={pricingConfig} priceInputIds={['subtotal']}
                 initialMakerWorld={customRequest.makerworldSnapshot ? { url: customRequest.makerworldSnapshot.sourceUrl, tier: customRequest.makerworldSnapshot.tier } : null}
               />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="subtotal">Tạm tính (VND)</Label>
-              <Input id="subtotal" name="subtotal" type="number" min={0} required />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="shippingFee">Phí vận chuyển (VND)</Label>
-              <Input id="shippingFee" name="shippingFee" type="number" min={0} defaultValue={0} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="discount">Giảm giá (VND)</Label>
-              <Input id="discount" name="discount" type="number" min={0} defaultValue={0} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="total">Tổng tiền (VND)</Label>
-              <Input id="total" name="total" type="number" min={0} required />
-            </div>
+            {/* Phase 33 S1: VAT line (read-only) + derived total, from the CURRENT pricing config. */}
+            <QuoteTotalsFields vatEnabled={pricingConfig?.vatEnabled ?? false} vatRateBps={pricingConfig?.vatRateBps ?? 0} />
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="validUntil">Hiệu lực đến</Label>
               <Input id="validUntil" name="validUntil" type="datetime-local" required />

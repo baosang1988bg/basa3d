@@ -140,7 +140,11 @@ export function PricingCalculatorPanel({
     setAppliedBreakdown(breakdown);
     for (const id of priceInputIds) {
       const el = document.getElementById(id);
-      if (el instanceof HTMLInputElement) el.value = String(breakdown.finalPriceVnd);
+      if (el instanceof HTMLInputElement) {
+        el.value = String(breakdown.finalPriceVnd);
+        // Lets QuoteTotalsFields (Phase 33 S1) recompute VAT + total from the new subtotal.
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      }
     }
   }
 

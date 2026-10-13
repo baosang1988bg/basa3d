@@ -7,6 +7,7 @@ import { digitsOnly, maskCustomerName } from './order.service';
 import type { PricingBreakdown } from './pricing.service';
 import { quoteModelSnapshotSchema, type QuoteModelSnapshotData } from '../domain/schemas';
 import { sanitizeMakerWorldImageUrl } from '../lib/parsers/makerworld-image';
+import { computeQuoteTotals } from '../lib/pricing/vat';
 
 export function canAcceptQuote(validUntil: Date, now = new Date()): boolean { return validUntil >= now; }
 
@@ -65,15 +66,22 @@ export function isPrintMinutesConsistent(derivedMinutes: number, snapshotMinutes
 
 type QuoteSummary = {
   id: string; quoteNumber: string; subtotal: number; shippingFee: number; discount: number; total: number;
+  vatRateBps: number; vatAmount: number;
   validUntil: Date; status: string; note: string | null; createdAt: Date; modelSnapshot: QuoteModelSnapshot | null;
 };
 
 export async function listQuotesByCustomRequest(customRequestId: string): Promise<QuoteSummary[]> {
   const result = await query<QuoteSummary>(`
     select id, quote_number as "quoteNumber", subtotal, shipping_fee as "shippingFee", discount, total,
-      valid_until as "validUntil", status, note, created_at as "createdAt", model_snapshot as "modelSnapshot"
+      vat_rate_bps as "vatRateBps", vat_amount as "vatAmount", valid_until as "validUntil", status, note, created_at as "createdAt", model_snapshot as "modelSnapshot"
     from quotes where custom_request_id = $1 order by created_at desc`, [customRequestId]);
-  return result.rows.map((row) => ({ ...row, modelSnapshot: readQuoteModelSnapshot(row.modelSnapshot, { quoteId: row.id }) }));
+  // ADR-0023: bigint money columns come back from node-postgres as strings — coerce once here.
+  return result.rows.map((row) => ({
+    ...row,
+    subtotal: Number(row.subtotal), shippingFee: Number(row.shippingFee), discount: Number(row.discount), total: Number(row.total),
+    vatRateBps: Number(row.vatRateBps), vatAmount: Number(row.vatAmount),
+    modelSnapshot: readQuoteModelSnapshot(row.modelSnapshot, { quoteId: row.id }),
+  }));
 }
 
 // pricingBreakdown/pricingConfigId are an optional immutable snapshot (Phase 9) — a Quote created
@@ -128,15 +136,41 @@ export async function createQuote(input: {
       }
     }
 
+    // Phase 33 S1 (§6.4, T9): VAT is computed HERE from the CURRENT pricing config — never from the
+    // client, and never from input.pricingConfigId (null for manual quotes, and possibly an older
+    // row). The client-submitted total must equal the server total, otherwise staff saw a different
+    // number than the one that would be stored.
+    const vatConfig = await client.query<{ vat_enabled: boolean; vat_rate_bps: number }>(`
+      select vat_enabled, vat_rate_bps from pricing_configs
+      where effective_from <= timezone('utc', now())
+      order by effective_from desc, created_at desc limit 1`);
+    const shippingFee = input.shippingFee ?? 0;
+    const discount = input.discount ?? 0;
+    const totals = computeQuoteTotals(
+      { subtotal: input.subtotal, shippingFee, discount },
+      { enabled: Boolean(vatConfig.rows[0]?.vat_enabled), rateBps: Number(vatConfig.rows[0]?.vat_rate_bps ?? 0) },
+    );
+    if (input.total !== totals.total) {
+      throw new DomainError(
+        'QUOTE_TOTAL_MISMATCH',
+        `Tổng tiền không khớp (máy chủ tính ${totals.total.toLocaleString('vi-VN')}đ, gồm VAT ${totals.vatAmount.toLocaleString('vi-VN')}đ) — vui lòng tải lại trang và nhập lại.`,
+        400,
+      );
+    }
+
     const quoteNumber = `Q-${randomUUID().replaceAll('-', '').slice(0, 12).toUpperCase()}`;
     const result = await client.query<{ id: string; quote_number: string }>(`
-      insert into quotes (custom_request_id, quote_number, subtotal, shipping_fee, discount, total, valid_until, note, pricing_breakdown, pricing_config_id, model_snapshot)
-      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning id, quote_number`, [
-      input.customRequestId, quoteNumber, input.subtotal, input.shippingFee ?? 0, input.discount ?? 0, input.total, input.validUntil, input.note ?? null,
+      insert into quotes (custom_request_id, quote_number, subtotal, shipping_fee, discount, total, valid_until, note, pricing_breakdown, pricing_config_id, model_snapshot, vat_rate_bps, vat_amount)
+      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) returning id, quote_number`, [
+      input.customRequestId, quoteNumber, input.subtotal, shippingFee, discount, totals.total, input.validUntil, input.note ?? null,
       input.pricingBreakdown ? JSON.stringify(input.pricingBreakdown) : null, input.pricingConfigId ?? null,
       input.modelSnapshot ? JSON.stringify(input.modelSnapshot) : null,
+      totals.vatRateBps, totals.vatAmount,
     ]);
-    await writeAuditLog(client, { actorId, action: 'QUOTE_CREATED', entityType: 'quote', entityId: result.rows[0].id, afterData: input });
+    await writeAuditLog(client, {
+      actorId, action: 'QUOTE_CREATED', entityType: 'quote', entityId: result.rows[0].id,
+      afterData: { ...input, vatRateBps: totals.vatRateBps, vatAmount: totals.vatAmount },
+    });
     if (breakdown && input.subtotal !== breakdown.finalPriceVnd) {
       await writeAuditLog(client, {
         actorId, action: 'MANUAL_PRICE_OVERRIDE', entityType: 'quote', entityId: result.rows[0].id,
@@ -231,6 +265,7 @@ export async function acceptQuote(id: string, actorId: string) {
 type QuoteRow = {
   id: string; quoteNumber: string; status: string; validUntil: Date; createdAt: Date;
   subtotal: number; shippingFee: number; discount: number; total: number; note: string | null;
+  vatRateBps: number; vatAmount: number;
   pricingBreakdown: PricingBreakdown | null; modelSnapshot: QuoteModelSnapshot | null;
   customerName: string; customerPhone: string;
 };
@@ -246,6 +281,9 @@ export type PublicQuotePricing = {
   packagingFeeVnd: number;
   shippingFeeVnd: number;
   discountVnd: number;
+  /** Phase 33 S1: VAT snapshot of this quote (0/0 when VAT was disabled at creation). */
+  vatRateBps: number;
+  vatAmountVnd: number;
   totalVnd: number;
   /** 50% deposit policy (phase-13.md decision #5's Zalo template), ceil'd to keep integer VND. */
   depositVnd: number;
@@ -266,6 +304,7 @@ async function getQuoteRowByNumber(quoteNumber: string): Promise<QuoteRow | null
   const result = await query<QuoteRow>(`
     select q.id, q.quote_number as "quoteNumber", q.status, q.valid_until as "validUntil", q.created_at as "createdAt",
       q.subtotal, q.shipping_fee as "shippingFee", q.discount, q.total, q.note,
+      q.vat_rate_bps as "vatRateBps", q.vat_amount as "vatAmount",
       q.pricing_breakdown as "pricingBreakdown", q.model_snapshot as "modelSnapshot",
       cr.customer_name as "customerName", cr.customer_phone as "customerPhone"
     from quotes q join custom_requests cr on cr.id = q.custom_request_id
@@ -275,7 +314,7 @@ async function getQuoteRowByNumber(quoteNumber: string): Promise<QuoteRow | null
   // ADR-0023: subtotal/shippingFee/discount/total are bigint columns — node-postgres returns them
   // as strings, not numbers. Coerce here so this function's declared return type is actually true
   // at runtime (same class of bug ADR-0023 documents for pricing-config.service/inventory.service).
-  return { ...row, modelSnapshot: readQuoteModelSnapshot(row.modelSnapshot, { quoteId: row.id }), subtotal: Number(row.subtotal), shippingFee: Number(row.shippingFee), discount: Number(row.discount), total: Number(row.total) };
+  return { ...row, modelSnapshot: readQuoteModelSnapshot(row.modelSnapshot, { quoteId: row.id }), subtotal: Number(row.subtotal), shippingFee: Number(row.shippingFee), discount: Number(row.discount), total: Number(row.total), vatRateBps: Number(row.vatRateBps), vatAmount: Number(row.vatAmount) };
 }
 
 function toPublicQuotePricing(row: QuoteRow): PublicQuotePricing {
@@ -292,6 +331,8 @@ function toPublicQuotePricing(row: QuoteRow): PublicQuotePricing {
     packagingFeeVnd: breakdown?.packagingFeeVnd ?? 0,
     shippingFeeVnd: row.shippingFee,
     discountVnd: row.discount,
+    vatRateBps: row.vatRateBps,
+    vatAmountVnd: row.vatAmount,
     totalVnd: row.total,
     depositVnd: Math.ceil(row.total / 2),
   };

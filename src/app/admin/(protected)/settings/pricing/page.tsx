@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { requireOwner } from '@/lib/auth/require-admin';
 import { getCurrentPricingConfig, listPricingConfigs } from '@/services/pricing-config.service';
+import { formatVatRatePct } from '@/lib/pricing/vat';
 import { createPricingConfigAction } from './actions';
 
 // OWNER-only page (system pricing parameters — phase-9.md decision #3). requireOwner() enforces
@@ -59,6 +60,22 @@ export default async function PricingSettingsPage() {
               <Label htmlFor="marginPct">% margin mong muốn</Label>
               <Input id="marginPct" name="marginPct" type="number" min={0} max={99.99} step="0.01" defaultValue={current?.marginPct ?? 40} required />
             </div>
+            {/* Phase 33 S1 (D3): VAT is versioned config — toggling it creates a new row like any other
+                field. Only quotes created AFTER saving carry VAT; existing quotes keep their snapshot. */}
+            <div className="col-span-2 flex flex-col gap-2 rounded-lg border border-border p-3">
+              <div className="flex items-center gap-2">
+                <input id="vatEnabled" name="vatEnabled" type="checkbox" defaultChecked={current?.vatEnabled ?? false} className="size-4" />
+                <Label htmlFor="vatEnabled" className="cursor-pointer">Áp dụng thuế VAT cho báo giá mới</Label>
+              </div>
+              <div className="flex flex-col gap-1.5 sm:w-64">
+                <Label htmlFor="vatRatePct">Thuế suất VAT (%)</Label>
+                <Input id="vatRatePct" name="vatRatePct" type="number" min={0} max={100} step="0.01" defaultValue={current?.vatRateBps ? formatVatRatePct(current.vatRateBps) : ''} placeholder="Ví dụ: 8" />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Khi bật, thuế suất phải lớn hơn 0. Báo giá đã tạo trước đó không thay đổi. Cơ sở tính VAT
+                (tạm tính + phí ship − giảm giá) đang chờ kế toán xác nhận.
+              </p>
+            </div>
             <div className="col-span-2"><Button type="submit">Lưu cấu hình mới</Button></div>
           </form>
         </CardContent>
@@ -75,6 +92,7 @@ export default async function PricingSettingsPage() {
                 <TableHead>Nhân công</TableHead>
                 <TableHead>% lỗi in</TableHead>
                 <TableHead>% margin</TableHead>
+                <TableHead>VAT</TableHead>
                 <TableHead className="text-right">Trạng thái</TableHead>
               </TableRow>
             </TableHeader>
@@ -86,6 +104,7 @@ export default async function PricingSettingsPage() {
                   <TableCell>{Number(config.laborVndPerHour).toLocaleString('vi-VN')}đ/giờ</TableCell>
                   <TableCell>{config.failureBufferPct}%</TableCell>
                   <TableCell>{config.marginPct}%</TableCell>
+                  <TableCell>{config.vatEnabled ? `${formatVatRatePct(config.vatRateBps)}%` : 'Tắt'}</TableCell>
                   <TableCell className="text-right">
                     {current?.id === config.id ? <Badge>Đang áp dụng</Badge> : <Badge variant="secondary">Lịch sử</Badge>}
                   </TableCell>

@@ -93,3 +93,16 @@ test('Phase 12 seed migration links material_movements to filament_spools via a 
   assert.match(sql, /'SEED_MIGRATION'/);
   assert.match(sql, /insert into expenses[\s\S]*?on conflict \(expense_code\) do nothing/i);
 });
+
+test('Phase 33 S1 migration adds versioned VAT and replaces both total checks (found by definition, not by guessed name)', async () => {
+  const sql = await readFile('supabase/migrations/20261015000000_vat_versioned.sql', 'utf8');
+  assert.match(sql, /add column vat_enabled boolean not null default false/);
+  assert.match(sql, /add constraint pricing_configs_vat_rate_when_enabled check \(not vat_enabled or vat_rate_bps > 0\)/);
+  assert.match(sql, /alter table quotes\s+add column vat_rate_bps integer not null default 0[\s\S]*?add column vat_amount bigint not null default 0/);
+  assert.match(sql, /alter table orders\s+add column vat_rate_bps integer not null default 0[\s\S]*?add column vat_amount bigint not null default 0/);
+  // The initial schema's inline multi-column checks are auto-named quotes_check / orders_check.
+  assert.match(sql, /conrelid = 'quotes'::regclass[\s\S]*?raise exception[\s\S]*?alter table quotes drop constraint %I/);
+  assert.match(sql, /conrelid = 'orders'::regclass[\s\S]*?raise exception[\s\S]*?alter table orders drop constraint %I/);
+  assert.match(sql, /add constraint quotes_total_with_vat check/);
+  assert.match(sql, /add constraint orders_total_with_vat check/);
+});

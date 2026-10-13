@@ -11,6 +11,9 @@ export type PricingConfigRow = {
   failureBufferPct: number;
   marginPct: number;
   packagingFeeVnd: number;
+  /** Phase 33 S1: VAT on/off + rate in integer basis points (800 = 8%). */
+  vatEnabled: boolean;
+  vatRateBps: number;
   effectiveFrom: Date;
   createdBy: string | null;
   createdAt: Date;
@@ -21,6 +24,7 @@ const PRICING_CONFIG_COLUMNS = `
   machine_lifetime_hours as "machineLifetimeHours", printer_power_kw as "printerPowerKw",
   labor_vnd_per_hour as "laborVndPerHour", failure_buffer_pct as "failureBufferPct",
   margin_pct as "marginPct", packaging_fee_vnd as "packagingFeeVnd",
+  vat_enabled as "vatEnabled", vat_rate_bps as "vatRateBps",
   effective_from as "effectiveFrom", created_by as "createdBy", created_at as "createdAt"`;
 
 // node-postgres returns `bigint`/`numeric` columns as STRINGS (not `number`), to avoid silent
@@ -41,6 +45,10 @@ function toPricingConfigRow(row: PricingConfigRow): PricingConfigRow {
     failureBufferPct: Number(row.failureBufferPct),
     marginPct: Number(row.marginPct),
     packagingFeeVnd: Number(row.packagingFeeVnd),
+    // vat_rate_bps is an integer column (already a JS number) — coerced anyway so every read path
+    // stays consistent if the column type ever widens (ADR-0023).
+    vatEnabled: Boolean(row.vatEnabled),
+    vatRateBps: Number(row.vatRateBps),
   };
 }
 
@@ -71,6 +79,8 @@ export type PricingConfigInput = {
   failureBufferPct: number;
   marginPct: number;
   packagingFeeVnd: number;
+  vatEnabled?: boolean;
+  vatRateBps?: number;
 };
 
 // insert-only (never updated) — every OWNER edit creates a new row so historical Quote/Product
@@ -85,12 +95,14 @@ export async function createPricingConfig(input: PricingConfigInput, actorId: st
     const result = await client.query<{ id: string }>(
       `insert into pricing_configs
          (electricity_vnd_per_kwh, machine_price_vnd, machine_lifetime_hours, printer_power_kw,
-          labor_vnd_per_hour, failure_buffer_pct, margin_pct, packaging_fee_vnd, effective_from, created_by)
-       values ($1,$2,$3,$4,$5,$6,$7,$8, timezone('utc', now()), $9)
+          labor_vnd_per_hour, failure_buffer_pct, margin_pct, packaging_fee_vnd, vat_enabled, vat_rate_bps,
+          effective_from, created_by)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, timezone('utc', now()), $11)
        returning id`,
       [
         input.electricityVndPerKwh, input.machinePriceVnd, input.machineLifetimeHours, input.printerPowerKw,
-        input.laborVndPerHour, input.failureBufferPct, input.marginPct, input.packagingFeeVnd, actorId,
+        input.laborVndPerHour, input.failureBufferPct, input.marginPct, input.packagingFeeVnd,
+        input.vatEnabled ?? false, input.vatRateBps ?? 0, actorId,
       ],
     );
     await writeAuditLog(client, {

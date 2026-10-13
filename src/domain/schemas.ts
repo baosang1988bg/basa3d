@@ -71,7 +71,13 @@ export const pricingConfigInputSchema = z.object({
   failureBufferPct: z.number().min(0).max(99.99),
   marginPct: z.number().min(0).max(99.99),
   packagingFeeVnd: vndSchema.default(0),
-}).strict();
+  // Phase 33 S1: VAT rate in integer basis points (800 = 8%), never a float percentage.
+  vatEnabled: z.boolean().default(false),
+  vatRateBps: safeInteger.min(0).max(10_000).default(0),
+}).strict().refine((config) => !config.vatEnabled || config.vatRateBps > 0, {
+  message: 'VAT rate must be greater than 0 when VAT is enabled.',
+  path: ['vatRateBps'],
+});
 
 // Phase 9: shape of pricing.service's computed breakdown, re-validated here because it round-trips
 // through the browser (preview → staff review/edit → submit) before landing on a Quote/Product —
@@ -401,7 +407,10 @@ export const quoteInputSchema = z.object({
   ipRiskAcknowledged: z.boolean().default(false),
 }).strict().superRefine((quote, context) => {
   validatePricingSnapshotPair(quote, context);
-  if (quote.total !== quote.subtotal + quote.shippingFee - quote.discount) {
+  // Phase 33 S1: total = subtotal + shippingFee − discount + VAT, and VAT depends on the CURRENT
+  // pricing config, which only the server knows — createQuote is the authority
+  // (QUOTE_TOTAL_MISMATCH). Here we can only reject a total below the pre-VAT amount.
+  if (quote.total < quote.subtotal + quote.shippingFee - quote.discount) {
     context.addIssue({ code: z.ZodIssueCode.custom, message: 'Quote total must reconcile to its components.', path: ['total'] });
   }
 });

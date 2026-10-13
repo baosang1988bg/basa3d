@@ -36,7 +36,10 @@ export function QuoteToolSwitcher({
     if (next === tool) return;
     for (const id of priceInputIds) {
       const el = document.getElementById(id);
-      if (el instanceof HTMLInputElement) el.value = '';
+      if (el instanceof HTMLInputElement) {
+        el.value = '';
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      }
     }
     setTool(next);
   }

@@ -56,7 +56,11 @@ function formatVnd(value: number): string {
 function setSiblingInputs(ids: readonly string[], value: string) {
   for (const id of ids) {
     const el = document.getElementById(id);
-    if (el instanceof HTMLInputElement) el.value = value;
+    if (el instanceof HTMLInputElement) {
+      el.value = value;
+      // Lets QuoteTotalsFields (Phase 33 S1) recompute VAT + total from the new subtotal.
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    }
   }
 }
 
