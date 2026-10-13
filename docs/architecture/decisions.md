@@ -520,6 +520,9 @@ the S0 calibration.
 - **VAT is versioned config**, snapshotted on quotes/orders; the DB checks only the total and "no VAT
   money without a rate"; the formula is `src/lib/pricing/vat.ts` (base pending O2). VAT per item/quote,
   so the estimate total equals the sum of the N quotes.
+- Up to **50 items** per request (Owner, 2026-10-13; DB check `custom_request_items_position_range`).
+  The browser preview measures the part directly (X/Y/Z arrows + fixed-size labels) and lets the
+  customer resize it uniformly by mm per axis or %; scale is stored as permille (0.1% steps).
 - **No deposit/payment** in this flow (D4); the public quote page's deposit QR is unchanged (O1).
 - The model ships as `fdm-v0-uncalibrated` with the plan's placeholder constants; every item snapshot
   records `modelVersion`. `/bao-gia`, its nav link, sitemap entry and APIs are behind

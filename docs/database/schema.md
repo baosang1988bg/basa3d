@@ -30,7 +30,7 @@ Phase 33 (ADR-0035):
   `quotes_total_with_vat` (`total = subtotal + shipping_fee - discount + vat_amount`) and
   `orders_total_with_vat` (`… + cod_fee …`), both with `vat_rate_bps > 0 or vat_amount = 0`. The VAT
   formula itself lives in `src/lib/pricing/vat.ts`, not in the DB.
-- `custom_request_items` — one row per file of a multi-item `/bao-gia` request (position 1–10,
+- `custom_request_items` — one row per file of a multi-item `/bao-gia` request (position 1–50 since `20261015000002`,
   `attachment_path` unique, config, `verification` VERIFIED | CLIENT_REPORTED | MISMATCH | UNPRICED,
   `estimate_snapshot jsonb` validated by `customRequestItemEstimateSchema`). Immutable: trigger
   `prevent_custom_request_item_mutation()` rejects every UPDATE and any DELETE unless the session ran

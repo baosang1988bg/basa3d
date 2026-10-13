@@ -537,3 +537,26 @@ Thứ tự: S0 ∥ S1 ∥ S2 → S3 → S4 → S5 → S6 ∥ S7 → S8. S1 và S
   - I6: tách migration 4A/4B; `DO` block kiểm tên constraint.
   - I7: cập nhật bản nháp ADR-0035.
   - Thêm: `estimateAttachment` trả `TOO_LARGE` thay vì lỗi khi file > 20MB (vì upload mới cho tới 50MB).
+- **2026-10-13 — Triển khai S0–S8 (Claude, Owner giao tự quyết O3–O6, xem §12b) + chỉnh theo Owner:**
+  - Code S0–S8 xong; `/bao-gia` sau cờ `NEXT_PUBLIC_BAO_GIA_ENABLED` (mặc định tắt) cho tới khi S0 chạy
+    trên file thật (`fdm-v0-uncalibrated` → `fdm-v1`).
+  - Phát hiện khi triển khai: tên check tổng tự sinh là `quotes_check` / `orders_check` (không phải
+    `*_total_check`) → migration 4A tìm constraint theo định nghĩa; bật RLS cho `custom_request_items`;
+    storage-js gửi Blob dạng multipart lấy MIME từ Blob → client bọc lại Blob theo `contentType` server
+    trả; `inspectUploadedObject` kiểm cả Content-Type đã lưu; 8 công cụ thiết kế cũng chuyển sang upload
+    signed URL (route `attachments` đã gỡ).
+  - **Giới hạn món 10 → 50** (Owner): `BAO_GIA_MAX_ITEMS = 50`, migration `20261015000002` (check
+    `custom_request_items_position_range` 1–50); upload vẫn xin URL theo lô 10 file/lần; server kiểm object
+    song song (6) rồi đo lại tuần tự trong ngân sách 20MB.
+  - **Xem trước mô hình** (Owner, theo luồng của trang tham khảo, không sao chép giao diện): khung 3D tự
+    hiện cho món đang chọn; mũi tên đo hai đầu ngay trên mẫu (X mép trên trước, Y mép trên phải, Z cạnh
+    trái) với nhãn HTML cỡ cố định "X 105.56 mm", tự né nhau và né ô trục XYZ; bóng đổ mềm; chú thích
+    ● X ● Y ● Z; thanh công cụ **Ẩn/Hiện kích thước · Kích thước thực tế (về 100%) · Chỉnh kích thước
+    (X/Y/Z mm, %, 50/100/150/200%, scale đều) · Đặt lại**. Kích thước nhập có thể lệch ~0,01 mm vì tỉ lệ
+    lưu theo bước 0,1% (permille).
+  - Ngoài Phase 33 nhưng cùng đợt (Owner): danh mục "Móc khoá" lên đầu (migration `20261015000003`), trang
+    chủ phục vụ ở `/home` (`/` → 307), `/custom-print` đưa form lên đầu và bỏ Resin, MakerWorld 1 plate chỉ
+    một phương án "Bản in hoàn thiện".
+  - Thứ tự triển khai Production: chạy migration `20261015000000` → `…0003` **trước** khi push (Vercel tự
+    deploy); đặt `CRON_SECRET`; bật `NEXT_PUBLIC_BAO_GIA_ENABLED` khi Owner chấp nhận giá ước tính.
+
