@@ -492,3 +492,19 @@ Status: accepted (Owner, 2026-10-12)
   2. **Uploaded file** (`/custom-print`) → quote-first: upload (existing rate-limited private upload) → `/api/public/file-estimate { attachmentPath, materialType }`: sliced `.3mf` = exact (slice_info time + grams, no extra waste; ráp sẵn/kit tiers when >1 plate); `.stl/.obj` = price range from mesh volume × PLA density × fill 0.35–0.75; `.step`, images, resin = staff quote. Contact details are asked only after the customer chooses to go ahead. The chosen option is stored in `custom_requests.quote_estimate_snapshot` (migration `20261014000000`).
   3. Verified presets (ADR-0033) remain the exact path and are unaffected.
 - Trade-off accepted by the Owner: SPEC lets a customer feed arbitrary minutes/grams, so a determined person can approximate the shop's rates; mitigated by 5.000đ rounding, server-side parsing bounds and the Vercel Firewall rule. File parsing is bounded (20MB, 3M triangles, strict storage-path regex) and rate-limited per IP (DB limiter, same precedent as `tool-price-estimate`).
+
+## ADR-0035 (draft, in progress) — `/bao-gia`: STL/OBJ only in v1, uncalibrated model behind a flag
+
+Status: proposed (Phase 33, 2026-10-13; Owner asked Claude to decide O3–O6, recorded in
+`docs/exec-plans/active/phase-33-bao-gia-instant-quote.md` §12b). The full ADR-0035 (§10 of that plan)
+is written at S8.
+
+- `/bao-gia` v1 accepts **STL/OBJ only**: pure geometry, one formula (`src/lib/pricing/fdm-estimate-model.ts`)
+  from shared mesh metrics (`src/lib/pricing/mesh-metrics.ts`, same code in the browser and on the server).
+  `.3mf` stays on `/custom-print` (sliced → exact; unsliced → range). Rejected for v1: parsing 3MF projects in
+  the browser (multi-plate, modifiers, per-object settings) — revisit by reading only `slice_info` of sliced 3MF.
+- `/custom-print` keeps its MESH price **range** until the S0 calibration passes (O3).
+- The model ships with the plan's placeholder constants as `fdm-v0-uncalibrated`; every estimate snapshot
+  records the model version. `/bao-gia` is gated by `BAO_GIA_ENABLED` (default off) until S0 passes.
+- Materials offered: PLA/PETG/ABS/ASA/TPU, only when an active priced material of that type exists; infill
+  10/15/20/30/50/100 (default 15); floor 25.000đ per line; > 256 mm in any sorted extent → staff quote.

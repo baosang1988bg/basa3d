@@ -19,6 +19,9 @@ import { ASSEMBLY_TIER_KEYS } from '../lib/pricing/assembly-tiers';
 import { estimatePrintMinutes } from '../lib/pricing/mesh-estimator';
 import type { ParsedSliceInfo } from '../lib/parsers/threemf-slice-info';
 import type { MeshVolumeResult } from '../lib/parsers/mesh-volume';
+import type { MeshMetrics } from '../lib/pricing/mesh-metrics';
+import { estimateFdmPrint, lineSubtotalVnd, type FdmUnpricedReason } from '../lib/pricing/fdm-estimate-model';
+import { computeVat } from '../lib/pricing/vat';
 
 export const INSTANT_ROUNDING_VND = 5_000;
 /** PLA density g/cm³ — the mesh path converts volume to grams with it. */
@@ -46,7 +49,13 @@ export type InstantEstimate = {
   options: InstantOption[];
 };
 
-export type PricingContext = { config: PricingConfigInput; medians: Map<string, number> };
+export type PricingContext = {
+  config: PricingConfigInput;
+  medians: Map<string, number>;
+  /** Phase 33: VAT of the current pricing config (absent → off). */
+  vat?: { enabled: boolean; rateBps: number };
+  pricingConfigId?: string;
+};
 
 export function roundInstant(value: number): number {
   return Math.max(INSTANT_ROUNDING_VND, Math.round(value / INSTANT_ROUNDING_VND) * INSTANT_ROUNDING_VND);
@@ -58,7 +67,7 @@ export async function loadPricingContext(): Promise<PricingContext | null> {
   if (!config) return null;
   const materials = await listMaterials();
   const medians = medianUnitCostByMaterialType(materials.map((m) => ({ materialType: m.materialType, unitCostVndPerGram: resolveMaterialUnitCostVndPerGram(m) })));
-  return { config, medians };
+  return { config, medians, vat: { enabled: config.vatEnabled, rateBps: config.vatRateBps }, pricingConfigId: config.id };
 }
 
 function normalizeType(type: string | null | undefined): string {
@@ -161,5 +170,67 @@ export function estimateFromMesh(ctx: PricingContext, mesh: MeshVolumeResult, ma
   return {
     kind: 'MESH', materialType: type, specs,
     options: [{ key: 'STANDARD', priceVnd: null, minVnd: Math.min(low, high), maxVnd: Math.max(low, high) }],
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Phase 33 S3 (plan §5.3): ONE estimated price per item from mesh metrics (used by /bao-gia).
+// /custom-print keeps the volume RANGE above (estimateFromMesh) until the model is calibrated (O3).
+// ---------------------------------------------------------------------------------------------
+
+export type MeshItemEstimate =
+  | {
+      status: 'OK';
+      modelVersion: string;
+      sizeMm: { x: number; y: number; z: number };
+      volumeCm3: number;
+      surfaceCm2: number;
+      grams: number;
+      printMinutes: number;
+      unitPriceVnd: number;
+      lineSubtotalVnd: number;
+      /** The per-line minimum price (MIN_ITEM_PRICE_VND) replaced unit × quantity. */
+      floorApplied: boolean;
+      vatRateBps: number;
+      vatVnd: number;
+      lineTotalVnd: number;
+    }
+  | { status: 'UNPRICED'; modelVersion: string; reason: FdmUnpricedReason; sizeMm: { x: number; y: number; z: number } }
+  | { status: 'NO_MATERIAL_PRICE'; modelVersion: string; sizeMm: { x: number; y: number; z: number } };
+
+export function estimateFromMeshMetrics(ctx: PricingContext, input: {
+  metrics: MeshMetrics;
+  scalePermille: number;
+  infillPct: number;
+  materialType: string;
+  quantity: number;
+}): MeshItemEstimate {
+  if (!Number.isInteger(input.quantity) || input.quantity < 1 || input.quantity > 1000) throw new RangeError(`quantity out of range: ${input.quantity}`);
+  const materialType = normalizeType(input.materialType);
+  const print = estimateFdmPrint({ metrics: input.metrics, scalePermille: input.scalePermille, infillPct: input.infillPct, materialType });
+  if (print.status === 'UNPRICED') return print;
+  const [option] = priceOptions(ctx, {
+    filaments: [{ name: 'Nhựa', materialType, netWeightGrams: print.grams }],
+    colorsCount: 1, amsRequired: false, printMinutes: print.printMinutes, platesCount: 1,
+  });
+  if (option.priceVnd === null) return { status: 'NO_MATERIAL_PRICE', modelVersion: print.modelVersion, sizeMm: print.sizeMm };
+  const { lineSubtotalVnd: subtotal, floorApplied } = lineSubtotalVnd(option.priceVnd, input.quantity);
+  // T11: VAT per item (= per future Quote), through the same computeVat createQuote uses.
+  const vatRateBps = ctx.vat?.enabled ? ctx.vat.rateBps : 0;
+  const vatVnd = computeVat(subtotal, vatRateBps);
+  return {
+    status: 'OK',
+    modelVersion: print.modelVersion,
+    sizeMm: print.sizeMm,
+    volumeCm3: print.volumeCm3,
+    surfaceCm2: print.surfaceCm2,
+    grams: print.grams,
+    printMinutes: print.printMinutes,
+    unitPriceVnd: option.priceVnd,
+    lineSubtotalVnd: subtotal,
+    floorApplied,
+    vatRateBps,
+    vatVnd,
+    lineTotalVnd: subtotal + vatVnd,
   };
 }

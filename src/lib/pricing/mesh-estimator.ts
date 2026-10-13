@@ -1,30 +1,22 @@
 import type * as THREE from 'three';
+import { computeMeshMetrics } from './mesh-metrics';
 
-/** Calculates the absolute enclosed volume of a triangle mesh. Coordinates are expected in mm. */
+/** Calculates the absolute enclosed volume of a triangle mesh. Coordinates are expected in mm.
+ * Phase 33 S3: thin wrapper over the shared computeMeshMetrics (mesh-metrics.ts). */
 export function calculateMeshVolumeCm3(geometry: THREE.BufferGeometry): number {
   const position = geometry.getAttribute('position');
-  if (!position || position.itemSize < 3) return 0;
-
+  if (!position || position.itemSize < 3 || position.count === 0) return 0;
   const index = geometry.getIndex();
-  const triangleCount = index ? index.count / 3 : position.count / 3;
-  let signedVolumeMm3 = 0;
-
-  for (let triangle = 0; triangle < triangleCount; triangle += 1) {
-    const offset = triangle * 3;
-    const ai = index ? index.getX(offset) : offset;
-    const bi = index ? index.getX(offset + 1) : offset + 1;
-    const ci = index ? index.getX(offset + 2) : offset + 2;
-    const ax = position.getX(ai); const ay = position.getY(ai); const az = position.getZ(ai);
-    const bx = position.getX(bi); const by = position.getY(bi); const bz = position.getZ(bi);
-    const cx = position.getX(ci); const cy = position.getY(ci); const cz = position.getZ(ci);
-    signedVolumeMm3 += (
-      ax * (by * cz - bz * cy)
-      - ay * (bx * cz - bz * cx)
-      + az * (bx * cy - by * cx)
-    ) / 6;
+  let positions: ArrayLike<number> = position.array;
+  // Interleaved / non-xyz-packed attributes: copy out x, y, z per vertex.
+  if (position.array.length !== position.count * 3) {
+    const packed = new Float64Array(position.count * 3);
+    for (let i = 0; i < position.count; i += 1) {
+      packed[i * 3] = position.getX(i); packed[i * 3 + 1] = position.getY(i); packed[i * 3 + 2] = position.getZ(i);
+    }
+    positions = packed;
   }
-
-  return Math.abs(signedVolumeMm3) / 1_000;
+  return computeMeshMetrics(positions, index ? index.array : null).volumeMm3 / 1_000;
 }
 
 export function estimateMeshWeightGrams(volumeCm3: number, densityGramsPerCm3 = 1.24): number {
