@@ -1,4 +1,4 @@
-import type { NextRequest } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import createIntlMiddleware from 'next-intl/middleware';
 import { updateSession } from './lib/supabase/middleware';
 import { routing } from './i18n/routing';
@@ -11,6 +11,18 @@ const intlMiddleware = createIntlMiddleware(routing);
 
 export async function middleware(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith('/admin')) return updateSession(request);
+
+  if (request.nextUrl.pathname === '/') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/home';
+    return NextResponse.redirect(url);
+  }
+  if (request.nextUrl.pathname === '/en') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/en/home';
+    return NextResponse.redirect(url);
+  }
+
   return intlMiddleware(request);
 }
 

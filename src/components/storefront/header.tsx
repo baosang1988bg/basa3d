@@ -15,7 +15,10 @@ import { trackContactClick } from '@/lib/analytics';
 // report active — accepted as out of scope for this slice rather than tracking scroll position.
 function isNavLinkActive(pathname: string, href: string): boolean {
   if (href.includes('#')) return false;
-  return href === '/' ? pathname === '/' : pathname.startsWith(href);
+  if (href === '/home' || href === '/') {
+    return pathname === '/home' || pathname === '/';
+  }
+  return pathname.startsWith(href);
 }
 
 export function Header() {
@@ -25,7 +28,7 @@ export function Header() {
   const t = useTranslations('nav');
 
   const navLinks = [
-    { href: '/', label: t('home') },
+    { href: '/home', label: t('home') },
     { href: '/products', label: t('products') },
     { href: '/tools', label: t('tools') },
     ...(BAO_GIA_ENABLED_IN_BROWSER ? [{ href: '/bao-gia', label: t('quote') }] : []),
@@ -36,7 +39,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur supports-backdrop-filter:bg-card/80">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-        <Link href="/" className="font-heading cursor-pointer text-xl font-extrabold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+        <Link href="/home" className="font-heading cursor-pointer text-xl font-extrabold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
           BaSa3D
         </Link>
 

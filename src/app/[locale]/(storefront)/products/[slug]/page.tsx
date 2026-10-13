@@ -42,7 +42,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     ? categories.items.find((item) => item.id === product.categoryId)
     : undefined;
   const breadcrumbItems: BreadcrumbItem[] = [
-    { label: t('breadcrumbHome'), href: '/' },
+    { label: t('breadcrumbHome'), href: '/home' },
     { label: t('breadcrumbProducts'), href: '/products' },
     ...(category ? [{ label: category.name, href: `/products?categoryId=${category.id}` }] : []),
     { label: product.name },

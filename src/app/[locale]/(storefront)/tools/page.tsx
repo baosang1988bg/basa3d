@@ -17,7 +17,7 @@ export default async function ToolsPage() {
     .sort((a, b) => Number(b.tool.status === 'available') - Number(a.tool.status === 'available'));
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
-      <Breadcrumb items={[{ label: t('breadcrumbHome'), href: '/' }, { label: t('breadcrumbTools') }]} />
+      <Breadcrumb items={[{ label: t('breadcrumbHome'), href: '/home' }, { label: t('breadcrumbTools') }]} />
       <header className="max-w-3xl"><p className="text-sm font-semibold uppercase tracking-wide text-primary">{t('eyebrow')}</p><h1 className="font-heading mt-2 text-3xl font-extrabold md:text-4xl">{t('title')}</h1><p className="mt-3 text-muted-foreground">{t('description')}</p></header>
       <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {sorted.map(({ tool, icon: Icon }) => {

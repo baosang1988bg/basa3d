@@ -51,7 +51,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       {/* Static JSON-LD constructed server-side from our own data, not user input rendered as HTML. */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <Breadcrumb items={[{ label: 'Trang chủ', href: '/' }, { label: 'Blog', href: '/blog' }, { label: post.title }]} />
+      <Breadcrumb items={[{ label: 'Trang chủ', href: '/home' }, { label: 'Blog', href: '/blog' }, { label: post.title }]} />
 
       {post.coverImageUrl && (
         <div className="aspect-video overflow-hidden rounded-xl bg-muted/50">
