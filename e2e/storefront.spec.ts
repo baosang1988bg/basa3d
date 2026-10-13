@@ -38,3 +38,38 @@ test('a visitor can load /custom-print, fill the form, and submit successfully',
     }
   }
 });
+
+// Phase 33 S2: files go browser → Supabase Storage via a signed URL, so a file larger than Vercel's
+// 4.5MB function body limit must still upload and reach the instant-estimate step.
+function largeBinaryStl(): Buffer {
+  // A closed 10 mm cube (12 triangles) repeated until the file is > 4.5MB.
+  const v = [[0, 0, 0], [10, 0, 0], [10, 10, 0], [0, 10, 0], [0, 0, 10], [10, 0, 10], [10, 10, 10], [0, 10, 10]];
+  const faces = [[0, 3, 2], [0, 2, 1], [4, 5, 6], [4, 6, 7], [0, 1, 5], [0, 5, 4], [3, 7, 6], [3, 6, 2], [0, 4, 7], [0, 7, 3], [1, 2, 6], [1, 6, 5]];
+  const copies = 8_000;
+  const triangles = faces.length * copies;
+  const buffer = Buffer.alloc(84 + triangles * 50);
+  buffer.writeUInt32LE(triangles, 80);
+  let offset = 84;
+  for (let copy = 0; copy < copies; copy += 1) {
+    for (const face of faces) {
+      offset += 12; // normal (0,0,0)
+      for (const index of face) {
+        for (const coordinate of v[index]) { buffer.writeFloatLE(coordinate, offset); offset += 4; }
+      }
+      offset += 2; // attribute byte count
+    }
+  }
+  return buffer;
+}
+
+test('a file > 4.5MB uploads straight to Storage on /custom-print and reaches the estimate step', async ({ page }) => {
+  const stl = largeBinaryStl();
+  expect(stl.length).toBeGreaterThan(4.5 * 1024 * 1024);
+  await page.goto('/custom-print');
+  const uploadUrls = page.waitForResponse((response) => response.url().includes('/api/public/custom-requests/upload-urls'));
+  const estimate = page.waitForResponse((response) => response.url().includes('/api/public/file-estimate'), { timeout: 60_000 });
+  await page.locator('input[type="file"]').setInputFiles({ name: 'big-cube.stl', mimeType: 'application/vnd.ms-pki.stl', buffer: stl });
+  expect((await uploadUrls).status()).toBe(201);
+  await expect(page.getByText('Đã tải lên: big-cube.stl')).toBeVisible({ timeout: 60_000 });
+  expect((await estimate).status()).toBe(200);
+});

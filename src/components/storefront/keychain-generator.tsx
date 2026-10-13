@@ -8,6 +8,7 @@ import { StorefrontButton } from '@/components/storefront/button';
 import { calculateMeshVolumeCm3, estimateMeshWeightGrams, estimatePrintMinutes } from '@/lib/pricing/mesh-estimator';
 import { createKeychainModel, exportKeychainStl, type KeychainModel } from '@/lib/keychain/keychain-engine';
 import { trackKeychainExportDownload, trackKeychainExportToRequest, trackKeychainPreview } from '@/lib/analytics';
+import { uploadCustomRequestFile } from '@/lib/uploads/upload-custom-request-file';
 
 const COLOR_NAMES: Record<string, string> = {
   '#000000': 'đen', '#ffffff': 'trắng', '#ffd700': 'vàng', '#ef4444': 'đỏ', '#2563eb': 'xanh dương', '#16a34a': 'xanh lá',
@@ -108,10 +109,7 @@ export function KeychainGenerator() {
   async function exportToRequest() {
     setIsUploading(true); setError(null);
     try {
-      const fileName = safeFileName(text); const body = new FormData(); body.set('file', makeStl(), fileName);
-      const response = await fetch('/api/public/custom-requests/attachments', { method: 'POST', body });
-      if (!response.ok) throw new Error((await response.json().catch(() => null))?.message ?? 'Không thể tải STL lên.');
-      const { path } = await response.json() as { path: string };
+      const fileName = safeFileName(text); const { path } = await uploadCustomRequestFile(makeStl(), fileName);
       setPrefill({ attachmentPath: path, attachmentFileName: fileName, requestedMaterial: 'PLA', requestedColor: colorDescription(baseColor, textColor), description: `Móc khoá khắc tên: ${text.trim()} (${model?.widthMm.toFixed(1)} × ${model?.heightMm.toFixed(1)} × ${(baseThicknessMm + textThicknessMm).toFixed(1)} mm)` });
       trackKeychainExportToRequest({ characterCount: text.trim().length, hasKeyringHole: includeKeyringHole });
       window.setTimeout(() => document.querySelector('#keychain-request-form')?.scrollIntoView({ behavior: 'smooth' }), 0);

@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { apiError } from '../../../../lib/api';
 import { query } from '../../../../lib/db';
 import { publicCustomRequestInputSchema } from '../../../../domain/schemas';
-import { createCustomRequest, type CustomRequestMakerWorldSnapshot } from '../../../../services/custom-request.service';
+import { createCustomRequest, inspectUploadedObject, type CustomRequestMakerWorldSnapshot } from '../../../../services/custom-request.service';
 import { referencePriceFor } from '../../../../services/makerworld-estimate.service';
 import { parseMakerWorldUrl } from '../../../../lib/parsers/makerworld-resolver';
 import { estimateAttachment } from '../../../../services/file-estimate.service';
@@ -33,6 +33,11 @@ export async function POST(request: Request) {
     if (Number(recentCount.rows[0].count) >= RATE_LIMIT_MAX_SUBMISSIONS) {
       return NextResponse.json({ code: 'RATE_LIMITED', message: 'Bạn đã gửi yêu cầu quá nhiều lần, vui lòng thử lại sau ít phút.' }, { status: 429 });
     }
+
+    // Phase 33 S2 (§6.3 step 2): files now go straight to Storage via signed URLs, so a path in the
+    // body proves nothing. Confirm the object exists, is within MAX_UPLOAD_BYTES and its magic bytes
+    // match the extension before it is attached to a request (400 otherwise).
+    if (input.attachmentPath) await inspectUploadedObject(input.attachmentPath);
 
     // Phase B: the reference price the customer saw is recomputed here, never taken from the browser.
     let makerworldSnapshot: CustomRequestMakerWorldSnapshot | null = null;

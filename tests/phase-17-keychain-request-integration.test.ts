@@ -5,6 +5,7 @@ import test, { after } from 'node:test';
 import { configureTestEnvironment } from './helpers/test-environment';
 import { Client } from 'pg';
 import * as opentype from 'opentype.js';
+import { createClient } from '@supabase/supabase-js';
 import { buildKeychainModel, exportKeychainStl } from '../src/lib/keychain/keychain-engine';
 
 configureTestEnvironment();
@@ -17,7 +18,7 @@ after(async () => {
   if (!canRun) return;
   const client = new Client({ connectionString: process.env.DATABASE_URL }); await client.connect();
   try {
-    await client.query("delete from rate_limit_attempts where scope in ('custom-request-attachment-upload', 'tool-price-estimate') and limiter_key = $1", [createHash('sha256').update(TEST_IP).digest('hex')]);
+    await client.query("delete from rate_limit_attempts where scope in ('custom-request-upload-urls', 'tool-price-estimate') and limiter_key = $1", [createHash('sha256').update(TEST_IP).digest('hex')]);
   } finally { await client.end(); }
 });
 
@@ -28,10 +29,18 @@ test('generated merged STL uploads and creates a request with a private attachme
   const stl = exportKeychainStl(model.mergedGeometry);
   assert.ok(stl.size > 84, 'binary STL must contain a header and triangles');
 
-  const upload = new FormData(); upload.set('file', stl, 'moc-khoa.stl');
-  const uploadResponse = await fetch(`${BASE_URL}/api/public/custom-requests/attachments`, { method: 'POST', headers: HEADERS, body: upload });
-  assert.equal(uploadResponse.status, 201);
-  const { path: attachmentPath } = await uploadResponse.json();
+  // Phase 33 S2: signed upload URL → straight to Storage (same calls as uploadCustomRequestFile).
+  const urls = await fetch(`${BASE_URL}/api/public/custom-requests/upload-urls`, {
+    method: 'POST', headers: { ...HEADERS, 'content-type': 'application/json' },
+    body: JSON.stringify({ files: [{ ext: 'stl', sizeBytes: stl.size }] }),
+  });
+  assert.equal(urls.status, 201);
+  const { uploads: [target] } = await urls.json() as { uploads: Array<{ path: string; token: string; contentType: string }> };
+  const anon = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } });
+  const { error: uploadError } = await anon.storage.from('custom-request-attachments')
+    .uploadToSignedUrl(target.path, target.token, new Blob([stl], { type: target.contentType }), { contentType: target.contentType });
+  assert.equal(uploadError, null);
+  const attachmentPath = target.path;
   assert.match(attachmentPath, /^requests\/[0-9a-f-]+\.stl$/);
 
   const response = await fetch(`${BASE_URL}/api/public/custom-requests`, {

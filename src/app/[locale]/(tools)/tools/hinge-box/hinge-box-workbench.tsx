@@ -15,6 +15,7 @@ import { write3mf } from '@/lib/3d-tools/common/3mf-writer';
 import { exportKeychainStl } from '@/lib/keychain/keychain-engine';
 import { calculateMeshVolumeCm3, estimateMeshWeightGrams, estimatePrintMinutes } from '@/lib/pricing/mesh-estimator';
 import { trackHingeBoxExportDownload, trackHingeBoxExportToRequest, trackHingeBoxPreview } from '@/lib/analytics';
+import { uploadCustomRequestFile } from '@/lib/uploads/upload-custom-request-file';
 
 const Canvas = dynamic(() => import('./hinge-box-canvas'), { ssr: false, loading: () => <p>Đang mở bản xem trước 3D...</p> });
 
@@ -80,10 +81,7 @@ export default function HingeBoxWorkbench() {
     try {
       const geometry = mergeHingeBoxGeometry(parts);
       let blob: Blob; try { blob = exportKeychainStl(geometry); } finally { geometry.dispose(); }
-      const fileName = 'hop-ban-le.stl'; const body = new FormData(); body.set('file', blob, fileName);
-      const response = await fetch('/api/public/custom-requests/attachments', { method: 'POST', body });
-      if (!response.ok) throw new Error((await response.json().catch(() => null))?.message ?? 'Không thể tải STL lên.');
-      const { path } = await response.json() as { path: string };
+      const fileName = 'hop-ban-le.stl'; const { path } = await uploadCustomRequestFile(blob, fileName);
       setPrefill({
         attachmentPath: path,
         attachmentFileName: fileName,

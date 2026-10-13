@@ -9,16 +9,18 @@ import { trackCustomPrintQuote, trackFileUpload } from '@/lib/analytics';
 import { CURRENT_TOS_VERSION } from '@/lib/copyright/tos-version';
 import type { PublicFileEstimate } from '@/services/file-estimate.service';
 import type { InstantOptionKey } from '@/services/instant-estimate.service';
+import { MAX_UPLOAD_BYTES, UPLOAD_EXTENSIONS, formatUploadLimitMb } from '@/config/uploads';
+import { uploadCustomRequestFile } from '@/lib/uploads/upload-custom-request-file';
 
 type SubmitState = { status: 'idle' | 'submitting' | 'success' | 'error'; message?: string };
 type UploadState = { status: 'idle' | 'uploading' | 'done' | 'error'; fileName?: string; message?: string };
 type EstimateState = { status: 'idle' | 'loading' | 'done' | 'error'; result?: PublicFileEstimate; message?: string };
 
-// Kept in sync with CONTENT_TYPE_BY_EXTENSION in custom-request.service.ts — this is only a
-// client-side UX check, the server re-validates and is the actual authority.
-const ALLOWED_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'stl', 'step', 'stp', 'obj', '3mf']);
+// Client-side UX check only (shared config with the server) — upload-urls, the bucket limits and
+// inspectUploadedObject at submit are the actual authority.
+const ALLOWED_EXTENSIONS = new Set<string>(UPLOAD_EXTENSIONS);
 const PRICEABLE_EXTENSIONS = new Set(['3mf', 'stl', 'obj']);
-const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
+const MAX_FILE_SIZE_BYTES = MAX_UPLOAD_BYTES;
 const RESPONSE_TIME_TEXT = 'trong 2 giờ làm việc';
 
 const OPTION_LABEL: Record<InstantOptionKey, string> = {
@@ -33,6 +35,7 @@ const STATUS_TEXT: Record<Exclude<PublicFileEstimate['status'], 'OK'>, string> =
   UNREADABLE: 'Chưa đọc được hình khối trong file này. Bạn vẫn gửi yêu cầu được, xưởng sẽ kiểm tra và báo giá.',
   NO_PRICING_CONFIG: `Hiện chưa thể hiển thị giá tự động. Gửi yêu cầu, BaSa3D báo giá ${RESPONSE_TIME_TEXT}.`,
   NO_MATERIAL_PRICE: 'Chưa có giá tự động cho vật liệu này. Gửi yêu cầu để xưởng báo giá.',
+  TOO_LARGE: `File khá lớn nên chưa tính giá tự động được. Gửi yêu cầu, BaSa3D báo giá ${RESPONSE_TIME_TEXT}.`,
 };
 
 export type CustomRequestPrefill = {
@@ -114,7 +117,7 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
       return;
     }
     if (file.size > MAX_FILE_SIZE_BYTES) {
-      alert('Dung lượng file tối đa là 20MB.');
+      alert(`Dung lượng file tối đa là ${formatUploadLimitMb()}.`);
       return;
     }
 
@@ -123,21 +126,13 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
     setAttachmentPath('');
 
     try {
-      const body = new FormData();
-      body.set('file', file);
-      const response = await fetch('/api/public/custom-requests/attachments', { method: 'POST', body });
-      if (!response.ok) {
-        const errorBody = await response.json().catch(() => null);
-        setUpload({ status: 'error', message: errorBody?.message ?? 'Tải file lên thất bại, vui lòng thử lại.' });
-        setImagePreview(null);
-        return;
-      }
-      const { path } = (await response.json()) as { path: string };
+      // Phase 33 S2: signed URL → straight to Storage (files over Vercel's 4.5MB limit work).
+      const { path } = await uploadCustomRequestFile(file, file.name);
       setAttachmentPath(path);
       setUpload({ status: 'done', fileName: file.name });
       trackFileUpload({ name: file.name, extension: fileExtension, sizeMb: Number((file.size / (1024 * 1024)).toFixed(2)) });
-    } catch {
-      setUpload({ status: 'error', message: 'Không thể kết nối máy chủ, vui lòng thử lại.' });
+    } catch (error) {
+      setUpload({ status: 'error', message: error instanceof Error && error.message ? error.message : 'Không thể kết nối máy chủ, vui lòng thử lại.' });
       setImagePreview(null);
     }
   }
@@ -219,7 +214,11 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
         return;
       }
       if (!response.ok) {
-        setState({ status: 'error', message: 'Có lỗi xảy ra, vui lòng kiểm tra lại thông tin.' });
+        // Phase 33 S2: the server re-checks the uploaded object (exists, size, magic bytes) — say so
+        // instead of a generic error, so the customer knows to re-upload the file.
+        const body = await response.json().catch(() => null);
+        const fileProblem = typeof body?.code === 'string' && ['ATTACHMENT_NOT_FOUND', 'ATTACHMENT_CONTENT_MISMATCH', 'EMPTY_FILE', 'FILE_TOO_LARGE'].includes(body.code);
+        setState({ status: 'error', message: fileProblem && body.message ? body.message : 'Có lỗi xảy ra, vui lòng kiểm tra lại thông tin.' });
         return;
       }
       trackCustomPrintQuote({ material: payload.requestedMaterial, color: payload.requestedColor, quantity: payload.quantity, hasAttachment: payload.attachmentPath !== null });
@@ -297,7 +296,7 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
               Kéo thả file .3mf/.stl/.obj/.step hoặc ảnh mẫu vào đây (có thể Ctrl+V dán ảnh).
             </div>
             <div className="flex items-center justify-between border-t border-border/50 pt-2 text-xs text-muted-foreground">
-              <div className="flex items-center gap-1.5"><Upload className="size-3.5" /><span>Tối đa 20MB</span></div>
+              <div className="flex items-center gap-1.5"><Upload className="size-3.5" /><span>Tối đa {formatUploadLimitMb()}</span></div>
               <label className="cursor-pointer font-medium text-primary hover:underline">
                 Chọn file từ máy
                 <input type="file" accept="image/*,.stl,.step,.stp,.obj,.3mf" onChange={handleFileInputChange} className="hidden" />

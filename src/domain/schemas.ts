@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { isSafeMakerWorldImageUrl } from '../lib/parsers/makerworld-image';
 import { classifyMakerWorldLicense, isMakerWorldModelUrl } from '../lib/parsers/makerworld-resolver';
 import { PRINT_SERVICE_LICENSE_BASES } from '../lib/copyright/print-service-policy';
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_FILES_PER_REQUEST, UPLOAD_EXTENSIONS } from '../config/uploads';
 
 export const uuidSchema = z.string().uuid();
 const nonEmptyText = z.string().trim().min(1);
@@ -596,4 +597,14 @@ export const updateFilamentSpoolInputSchema = z.object({
   spoolCode: z.string().trim().min(1).max(60),
   hasSpool: z.boolean(),
   note: z.string().trim().max(2000).nullable(),
+}).strict();
+
+// Phase 33 S2 (§6.2): request body of POST /api/public/custom-requests/upload-urls. `sizeBytes` is a
+// declaration only — the real size is checked by the bucket's file_size_limit and by
+// inspectUploadedObject at submit.
+export const uploadUrlsRequestSchema = z.object({
+  files: z.array(z.object({
+    ext: z.preprocess((value) => (typeof value === 'string' ? value.trim().toLowerCase() : value), z.enum(UPLOAD_EXTENSIONS)),
+    sizeBytes: safeInteger.positive().max(MAX_UPLOAD_BYTES),
+  }).strict()).min(1).max(MAX_UPLOAD_FILES_PER_REQUEST),
 }).strict();

@@ -12,6 +12,7 @@ import { exportBlocksStlZip, write3mf } from '@/lib/3d-tools/common/3mf-writer';
 import { exportKeychainStl } from '@/lib/keychain/keychain-engine';
 import { calculateMeshVolumeCm3, estimateMeshWeightGrams, estimatePrintMinutes } from '@/lib/pricing/mesh-estimator';
 import { trackKeychainBlocksExportDownload, trackKeychainBlocksExportToRequest, trackKeychainBlocksPreview } from '@/lib/analytics';
+import { uploadCustomRequestFile } from '@/lib/uploads/upload-custom-request-file';
 
 const Canvas = dynamic(() => import('./keychain-blocks-canvas'), { ssr: false, loading: () => <p>Đang mở bản xem trước 3D...</p> });
 const CUSTOM_FONT_ID = '__custom__' as const;
@@ -96,10 +97,7 @@ export default function KeychainBlocksWorkbench() {
       // slicer color verification. The description retains every requested color.
       const geometry=mergeBlocksGeometry(parts);
       let blob: Blob; try {blob=exportKeychainStl(geometry);} finally {geometry.dispose();}
-      const fileName='moc-khoa-khoi.stl'; const body=new FormData();body.set('file',blob,fileName);
-      const response=await fetch('/api/public/custom-requests/attachments',{method:'POST',body});
-      if(!response.ok)throw new Error((await response.json().catch(()=>null))?.message??'Không thể tải STL lên.');
-      const {path}=await response.json() as {path:string};
+      const fileName='moc-khoa-khoi.stl'; const { path } = await uploadCustomRequestFile(blob, fileName);
       setPrefill({attachmentPath:path,attachmentFileName:fileName,requestedMaterial:'PLA',requestedColor:'Đa màu',description:`Móc khoá khối ${baseType==='modular'?'Modular':'Compact'}: ${blocks.map(b=>b.char).join(' ')}; font ${fontName}; switch ${switchType}; màu đế ${baseColor}; ${blocks.map((b,i)=>`khối ${i+1}: ${b.char}, nền ${b.blockColor}, chữ ${b.glyphColor}`).join('; ')}`});
       trackKeychainBlocksExportToRequest({blockCount:blocks.length,format:'stl'});
     } catch(reason) {setError(reason instanceof Error?reason.message:'Không thể chuẩn bị yêu cầu.');}

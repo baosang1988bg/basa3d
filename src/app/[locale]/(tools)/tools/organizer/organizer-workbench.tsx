@@ -8,6 +8,7 @@ import { autoFitOrganizerCells, buildOrganizerModel, DEFAULT_ORGANIZER_OPTIONS, 
 import * as C from '@/lib/3d-tools/organizer/organizer-constants';
 import { calculateMeshVolumeCm3, estimateMeshWeightGrams, estimatePrintMinutes } from '@/lib/pricing/mesh-estimator';
 import { trackOrganizerExportDownload, trackOrganizerExportToRequest, trackOrganizerPreview } from '@/lib/analytics';
+import { uploadCustomRequestFile } from '@/lib/uploads/upload-custom-request-file';
 
 const OrganizerCanvas = dynamic(() => import('./organizer-canvas'), { ssr: false, loading: () => <p>Đang mở bản xem trước 3D...</p> });
 const parseSizes = (value: string) => value.split(',').map((part) => Number(part.trim()));
@@ -74,10 +75,7 @@ export default function OrganizerWorkbench() {
     if (!model) return;
     setUploading(true); setError('');
     try {
-      const body = new FormData(); body.set('file', exportOrganizerStl(model.mergedGeometry), 'khay-chia-ngan.stl');
-      const response = await fetch('/api/public/custom-requests/attachments', { method: 'POST', body });
-      if (!response.ok) throw new Error((await response.json().catch(() => null))?.message ?? 'Không thể tải STL lên.');
-      const { path } = await response.json() as { path: string };
+      const { path } = await uploadCustomRequestFile(exportOrganizerStl(model.mergedGeometry), 'khay-chia-ngan.stl');
       setPrefill({ attachmentPath: path, attachmentFileName: 'khay-chia-ngan.stl', requestedMaterial: 'PLA', requestedColor: '',
         description: `Khay chia ngăn: ${model.rows}x${model.cols}, ${options.widthMm}x${options.depthMm}x${options.heightMm}mm` });
       trackOrganizerExportToRequest(model);
