@@ -106,3 +106,23 @@ test('Phase 33 S1 migration adds versioned VAT and replaces both total checks (f
   assert.match(sql, /add constraint quotes_total_with_vat check/);
   assert.match(sql, /add constraint orders_total_with_vat check/);
 });
+
+test('Phase 33 S2 migration adds immutable custom_request_items, the purge-flag trigger and the same-request FK', async () => {
+  const sql = await readFile('supabase/migrations/20261015000001_custom_request_items.sql', 'utf8');
+  assert.match(sql, /create table custom_request_items \(/);
+  assert.match(sql, /custom_request_id uuid not null references custom_requests\(id\) on delete restrict/);
+  assert.match(sql, /attachment_path text not null unique check \(attachment_path ~ '\^requests\/\[0-9a-f-\]\+\\\.\(stl\|obj\|3mf\)\$'\)/);
+  assert.match(sql, /verification in \('VERIFIED', 'CLIENT_REPORTED', 'MISMATCH', 'UNPRICED'\)/);
+  assert.match(sql, /unique \(custom_request_id, position\)/);
+  assert.match(sql, /unique \(id, custom_request_id\)/);
+  assert.match(sql, /check \(source_kind = 'MESH' or \(infill_pct is null and scale_permille = 1000\)\)/);
+  assert.match(sql, /create index custom_request_items_request_idx on custom_request_items\(custom_request_id, position\)/);
+  assert.match(sql, /enable row level security/);
+  assert.match(sql, /create function prevent_custom_request_item_mutation\(\)[\s\S]*?tg_op = 'DELETE' and current_setting\('basa3d\.allow_item_purge', true\) = 'on'/);
+  assert.match(sql, /create trigger custom_request_items_immutable before update or delete on custom_request_items/);
+  assert.match(sql, /alter table quotes add column custom_request_item_id uuid;/);
+  assert.match(sql, /quotes_item_same_request\s+foreign key \(custom_request_item_id, custom_request_id\)\s+references custom_request_items\(id, custom_request_id\) on delete restrict/);
+  assert.match(sql, /create index quotes_custom_request_item_id_idx on quotes\(custom_request_item_id\)/);
+  assert.match(sql, /file_size_limit = 52428800/);
+  assert.doesNotMatch(sql, /prevent_ledger_mutation/);
+});

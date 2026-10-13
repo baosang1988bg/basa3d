@@ -10,7 +10,34 @@ const apply = process.argv.includes('--apply');
 if (process.argv.slice(2).some((arg) => arg !== '--apply')) throw new Error('Unknown argument');
 const version = '20260905000000';
 const name = 'remove_accumulated_test_data';
-const sql = await readFile(`supabase/migrations/${version}_${name}.sql`, 'utf8');
+const migrationSql = await readFile(`supabase/migrations/${version}_${name}.sql`, 'utf8');
+// Phase 33 S2 (T6): custom_request_items (added after this migration was written) are immutable
+// and FK-restrict their custom request, so a selected fixture request that has items would make the
+// cleanup refuse. Extend the in-memory SQL (the applied migration file itself is never edited):
+// select the items of selected requests, and delete them after their quotes and before their
+// requests, with the session purge flag set LOCAL to this transaction only.
+function withItemPurge(text) {
+  const selectMarker = '-- Refuse to mutate ANY retained child';
+  const deleteMarker = "delete from public.custom_requests where id in";
+  if (!text.includes(selectMarker) || !text.includes(deleteMarker)) throw new Error('cleanup SQL markers not found — review withItemPurge()');
+  const selectItems = `do $items$ begin
+  if to_regclass('public.custom_request_items') is not null then
+    insert into cleanup_targets select 'custom_request_items', i.id from public.custom_request_items i
+    where i.custom_request_id in (select id from cleanup_targets where table_name='custom_requests');
+  end if;
+end $items$;
+
+`;
+  const deleteItems = `set local basa3d.allow_item_purge = 'on';
+do $items$ begin
+  if to_regclass('public.custom_request_items') is not null then
+    delete from public.custom_request_items where id in (select id from cleanup_targets where table_name='custom_request_items');
+  end if;
+end $items$;
+`;
+  return text.replace(selectMarker, selectItems + selectMarker).replace(deleteMarker, deleteItems + deleteMarker);
+}
+const sql = withItemPurge(migrationSql);
 const client = new pg.Client({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 10000 });
 if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required');
 const quote = (value) => `"${value.replaceAll('"', '""')}"`;
@@ -42,7 +69,7 @@ try {
   if (triggers.length !== 3 || triggers.some((r) => r.tgenabled !== 'O')) throw new Error('Ledger protection not restored');
   if (apply) {
     const history = (await client.query("select to_regclass('supabase_migrations.schema_migrations') as name")).rows[0].name;
-    if (history) await client.query('insert into supabase_migrations.schema_migrations (version, statements, name) values ($1, $2, $3) on conflict (version) do nothing', [version, [sql], name]);
+    if (history) await client.query('insert into supabase_migrations.schema_migrations (version, statements, name) values ($1, $2, $3) on conflict (version) do nothing', [version, [migrationSql], name]);
   }
   await client.query(apply ? 'COMMIT' : 'ROLLBACK');
   console.log(apply ? 'COMMITTED' : 'DRY RUN: ROLLED BACK', JSON.stringify(report, null, 2));
