@@ -58,6 +58,16 @@ async function main() {
         create table if not exists storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);`);
       console.log('Created minimal auth/storage stubs (plain PostgreSQL).');
     }
+    // Phase 33 S2: the orphan-upload cron reads storage.objects. Real local Supabase has it; on plain
+    // PostgreSQL create a minimal stub (marked by its comment so tests know it is a stub).
+    const hasObjects = await client.query(`select to_regclass('storage.objects') as name`);
+    if (!hasObjects.rows[0].name) {
+      await client.query(`
+        create schema if not exists storage;
+        create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text, created_at timestamptz not null default now());
+        comment on table storage.objects is 'basa3d local test stub';`);
+      console.log('Created minimal storage.objects stub (plain PostgreSQL).');
+    }
     await client.query(`create table if not exists public._local_test_migrations (name text primary key, applied_at timestamptz not null default now())`);
     const applied = new Set((await client.query<{ name: string }>('select name from public._local_test_migrations')).rows.map((row) => row.name));
 
