@@ -1,9 +1,19 @@
+function sanitizePhoneNumber(val?: string): string {
+  if (!val || val === '0333638698') return '0333698638';
+  return val;
+}
+
+function sanitizeZaloUrl(val?: string): string {
+  if (!val || val.includes('363869')) return 'https://zalo.me/84333698638';
+  return val;
+}
+
 export const SITE_CONFIG = {
   name: 'BaSa3D',
   description: 'Dịch vụ in 3D chuyên nghiệp & Sản phẩm độc đáo',
-  zaloPhone: process.env.NEXT_PUBLIC_ZALO_PHONE || '0333698638',
-  zaloUrl: process.env.NEXT_PUBLIC_ZALO_URL || 'https://zalo.me/84333698638',
-  hotline: process.env.NEXT_PUBLIC_HOTLINE || '0333698638',
+  zaloPhone: sanitizePhoneNumber(process.env.NEXT_PUBLIC_ZALO_PHONE),
+  zaloUrl: sanitizeZaloUrl(process.env.NEXT_PUBLIC_ZALO_URL),
+  hotline: sanitizePhoneNumber(process.env.NEXT_PUBLIC_HOTLINE),
   // Messenger: no Fanpage created yet, so left empty on purpose — an m.me link only works
   // reliably for a Facebook Page, not a personal profile. Once a Fanpage exists, set this to
   // https://m.me/<fanpage-username> and the contact CTA will pick it up automatically.
