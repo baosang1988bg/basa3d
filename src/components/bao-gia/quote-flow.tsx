@@ -268,7 +268,7 @@ export function QuoteFlow({ materials }: { materials: string[] }) {
                   <p className="max-w-full truncate text-xs text-muted-foreground">{ready.indexOf(previewItem) + 1}/{ready.length} · {previewItem.name} · tỉ lệ {previewItem.scalePct}%</p>
                 </div>
                 {previewItem.positions ? (
-                  <MeshViewer key={previewItem.id} positions={previewItem.positions} label={previewItem.name} scalePct={previewItem.scalePct} />
+                  <MeshViewer key={previewItem.id} positions={previewItem.positions} label={previewItem.name} scalePct={previewItem.scalePct} onScaleChange={(pct) => update(previewItem.id, { scalePct: clampScalePct(pct) })} />
                 ) : (
                   <p className="rounded-lg bg-muted/40 p-4 text-sm text-muted-foreground">File rất chi tiết (trên 1,5 triệu tam giác) nên không dựng 3D để tránh treo máy — kích thước và giá vẫn tính bình thường.</p>
                 )}
@@ -317,25 +317,6 @@ export function QuoteFlow({ materials }: { materials: string[] }) {
                       <label className="col-span-2 flex flex-col gap-1 text-xs font-medium sm:col-span-1">Màu (ghi chú)
                         <input value={item.color} maxLength={100} placeholder="VD: đen nhám" onChange={(event) => update(item.id, { color: event.target.value })} className={inputClass} />
                       </label>
-                    </div>
-                  ) : null}
-
-                  {item.analysis === 'ok' && item.metrics ? (
-                    <div className="flex flex-col gap-1">
-                      <p className="text-xs font-medium">Kích thước in thực tế (mm) — sửa 1 chiều, các chiều khác đổi theo đúng tỉ lệ</p>
-                      <div className="grid grid-cols-3 gap-2">
-                        {(['x', 'y', 'z'] as const).map((axis) => (
-                          <SizeInput
-                            key={`${item.id}-${axis}-${item.scalePct}`}
-                            axis={axis}
-                            valueMm={Math.round(item.metrics!.sizeMm[axis] * item.scalePct) / 100}
-                            onCommit={(mm) => {
-                              const base = item.metrics!.sizeMm[axis];
-                              if (base > 0) update(item.id, { scalePct: clampScalePct((mm / base) * 100) });
-                            }}
-                          />
-                        ))}
-                      </div>
                     </div>
                   ) : null}
 
@@ -410,27 +391,4 @@ export function QuoteFlow({ materials }: { materials: string[] }) {
 /** Scale is stored as permille on the server (1 decimal of %), 10–1000%. */
 function clampScalePct(value: number): number {
   return Math.min(1000, Math.max(10, Math.round(value * 10) / 10));
-}
-
-const AXIS_STYLE = { x: 'text-red-600', y: 'text-emerald-600', z: 'text-blue-600' } as const;
-
-/** Real printed size per axis; committed on blur / Enter so typing is not fought by re-renders. */
-function SizeInput({ axis, valueMm, onCommit }: { axis: 'x' | 'y' | 'z'; valueMm: number; onCommit: (mm: number) => void }) {
-  const commit = (raw: string) => {
-    const mm = Number(raw.replace(',', '.'));
-    if (Number.isFinite(mm) && mm > 0 && Math.abs(mm - valueMm) > 0.05) onCommit(mm);
-  };
-  return (
-    <label className="flex items-center gap-1 rounded-lg border border-input bg-background px-2 text-sm focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/50">
-      <span className={`text-xs font-bold ${AXIS_STYLE[axis]}`}>{axis.toUpperCase()}</span>
-      <input
-        aria-label={`Kích thước ${axis.toUpperCase()} (mm)`}
-        type="number" min={0.1} step={0.1} inputMode="decimal" defaultValue={valueMm}
-        onBlur={(event) => commit(event.target.value)}
-        onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); commit(event.currentTarget.value); } }}
-        className="h-9 w-full min-w-0 bg-transparent outline-none"
-      />
-      <span className="text-xs text-muted-foreground">mm</span>
-    </label>
-  );
 }
