@@ -414,10 +414,10 @@ không phải báo giá chính thức"**, thời điểm in, mã `CR-…` (nếu
 - [x] Nút sao chép tất cả link Quote; badge "Đa món (N file)" đếm món thật.
 
 ### S8 — Kiểm thử & tài liệu (1 ngày)
-- [ ] Playwright: 2 STL → đổi infill/scale → giá đổi → in → gửi → admin thấy 2 món → tạo 2 Quote → 2 trang Quote công khai; chạy thêm viewport mobile.
-- [ ] Playwright: bật VAT trong admin → `/bao-gia` hiện dòng VAT, Quote mới có VAT, Quote cũ không đổi.
-- [ ] Ghi ADR-0035 (§10), cập nhật `docs/database/schema.md`, `business-rules.md` (VAT, 1 món = 1 Quote), `roadmap.md`, sửa câu support 25% trong research §9.
-- [ ] Full gate: lint, typecheck, unit, integration, E2E, build.
+- [ ] Playwright: 2 STL → đổi infill/scale → giá đổi → in → gửi → admin thấy 2 món → tạo 2 Quote → 2 trang Quote công khai; chạy thêm viewport mobile. *(Đã viết `e2e/bao-gia.spec.ts`; CHƯA chạy được — cần Supabase local (Auth + Storage). Phần storefront đã chạy tay bằng Chromium headless trên build production.)*
+- [ ] Playwright: bật VAT trong admin → `/bao-gia` hiện dòng VAT, Quote mới có VAT, Quote cũ không đổi. *(Spec bật VAT qua DB rồi kiểm dòng VAT; "Quote mới có VAT / Quote cũ không đổi" đã có test tích hợp `phase-33-vat.test.ts`.)*
+- [x] Ghi ADR-0035 (§10), cập nhật `docs/database/schema.md`, `business-rules.md` (VAT, 1 món = 1 Quote), `roadmap.md`, sửa câu support 25% trong research §9.
+- [ ] Full gate: lint, typecheck, unit, integration, E2E, build. *(lint ✓, typecheck ✓, build ✓, unit + integration ✓ trên Postgres local; các test cần Supabase Auth/Storage và E2E chờ chạy trên máy Owner.)*
 
 ## 8b. Ước lượng
 

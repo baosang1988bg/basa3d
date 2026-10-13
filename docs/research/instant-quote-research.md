@@ -158,12 +158,12 @@ Thử bằng 1 file STL khối lập phương 40 mm (64 cm³), **không tạo đ
 | PLA, infill 10% | 17,72 g | 19.138đ |
 
 - Khối lượng = khối lượng riêng × (**vỏ** + phần ruột × infill). Với khối 40 mm: vỏ ≈ 8,6 cm³ ≈ diện tích bề mặt 96 cm² × **~0,9 mm**, ruột phần còn lại. Khối lượng riêng PETG ≈ 1,27, PLA ≈ 1,25.
-- Cộng **support cố định 25%** khối lượng (bất kể hình dạng).
+- Cộng **25% vào giá** (không phải vào gram): các số gram ở bảng trên khớp đúng công thức vỏ + ruột × infill *không* có support (kiểm chứng ở phase-33 §5.1), nên khoản 25% nằm ở bước tính tiền. *(Sửa 2026-10-13 — bản trước ghi nhầm là support 25% khối lượng.)*
 - Giá = tổng gram × **đơn giá/gram** (PLA 800đ, PETG 600đ, Resin 4.000đ, trước VAT) × 1,08. **Không có thành phần thời gian máy/công.**
 
 **Đánh giá:**
 - Điểm mạnh nên học: phân tích trên trình duyệt (không upload), xem trước 3D + kích thước, chỉnh scale, chọn infill → **ra 1 con số thay vì khoảng giá**, nhiều file, mốc giảm giá theo số lượng, PDF báo giá, thanh tóm tắt luôn hiển thị.
-- Điểm yếu: không tính thời gian in → mẫu cao/mảnh/nhiều chi tiết (in lâu, ít nhựa) bị báo giá thấp; support 25% cố định không theo hình dạng; không xử lý .3mf (file MakerWorld/Bambu).
+- Điểm yếu: không tính thời gian in → mẫu cao/mảnh/nhiều chi tiết (in lâu, ít nhựa) bị báo giá thấp; phụ phí 25% cố định không theo hình dạng; không xử lý .3mf (file MakerWorld/Bambu).
 - **Áp dụng cho BaSa3D:** dùng mô hình khối lượng "vỏ + ruột × infill" thay cho hệ số 35–75% hiện tại (cho 1 giá thay vì khoảng giá), cho khách chọn infill/scale; **giữ engine cost-plus của BaSa3D** (có thời gian máy + công) nhưng cần ước lượng thời gian in từ hình khối — tạm dùng công thức theo gram rồi hiệu chỉnh bằng dữ liệu đơn thật (§6.4), về lâu dài dùng slicer (Lớp 2). Chỉ học ý tưởng/luồng, không sao chép mã, nội dung hay nhận diện của họ.
 
 ---

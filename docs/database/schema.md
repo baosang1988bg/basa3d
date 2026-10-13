@@ -23,6 +23,24 @@ Phase 10 adds nullable `orders.analytics_purchase_sent_at timestamptz` as the se
 cross-device idempotency marker for the single GA4 `purchase` event. It does not affect order
 financial state or fulfillment workflow.
 
+Phase 33 (ADR-0035):
+- `pricing_configs.vat_enabled boolean` + `vat_rate_bps integer` (basis points, 800 = 8%; check
+  `pricing_configs_vat_rate_when_enabled`). Default off.
+- `quotes` / `orders`: `vat_rate_bps` + `vat_amount bigint` snapshots; total checks are
+  `quotes_total_with_vat` (`total = subtotal + shipping_fee - discount + vat_amount`) and
+  `orders_total_with_vat` (`… + cod_fee …`), both with `vat_rate_bps > 0 or vat_amount = 0`. The VAT
+  formula itself lives in `src/lib/pricing/vat.ts`, not in the DB.
+- `custom_request_items` — one row per file of a multi-item `/bao-gia` request (position 1–10,
+  `attachment_path` unique, config, `verification` VERIFIED | CLIENT_REPORTED | MISMATCH | UNPRICED,
+  `estimate_snapshot jsonb` validated by `customRequestItemEstimateSchema`). Immutable: trigger
+  `prevent_custom_request_item_mutation()` rejects every UPDATE and any DELETE unless the session ran
+  `set local basa3d.allow_item_purge = 'on'` (test cleanup / audited personal-data deletion only). RLS on.
+  Such requests keep `custom_requests.attachment_path = NULL` and `quantity = Σ items`.
+- `quotes.custom_request_item_id` (nullable) + composite FK `quotes_item_same_request`
+  `(custom_request_item_id, custom_request_id) → custom_request_items(id, custom_request_id)`.
+- Storage bucket `custom-request-attachments`: 50MB, MIME allowlist; uploads via signed URLs; daily
+  orphan cleanup cron reads `storage.objects`.
+
 ## Rules
 - UUID primary keys unless there is a clear reason otherwise.
 - Add created_at/updated_at to mutable business tables.

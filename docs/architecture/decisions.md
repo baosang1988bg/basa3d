@@ -493,18 +493,35 @@ Status: accepted (Owner, 2026-10-12)
   3. Verified presets (ADR-0033) remain the exact path and are unaffected.
 - Trade-off accepted by the Owner: SPEC lets a customer feed arbitrary minutes/grams, so a determined person can approximate the shop's rates; mitigated by 5.000đ rounding, server-side parsing bounds and the Vercel Firewall rule. File parsing is bounded (20MB, 3M triangles, strict storage-path regex) and rate-limited per IP (DB limiter, same precedent as `tool-price-estimate`).
 
-## ADR-0035 (draft, in progress) — `/bao-gia`: STL/OBJ only in v1, uncalibrated model behind a flag
+## ADR-0035 — `/bao-gia`: browser-side metrics, 1 item = 1 Quote, versioned VAT
 
-Status: proposed (Phase 33, 2026-10-13; Owner asked Claude to decide O3–O6, recorded in
-`docs/exec-plans/active/phase-33-bao-gia-instant-quote.md` §12b). The full ADR-0035 (§10 of that plan)
-is written at S8.
+Status: accepted for implementation (Phase 33, 2026-10-13; Owner decisions D1–D5, O3–O6 and D6–D7 in
+`docs/exec-plans/active/phase-33-bao-gia-instant-quote.md` §2 and §12b). Production enablement waits for
+the S0 calibration.
 
-- `/bao-gia` v1 accepts **STL/OBJ only**: pure geometry, one formula (`src/lib/pricing/fdm-estimate-model.ts`)
-  from shared mesh metrics (`src/lib/pricing/mesh-metrics.ts`, same code in the browser and on the server).
-  `.3mf` stays on `/custom-print` (sliced → exact; unsliced → range). Rejected for v1: parsing 3MF projects in
-  the browser (multi-plate, modifiers, per-object settings) — revisit by reading only `slice_info` of sliced 3MF.
-- `/custom-print` keeps its MESH price **range** until the S0 calibration passes (O3).
-- The model ships with the plan's placeholder constants as `fdm-v0-uncalibrated`; every estimate snapshot
-  records the model version. `/bao-gia` is gated by `BAO_GIA_ENABLED` (default off) until S0 passes.
-- Materials offered: PLA/PETG/ABS/ASA/TPU, only when an active priced material of that type exists; infill
-  10/15/20/30/50/100 (default 15); floor 25.000đ per line; > 256 mm in any sorted extent → staff quote.
+- **Estimates from metrics, never from a price.** On `/bao-gia` the browser parses STL/OBJ in a Web
+  Worker with the shared `src/lib/pricing/mesh-metrics.ts` (same code the server runs) and sends only
+  metrics to `POST /api/public/quote-estimate`; the server prices them with the cost-plus engine and
+  the gram + print-time model `src/lib/pricing/fdm-estimate-model.ts` (shell + infill + support grams;
+  layer-aware minutes), rounded to 5.000đ, 25.000đ floor per line, > 256 mm → staff quote. Metrics are
+  checked for physical plausibility (V ≤ box, isoperimetric inequality). Accepted trade-off (as ADR-0034
+  SPEC): fake metrics show a fake estimate but never change a binding price.
+- **v1 is STL/OBJ only** (D6). `.3mf` stays on `/custom-print` (sliced → exact, unsliced → range, which
+  `/custom-print` keeps until calibration, O3). v2 may read `slice_info` of sliced 3MF in the browser.
+- **Submission re-verifies.** Files go browser → Storage via signed upload URLs (tokens live 2 h,
+  Supabase-fixed; mitigated by per-IP rate limit, bucket limits, Content-Type + magic-byte checks and a
+  daily orphan cleanup). At submit the server inspects each object and re-measures it within a 20MB
+  budget: VERIFIED / MISMATCH (> 2% volume difference → server numbers) / CLIENT_REPORTED (beyond budget)
+  / UNPRICED. Request + items are written in one transaction.
+- **1 item = 1 Quote** (D2). Items live in `custom_request_items` (UPDATE never, DELETE only behind the
+  session flag `basa3d.allow_item_purge`); `quotes.custom_request_item_id` with a composite FK to the same
+  request. Sibling auto-reject keys on the item, else the MakerWorld `sourceUrl`. Staff re-verification of
+  a CLIENT_REPORTED item is on demand and audited, never written to the item.
+- **VAT is versioned config**, snapshotted on quotes/orders; the DB checks only the total and "no VAT
+  money without a rate"; the formula is `src/lib/pricing/vat.ts` (base pending O2). VAT per item/quote,
+  so the estimate total equals the sum of the N quotes.
+- **No deposit/payment** in this flow (D4); the public quote page's deposit QR is unchanged (O1).
+- The model ships as `fdm-v0-uncalibrated` with the plan's placeholder constants; every item snapshot
+  records `modelVersion`. `/bao-gia`, its nav link, sitemap entry and APIs are behind
+  `NEXT_PUBLIC_BAO_GIA_ENABLED` (default off) until `scripts/fdm-model-calibration` passes on the shop's
+  own sliced files and the constants become `fdm-v1`.

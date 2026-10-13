@@ -33,6 +33,7 @@ Phase 28: admin performance & findability — implementation complete; disposabl
 Phase 29: copyright/IP compliance controls — code slices implemented; standing operational/legal checklist remains active by design
 Phase 30: Text-to-CAD agent skill — project-level internal CAD/STL/3MF drafting tooling; closed
 Phase 31: storefront/tools loading UX & request-waterfall cleanup — closed
+Phase 33: `/bao-gia` instant multi-file quote, 1 item = 1 Quote, versioned VAT, direct-to-Storage uploads — S0–S8 code done (2026-10-13); `/bao-gia` behind `NEXT_PUBLIC_BAO_GIA_ENABLED` until the S0 calibration runs on real sliced files; awaiting review
 
 
 Do not start a phase by coding immediately. Follow the Phase Start Protocol in the main project plan.
