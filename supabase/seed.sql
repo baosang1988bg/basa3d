@@ -1,5 +1,6 @@
 -- Deterministic, non-production seed data. Run after the initial domain migration.
 insert into categories (id, name, slug, sort_order) values
+  ('00000000-0000-4000-8000-000000000004', 'Móc khoá', 'keychain', 0),
   ('00000000-0000-4000-8000-000000000001', 'Accessories & Gadgets', 'accessories-gadgets', 1),
   ('00000000-0000-4000-8000-000000000002', 'Home Decor', 'home-decor', 2),
   ('00000000-0000-4000-8000-000000000003', 'Figure & Model', 'figure-model', 3);

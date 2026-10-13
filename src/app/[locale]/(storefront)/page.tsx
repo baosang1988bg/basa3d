@@ -2,12 +2,46 @@ import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
 import { Zap, ShieldCheck, Timer } from 'lucide-react';
 import { listStorefrontProducts } from '@/services/storefront-catalog.service';
+import { listCategories } from '@/services/product.service';
 import { ProductCard } from '@/components/storefront/product-card';
 import { SectionHeader } from '@/components/storefront/section-header';
 import { storefrontButtonClasses } from '@/components/storefront/button';
 import { MaterialBadge } from '@/components/storefront/material-badge';
 import { SITE_CONFIG } from '@/config/site';
 import { Link } from '@/i18n/navigation';
+
+type DbCategoryItem = { id: string; name: string; slug: string };
+
+function getCategoryHref(
+  categoryName: string,
+  dbCategories: readonly DbCategoryItem[],
+): string {
+  const normalized = categoryName.toLowerCase();
+  const directMatch = dbCategories.find((c) => c.name.toLowerCase() === normalized);
+  if (directMatch) return `/products?categoryId=${directMatch.id}`;
+
+  if (normalized.includes('móc khoá') || normalized.includes('móc khóa') || normalized.includes('keychain')) {
+    const match = dbCategories.find((c) => c.slug === 'keychain');
+    if (match) return `/products?categoryId=${match.id}`;
+  }
+  if (normalized.includes('mô hình') || normalized.includes('art toy')) {
+    const match = dbCategories.find((c) => c.slug === 'figure-model' || c.name.toLowerCase().includes('figure'));
+    if (match) return `/products?categoryId=${match.id}`;
+  }
+  if (normalized.includes('decor')) {
+    const match = dbCategories.find((c) => c.slug === 'home-decor' || c.name.toLowerCase().includes('decor'));
+    if (match) return `/products?categoryId=${match.id}`;
+  }
+  if (normalized.includes('phụ kiện')) {
+    const match = dbCategories.find((c) => c.slug === 'accessories-gadgets' || c.name.toLowerCase().includes('accessories') || c.name.toLowerCase().includes('gadgets'));
+    if (match) return `/products?categoryId=${match.id}`;
+  }
+
+  const partialMatch = dbCategories.find((c) => normalized.includes(c.name.toLowerCase()) || c.name.toLowerCase().includes(normalized));
+  if (partialMatch) return `/products?categoryId=${partialMatch.id}`;
+
+  return '/products';
+}
 
 // LocalBusiness JSON-LD data comes straight from SITE_CONFIG (already env-driven with sensible
 // fallbacks) — not fabricated (phase-7.md decision #5). SITE_CONFIG.address is city-level only, so
@@ -35,10 +69,12 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const [{ items: featuredProducts }, t] = await Promise.all([
+  const [{ items: featuredProducts }, { items: dbCategoriesRaw }, t] = await Promise.all([
     listStorefrontProducts({ limit: 8, featuredOnly: true }),
+    listCategories({ limit: 100 }),
     getTranslations('home'),
   ]);
+  const dbCategories = dbCategoriesRaw as unknown as DbCategoryItem[];
 
   const categories = t.raw('categories') as { name: string; description: string }[];
   const workflowSteps = t.raw('workflowSteps') as { step: string; title: string; description: string }[];
@@ -93,12 +129,21 @@ export default async function HomePage() {
         <div className="mx-auto max-w-6xl px-4 py-12">
           <SectionHeader eyebrow={t('categoriesEyebrow')} title={t('categoriesTitle')} />
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            {categories.map((category) => (
-              <div key={category.name} className="rounded-xl bg-card p-4 shadow-tactile">
-                <h3 className="font-heading text-base font-semibold text-foreground">{category.name}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{category.description}</p>
-              </div>
-            ))}
+            {categories.map((category) => {
+              const href = getCategoryHref(category.name, dbCategories);
+              return (
+                <Link
+                  key={category.name}
+                  href={href}
+                  className="group block cursor-pointer rounded-xl border border-border/60 bg-card p-4 shadow-tactile transition-all duration-200 hover:-translate-y-1 hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                >
+                  <h3 className="font-heading text-base font-semibold text-foreground transition-colors duration-150 group-hover:text-primary">
+                    {category.name}
+                  </h3>
+                  <p className="mt-1 text-sm text-muted-foreground">{category.description}</p>
+                </Link>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -132,7 +177,7 @@ export default async function HomePage() {
 
       <section id="materials" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-12">
         <SectionHeader eyebrow={t('materialsEyebrow')} title={t('materialsTitle')} />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="rounded-xl bg-card p-4 shadow-tactile">
             <MaterialBadge material="PLA" />
             <p className="mt-2 text-sm text-muted-foreground">{t('materialPlaDescription')}</p>
@@ -140,10 +185,6 @@ export default async function HomePage() {
           <div className="rounded-xl bg-card p-4 shadow-tactile">
             <MaterialBadge material="PETG" />
             <p className="mt-2 text-sm text-muted-foreground">{t('materialPetgDescription')}</p>
-          </div>
-          <div className="rounded-xl bg-card p-4 shadow-tactile">
-            <MaterialBadge material="RESIN" />
-            <p className="mt-2 text-sm text-muted-foreground">{t('materialResinDescription')}</p>
           </div>
         </div>
 

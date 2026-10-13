@@ -66,6 +66,10 @@
     "categoriesTitle": "Khám phá theo danh mục",
     "categories": [
       {
+        "name": "Móc khoá",
+        "description": "Móc khoá khắc tên, logo, quà tặng cá nhân hoá"
+      },
+      {
         "name": "Mô hình / Art Toys",
         "description": "Nhân vật, mô hình sưu tầm chi tiết cao"
       },
@@ -76,10 +80,6 @@
       {
         "name": "Phụ kiện tiện ích",
         "description": "Giá đỡ, hộp đựng, phụ kiện đời sống"
-      },
-      {
-        "name": "Linh kiện kỹ thuật",
-        "description": "Chi tiết máy, gá lắp, prototype"
       }
     ],
     "featuredEyebrow": "Nổi bật",

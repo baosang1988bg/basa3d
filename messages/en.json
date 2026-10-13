@@ -66,6 +66,10 @@
     "categoriesTitle": "Browse by category",
     "categories": [
       {
+        "name": "Keychains",
+        "description": "Name and logo keychains, personalised gifts"
+      },
+      {
         "name": "Models / Art Toys",
         "description": "Highly detailed collectible figures and models"
       },
@@ -76,10 +80,6 @@
       {
         "name": "Everyday accessories",
         "description": "Stands, organizers, everyday-use accessories"
-      },
-      {
-        "name": "Engineering parts",
-        "description": "Mechanical parts, mounts, prototypes"
       }
     ],
     "featuredEyebrow": "Featured",
