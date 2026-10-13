@@ -14,6 +14,8 @@ mock.module('next/cache', { namedExports: { revalidatePath: (path: string) => re
 mock.module('../src/services/order.service.ts', { namedExports: { updateOrderStatus: write, updateOrderPaymentAndShipping: write } });
 mock.module('../src/services/custom-request.service.ts', { namedExports: { createCustomRequest: write, updateCustomRequestStatus: write } });
 mock.module('../src/services/quote.service.ts', { namedExports: { acceptQuote: write, createQuote: write } });
+// Phase 33 S7: custom-requests/actions also imports the item re-verify service.
+mock.module('../src/services/custom-request-items.service.ts', { namedExports: { reverifyCustomRequestItem: write } });
 mock.module('../src/services/print-job.service.ts', { namedExports: { updatePrintJobStatus: write, assignPrintJobMaterial: write, assignPrintJobSpool: write, recordPrintJobActuals: write } });
 const orders = await import('../src/app/admin/(protected)/orders/actions');
 const requests = await import('../src/app/admin/(protected)/custom-requests/actions');

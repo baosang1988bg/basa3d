@@ -17,7 +17,17 @@ import { requireAdmin } from '@/lib/auth/require-admin';
 import { listMaterials } from '@/services/inventory.service';
 import { getCurrentPricingConfig } from '@/services/pricing-config.service';
 import { listQuotesByCustomRequest, mintQuoteAccessToken } from '@/services/quote.service';
-import { acceptQuoteAction, createQuoteAction, updateCustomRequestStatusAction } from '../actions';
+import { acceptQuoteAction, createQuoteAction, reverifyCustomRequestItemAction, updateCustomRequestStatusAction } from '../actions';
+import { listCustomRequestItems } from '@/services/custom-request-items.service';
+import { ReverifyItemButton } from '@/components/admin/reverify-item-button';
+import { CopyQuoteLinksButton } from '@/components/admin/copy-quote-links-button';
+
+const VERIFICATION_LABEL: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+  VERIFIED: { label: 'Đã xác minh', variant: 'default' },
+  MISMATCH: { label: 'Lệch số liệu', variant: 'destructive' },
+  CLIENT_REPORTED: { label: 'Số khách gửi', variant: 'outline' },
+  UNPRICED: { label: 'Chưa có giá', variant: 'secondary' },
+};
 
 const CUSTOM_REQUEST_STATUSES = ['NEW', 'REVIEWING', 'NEED_INFO', 'QUOTED', 'APPROVED', 'REJECTED', 'CONVERTED'];
 const CUSTOM_REQUEST_STEPS = [
@@ -38,16 +48,40 @@ function statusLabel(status: string) {
   return [...CUSTOM_REQUEST_STEPS, ...CUSTOM_REQUEST_TERMINAL_STATUSES].find((item) => item.status === status)?.label ?? (status === 'NEED_INFO' ? 'Cần bổ sung thông tin' : status);
 }
 
-export default async function CustomRequestDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function CustomRequestDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ item?: string }> }) {
   const { id } = await params;
+  const { item: selectedItemId } = await searchParams;
   const session = await requireAdmin();
-  const [customRequest, quotes, materials, pricingConfig] = await Promise.all([
-    getCustomRequestById(id), listQuotesByCustomRequest(id), listMaterials(), getCurrentPricingConfig(),
+  const [customRequest, quotes, materials, pricingConfig, items] = await Promise.all([
+    getCustomRequestById(id), listQuotesByCustomRequest(id), listMaterials(), getCurrentPricingConfig(), listCustomRequestItems(id),
   ]);
   if (!customRequest) notFound();
   const attachmentSignedUrl = customRequest.attachmentPath
     ? await createCustomRequestAttachmentSignedUrl(customRequest.attachmentPath)
     : null;
+  // Phase 33 S7: /bao-gia items — 1 item = 1 Quote (D2).
+  const itemLinks = await Promise.all(items.map((item) => createCustomRequestAttachmentSignedUrl(item.attachmentPath).catch(() => null)));
+  const selectedItem = items.find((item) => item.id === selectedItemId) ?? null;
+  // §7.1 pre-fill rules: VERIFIED / MISMATCH (already server numbers) → pre-fill; CLIENT_REPORTED →
+  // locked until "Kiểm tra lại trên server"; UNPRICED → nothing.
+  const prefillSubtotal = selectedItem && (selectedItem.verification === 'VERIFIED' || selectedItem.verification === 'MISMATCH')
+    ? selectedItem.estimateSnapshot?.lineSubtotalVnd ?? null
+    : null;
+  const quotesByItem = new Map<string, typeof quotes>();
+  for (const quote of quotes) {
+    if (!quote.customRequestItemId) continue;
+    quotesByItem.set(quote.customRequestItemId, [...(quotesByItem.get(quote.customRequestItemId) ?? []), quote]);
+  }
+  const itemPosition = new Map(items.map((item) => [item.id, item.position]));
+  const quoteLinkLines = quotes
+    .filter((quote) => quote.status !== 'REJECTED' && quote.status !== 'EXPIRED' && new Date(quote.validUntil).getTime() >= Date.now())
+    .map((quote) => {
+      const position = quote.customRequestItemId ? itemPosition.get(quote.customRequestItemId) : undefined;
+      const item = position ? items[position - 1] : undefined;
+      const token = mintQuoteAccessToken(quote.id, new Date(quote.validUntil));
+      return `${item ? `Món ${position} (${item.displayName})` : quote.quoteNumber}: ${Number(quote.total).toLocaleString('vi-VN')}đ — https://basa3d.vn/quotes/${quote.quoteNumber}?token=${encodeURIComponent(token)}`;
+    });
+
   const statusOptions = session.role === 'OWNER'
     ? CUSTOM_REQUEST_STATUSES.filter((status) => status !== customRequest.status)
     : nextCustomRequestStatuses(customRequest.status);
@@ -146,6 +180,67 @@ export default async function CustomRequestDetailPage({ params }: { params: Prom
         </CardContent>
       </Card>
 
+      {items.length ? (
+        <Card>
+          <CardHeader><CardTitle>Các món ({items.length}) — 1 món = 1 báo giá</CardTitle></CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>#</TableHead>
+                  <TableHead>File</TableHead>
+                  <TableHead>Cấu hình</TableHead>
+                  <TableHead>Ước tính</TableHead>
+                  <TableHead>Xác minh</TableHead>
+                  <TableHead>Báo giá</TableHead>
+                  <TableHead className="text-right">Hành động</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((item, index) => {
+                  const snap = item.estimateSnapshot;
+                  const badge = VERIFICATION_LABEL[item.verification] ?? { label: item.verification, variant: 'secondary' as const };
+                  const itemQuotes = quotesByItem.get(item.id) ?? [];
+                  return (
+                    <TableRow key={item.id} className={selectedItemId === item.id ? 'bg-primary/5' : undefined}>
+                      <TableCell>{item.position}</TableCell>
+                      <TableCell className="max-w-[220px]">
+                        {itemLinks[index] ? <a href={itemLinks[index]!} target="_blank" rel="noreferrer" className="break-all font-medium text-primary hover:underline">{item.displayName}</a> : <span className="break-all">{item.displayName}</span>}
+                        <p className="text-xs text-muted-foreground">{(item.fileSizeBytes / 1_048_576).toFixed(1)} MB · link hết hạn sau 15 phút</p>
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {item.materialType} · {item.infillPct}% · tỉ lệ {item.scalePermille / 10}% · SL {item.quantity}
+                        {item.color ? ` · ${item.color}` : ''}
+                        {snap ? <p className="text-muted-foreground">{snap.sizeMm.x} × {snap.sizeMm.y} × {snap.sizeMm.z} mm</p> : null}
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {snap?.lineSubtotalVnd != null ? (
+                          <>
+                            <p className="font-medium">{snap.lineSubtotalVnd.toLocaleString('vi-VN')}đ{snap.floorApplied ? ' (giá sàn)' : ''}</p>
+                            <p className="text-muted-foreground">{snap.grams}g · {Math.round(((snap.printMinutes ?? 0) / 60) * 10) / 10}h · {snap.modelVersion}</p>
+                          </>
+                        ) : <span className="text-muted-foreground">{snap?.unpricedReason ?? snap?.status ?? '—'}</span>}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={badge.variant}>{badge.label}</Badge>
+                        {item.verification === 'MISMATCH' && snap?.mismatchPct !== undefined ? <p className="text-xs text-destructive">lệch {snap.mismatchPct}%</p> : null}
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {itemQuotes.length ? itemQuotes.map((quote) => <p key={quote.id}>{quote.quoteNumber} · {quote.status}</p>) : <span className="text-muted-foreground">Chưa có</span>}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <a href={`?item=${item.id}#quote-form`} className="text-sm font-medium text-primary hover:underline">Tạo báo giá cho món này</a>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+            <div><CopyQuoteLinksButton lines={quoteLinkLines} /></div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card>
         <CardHeader><CardTitle>Trạng thái: <Badge>{statusLabel(customRequest.status)}</Badge></CardTitle></CardHeader>
         <CardContent>
@@ -170,6 +265,7 @@ export default async function CustomRequestDetailPage({ params }: { params: Prom
             <TableHeader>
               <TableRow>
                 <TableHead>Mã báo giá</TableHead>
+                <TableHead>Món</TableHead>
                 <TableHead>Tổng tiền</TableHead>
                 <TableHead>Hiệu lực đến</TableHead>
                 <TableHead>Trạng thái</TableHead>
@@ -193,6 +289,7 @@ export default async function CustomRequestDetailPage({ params }: { params: Prom
                         </p>
                       ) : null}
                     </TableCell>
+                    <TableCell className="text-xs">{quote.customRequestItemId && itemPosition.get(quote.customRequestItemId) ? `#${itemPosition.get(quote.customRequestItemId)}` : '—'}</TableCell>
                     <TableCell>
                       {Number(quote.total).toLocaleString('vi-VN')}đ
                       {quote.vatAmount > 0 ? (
@@ -227,6 +324,24 @@ export default async function CustomRequestDetailPage({ params }: { params: Prom
           </Table>
 
           <ActionForm action={createQuoteAction.bind(null, id)} className="grid grid-cols-2 gap-4 border-t border-border pt-4">
+            <span id="quote-form" className="sr-only" />
+            {selectedItem ? (
+              <div className="col-span-2 flex flex-wrap items-start justify-between gap-3 rounded-lg border border-primary/40 bg-primary/5 p-3 text-sm">
+                <input type="hidden" name="customRequestItemId" value={selectedItem.id} />
+                <div>
+                  <p className="font-medium">Đang báo giá cho món #{selectedItem.position}: {selectedItem.displayName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedItem.verification === 'CLIENT_REPORTED'
+                      ? 'Số liệu do trình duyệt khách gửi (file vượt ngân sách kiểm tra) — chưa điền sẵn giá. Bấm kiểm tra lại hoặc nhập tay.'
+                      : selectedItem.verification === 'UNPRICED'
+                        ? 'Món này không có giá tự động — nhập giá tay.'
+                        : 'Đã điền sẵn giá ước tính từ số liệu máy chủ — kiểm tra lại trước khi tạo.'}
+                  </p>
+                </div>
+                {selectedItem.verification === 'CLIENT_REPORTED' ? <ReverifyItemButton action={reverifyCustomRequestItemAction.bind(null, selectedItem.id)} /> : null}
+                <a href="?#quote-form" className="text-xs text-muted-foreground hover:underline">Bỏ chọn món</a>
+              </div>
+            ) : null}
             <div className="col-span-2">
               {/* B7: exactly one pricing tool mounted at a time — see QuoteToolSwitcher. */}
               <QuoteToolSwitcher
@@ -235,7 +350,7 @@ export default async function CustomRequestDetailPage({ params }: { params: Prom
               />
             </div>
             {/* Phase 33 S1: VAT line (read-only) + derived total, from the CURRENT pricing config. */}
-            <QuoteTotalsFields vatEnabled={pricingConfig?.vatEnabled ?? false} vatRateBps={pricingConfig?.vatRateBps ?? 0} />
+            <QuoteTotalsFields vatEnabled={pricingConfig?.vatEnabled ?? false} vatRateBps={pricingConfig?.vatRateBps ?? 0} defaultSubtotal={prefillSubtotal} />
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="validUntil">Hiệu lực đến</Label>
               <Input id="validUntil" name="validUntil" type="datetime-local" required />

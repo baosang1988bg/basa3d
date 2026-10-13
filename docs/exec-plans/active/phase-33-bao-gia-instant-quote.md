@@ -409,9 +409,9 @@ không phải báo giá chính thức"**, thời điểm in, mã `CR-…` (nếu
 - [x] Bản in `EstimatePrintSheet`.
 
 ### S7 — Admin N Quote (1 ngày)
-- [ ] Bảng món ở `custom-requests/[id]`; nút tạo Quote theo món; cột Quote.
-- [ ] `acceptQuote`: khoá anh em mở rộng §6.4; test 2 món → 2 Quote → chấp nhận món 1 không đụng món 2.
-- [ ] Nút sao chép tất cả link Quote.
+- [x] Bảng món ở `custom-requests/[id]`; nút tạo Quote theo món; cột Quote; pre-fill theo §7.1 + nút "Kiểm tra lại trên server" (§6.5, ghi `audit_logs`).
+- [x] `acceptQuote`: khoá anh em mở rộng §6.4; test 2 món → 2 Quote → chấp nhận món 1 không đụng món 2.
+- [x] Nút sao chép tất cả link Quote; badge "Đa món (N file)" đếm món thật.
 
 ### S8 — Kiểm thử & tài liệu (1 ngày)
 - [ ] Playwright: 2 STL → đổi infill/scale → giá đổi → in → gửi → admin thấy 2 món → tạo 2 Quote → 2 trang Quote công khai; chạy thêm viewport mobile.

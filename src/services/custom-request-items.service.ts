@@ -6,13 +6,15 @@
 //      beyond the budget → CLIENT_REPORTED (client numbers, flagged; admin locks pre-fill — §7.1)
 //   3. price with the same estimateFromMeshMetrics the public estimate uses → UNPRICED if no price
 // The browser never sends a price; prices in the snapshot are always computed here.
-import { query } from '../lib/db';
+import { query, withTransaction } from '../lib/db';
+import { DomainError } from '../lib/domain-error';
+import { writeAuditLog } from './audit.service';
 import type { CustomRequestItemEstimate } from '../domain/schemas';
 import { customRequestItemEstimateSchema } from '../domain/schemas';
 import { MeshMetricsError, parseObjMetrics, parseStlMetrics, type MeshMetrics } from '../lib/pricing/mesh-metrics';
 import { FDM_MODEL_VERSION } from '../lib/pricing/fdm-estimate-model';
 import { downloadCustomRequestAttachment, inspectUploadedObject, MAX_ATTACHMENT_PARSE_BYTES } from './custom-request.service';
-import { estimateFromMeshMetrics, type PricingContext } from './instant-estimate.service';
+import { estimateFromMeshMetrics, loadPricingContext, type PricingContext } from './instant-estimate.service';
 
 /** Total bytes re-measured per request (T8) — keeps the function's RAM/time bounded. */
 export const VERIFY_BUDGET_BYTES = MAX_ATTACHMENT_PARSE_BYTES;
@@ -190,4 +192,59 @@ export async function listCustomRequestItems(customRequestId: string): Promise<A
     estimateSnapshot: readItemEstimateSnapshot(row.estimateSnapshot, String(row.id)),
     createdAt: row.createdAt as Date,
   }));
+}
+
+// ---------------------------------------------------------------------------------------------
+// Phase 33 S7 (§6.5, B2): on-demand re-verification of ONE item by staff. The result is NEVER
+// written into custom_request_items (immutable, T6) — it goes to audit_logs and back to the caller
+// to pre-fill the Quote form (needed for CLIENT_REPORTED items, whose numbers came from the browser).
+// ---------------------------------------------------------------------------------------------
+
+export const REVERIFY_MAX_BYTES = 20 * 1024 * 1024;
+
+export type ReverifyResult =
+  | { status: 'OK'; grams: number; printMinutes: number; sizeMm: { x: number; y: number; z: number }; unitPriceVnd: number; lineSubtotalVnd: number; floorApplied: boolean; mismatchPct: number | null }
+  | { status: 'TOO_LARGE' | 'UNREADABLE' | 'UNPRICED' | 'NO_PRICING_CONFIG'; reason?: string };
+
+export async function reverifyCustomRequestItem(
+  itemId: string,
+  actorId: string,
+  deps: { download?: (path: string) => Promise<Uint8Array>; loadContext?: () => Promise<PricingContext | null> } = {},
+): Promise<ReverifyResult> {
+  const found = await query<{ attachment_path: string; file_size_bytes: string; material_type: string; infill_pct: number | null; scale_permille: number; quantity: number; estimate_snapshot: unknown }>(
+    `select attachment_path, file_size_bytes, material_type, infill_pct, scale_permille, quantity, estimate_snapshot
+     from custom_request_items where id = $1`, [itemId]);
+  const item = found.rows[0];
+  if (!item) throw new DomainError('CUSTOM_REQUEST_ITEM_NOT_FOUND', 'Không tìm thấy món này.', 404);
+
+  let result: ReverifyResult;
+  let metrics: MeshMetrics | null = null;
+  let pricingConfigId: string | null = null;
+  if (Number(item.file_size_bytes) > REVERIFY_MAX_BYTES) {
+    result = { status: 'TOO_LARGE' };
+  } else {
+    metrics = measure(item.attachment_path, await (deps.download ?? downloadCustomRequestAttachment)(item.attachment_path));
+    const ctx = await (deps.loadContext ?? loadPricingContext)();
+    pricingConfigId = ctx?.pricingConfigId ?? null;
+    if (!metrics) result = { status: 'UNREADABLE' };
+    else if (!ctx) result = { status: 'NO_PRICING_CONFIG' };
+    else {
+      const estimate = estimateFromMeshMetrics(ctx, {
+        metrics, scalePermille: item.scale_permille, infillPct: item.infill_pct ?? 15, materialType: item.material_type, quantity: item.quantity,
+      });
+      const client = readItemEstimateSnapshot(item.estimate_snapshot, itemId)?.clientMetrics;
+      result = estimate.status === 'OK'
+        ? {
+            status: 'OK', grams: estimate.grams, printMinutes: estimate.printMinutes, sizeMm: estimate.sizeMm,
+            unitPriceVnd: estimate.unitPriceVnd, lineSubtotalVnd: estimate.lineSubtotalVnd, floorApplied: estimate.floorApplied,
+            mismatchPct: client ? Math.round(volumeMismatchPct(metrics, { ...client }) * 100) / 100 : null,
+          }
+        : { status: 'UNPRICED', reason: estimate.status === 'UNPRICED' ? estimate.reason : estimate.status };
+    }
+  }
+  await withTransaction((tx) => writeAuditLog(tx, {
+    actorId, action: 'CUSTOM_REQUEST_ITEM_REVERIFIED', entityType: 'custom_request_item', entityId: itemId,
+    afterData: { result, metrics, pricingConfigId, modelVersion: FDM_MODEL_VERSION },
+  }));
+  return result;
 }

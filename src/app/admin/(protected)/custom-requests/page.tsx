@@ -103,6 +103,7 @@ export default async function CustomRequestsPage({ searchParams }: { searchParam
                   <TableCell className="font-medium">
                     {item.requestNumber}
                     {item.ipRiskFlag ? <Badge variant="destructive" className="ml-2">⚠️ Rủi ro SHTT</Badge> : null}
+                    {item.itemCount > 0 ? <Badge variant="outline" className="ml-2">Đa món ({item.itemCount} file)</Badge> : null}
                   </TableCell>
                   <TableCell><Badge variant="secondary">{item.sourceChannel}</Badge></TableCell>
                   <TableCell><Badge>{item.status}</Badge></TableCell>

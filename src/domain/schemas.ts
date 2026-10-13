@@ -405,6 +405,9 @@ export const quoteInputSchema = z.object({
   pricingBreakdown: pricingBreakdownSchema.nullable().optional(),
   pricingConfigId: uuidSchema.nullable().optional(),
   modelSnapshot: quoteModelSnapshotSchema.nullable().optional(),
+  // Phase 33 S7 (D2): the /bao-gia item this quote prices (1 item = 1 Quote). The DB composite FK
+  // quotes_item_same_request guarantees it belongs to customRequestId.
+  customRequestItemId: uuidSchema.nullable().optional(),
   // Phase 29: soft gate, not schema-level enforced — createQuote (quote.service.ts) rejects this
   // when the custom request's ip_risk_flag is true and this stays false. A normal (non-flagged)
   // request never has to send it, so the field simply defaults to false here.

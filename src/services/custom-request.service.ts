@@ -286,7 +286,7 @@ export async function updateCustomRequestStatus(id: string, status: string, acto
   });
 }
 
-type CustomRequestSummary = { id: string; requestNumber: string; sourceChannel: string; status: string; createdAt: Date; ipRiskFlag: boolean };
+type CustomRequestSummary = { id: string; requestNumber: string; sourceChannel: string; status: string; createdAt: Date; ipRiskFlag: boolean; itemCount: number };
 
 export async function listCustomRequests(input: { page?: number; limit?: number; status?: string; statuses?: string[] } = {}) {
   const { page, limit, offset } = pagination(input);
@@ -296,7 +296,9 @@ export async function listCustomRequests(input: { page?: number; limit?: number;
     : input.status ? (values.push(input.status), `and status = $${values.length}`) : '';
   values.push(limit + 1, offset);
   const result = await query<CustomRequestSummary>(
-    `select id, request_number as "requestNumber", source_channel as "sourceChannel", status, created_at as "createdAt", ip_risk_flag as "ipRiskFlag"
+    `select id, request_number as "requestNumber", source_channel as "sourceChannel", status, created_at as "createdAt", ip_risk_flag as "ipRiskFlag",
+       -- Phase 33 (B3): the "Đa món" badge counts real items, never attachment_path IS NULL.
+       (select count(*)::int from custom_request_items i where i.custom_request_id = custom_requests.id) as "itemCount"
      from custom_requests where true ${statusSql} order by created_at desc, id limit $${values.length - 1} offset $${values.length}`,
     values,
   );

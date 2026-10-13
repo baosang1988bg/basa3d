@@ -81,6 +81,18 @@ export default async function PublicQuotePage({
         <div className="mt-2"><QuoteCountdown validUntil={quote.validUntil} /></div>
       </div>
 
+      {quote.item ? (
+        // Phase 33 S7: one /bao-gia item = one quote — say which file this price is for.
+        <div className="mt-4 rounded-xl border border-border bg-card p-4 text-sm">
+          <p className="text-muted-foreground">Báo giá cho món</p>
+          <p className="font-semibold text-foreground">{quote.item.displayName}</p>
+          <p className="text-muted-foreground">
+            {quote.item.materialType} · Số lượng {quote.item.quantity}
+            {quote.item.sizeMm ? ` · ${quote.item.sizeMm.x} × ${quote.item.sizeMm.y} × ${quote.item.sizeMm.z} mm` : ''}
+          </p>
+        </div>
+      ) : null}
+
       {quote.modelSnapshot?.schemaVersion === 2 ? (
         // makerworld-profile-verification Phase A: the exact print profile staff verified. Image URLs
         // here already passed the MakerWorld/Bambu Lab allowlist at the schema boundary (B2).

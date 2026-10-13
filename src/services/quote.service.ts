@@ -68,12 +68,13 @@ type QuoteSummary = {
   id: string; quoteNumber: string; subtotal: number; shippingFee: number; discount: number; total: number;
   vatRateBps: number; vatAmount: number;
   validUntil: Date; status: string; note: string | null; createdAt: Date; modelSnapshot: QuoteModelSnapshot | null;
+  customRequestItemId: string | null;
 };
 
 export async function listQuotesByCustomRequest(customRequestId: string): Promise<QuoteSummary[]> {
   const result = await query<QuoteSummary>(`
     select id, quote_number as "quoteNumber", subtotal, shipping_fee as "shippingFee", discount, total,
-      vat_rate_bps as "vatRateBps", vat_amount as "vatAmount", valid_until as "validUntil", status, note, created_at as "createdAt", model_snapshot as "modelSnapshot"
+      vat_rate_bps as "vatRateBps", vat_amount as "vatAmount", custom_request_item_id as "customRequestItemId", valid_until as "validUntil", status, note, created_at as "createdAt", model_snapshot as "modelSnapshot"
     from quotes where custom_request_id = $1 order by created_at desc`, [customRequestId]);
   // ADR-0023: bigint money columns come back from node-postgres as strings — coerce once here.
   return result.rows.map((row) => ({
@@ -90,7 +91,7 @@ export async function listQuotesByCustomRequest(customRequestId: string): Promis
 export async function createQuote(input: {
   customRequestId: string; subtotal: number; shippingFee?: number; discount?: number; total: number;
   validUntil: Date; note?: string | null; pricingBreakdown?: unknown | null; pricingConfigId?: string | null;
-  modelSnapshot?: QuoteModelSnapshot | null; ipRiskAcknowledged?: boolean;
+  modelSnapshot?: QuoteModelSnapshot | null; ipRiskAcknowledged?: boolean; customRequestItemId?: string | null;
 }, actorId: string) {
   return withTransaction(async (client) => {
     // Phase 29 soft gate: a custom request flagged for third-party IP risk (ip-risk-keywords.ts)
@@ -101,6 +102,11 @@ export async function createQuote(input: {
     if (!customRequest.rowCount) throw new DomainError('CUSTOM_REQUEST_NOT_FOUND', 'Custom request was not found.', 404);
     if (customRequest.rows[0].ip_risk_flag && !input.ipRiskAcknowledged) {
       throw new DomainError('IP_RISK_ACKNOWLEDGEMENT_REQUIRED', 'Yêu cầu này có rủi ro SHTT — cần xác nhận đã kiểm tra trước khi tạo báo giá.', 409);
+    }
+    // Phase 33 S7: a clear 400 instead of a raw FK violation when the item is not this request's.
+    if (input.customRequestItemId) {
+      const item = await client.query('select 1 from custom_request_items where id = $1 and custom_request_id = $2', [input.customRequestItemId, input.customRequestId]);
+      if (!item.rowCount) throw new DomainError('CUSTOM_REQUEST_ITEM_NOT_FOUND', 'Món này không thuộc yêu cầu đang báo giá.', 400);
     }
     // B10 server-side consistency check: when a quote carries BOTH the pricing breakdown and the
     // model snapshot, the print time the price was computed from must match the snapshot's print
@@ -160,12 +166,12 @@ export async function createQuote(input: {
 
     const quoteNumber = `Q-${randomUUID().replaceAll('-', '').slice(0, 12).toUpperCase()}`;
     const result = await client.query<{ id: string; quote_number: string }>(`
-      insert into quotes (custom_request_id, quote_number, subtotal, shipping_fee, discount, total, valid_until, note, pricing_breakdown, pricing_config_id, model_snapshot, vat_rate_bps, vat_amount)
-      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) returning id, quote_number`, [
+      insert into quotes (custom_request_id, quote_number, subtotal, shipping_fee, discount, total, valid_until, note, pricing_breakdown, pricing_config_id, model_snapshot, vat_rate_bps, vat_amount, custom_request_item_id)
+      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) returning id, quote_number`, [
       input.customRequestId, quoteNumber, input.subtotal, shippingFee, discount, totals.total, input.validUntil, input.note ?? null,
       input.pricingBreakdown ? JSON.stringify(input.pricingBreakdown) : null, input.pricingConfigId ?? null,
       input.modelSnapshot ? JSON.stringify(input.modelSnapshot) : null,
-      totals.vatRateBps, totals.vatAmount,
+      totals.vatRateBps, totals.vatAmount, input.customRequestItemId ?? null,
     ]);
     await writeAuditLog(client, {
       actorId, action: 'QUOTE_CREATED', entityType: 'quote', entityId: result.rows[0].id,
@@ -205,8 +211,12 @@ export async function acceptQuote(id: string, actorId: string) {
     if (!parent.rowCount) throw new DomainError('QUOTE_NOT_FOUND', 'Quote was not found.', 404);
     await client.query('select id from custom_requests where id = $1 for update', [parent.rows[0].custom_request_id]);
 
-    const quote = await client.query<{ valid_until: Date; custom_request_id: string; status: string; source_url: string | null }>(
-      `select valid_until, custom_request_id, status, model_snapshot->>'sourceUrl' as source_url
+    // Phase 33 §6.4: the sibling key is the /bao-gia ITEM when there is one (alternatives of the same
+    // item), else the MakerWorld sourceUrl (tiers of the same profile). Quotes of OTHER items of the
+    // same request never touch each other.
+    const quote = await client.query<{ valid_until: Date; custom_request_id: string; status: string; sibling_key: string | null }>(
+      `select valid_until, custom_request_id, status,
+         coalesce(custom_request_item_id::text, model_snapshot->>'sourceUrl') as sibling_key
        from quotes where id = $1 for update`, [id]);
     if (!quote.rowCount) throw new DomainError('QUOTE_NOT_FOUND', 'Quote was not found.', 404);
     if (quote.rows[0].status !== 'DRAFT' && quote.rows[0].status !== 'SENT') {
@@ -215,11 +225,12 @@ export async function acceptQuote(id: string, actorId: string) {
     if (!canAcceptQuote(quote.rows[0].valid_until)) throw new DomainError('QUOTE_EXPIRED', 'Expired quotes cannot be accepted.', 409);
     // A tier alternative of the same link created AFTER a sibling was accepted is still open — it must
     // not become a second print_job for the same item.
-    if (quote.rows[0].source_url) {
+    const siblingKey = quote.rows[0].sibling_key;
+    if (siblingKey) {
       const acceptedSibling = await client.query(
         `select id from quotes where custom_request_id = $1 and id <> $2 and status = 'ACCEPTED'
-           and (model_snapshot->>'sourceUrl') = $3 limit 1`,
-        [quote.rows[0].custom_request_id, id, quote.rows[0].source_url]);
+           and coalesce(custom_request_item_id::text, model_snapshot->>'sourceUrl') = $3 limit 1`,
+        [quote.rows[0].custom_request_id, id, siblingKey]);
       if (acceptedSibling.rowCount) {
         throw new DomainError('QUOTE_SIBLING_ALREADY_ACCEPTED', 'Một phương án khác của cùng mẫu/profile này đã được chấp nhận — không thể chấp nhận thêm.', 409);
       }
@@ -231,17 +242,16 @@ export async function acceptQuote(id: string, actorId: string) {
     // accepting one auto-rejects its still-open siblings so only one print_job is ever created. Scoped
     // to the exact same model_snapshot.sourceUrl so a multi-item request or a non-MakerWorld revision
     // quote is never touched. Quotes without a snapshot (source_url null) never auto-reject anything.
-    const sourceUrl = quote.rows[0].source_url;
-    if (sourceUrl) {
+    if (siblingKey) {
       const siblings = await client.query<{ id: string }>(`
         update quotes set status = 'REJECTED'
         where custom_request_id = $1 and id <> $2 and status in ('DRAFT', 'SENT')
-          and (model_snapshot->>'sourceUrl') is not null and (model_snapshot->>'sourceUrl') = $3
-        returning id`, [quote.rows[0].custom_request_id, id, sourceUrl]);
+          and coalesce(custom_request_item_id::text, model_snapshot->>'sourceUrl') = $3
+        returning id`, [quote.rows[0].custom_request_id, id, siblingKey]);
       for (const sibling of siblings.rows) {
         await writeAuditLog(client, {
           actorId, action: 'QUOTE_AUTO_REJECTED_SIBLING', entityType: 'quote', entityId: sibling.id,
-          afterData: { status: 'REJECTED', acceptedQuoteId: id, sourceUrl },
+          afterData: { status: 'REJECTED', acceptedQuoteId: id, siblingKey },
         });
       }
     }
@@ -270,7 +280,12 @@ type QuoteRow = {
   vatRateBps: number; vatAmount: number;
   pricingBreakdown: PricingBreakdown | null; modelSnapshot: QuoteModelSnapshot | null;
   customerName: string; customerPhone: string;
+  itemDisplayName: string | null; itemMaterialType: string | null; itemQuantity: number | null;
+  itemSizeMm: { x: number; y: number; z: number } | null;
 };
+
+/** Phase 33 S7: the /bao-gia item a quote prices (1 item = 1 Quote) — what the customer sees. */
+export type PublicQuoteItem = { displayName: string; materialType: string; quantity: number; sizeMm: { x: number; y: number; z: number } | null };
 
 export type PublicQuoteMaterialLine = { label: string | null; gram: number; costVnd: number };
 export type PublicQuotePricing = {
@@ -299,6 +314,7 @@ export type PublicQuoteDetail = {
   customerName: string;
   note: string | null;
   modelSnapshot: QuoteModelSnapshot | null;
+  item: PublicQuoteItem | null;
   pricing: PublicQuotePricing;
 };
 
@@ -308,8 +324,11 @@ async function getQuoteRowByNumber(quoteNumber: string): Promise<QuoteRow | null
       q.subtotal, q.shipping_fee as "shippingFee", q.discount, q.total, q.note,
       q.vat_rate_bps as "vatRateBps", q.vat_amount as "vatAmount",
       q.pricing_breakdown as "pricingBreakdown", q.model_snapshot as "modelSnapshot",
-      cr.customer_name as "customerName", cr.customer_phone as "customerPhone"
+      cr.customer_name as "customerName", cr.customer_phone as "customerPhone",
+      i.display_name as "itemDisplayName", i.material_type as "itemMaterialType", i.quantity as "itemQuantity",
+      i.estimate_snapshot->'sizeMm' as "itemSizeMm"
     from quotes q join custom_requests cr on cr.id = q.custom_request_id
+    left join custom_request_items i on i.id = q.custom_request_item_id
     where q.quote_number = $1`, [quoteNumber]);
   const row = result.rows[0];
   if (!row) return null;
@@ -349,6 +368,9 @@ function toPublicQuoteDetail(row: QuoteRow, options: { masked: boolean }): Publi
     customerName: options.masked ? maskCustomerName(row.customerName) : row.customerName,
     note: row.note,
     modelSnapshot: row.modelSnapshot,
+    item: row.itemDisplayName && row.itemMaterialType
+      ? { displayName: row.itemDisplayName, materialType: row.itemMaterialType, quantity: Number(row.itemQuantity ?? 1), sizeMm: row.itemSizeMm }
+      : null,
     pricing: toPublicQuotePricing(row),
   };
 }

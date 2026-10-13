@@ -13,6 +13,7 @@ import {
 import { createCustomRequest, updateCustomRequestStatus } from '@/services/custom-request.service';
 import { acceptQuote, createQuote } from '@/services/quote.service';
 import { updatePrintJobStatus } from '@/services/print-job.service';
+import { reverifyCustomRequestItem, type ReverifyResult } from '@/services/custom-request-items.service';
 
 function readFormValue(formData: FormData, key: string): string | undefined {
   const value = formData.get(key);
@@ -83,6 +84,8 @@ export async function createQuoteAction(customRequestId: string, formData: FormD
       // Phase 29: only rendered/submitted when the custom request is ip_risk_flag-ged — a normal
       // request's form never includes this checkbox, so it stays the schema default (false).
       ipRiskAcknowledged: formData.get('ipRiskAcknowledged') === 'on',
+      // Phase 33 S7: set when staff clicked "Tạo báo giá cho món này" on a /bao-gia item.
+      customRequestItemId: readFormValue(formData, 'customRequestItemId') ?? undefined,
     });
     if (!parsed.success) return { error: 'Dữ liệu không hợp lệ. Vui lòng kiểm tra các trường đã nhập.' };
     const input = parsed.data;
@@ -122,6 +125,19 @@ export async function updatePrintJobStatusAction(id: string, formData: FormData)
     return { saved: true };
   } catch (error) {
     if (error instanceof DomainError) return { error: error.message };
+    throw error;
+  }
+}
+
+// Phase 33 S7 (§6.5): STAFF/OWNER re-measure one item's stored file on demand. Never writes the
+// immutable item row — the service audits CUSTOM_REQUEST_ITEM_REVERIFIED and returns the numbers
+// so staff can pre-fill the Quote form.
+export async function reverifyCustomRequestItemAction(itemId: string): Promise<ReverifyResult | { status: 'ERROR'; message: string }> {
+  const { actorId } = await requireAdmin();
+  try {
+    return await reverifyCustomRequestItem(itemId, actorId);
+  } catch (error) {
+    if (error instanceof DomainError) return { status: 'ERROR', message: error.message };
     throw error;
   }
 }

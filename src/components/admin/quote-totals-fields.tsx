@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { computeQuoteTotals, formatVatRatePct } from '@/lib/pricing/vat';
@@ -22,7 +22,7 @@ function readVnd(root: HTMLElement | null, id: string): number | null {
  * DOM (see setSiblingInputs / applyToForm) and then dispatch a bubbling `input` event, which the
  * `onInput` handler below picks up.
  */
-export function QuoteTotalsFields({ vatEnabled, vatRateBps }: { vatEnabled: boolean; vatRateBps: number }) {
+export function QuoteTotalsFields({ vatEnabled, vatRateBps, defaultSubtotal }: { vatEnabled: boolean; vatRateBps: number; defaultSubtotal?: number | null }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [vatAmount, setVatAmount] = useState<number | null>(null);
 
@@ -44,11 +44,14 @@ export function QuoteTotalsFields({ vatEnabled, vatRateBps }: { vatEnabled: bool
     setVatAmount(totals.vatAmount);
   }, [vatEnabled, vatRateBps]);
 
+  // A pre-filled subtotal (Phase 33 S7: verified /bao-gia item) needs its total computed on mount.
+  useEffect(() => { recompute(); }, [recompute, defaultSubtotal]);
+
   return (
     <div ref={rootRef} onInput={recompute} className="col-span-2 grid grid-cols-2 gap-4">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="subtotal">Tạm tính (VND)</Label>
-        <Input id="subtotal" name="subtotal" type="number" min={0} required />
+        <Input key={defaultSubtotal ?? 'empty'} id="subtotal" name="subtotal" type="number" min={0} required defaultValue={defaultSubtotal ?? undefined} />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="shippingFee">Phí vận chuyển (VND)</Label>
