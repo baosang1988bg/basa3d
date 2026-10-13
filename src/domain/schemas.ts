@@ -3,6 +3,9 @@ import { isSafeMakerWorldImageUrl } from '../lib/parsers/makerworld-image';
 import { classifyMakerWorldLicense, isMakerWorldModelUrl } from '../lib/parsers/makerworld-resolver';
 import { PRINT_SERVICE_LICENSE_BASES } from '../lib/copyright/print-service-policy';
 import { MAX_UPLOAD_BYTES, MAX_UPLOAD_FILES_PER_REQUEST, UPLOAD_EXTENSIONS } from '../config/uploads';
+import { BAO_GIA_MAX_EXTENT_MM, BAO_GIA_MAX_ITEMS } from '../config/bao-gia';
+import { FDM_MATERIALS, INFILL_OPTIONS, SCALE_PERMILLE_RANGE } from '../lib/pricing/fdm-estimate-model';
+import { MESH_MAX_TRIANGLES, checkMeshConsistency } from '../lib/pricing/mesh-metrics';
 
 export const uuidSchema = z.string().uuid();
 const nonEmptyText = z.string().trim().min(1);
@@ -607,4 +610,30 @@ export const uploadUrlsRequestSchema = z.object({
     ext: z.preprocess((value) => (typeof value === 'string' ? value.trim().toLowerCase() : value), z.enum(UPLOAD_EXTENSIONS)),
     sizeBytes: safeInteger.positive().max(MAX_UPLOAD_BYTES),
   }).strict()).min(1).max(MAX_UPLOAD_FILES_PER_REQUEST),
+}).strict();
+
+// Phase 33 S4 (§6.1, D6): POST /api/public/quote-estimate — mesh METRICS computed in the browser,
+// never a price. v1 is STL/OBJ only (MESH); sliced 3MF stays on /custom-print.
+const extentSchema = z.number().finite().positive().max(BAO_GIA_MAX_EXTENT_MM);
+export const meshMetricsInputSchema = z.object({
+  volumeMm3: z.number().finite().positive().max(BAO_GIA_MAX_EXTENT_MM ** 3),
+  surfaceMm2: z.number().finite().positive().max(1e9),
+  sizeMm: z.object({ x: extentSchema, y: extentSchema, z: extentSchema }).strict(),
+  triangles: safeInteger.positive().max(MESH_MAX_TRIANGLES),
+}).strict().superRefine((metrics, context) => {
+  const check = checkMeshConsistency(metrics);
+  if (!check.ok) context.addIssue({ code: z.ZodIssueCode.custom, message: `Inconsistent mesh metrics: ${check.reason}`, path: [] });
+});
+
+export const quoteEstimateItemSchema = z.object({
+  kind: z.literal('MESH'),
+  metrics: meshMetricsInputSchema,
+  scalePermille: safeInteger.min(SCALE_PERMILLE_RANGE.min).max(SCALE_PERMILLE_RANGE.max),
+  materialType: z.enum(FDM_MATERIALS),
+  infillPct: safeInteger.refine((value) => (INFILL_OPTIONS as readonly number[]).includes(value), { message: `infillPct must be one of ${INFILL_OPTIONS.join(', ')}` }),
+  quantity: safeInteger.min(1).max(1000),
+}).strict();
+
+export const quoteEstimateRequestSchema = z.object({
+  items: z.array(quoteEstimateItemSchema).min(1).max(BAO_GIA_MAX_ITEMS),
 }).strict();

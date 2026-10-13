@@ -29,6 +29,8 @@ export const FDM_CONSTANTS = {
   LAYER_HEIGHT_MM: 0.2,
 } as const;
 
+export type FdmConstants = { readonly [K in keyof typeof FDM_CONSTANTS]: number };
+
 /** g/cm³. PLA matches PLA_DENSITY in instant-estimate.service.ts. */
 export const FDM_DENSITY: Record<string, number> = { PLA: 1.24, PETG: 1.27, ABS: 1.04, ASA: 1.07, TPU: 1.21 };
 
@@ -80,7 +82,7 @@ export function estimateFdmPrint(input: {
   scalePermille: number;
   infillPct: number;
   materialType: string;
-}, constants: typeof FDM_CONSTANTS = FDM_CONSTANTS): FdmEstimate {
+}, constants: FdmConstants = FDM_CONSTANTS): FdmEstimate {
   if (!Number.isInteger(input.scalePermille) || input.scalePermille < SCALE_PERMILLE_RANGE.min || input.scalePermille > SCALE_PERMILLE_RANGE.max) {
     throw new RangeError(`scalePermille out of range: ${input.scalePermille}`);
   }

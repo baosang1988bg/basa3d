@@ -392,8 +392,8 @@ không phải báo giá chính thức"**, thời điểm in, mã `CR-…` (nếu
 - [x] Unit test: khối 40mm (gram theo §5.1), cột cao 200mm/12g (phút ≫ phút theo gram), scale ×2 (V×8, A×4), mesh hở → UNPRICED, vượt khổ → UNPRICED.
 
 ### S4 — Endpoint ước tính (0,5 ngày)
-- [ ] `POST /api/public/quote-estimate` theo §6.1 + Zod nhất quán + rate limit.
-- [ ] Test: payload hợp lệ; V > bbox → 400; A quá nhỏ → 400; 11 món → 400; VAT bật/tắt.
+- [x] `POST /api/public/quote-estimate` theo §6.1 + Zod nhất quán + rate limit.
+- [x] Test: payload hợp lệ; V > bbox → 400; A quá nhỏ → 400; 11 món → 400; VAT bật/tắt.
 
 ### S5 — Gửi yêu cầu nhiều món (1 ngày)
 - [ ] `publicCustomRequestInputSchema` thêm `items` (loại trừ với nhánh cũ).
