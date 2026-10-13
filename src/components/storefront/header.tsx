@@ -28,8 +28,7 @@ export function Header() {
     { href: '/products', label: t('products') },
     { href: '/tools', label: t('tools') },
     { href: '/custom-print', label: t('customPrint') },
-    { href: '/#materials', label: t('materials') },
-    { href: '/blog', label: t('blog') },
+    ...(SITE_CONFIG.blogEnabled ? [{ href: '/blog', label: t('blog') }] : []),
   ];
 
   return (

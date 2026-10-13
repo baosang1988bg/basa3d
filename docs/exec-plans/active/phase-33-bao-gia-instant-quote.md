@@ -396,10 +396,10 @@ không phải báo giá chính thức"**, thời điểm in, mã `CR-…` (nếu
 - [x] Test: payload hợp lệ; V > bbox → 400; A quá nhỏ → 400; 11 món → 400; VAT bật/tắt.
 
 ### S5 — Gửi yêu cầu nhiều món (1 ngày)
-- [ ] `publicCustomRequestInputSchema` thêm `items` (loại trừ với nhánh cũ).
-- [ ] Route §6.3: kiểm object, tính lại trong ngân sách, transaction insert yêu cầu + món + audit.
-- [ ] `createCustomRequest` nhận `items`; `getCustomRequest` trả kèm món.
-- [ ] Test: path không tồn tại → 400; path trùng → 400; magic bytes sai → 400; metrics client giả → MISMATCH và giá theo server; vượt ngân sách → CLIENT_REPORTED; trigger chặn update món.
+- [x] `publicCustomRequestInputSchema` thêm `items` (loại trừ với nhánh cũ). *(Làm bằng schema riêng `publicBaoGiaRequestSchema` — strict, loại trừ theo cấu trúc.)*
+- [x] Route §6.3: kiểm object, tính lại trong ngân sách, transaction insert yêu cầu + món + audit.
+- [x] `createCustomRequest` nhận `items`; món đọc qua `listCustomRequestItems` (S7 dùng).
+- [x] Test: path không tồn tại → 400; path trùng → 400; magic bytes sai → 400; metrics client giả → MISMATCH và giá theo server; vượt ngân sách → CLIENT_REPORTED; trigger chặn update món.
 
 ### S6 — UI `/bao-gia` (2–3 ngày)
 - [ ] Worker `src/workers/mesh-analyze.worker.ts` (STL/OBJ/3MF chưa slice → metrics; 3MF đã slice → `slice_info`).

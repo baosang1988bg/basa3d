@@ -2,7 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { apiError } from '../../../../lib/api';
 import { query } from '../../../../lib/db';
-import { publicCustomRequestInputSchema } from '../../../../domain/schemas';
+import { publicBaoGiaRequestSchema, publicCustomRequestInputSchema } from '../../../../domain/schemas';
+import { isBaoGiaEnabled } from '../../../../config/bao-gia';
+import { describeBaoGiaRequest, prepareCustomRequestItems } from '../../../../services/custom-request-items.service';
+import { loadPricingContext } from '../../../../services/instant-estimate.service';
 import { createCustomRequest, inspectUploadedObject, type CustomRequestMakerWorldSnapshot } from '../../../../services/custom-request.service';
 import { referencePriceFor } from '../../../../services/makerworld-estimate.service';
 import { parseMakerWorldUrl } from '../../../../lib/parsers/makerworld-resolver';
@@ -15,24 +18,59 @@ import type { CustomRequestQuoteEstimateSnapshot } from '../../../../services/cu
 const RATE_LIMIT_MAX_SUBMISSIONS = 3;
 const RATE_LIMIT_WINDOW_MINUTES = 10;
 
+function honeypotResponse() {
+  // Bot filled the hidden field. Return a real-looking 201 without inserting anything or
+  // revealing to the bot that it was detected.
+  return NextResponse.json({ id: randomUUID(), requestNumber: `CR-${randomUUID().replaceAll('-', '').slice(0, 12).toUpperCase()}` }, { status: 201 });
+}
+
+/** Rate limit: max 3 submissions per phone number per 10-minute window. */
+async function isPhoneRateLimited(phone: string): Promise<boolean> {
+  const recentCount = await query<{ count: string }>(
+    `select count(*) from custom_requests where customer_phone = $1 and created_at > now() - interval '${RATE_LIMIT_WINDOW_MINUTES} minutes'`,
+    [phone],
+  );
+  return Number(recentCount.rows[0].count) >= RATE_LIMIT_MAX_SUBMISSIONS;
+}
+
+const RATE_LIMITED_BODY = { code: 'RATE_LIMITED', message: 'Bạn đã gửi yêu cầu quá nhiều lần, vui lòng thử lại sau ít phút.' };
+
+/** Phase 33 S5 (§6.3): /bao-gia — N items, each re-checked and re-priced on the server. */
+async function postBaoGiaRequest(body: unknown) {
+  if (!isBaoGiaEnabled()) return NextResponse.json({ code: 'NOT_FOUND' }, { status: 404 });
+  const input = publicBaoGiaRequestSchema.parse(body);
+  if (input.honeypot) return honeypotResponse();
+  if (await isPhoneRateLimited(input.customerPhone)) return NextResponse.json(RATE_LIMITED_BODY, { status: 429 });
+  const items = await prepareCustomRequestItems(input.items, await loadPricingContext());
+  const materials = [...new Set(items.map((item) => item.materialType))].join(', ');
+  const created = await createCustomRequest({
+    customerName: input.customerName,
+    customerPhone: input.customerPhone,
+    customerEmail: input.customerEmail,
+    description: describeBaoGiaRequest(input.items, input.description),
+    quantity: items.reduce((sum, item) => sum + item.quantity, 0),
+    requestedMaterial: materials.slice(0, 100) || null,
+    requestedColor: null,
+    requestedSize: null,
+    // T4: no denormalised "item #1" — the items table is the only place the files live.
+    attachmentPath: null,
+    items,
+    copyrightConfirmed: input.copyrightConfirmed,
+    tosVersion: input.tosVersion,
+    sourceChannel: 'WEBSITE',
+  }, null);
+  return NextResponse.json(created, { status: 201 });
+}
+
 export async function POST(request: Request) {
   try {
-    const input = publicCustomRequestInputSchema.parse(await request.json());
+    const body = await request.json();
+    // The two shapes are mutually exclusive strict schemas; `items` selects the /bao-gia branch.
+    if (body && typeof body === 'object' && 'items' in body) return await postBaoGiaRequest(body);
+    const input = publicCustomRequestInputSchema.parse(body);
 
-    if (input.honeypot) {
-      // Bot filled the hidden field. Return a real-looking 201 without inserting anything or
-      // revealing to the bot that it was detected.
-      return NextResponse.json({ id: randomUUID(), requestNumber: `CR-${randomUUID().replaceAll('-', '').slice(0, 12).toUpperCase()}` }, { status: 201 });
-    }
-
-    // Rate limit: max 3 submissions per phone number per 10-minute window.
-    const recentCount = await query<{ count: string }>(
-      `select count(*) from custom_requests where customer_phone = $1 and created_at > now() - interval '${RATE_LIMIT_WINDOW_MINUTES} minutes'`,
-      [input.customerPhone],
-    );
-    if (Number(recentCount.rows[0].count) >= RATE_LIMIT_MAX_SUBMISSIONS) {
-      return NextResponse.json({ code: 'RATE_LIMITED', message: 'Bạn đã gửi yêu cầu quá nhiều lần, vui lòng thử lại sau ít phút.' }, { status: 429 });
-    }
+    if (input.honeypot) return honeypotResponse();
+    if (await isPhoneRateLimited(input.customerPhone)) return NextResponse.json(RATE_LIMITED_BODY, { status: 429 });
 
     // Phase 33 S2 (§6.3 step 2): files now go straight to Storage via signed URLs, so a path in the
     // body proves nothing. Confirm the object exists, is within MAX_UPLOAD_BYTES and its magic bytes

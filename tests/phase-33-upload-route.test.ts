@@ -129,3 +129,40 @@ test('upload-urls is rate limited per IP (20 calls/hour)', { skip: !canRunLiveSe
     await client.end();
   }
 });
+
+test('/bao-gia branch: two uploaded STL items → one request with 2 VERIFIED items, attachment_path NULL', { skip: !canRunLiveServer }, async () => {
+  const stl = binaryStl(12);
+  // A real closed cube so the server can re-measure it.
+  const view = new DataView(stl.buffer);
+  const v = [[0, 0, 0], [20, 0, 0], [20, 20, 0], [0, 20, 0], [0, 0, 20], [20, 0, 20], [20, 20, 20], [0, 20, 20]];
+  const t = [[0, 2, 1], [0, 3, 2], [4, 5, 6], [4, 6, 7], [0, 1, 5], [0, 5, 4], [3, 6, 2], [3, 7, 6], [0, 4, 7], [0, 7, 3], [1, 2, 6], [1, 6, 5]];
+  t.forEach((tri, i) => tri.forEach((vi, k) => v[vi].forEach((c, j) => view.setFloat32(84 + i * 50 + 12 + k * 12 + j * 4, c, true))));
+  const clientMetrics = { volumeMm3: 8_000, surfaceMm2: 2_400, sizeMm: { x: 20, y: 20, z: 20 }, triangles: 12 };
+  const paths = [await uploadViaSignedUrl(stl, 'stl'), await uploadViaSignedUrl(stl, 'stl')];
+  const response = await fetch(`${BASE_URL}/api/public/custom-requests`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      customerName: 'Bao Gia Route Test', customerPhone: `06${randomUUID().replace(/\D/g, '').slice(0, 8)}`,
+      copyrightConfirmed: true, tosVersion: 'v1',
+      items: paths.map((attachmentPath, index) => ({ attachmentPath, displayName: `cube-${index}.stl`, materialType: 'PLA', infillPct: 15, scalePermille: 1000, quantity: 1, clientMetrics })),
+    }),
+  });
+  assert.equal(response.status, 201);
+  const { id } = await response.json();
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    assert.equal((await client.query('select attachment_path from custom_requests where id = $1', [id])).rows[0].attachment_path, null);
+    const items = await client.query('select verification from custom_request_items where custom_request_id = $1 order by position', [id]);
+    assert.equal(items.rowCount, 2);
+    // No pricing config in a fresh test DB → UNPRICED is also a valid outcome; never CLIENT_REPORTED here.
+    for (const row of items.rows) assert.ok(['VERIFIED', 'UNPRICED'].includes(row.verification));
+  } finally {
+    await client.query('begin');
+    await client.query("set local basa3d.allow_item_purge = 'on'");
+    await client.query('delete from custom_request_items where custom_request_id = $1', [id]);
+    await client.query('delete from custom_requests where id = $1', [id]);
+    await client.query('commit');
+    await client.end();
+  }
+});

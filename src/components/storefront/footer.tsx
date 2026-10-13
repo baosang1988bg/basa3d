@@ -33,8 +33,9 @@ export function Footer() {
           <ul className="mt-2 space-y-1 text-sm">
             <li><Link href="/products" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">{tNav('products')}</Link></li>
             <li><Link href="/custom-print" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">{t('customPrint')}</Link></li>
-            <li><Link href="/blog" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">{tNav('blog')}</Link></li>
-            <li><Link href="/admin/login" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">{t('adminLogin')}</Link></li>
+            {SITE_CONFIG.blogEnabled && (
+              <li><Link href="/blog" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">{tNav('blog')}</Link></li>
+            )}
           </ul>
         </div>
         <div>

@@ -6,6 +6,7 @@ import { sendStaffNotification } from '../lib/notify/send-staff-notification';
 import { detectIpRiskKeywords } from '../lib/copyright/ip-risk-keywords';
 import { writeAuditLog } from './audit.service';
 import { pagination } from './product.service';
+import type { PreparedCustomRequestItem } from './custom-request-items.service';
 import {
   CONTENT_TYPE_BY_EXTENSION,
   CUSTOM_REQUEST_ATTACHMENT_BUCKET as ATTACHMENT_BUCKET,
@@ -232,6 +233,18 @@ export async function createCustomRequest(input: Record<string, unknown>, actorI
       input.makerworldSnapshot ? JSON.stringify(input.makerworldSnapshot) : null,
       input.quoteEstimateSnapshot ? JSON.stringify(input.quoteEstimateSnapshot) : null,
     ]);
+    // Phase 33 S5: /bao-gia items, inserted in the SAME transaction as their request (immutable
+    // afterwards — prevent_custom_request_item_mutation). Prices were computed server-side.
+    const items = (input.items as PreparedCustomRequestItem[] | undefined) ?? [];
+    for (const item of items) {
+      await client.query(`
+        insert into custom_request_items (custom_request_id, position, attachment_path, display_name, file_size_bytes, source_kind,
+          material_type, infill_pct, scale_permille, color, quantity, verification, estimate_snapshot)
+        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`, [
+        result.rows[0].id, item.position, item.attachmentPath, item.displayName, item.fileSizeBytes, item.sourceKind,
+        item.materialType, item.infillPct, item.scalePermille, item.color, item.quantity, item.verification, JSON.stringify(item.estimateSnapshot),
+      ]);
+    }
     const action = actorId ? 'CUSTOM_REQUEST_CREATED' : 'CUSTOM_REQUEST_CREATED_PUBLIC';
     await writeAuditLog(client, { actorId, action, entityType: 'custom_request', entityId: result.rows[0].id, afterData: input });
     return { id: result.rows[0].id, requestNumber: result.rows[0].request_number };

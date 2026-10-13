@@ -637,3 +637,62 @@ export const quoteEstimateItemSchema = z.object({
 export const quoteEstimateRequestSchema = z.object({
   items: z.array(quoteEstimateItemSchema).min(1).max(BAO_GIA_MAX_ITEMS),
 }).strict();
+
+// Phase 33 S5 (§6.3, D6): multi-item request from /bao-gia. A SEPARATE strict schema (not optional
+// fields on publicCustomRequestInputSchema) so the two branches are mutually exclusive by
+// construction: no attachmentPath / fileEstimateOption / makerworld / quantity here, and NO price
+// field anywhere — the server re-measures each stored file and prices it itself.
+export const baoGiaItemInputSchema = z.object({
+  attachmentPath: z.string().trim().max(500).regex(/^requests\/[0-9a-f-]+\.(?:stl|obj)$/),
+  displayName: nonEmptyText.max(200),
+  materialType: z.enum(FDM_MATERIALS),
+  infillPct: safeInteger.refine((value) => (INFILL_OPTIONS as readonly number[]).includes(value), { message: `infillPct must be one of ${INFILL_OPTIONS.join(', ')}` }),
+  scalePermille: safeInteger.min(SCALE_PERMILLE_RANGE.min).max(SCALE_PERMILLE_RANGE.max),
+  color: z.string().trim().max(100).nullable().optional(),
+  quantity: safeInteger.min(1).max(1000),
+  clientMetrics: meshMetricsInputSchema,
+}).strict();
+
+export const publicBaoGiaRequestSchema = z.object({
+  customerName: nonEmptyText.max(200),
+  customerPhone: nonEmptyText.max(30),
+  customerEmail: z.string().trim().email().max(320).nullable().optional(),
+  /** Optional here — the server writes "Báo giá từ /bao-gia: N file (…)" when empty. */
+  description: z.string().trim().max(20_000).nullable().optional(),
+  honeypot: z.string().trim().max(200).optional().default(''),
+  copyrightConfirmed: z.literal(true),
+  tosVersion: z.string().trim().min(1).max(50),
+  items: z.array(baoGiaItemInputSchema).min(1).max(BAO_GIA_MAX_ITEMS),
+}).strict().superRefine((request, context) => {
+  const paths = request.items.map((item) => item.attachmentPath);
+  if (new Set(paths).size !== paths.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'Each file can only be used once.', path: ['items'] });
+  }
+});
+
+// §4.6 — custom_request_items.estimate_snapshot (read path is tolerant; see readItemEstimateSnapshot).
+const sizeSchema = z.object({ x: z.number(), y: z.number(), z: z.number() }).strict();
+export const customRequestItemEstimateSchema = z.object({
+  schemaVersion: z.literal(1),
+  modelVersion: z.string().max(50),
+  status: z.enum(['OK', 'UNPRICED', 'NO_MATERIAL_PRICE', 'NO_PRICING_CONFIG']),
+  unpricedReason: z.string().max(50).nullable(),
+  sizeMm: sizeSchema,
+  volumeCm3: z.number().nullable(),
+  surfaceCm2: z.number().nullable(),
+  triangles: z.number().int().nullable(),
+  grams: z.number().nullable(),
+  printMinutes: z.number().int().nullable(),
+  platesCount: z.number().int().nullable(),
+  unitPriceVnd: vndSchema.nullable(),
+  lineSubtotalVnd: vndSchema.nullable(),
+  floorApplied: z.boolean(),
+  vatRateBps: safeInteger.min(0).max(10_000),
+  vatVnd: vndSchema,
+  lineTotalVnd: vndSchema.nullable(),
+  pricingConfigId: uuidSchema.nullable(),
+  clientMetrics: z.object({ volumeMm3: z.number(), surfaceMm2: z.number(), sizeMm: sizeSchema, triangles: z.number().int() }).strict().optional(),
+  mismatchPct: z.number().optional(),
+  estimatedAt: z.string().datetime(),
+}).strict();
+export type CustomRequestItemEstimate = z.infer<typeof customRequestItemEstimateSchema>;
