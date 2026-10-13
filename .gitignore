@@ -22,3 +22,8 @@ test-results/
 
 # Phase 32 spike output (local previews of Drive models — never commit)
 .model-previews/
+
+# Claude local runtime & worktrees
+.claude/worktrees/
+.claude/settings.local.json
+.claude/terminals/

@@ -1,0 +1,21 @@
+# Local build & cache
+.next
+.next-test
+*.tsbuildinfo
+
+# Dependencies
+node_modules
+
+# AI & Agent artifacts and worktrees
+.claude
+.agents
+agents
+.superpowers
+.vnx*
+.local-backups
+.model-previews
+
+# Generated test runs
+test-results
+playwright-report
+coverage
