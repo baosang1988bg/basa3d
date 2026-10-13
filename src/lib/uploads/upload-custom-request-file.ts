@@ -64,16 +64,21 @@ export async function uploadCustomRequestFile(file: Blob, fileName: string): Pro
   return { path };
 }
 
-/** Phase 33 S6: several files, one token request, sequential uploads with a progress callback. */
+/** Phase 33 S6: several files — one token request per batch of MAX_UPLOAD_FILES_PER_REQUEST (the
+ * route caps a call at 10 files and 20 calls/hour/IP), sequential uploads with a progress callback.
+ * 50 files = 5 token calls. */
 export async function uploadCustomRequestFiles(sources: UploadSource[], onProgress?: (done: number, total: number) => void): Promise<string[]> {
   if (!sources.length) return [];
-  if (sources.length > MAX_UPLOAD_FILES_PER_REQUEST) throw new UploadError(`Tối đa ${MAX_UPLOAD_FILES_PER_REQUEST} file mỗi lần.`);
-  const targets = await requestTargets(sources);
+  sources.forEach(validate); // fail before uploading anything
   const paths: string[] = [];
-  for (const [index, source] of sources.entries()) {
-    await putToTarget(source, targets[index]);
-    paths.push(targets[index].path);
-    onProgress?.(index + 1, sources.length);
+  for (let start = 0; start < sources.length; start += MAX_UPLOAD_FILES_PER_REQUEST) {
+    const batch = sources.slice(start, start + MAX_UPLOAD_FILES_PER_REQUEST);
+    const targets = await requestTargets(batch);
+    for (const [index, source] of batch.entries()) {
+      await putToTarget(source, targets[index]);
+      paths.push(targets[index].path);
+      onProgress?.(paths.length, sources.length);
+    }
   }
   return paths;
 }

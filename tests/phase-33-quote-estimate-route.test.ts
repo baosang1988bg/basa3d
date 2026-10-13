@@ -71,7 +71,7 @@ test('impossible metrics are rejected with 400: V > box, area too small, absurd 
     { items: [item({ metrics: { ...box(10, 10, 10), volumeMm3: 5_000 } })] },
     { items: [item({ metrics: { ...box(20, 20, 20), surfaceMm2: 100 } })] },
     { items: [item({ metrics: box(3_000, 10, 10) })] },
-    { items: Array.from({ length: 11 }, () => item()) },
+    { items: Array.from({ length: 51 }, () => item()) },
     { items: [] },
     { items: [{ ...item(), priceVnd: 1 }] },
     { items: [item({ infillPct: 25 })] },

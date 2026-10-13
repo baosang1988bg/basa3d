@@ -9,8 +9,10 @@ export function isBaoGiaEnabled(env: Record<string, string | undefined> = proces
 /** Client-side copy (static dot access so Next can inline it — see src/lib/supabase/client.ts). */
 export const BAO_GIA_ENABLED_IN_BROWSER = process.env.NEXT_PUBLIC_BAO_GIA_ENABLED === 'true';
 
-/** Items per estimate request / per custom request (schema: custom_request_items.position 1–10). */
-export const BAO_GIA_MAX_ITEMS = 10;
+/** Items per estimate request / per custom request (DB: custom_request_items_position_range 1–50).
+ * Raised from 10 (Owner, 2026-10-13): 10 made customers split one order. Uploads still go in
+ * batches of MAX_UPLOAD_FILES_PER_REQUEST signed URLs per call. */
+export const BAO_GIA_MAX_ITEMS = 50;
 /** Sanity bound on client-reported extents (mm) — far above any printable part. */
 export const BAO_GIA_MAX_EXTENT_MM = 2_000;
 /** Above this many triangles the browser shows sizes only, no 3D preview (mobile memory). */

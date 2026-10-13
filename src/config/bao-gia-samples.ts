@@ -2,6 +2,7 @@
 // same engine as live estimates from these fixed metrics, so they can never drift from real
 // prices. Shapes are simple solids approximating typical parts; the Owner can replace them.
 import type { MeshMetrics } from '@/lib/pricing/mesh-metrics';
+import { BAO_GIA_MAX_ITEMS } from '@/config/bao-gia';
 
 export type BaoGiaSample = {
   key: string;
@@ -35,7 +36,7 @@ export const BAO_GIA_SAMPLES: BaoGiaSample[] = [
 export const BAO_GIA_FAQ: Array<{ q: string; a: string }> = [
   { q: 'Giá trên trang này đã là giá chốt chưa?', a: 'Chưa. Đây là giá ước tính sơ bộ tính từ hình khối của file. Sau khi bạn gửi yêu cầu, xưởng kiểm tra file và gửi báo giá chính thức cho từng món qua Zalo/SĐT.' },
   { q: 'Tôi có cần tải file lên để xem giá không?', a: 'Không. File được phân tích ngay trên trình duyệt của bạn. File chỉ được tải lên (lưu riêng tư) khi bạn bấm gửi yêu cầu.' },
-  { q: 'Trang này nhận những loại file nào?', a: 'File .stl và .obj, tối đa 10 file mỗi lần. File .3mf (Bambu Studio/Orca, MakerWorld) vui lòng gửi ở trang Đặt in theo yêu cầu — file .3mf đã slice cho giá chính xác theo slicer.' },
+  { q: 'Trang này nhận những loại file nào?', a: `File .stl và .obj, tối đa ${BAO_GIA_MAX_ITEMS} file mỗi lần. File .3mf (Bambu Studio/Orca, MakerWorld) vui lòng gửi ở trang Đặt in theo yêu cầu — file .3mf đã slice cho giá chính xác theo slicer.` },
   { q: 'Vì sao có "giá tối thiểu cho mỗi món"?', a: 'Mỗi lần in đều có chi phí cố định (chuẩn bị máy, dọn bàn in, đóng gói), nên món rất nhỏ được tính theo mức tối thiểu. Mức này áp cho cả dòng (món × số lượng), không nhân theo từng cái.' },
   { q: 'Mô hình của tôi to hơn bàn in thì sao?', a: 'Món vượt khổ máy (256 mm mỗi chiều) sẽ hiện "Cần xưởng báo giá" — xưởng sẽ tư vấn chia nhỏ hoặc phương án khác.' },
   { q: 'File của tôi có được bảo mật không?', a: 'Có. File lưu ở kho riêng tư, chỉ nhân viên xử lý yêu cầu mở được. Xem thêm Chính sách bảo mật file thiết kế.' },

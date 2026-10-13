@@ -65,6 +65,21 @@ function measure(path: string, bytes: Uint8Array): MeshMetrics | null {
   }
 }
 
+const INSPECT_CONCURRENCY = 6;
+
+async function mapWithConcurrency<T, R>(values: T[], limit: number, work: (value: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(values.length);
+  let next = 0;
+  const runners = Array.from({ length: Math.min(limit, values.length) }, async () => {
+    while (next < values.length) {
+      const index = next++;
+      results[index] = await work(values[index]);
+    }
+  });
+  await Promise.all(runners);
+  return results;
+}
+
 export function volumeMismatchPct(server: MeshMetrics, client: MeshMetrics): number {
   if (server.volumeMm3 <= 0) return 100;
   return (Math.abs(server.volumeMm3 - client.volumeMm3) / server.volumeMm3) * 100;
@@ -80,8 +95,11 @@ export async function prepareCustomRequestItems(
   let budget = options.budgetBytes ?? VERIFY_BUDGET_BYTES;
   const prepared: PreparedCustomRequestItem[] = [];
 
+  // Up to 50 items × 2 Storage calls each: inspect in parallel (bounded), then re-measure in order so
+  // the verify budget is spent deterministically on the first files.
+  const inspected = await mapWithConcurrency(items, INSPECT_CONCURRENCY, (item) => files.inspect(item.attachmentPath));
   for (const [index, item] of items.entries()) {
-    const { sizeBytes } = await files.inspect(item.attachmentPath);
+    const { sizeBytes } = inspected[index];
 
     let verification: ItemVerification;
     let metrics: MeshMetrics = item.clientMetrics;

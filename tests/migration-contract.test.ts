@@ -126,3 +126,9 @@ test('Phase 33 S2 migration adds immutable custom_request_items, the purge-flag 
   assert.match(sql, /file_size_limit = 52428800/);
   assert.doesNotMatch(sql, /prevent_ledger_mutation/);
 });
+
+test('Phase 33 follow-up migration raises the item limit to 50 by replacing the position check found by definition', async () => {
+  const sql = await readFile('supabase/migrations/20261015000002_custom_request_items_max_50.sql', 'utf8');
+  assert.match(sql, /conrelid = 'custom_request_items'::regclass[\s\S]*?raise exception[\s\S]*?drop constraint %I/);
+  assert.match(sql, /add constraint custom_request_items_position_range check \(position between 1 and 50\)/);
+});

@@ -108,7 +108,8 @@ test('custom_request_items checks: SLICED needs no infill/scale, path shape, pos
     await assert.rejects(insertItem(client, requestId, 3, { attachment_path: 'requests/../x.stl' }), /check/);
     await assert.rejects(insertItem(client, requestId, 4, { attachment_path: `requests/${randomUUID()}.png` }), /check/);
     await assert.rejects(insertItem(client, requestId, 1), /unique|duplicate/);
-    await assert.rejects(insertItem(client, requestId, 11), /check/);
+    await insertItem(client, requestId, 50); // limit raised to 50
+    await assert.rejects(insertItem(client, requestId, 51), /check/);
     await purgeCustomRequest(client, requestId);
   });
 });

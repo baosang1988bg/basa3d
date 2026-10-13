@@ -74,7 +74,8 @@ test('publicBaoGiaRequestSchema: no price fields, STL/OBJ only, unique paths, â‰
   assert.equal(publicBaoGiaRequestSchema.safeParse({ ...base, items: [{ ...item, unitPriceVnd: 1 }] }).success, false);
   assert.equal(publicBaoGiaRequestSchema.safeParse({ ...base, items: [{ ...item, attachmentPath: `requests/${randomUUID()}.3mf` }] }).success, false);
   assert.equal(publicBaoGiaRequestSchema.safeParse({ ...base, items: [item, item] }).success, false);
-  assert.equal(publicBaoGiaRequestSchema.safeParse({ ...base, items: Array.from({ length: 11 }, () => ({ ...item, attachmentPath: pathFor() })) }).success, false);
+  assert.equal(publicBaoGiaRequestSchema.safeParse({ ...base, items: Array.from({ length: 51 }, () => ({ ...item, attachmentPath: pathFor() })) }).success, false);
+  assert.equal(publicBaoGiaRequestSchema.safeParse({ ...base, items: Array.from({ length: 50 }, () => ({ ...item, attachmentPath: pathFor() })) }).success, true);
   assert.equal(publicBaoGiaRequestSchema.safeParse({ ...base, items: [item], attachmentPath: pathFor() }).success, false);
   assert.equal(publicBaoGiaRequestSchema.safeParse({ ...base, items: [item], quantity: 3 }).success, false);
   assert.equal(publicCustomRequestInputSchema.safeParse({ ...base, description: 'x', quantity: 1, items: [item] }).success, false);
