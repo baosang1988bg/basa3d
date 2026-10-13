@@ -2,6 +2,11 @@ import type { MetadataRoute } from 'next';
 import { listAllActiveProductSlugs } from '@/services/storefront-catalog.service';
 import { listAllPublishedPostSlugs } from '@/services/blog.service';
 
+// Render on request, not at `next build`: the sitemap lists live product/blog slugs from the DB.
+// Prerendering it made every build require a reachable DATABASE_URL and froze the slug list until
+// the next deploy (same reasoning as the storefront home page).
+export const dynamic = 'force-dynamic';
+
 // Only public, indexable routes — never list /admin/* here (phase-7.md decision #6). No
 // per-category route: `/products` only filters by `type` (READY_STOCK/MADE_TO_ORDER) and search,
 // there is no dedicated category URL to list, so category rows aren't emitted here either.
