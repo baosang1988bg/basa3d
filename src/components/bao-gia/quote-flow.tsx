@@ -62,7 +62,7 @@ export function QuoteFlow({ materials }: { materials: string[] }) {
   const [items, setItems] = useState<Item[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [previewId, setPreviewId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [estimate, setEstimate] = useState<{ status: 'idle' | 'loading' | 'done' | 'error'; data?: EstimateResponse; forIds?: string[] }>({ status: 'idle' });
   const [submit, setSubmit] = useState<{ status: 'idle' | 'uploading' | 'submitting' | 'error'; message?: string; progress?: string }>({ status: 'idle' });
   const [done, setDone] = useState<{ requestNumber: string } | null>(null);
@@ -116,10 +116,12 @@ export function QuoteFlow({ materials }: { materials: string[] }) {
   function remove(id: string) {
     setItems((current) => current.filter((item) => item.id !== id));
     uploadedPaths.current.delete(id);
-    if (previewId === id) setPreviewId(null);
+    if (selectedId === id) setSelectedId(null);
   }
 
   const ready = useMemo(() => items.filter((item) => item.analysis === 'ok' && item.metrics), [items]);
+  // "Xem trước mô hình": the chosen item, else the first analysed one — always one viewer at most.
+  const previewItem = ready.find((item) => item.id === selectedId) ?? ready[0] ?? null;
   const signature = JSON.stringify(ready.map((item) => [item.id, item.materialType, item.infillPct, item.scalePct, item.quantity]));
 
   // Debounced re-estimate (§7: < 1s after each change; no upload).
@@ -259,11 +261,26 @@ export function QuoteFlow({ materials }: { materials: string[] }) {
             {notice ? <p role="alert" className="flex items-center gap-2 rounded-lg bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-300"><AlertCircle className="size-4 shrink-0" />{notice}</p> : null}
             {!materials.length ? <p className="rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground">Hiện chưa thể hiển thị giá tự động. Bạn vẫn gửi yêu cầu được, xưởng báo giá {BAO_GIA_RESPONSE_TIME_TEXT}.</p> : null}
 
+            {previewItem ? (
+              <section aria-label="Xem trước mô hình" data-testid="bao-gia-preview" className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="font-heading text-base font-bold text-foreground">Xem trước mô hình</p>
+                  <p className="max-w-full truncate text-xs text-muted-foreground">{ready.indexOf(previewItem) + 1}/{ready.length} · {previewItem.name} · tỉ lệ {previewItem.scalePct}%</p>
+                </div>
+                {previewItem.positions ? (
+                  <MeshViewer key={previewItem.id} positions={previewItem.positions} label={previewItem.name} scalePct={previewItem.scalePct} />
+                ) : (
+                  <p className="rounded-lg bg-muted/40 p-4 text-sm text-muted-foreground">File rất chi tiết (trên 1,5 triệu tam giác) nên không dựng 3D để tránh treo máy — kích thước và giá vẫn tính bình thường.</p>
+                )}
+                {ready.length > 1 ? <p className="text-xs text-muted-foreground">Bấm “Xem” ở từng món để đổi mô hình đang xem.</p> : null}
+              </section>
+            ) : null}
+
             {items.map((item, index) => {
               const line = lineFor(item.id);
               const size = item.metrics ? { x: Math.round(item.metrics.sizeMm.x * item.scalePct) / 100, y: Math.round(item.metrics.sizeMm.y * item.scalePct) / 100, z: Math.round(item.metrics.sizeMm.z * item.scalePct) / 100 } : null;
               return (
-                <article key={item.id} data-testid="bao-gia-item" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+                <article key={item.id} data-testid="bao-gia-item" className={`flex flex-col gap-3 rounded-xl border bg-card p-4 ${previewItem?.id === item.id ? 'border-primary/60 ring-1 ring-primary/20' : 'border-border'}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="truncate font-semibold text-foreground"><Box className="mr-1 inline size-4" />{index + 1}. {item.name}</p>
@@ -272,14 +289,12 @@ export function QuoteFlow({ materials }: { materials: string[] }) {
                       {size ? <p className="text-xs text-muted-foreground">Kích thước: {fmtSize(size)} · {item.metrics!.triangles.toLocaleString('vi-VN')} tam giác</p> : null}
                     </div>
                     <div className="flex shrink-0 gap-1">
-                      {item.positions ? (
-                        <button type="button" onClick={() => setPreviewId(previewId === item.id ? null : item.id)} className="cursor-pointer rounded-lg p-1.5 text-muted-foreground hover:bg-muted" aria-label="Xem 3D"><Eye className="size-4" /></button>
+                      {item.analysis === 'ok' ? (
+                        <button type="button" onClick={() => setSelectedId(item.id)} aria-pressed={previewItem?.id === item.id} className={`cursor-pointer rounded-lg px-2 py-1 text-xs ${previewItem?.id === item.id ? 'bg-primary/10 font-semibold text-primary' : 'text-muted-foreground hover:bg-muted'}`} aria-label="Xem 3D"><Eye className="mr-1 inline size-4" />Xem</button>
                       ) : null}
                       <button type="button" onClick={() => remove(item.id)} className="cursor-pointer rounded-lg p-1.5 text-muted-foreground hover:bg-muted" aria-label="Bỏ file"><Trash2 className="size-4" /></button>
                     </div>
                   </div>
-                  {previewId === item.id && item.positions ? <MeshViewer positions={item.positions} label={item.name} /> : null}
-                  {item.analysis === 'ok' && item.metrics && item.positions === null ? <p className="text-xs text-muted-foreground">File rất chi tiết nên không dựng 3D — giá vẫn tính bình thường.</p> : null}
 
                   {item.analysis === 'ok' ? (
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
