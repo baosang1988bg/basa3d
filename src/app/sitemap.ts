@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { listAllActiveProductSlugs } from '@/services/storefront-catalog.service';
 import { listAllPublishedPostSlugs } from '@/services/blog.service';
+import { isBaoGiaEnabled } from '@/config/bao-gia';
 
 // Render on request, not at `next build`: the sitemap lists live product/blog slugs from the DB.
 // Prerendering it made every build require a reachable DATABASE_URL and froze the slug list until
@@ -27,6 +28,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const routes: RouteEntry[] = [
     { path: '/', changeFrequency: 'daily', priority: 1 },
     { path: '/products', changeFrequency: 'daily', priority: 0.8 },
+    ...(isBaoGiaEnabled() ? [{ path: '/bao-gia', changeFrequency: 'monthly' as const, priority: 0.8 }] : []),
     { path: '/custom-print', changeFrequency: 'monthly', priority: 0.8 },
     { path: '/tools', changeFrequency: 'monthly', priority: 0.8 },
     { path: '/tools/keychain-generator', changeFrequency: 'monthly', priority: 0.7 },

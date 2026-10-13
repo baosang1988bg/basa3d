@@ -6,6 +6,7 @@ import { Menu, X, ShoppingCart, MessageCircle } from 'lucide-react';
 import { Link, usePathname } from '@/i18n/navigation';
 import { ThemeToggle } from './theme-toggle';
 import { LanguageSwitcher } from './language-switcher';
+import { BAO_GIA_ENABLED_IN_BROWSER } from '@/config/bao-gia';
 import { SITE_CONFIG } from '@/config/site';
 import { useCart } from '@/lib/cart/cart-context';
 import { trackContactClick } from '@/lib/analytics';
@@ -27,6 +28,7 @@ export function Header() {
     { href: '/', label: t('home') },
     { href: '/products', label: t('products') },
     { href: '/tools', label: t('tools') },
+    ...(BAO_GIA_ENABLED_IN_BROWSER ? [{ href: '/bao-gia', label: t('quote') }] : []),
     { href: '/custom-print', label: t('customPrint') },
     ...(SITE_CONFIG.blogEnabled ? [{ href: '/blog', label: t('blog') }] : []),
   ];

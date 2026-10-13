@@ -26,7 +26,7 @@ mock.module('../src/services/inventory.service.ts', { namedExports: {
     { materialType: 'PETG', unit: 'GRAM', currentUnitCost: 350 },
   ],
 } });
-process.env.BAO_GIA_ENABLED = 'true';
+process.env.NEXT_PUBLIC_BAO_GIA_ENABLED = 'true';
 const { POST } = await import('../src/app/api/public/quote-estimate/route.js');
 
 const box = (x: number, y: number, z: number) => ({ volumeMm3: x * y * z, surfaceMm2: 2 * (x * y + y * z + x * z), sizeMm: { x, y, z }, triangles: 12 });
@@ -110,11 +110,11 @@ test('rate limit: 120 calls/hour/IP, then 429', async () => {
   assert.equal(last, 429);
 });
 
-test('BAO_GIA_ENABLED off → 404 before any work', async () => {
-  process.env.BAO_GIA_ENABLED = 'false';
+test('NEXT_PUBLIC_BAO_GIA_ENABLED off → 404 before any work', async () => {
+  process.env.NEXT_PUBLIC_BAO_GIA_ENABLED = 'false';
   try {
     assert.equal((await POST(request({ items: [item()] }))).status, 404);
   } finally {
-    process.env.BAO_GIA_ENABLED = 'true';
+    process.env.NEXT_PUBLIC_BAO_GIA_ENABLED = 'true';
   }
 });

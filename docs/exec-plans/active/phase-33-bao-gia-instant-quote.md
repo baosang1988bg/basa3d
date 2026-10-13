@@ -402,11 +402,11 @@ không phải báo giá chính thức"**, thời điểm in, mã `CR-…` (nếu
 - [x] Test: path không tồn tại → 400; path trùng → 400; magic bytes sai → 400; metrics client giả → MISMATCH và giá theo server; vượt ngân sách → CLIENT_REPORTED; trigger chặn update món.
 
 ### S6 — UI `/bao-gia` (2–3 ngày)
-- [ ] Worker `src/workers/mesh-analyze.worker.ts` (STL/OBJ/3MF chưa slice → metrics; 3MF đã slice → `slice_info`).
-- [ ] Viewer lazy (`dynamic(..., { ssr:false })`), giới hạn tam giác, dispose, context-lost.
-- [ ] Các section §7, stepper, thanh tóm tắt, debounce gọi §6.1, upload có tiến trình + thử lại.
-- [ ] i18n vi/en, nav, sitemap, GA4.
-- [ ] Bản in `EstimatePrintSheet`.
+- [x] Worker `src/workers/mesh-analyze.worker.ts` — v1 STL/OBJ → metrics + positions (D6: 3MF đi `/custom-print`).
+- [x] Viewer lazy (`dynamic(..., { ssr:false })`), giới hạn tam giác, dispose, context-lost.
+- [x] Các section §7, stepper, thanh tóm tắt, debounce gọi §6.1, upload có tiến trình + thử lại.
+- [x] i18n vi/en (nav; nội dung trang tiếng Việt + UntranslatedNotice như `/custom-print`), nav, sitemap, GA4.
+- [x] Bản in `EstimatePrintSheet`.
 
 ### S7 — Admin N Quote (1 ngày)
 - [ ] Bảng món ở `custom-requests/[id]`; nút tạo Quote theo món; cột Quote.

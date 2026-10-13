@@ -191,3 +191,14 @@ export function trackJigsawExportDownload(data: { pieceCount: number; format: 's
 export function trackJigsawExportToRequest(data: { pieceCount: number }) {
   sendGAEvent('tool_jigsaw_export_to_request', { piece_count: data.pieceCount });
 }
+
+// Phase 33 S6 — /bao-gia (plan §7). Counts and coarse values only, never file names or contact data.
+export function trackQuoteFileAdded(data: { extension: string; sizeMb: number; fileCount: number }) {
+  sendGAEvent('quote_file_added', { file_extension: data.extension, file_size_mb: data.sizeMb, file_count: data.fileCount });
+}
+export function trackQuoteEstimateShown(data: { itemCount: number; pricedCount: number; totalVnd: number }) {
+  sendGAEvent('quote_estimate_shown', { item_count: data.itemCount, priced_count: data.pricedCount, currency: 'VND', value: data.totalVnd });
+}
+export function trackQuoteSubmitted(data: { itemCount: number; totalVnd: number }) {
+  sendGAEvent('quote_submitted', { item_count: data.itemCount, currency: 'VND', value: data.totalVnd });
+}
