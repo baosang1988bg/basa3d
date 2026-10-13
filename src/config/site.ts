@@ -8,8 +8,8 @@ export const SITE_CONFIG = {
   // reliably for a Facebook Page, not a personal profile. Once a Fanpage exists, set this to
   // https://m.me/<fanpage-username> and the contact CTA will pick it up automatically.
   messengerUrl: process.env.NEXT_PUBLIC_MESSENGER_URL || '',
-  email: process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'basa3d.print@gmail.com',
-  address: 'Hà Nội, Việt Nam',
+  email: process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'basa3d.vn@gmail.com',
+  address: 'Hồ Chí Minh, Việt Nam',
   // Cart temporarily hidden (2026-09) — customers are directed to contact Zalo/hotline directly
   // instead of ordering through the storefront cart. Flip NEXT_PUBLIC_CART_ENABLED=true to
   // restore add-to-cart, the cart icon, and the /cart and /checkout routes.

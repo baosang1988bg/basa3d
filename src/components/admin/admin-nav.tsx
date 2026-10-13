@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import {
   BookOpen, Boxes, Calculator, FileEdit, LayoutDashboard, Layers, Package, Printer,
   Receipt, ShieldAlert, ShoppingBag, Users,
-  Tags,
+  Tags, Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
@@ -36,6 +37,11 @@ const NAV_ITEMS: { href: string; label: string; icon: typeof LayoutDashboard; ow
 export function AdminNav({ role, badges = {} }: { role: StaffRole; badges?: AdminNavBadges }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [navigatingHref, setNavigatingHref] = useState<string | null>(null);
+
+  useEffect(() => {
+    setNavigatingHref(null);
+  }, [pathname]);
 
   async function handleLogout() {
     const supabase = createSupabaseBrowserClient();
@@ -44,25 +50,40 @@ export function AdminNav({ role, badges = {} }: { role: StaffRole; badges?: Admi
     router.refresh();
   }
 
+  function handleItemClick(href: string) {
+    if (pathname !== href) {
+      setNavigatingHref(href);
+    }
+  }
+
   return (
     <nav className="flex w-56 shrink-0 flex-col justify-between border-r border-border bg-muted/40 p-4">
       <div className="flex flex-col gap-1">
-        <p className="mb-2 px-2 text-xs font-medium uppercase text-muted-foreground">BaSa3D Admin</p>
+        <div className="mb-2 flex items-center justify-between px-2">
+          <p className="text-xs font-medium uppercase text-muted-foreground">BaSa3D Admin</p>
+          {navigatingHref && <Loader2 className="size-3.5 animate-spin text-primary" />}
+        </div>
         {NAV_ITEMS.filter((item) => !item.ownerOnly || role === 'OWNER').map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const isNavigatingToThis = navigatingHref === item.href;
           const badgeCount = item.badgeKey ? badges[item.badgeKey] : undefined;
           const Icon = item.icon;
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-2.5 rounded-md border-l-2 px-2 py-1.5 text-sm ${
-                isActive
+              onClick={() => handleItemClick(item.href)}
+              className={`flex items-center gap-2.5 rounded-md border-l-2 px-2 py-1.5 text-sm transition-colors ${
+                isActive || isNavigatingToThis
                   ? 'border-primary bg-primary/10 font-medium text-primary'
                   : 'border-transparent hover:bg-accent hover:text-accent-foreground'
               }`}
             >
-              <Icon className="size-4 shrink-0" />
+              {isNavigatingToThis ? (
+                <Loader2 className="size-4 shrink-0 animate-spin text-primary" />
+              ) : (
+                <Icon className="size-4 shrink-0" />
+              )}
               <span className="flex-1">{item.label}</span>
               {badgeCount ? (
                 <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-destructive text-[10px] font-semibold text-white">

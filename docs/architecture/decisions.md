@@ -528,3 +528,13 @@ the S0 calibration.
   records `modelVersion`. `/bao-gia`, its nav link, sitemap entry and APIs are behind
   `NEXT_PUBLIC_BAO_GIA_ENABLED` (default off) until `scripts/fdm-model-calibration` passes on the shop's
   own sliced files and the constants become `fdm-v1`.
+
+## ADR-0036 — Admin performance: connection pooling, instant click feedback, and query consolidation
+
+Status: accepted (2026-10-13, implemented in Phase 28 follow-up)
+
+- **Root cause of admin lag & unresponsiveness**: Remote Supabase database is hosted in Tokyo (~90ms RTT from Vietnam). Concurrently firing 10+ queries on admin dashboard caused pool queue starvation when pool was constrained. The client navigation previously lacked immediate visual feedback, giving a "frozen" feeling. An attempt to force `router.push()` inside `<Link>` created competing transitions that aborted fetches and triggered `error.tsx` ("Không thể tải nội dung quản trị").
+- **Connection pooling (`src/lib/db.ts`)**: Increased pool capacity to `max: 20` to comfortably accommodate parallel dashboard queries; relaxed `connectionTimeoutMillis` to 30s (`30000`) to avoid false-positive connection aborts over international WAN latency; persisted pool on `globalThis.__basa3d_pool` during `next dev` to prevent connection leaks across hot reloads.
+- **Zero-lag navigation feedback without route abortion (`src/components/admin/admin-nav.tsx`)**: Menu items use Next.js native `<Link>` with a local `navigatingHref` click state. On click, the clicked nav item immediately renders an active border and `<Loader2>` spinner (0ms visual confirmation), while `<Link>` performs standard App Router soft navigation. State resets when `pathname` updates. No double `router.push()` or `useTransition()` conflicts.
+- **Query consolidation (`src/services/dashboard.service.ts`)**: Subquery batching combines independent count metrics into single SQL statements (`getOperationalMetrics` combines 4 counts; `getFinancialMetrics` combines 2 revenue sums), cutting multiple remote network round-trips to Tokyo.
+- **Site contact configuration (`src/config/site.ts`)**: Updated official email to `basa3d.vn@gmail.com` and shop location to `Hồ Chí Minh, Việt Nam`.

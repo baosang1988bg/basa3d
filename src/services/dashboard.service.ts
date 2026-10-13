@@ -175,13 +175,26 @@ export const getAdminNavBadges = cache(async () => {
 // within one render request; navigation uses the smaller getAdminNavBadges() above.
 export const getOperationalMetrics = cache(async () => {
   const [
-    ordersToday, pendingOrders, customRequestsOpen, printJobsActive, lowStock,
-    dailyOrderTrends, productionPipeline, customRequestPipeline, materialHealth, actionableItems,
+    counts,
+    lowStock,
+    dailyOrderTrends,
+    productionPipeline,
+    customRequestPipeline,
+    materialHealth,
+    actionableItems,
   ] = await Promise.all([
-    query<{ count: string }>(`select count(*) from orders where created_at::date = current_date`),
-    query<{ count: string }>(`select count(*) from orders where status in ('NEW','CONFIRMED')`),
-    query<{ count: string }>(`select count(*) from custom_requests where status in ('NEW','REVIEWING','NEED_INFO','QUOTED')`),
-    query<{ count: string }>(`select count(*) from print_jobs where status in ('QUEUED','PRINTING')`),
+    query<{
+      orders_today: string;
+      pending_orders: string;
+      custom_requests_open: string;
+      print_jobs_active: string;
+    }>(`
+      select
+        (select count(*) from orders where created_at::date = current_date) as orders_today,
+        (select count(*) from orders where status in ('NEW','CONFIRMED')) as pending_orders,
+        (select count(*) from custom_requests where status in ('NEW','REVIEWING','NEED_INFO','QUOTED')) as custom_requests_open,
+        (select count(*) from print_jobs where status in ('QUEUED','PRINTING')) as print_jobs_active
+    `),
     // Low-stock threshold (available <= 5) is a fixed MVP default — no configurable reorder
     // point column exists yet in product_variants.
     query<{ count: string }>(`
@@ -197,12 +210,13 @@ export const getOperationalMetrics = cache(async () => {
     getMaterialHealth(),
     getActionableItems(),
   ]);
+  const countsRow = counts.rows[0];
   return {
-    ordersToday: Number(ordersToday.rows[0].count),
-    pendingOrders: Number(pendingOrders.rows[0].count),
-    customRequestsOpen: Number(customRequestsOpen.rows[0].count),
-    printJobsActive: Number(printJobsActive.rows[0].count),
-    lowStockCount: Number(lowStock.rows[0].count),
+    ordersToday: Number(countsRow?.orders_today ?? 0),
+    pendingOrders: Number(countsRow?.pending_orders ?? 0),
+    customRequestsOpen: Number(countsRow?.custom_requests_open ?? 0),
+    printJobsActive: Number(countsRow?.print_jobs_active ?? 0),
+    lowStockCount: Number(lowStock.rows[0]?.count ?? 0),
     dailyOrderTrends,
     productionPipeline,
     customRequestPipeline,
@@ -213,15 +227,19 @@ export const getOperationalMetrics = cache(async () => {
 
 // OWNER-only (ADR-0011 boundary #2) — enforced by the page calling this, not here.
 export async function getFinancialMetrics() {
-  const [revenueToday, revenueThisMonth, dailyRevenueTrends] = await Promise.all([
-    query<{ sum: string | null }>(`select sum(total) from orders where created_at::date = current_date and status <> 'CANCELLED'`),
-    query<{ sum: string | null }>(`select sum(total) from orders where date_trunc('month', created_at) = date_trunc('month', current_date) and status <> 'CANCELLED'`),
+  const [revenueCounts, dailyRevenueTrends] = await Promise.all([
+    query<{ sum_today: string | null; sum_month: string | null }>(`
+      select
+        (select sum(total) from orders where created_at::date = current_date and status <> 'CANCELLED') as sum_today,
+        (select sum(total) from orders where date_trunc('month', created_at) = date_trunc('month', current_date) and status <> 'CANCELLED') as sum_month
+    `),
     getRevenueTrends(),
   ]);
+  const row = revenueCounts.rows[0];
   const revenueLast14Days = dailyRevenueTrends.reduce((sum, point) => sum + point.revenue, 0);
   return {
-    revenueToday: Number(revenueToday.rows[0].sum ?? 0),
-    revenueThisMonth: Number(revenueThisMonth.rows[0].sum ?? 0),
+    revenueToday: Number(row?.sum_today ?? 0),
+    revenueThisMonth: Number(row?.sum_month ?? 0),
     revenueLast14Days,
     dailyRevenueTrends,
   };

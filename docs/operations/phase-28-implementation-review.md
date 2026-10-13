@@ -143,3 +143,16 @@ EXPLAIN/index/dashboard SQL rewrite, filter workaround và sidebar vẫn hoãn t
 **Kết luận:** blocker verification của Phase 28 chưa đổi. Cần một Supabase/PostgreSQL
 local disposable đã apply migrations/seed rồi mới chạy integration, RBAC, Playwright
 và production build đầy đủ; chưa đủ bằng chứng để chuyển phase sang `completed/`.
+
+## Follow-up tối ưu hiệu năng & sửa lỗi điều hướng admin — 2026-10-13
+
+- **Sự cố ghi nhận:** Khi người dùng thao tác trong admin, gặp hiện tượng lag, đơ và sập trang với thông báo từ `error.tsx`: *"Không thể tải nội dung quản trị"*.
+- **Nguyên nhân kép:**
+  1. `admin-nav.tsx` gắn thêm `router.push()` trong `onClick` của `<Link>` mà không chặn sự kiện mặc định, dẫn đến race condition kép làm Next.js App Router abort request và kích hoạt `error.tsx`.
+  2. `db.ts` bị nghẽn connection pool (`max: 10`, `connectionTimeoutMillis: 5000`) khi 14 truy vấn thống kê đồng thời chạy qua đường truyền quốc tế tới Supabase Tokyo.
+- **Khắc phục:**
+  - `src/lib/db.ts`: Tăng `max: 20`, tăng `connectionTimeoutMillis: 30000` (30s), lưu pool dev trên `globalThis.__basa3d_pool`.
+  - `src/components/admin/admin-nav.tsx`: Bỏ `router.push()`, để Next.js `<Link>` điều hướng nguyên bản. Thêm phản hồi thị giác 0ms bằng state `navigatingHref` hiển thị `<Loader2 />` ngay khi click.
+  - `src/services/dashboard.service.ts`: Gộp 4 câu query đếm vận hành và 2 câu query doanh thu thành subquery đơn, cắt giảm 4 round-trip mạng tới Tokyo.
+  - `src/config/site.ts`: Cập nhật email `basa3d.vn@gmail.com` và địa chỉ `Hồ Chí Minh, Việt Nam`.
+- **Kiểm tra chất lượng:** `npm run lint` (0 error), `npm run typecheck` (0 error), `node --experimental-test-module-mocks --import tsx tests/phase-28-admin-badges.test.ts` (pass 100%).

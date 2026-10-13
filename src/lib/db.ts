@@ -1,5 +1,9 @@
 import { Pool, type PoolClient, type QueryResultRow } from 'pg';
 
+declare global {
+  var __basa3d_pool: Pool | undefined;
+}
+
 let pool: Pool | undefined;
 
 function databaseUrl(): string {
@@ -9,7 +13,16 @@ function databaseUrl(): string {
 }
 
 export function getPool(): Pool {
-  pool ??= new Pool({ connectionString: databaseUrl() });
+  if (globalThis.__basa3d_pool) return globalThis.__basa3d_pool;
+  pool ??= new Pool({
+    connectionString: databaseUrl(),
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 30000,
+  });
+  if (process.env.NODE_ENV !== 'production') {
+    globalThis.__basa3d_pool = pool;
+  }
   return pool;
 }
 
