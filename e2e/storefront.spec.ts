@@ -63,6 +63,7 @@ function largeBinaryStl(): Buffer {
 }
 
 test('a file > 4.5MB uploads straight to Storage on /custom-print and reaches the estimate step', async ({ page }) => {
+  test.setTimeout(120_000); // ~5MB upload + server-side parse of 96k triangles
   const stl = largeBinaryStl();
   expect(stl.length).toBeGreaterThan(4.5 * 1024 * 1024);
   await page.goto('/custom-print');
