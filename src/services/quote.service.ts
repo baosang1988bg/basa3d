@@ -140,8 +140,8 @@ export async function createQuote(input: {
     // client, and never from input.pricingConfigId (null for manual quotes, and possibly an older
     // row). The client-submitted total must equal the server total, otherwise staff saw a different
     // number than the one that would be stored.
-    const vatConfig = await client.query<{ vat_enabled: boolean; vat_rate_bps: number }>(`
-      select vat_enabled, vat_rate_bps from pricing_configs
+    const vatConfig = await client.query<{ id: string; vat_enabled: boolean; vat_rate_bps: number }>(`
+      select id, vat_enabled, vat_rate_bps from pricing_configs
       where effective_from <= timezone('utc', now())
       order by effective_from desc, created_at desc limit 1`);
     const shippingFee = input.shippingFee ?? 0;
@@ -169,7 +169,9 @@ export async function createQuote(input: {
     ]);
     await writeAuditLog(client, {
       actorId, action: 'QUOTE_CREATED', entityType: 'quote', entityId: result.rows[0].id,
-      afterData: { ...input, vatRateBps: totals.vatRateBps, vatAmount: totals.vatAmount },
+      // vatPricingConfigId: which config the VAT came from (may differ from input.pricingConfigId,
+      // which is the config the cost breakdown was computed with, or null for a manual quote).
+      afterData: { ...input, vatRateBps: totals.vatRateBps, vatAmount: totals.vatAmount, vatPricingConfigId: vatConfig.rows[0]?.id ?? null },
     });
     if (breakdown && input.subtotal !== breakdown.finalPriceVnd) {
       await writeAuditLog(client, {

@@ -6,6 +6,10 @@
 -- src/lib/pricing/vat.ts (pending accountant confirmation, O2). The DB only enforces that the total
 -- includes vat_amount and that there is no VAT money without a VAT rate.
 
+-- Fail fast instead of queueing behind a long-running read while holding ACCESS EXCLUSIVE locks
+-- (every statement below rewrites no table, but the new CHECKs scan quotes/orders once each).
+set local lock_timeout = '5s';
+
 -- 4.1 pricing_configs: rate in integer basis points (800 = 8%), never numeric (ADR-0023).
 alter table pricing_configs
   add column vat_enabled boolean not null default false,

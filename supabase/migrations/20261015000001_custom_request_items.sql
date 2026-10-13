@@ -2,6 +2,8 @@
 -- Storage bucket limits for direct (signed URL) uploads. No application code reads/writes
 -- custom_request_items yet (that is S5/S7) — only tests and the orphan-upload cron.
 
+set local lock_timeout = '5s';
+
 -- 4.3 One row per file + configuration + quantity.
 create table custom_request_items (
   id uuid primary key default gen_random_uuid(),
@@ -56,7 +58,13 @@ create index quotes_custom_request_item_id_idx on quotes(custom_request_item_id)
 -- 4.5 Bucket limits (T7/T8) — 50MB, the Supabase Free per-file ceiling. MIME types are declared by
 -- the client, so magic bytes are still checked at submit (inspectUploadedObject). The client MUST
 -- send the contentType returned by /api/public/custom-requests/upload-urls.
-update storage.buckets
-  set file_size_limit = 52428800,
-      allowed_mime_types = array['model/stl','model/3mf','model/step','application/octet-stream','image/jpeg','image/png','image/webp']
-  where id = 'custom-request-attachments';
+do $$
+begin
+  update storage.buckets
+    set file_size_limit = 52428800,
+        allowed_mime_types = array['model/stl','model/3mf','model/step','application/octet-stream','image/jpeg','image/png','image/webp']
+    where id = 'custom-request-attachments';
+  if not found then
+    raise exception 'storage bucket custom-request-attachments not found — limits were not applied';
+  end if;
+end $$;

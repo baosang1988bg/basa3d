@@ -14,8 +14,8 @@ import { createSupabaseAdminClient } from '../lib/supabase/admin';
 import { CUSTOM_REQUEST_ATTACHMENT_BUCKET } from '../config/uploads';
 
 export const ORPHAN_MIN_AGE_HOURS = 24;
-/** Objects deleted per run; anything beyond waits for the next day's run. */
-export const ORPHAN_DELETE_LIMIT = 200;
+/** Objects deleted per run (10 remove calls of 100); anything beyond waits for the next run. */
+export const ORPHAN_DELETE_LIMIT = 1_000;
 const REMOVE_BATCH_SIZE = 100;
 
 export type OrphanCleanupDeps = {

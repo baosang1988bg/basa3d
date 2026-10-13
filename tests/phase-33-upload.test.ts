@@ -111,14 +111,18 @@ test('matchesMagicBytes: JPEG / PNG / WebP signatures', () => {
 // inspectUploadedObject
 // ---------------------------------------------------------------------------------------------
 
-function fakeStorage(objects: Record<string, Uint8Array | { size: number; head: Uint8Array }>): UploadedObjectStorage & { reads: number[] } {
+type FakeObject = Uint8Array | { size: number; head: Uint8Array; contentType?: string | null };
+
+function fakeStorage(objects: Record<string, FakeObject>): UploadedObjectStorage & { reads: number[] } {
   const reads: number[] = [];
   return {
     reads,
-    async size(path) {
+    async stat(path) {
       const object = objects[path];
       if (!object) return null;
-      return object instanceof Uint8Array ? object.length : object.size;
+      const ext = path.split('.').pop() as keyof typeof CONTENT_TYPE_BY_EXTENSION;
+      if (object instanceof Uint8Array) return { size: object.length, contentType: CONTENT_TYPE_BY_EXTENSION[ext] };
+      return { size: object.size, contentType: object.contentType === undefined ? CONTENT_TYPE_BY_EXTENSION[ext] : object.contentType };
     },
     async readHead(path, length) {
       reads.push(length);
@@ -155,6 +159,19 @@ test('inspectUploadedObject: missing object / wrong magic bytes / too large / em
 
   const empty = pathFor('png');
   await assert.rejects(inspectUploadedObject(empty, fakeStorage({ [empty]: new Uint8Array(0) })), rejectsWith('EMPTY_FILE'));
+
+  // Right bytes, but stored with a different Content-Type than the extension maps to.
+  const spoofed = pathFor('stl');
+  const stl = binaryStl(1);
+  await assert.rejects(
+    inspectUploadedObject(spoofed, fakeStorage({ [spoofed]: { size: stl.length, head: stl, contentType: 'image/jpeg' } })),
+    rejectsWith('ATTACHMENT_CONTENT_MISMATCH'),
+  );
+  const charset = pathFor('stl');
+  assert.deepEqual(
+    await inspectUploadedObject(charset, fakeStorage({ [charset]: { size: stl.length, head: stl, contentType: 'model/stl; charset=binary' } })),
+    { sizeBytes: stl.length },
+  );
 
   for (const bad of ['../secret.stl', 'requests/../x.stl', 'products/abc.stl', 'requests/abc.exe']) {
     await assert.rejects(inspectUploadedObject(bad, fakeStorage({})), rejectsWith('INVALID_ATTACHMENT_PATH'));

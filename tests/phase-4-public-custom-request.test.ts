@@ -15,7 +15,9 @@ function validPayload(overrides: Record<string, unknown> = {}) {
     customerPhone: `09${randomUUID().replace(/\D/g, '').slice(0, 8)}`,
     description: 'Cần in 1 mô hình test',
     quantity: 1,
-    attachmentPath: `requests/${randomUUID()}.stl`,
+    // Phase 33 S2: a path is only accepted when a real object stands behind it (inspectUploadedObject)
+    // — the stored-path flow is covered end to end in phase-33-upload-route.test.ts.
+    attachmentPath: null,
     // Phase 29: required on the public schema (z.literal(true)/non-empty string) — every payload
     // built here must include them or every test in this file 400s on VALIDATION_ERROR.
     copyrightConfirmed: true,
@@ -28,7 +30,7 @@ function validPayload(overrides: Record<string, unknown> = {}) {
   };
 }
 
-test('valid submission returns 201 and persists source_channel = WEBSITE and the private attachment_path', { skip: !process.env.DATABASE_URL }, async () => {
+test('valid submission returns 201 and persists source_channel = WEBSITE', { skip: !process.env.DATABASE_URL }, async () => {
   const payload = validPayload();
   const response = await fetch(`${BASE_URL}/api/public/custom-requests`, {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload),
@@ -42,7 +44,7 @@ test('valid submission returns 201 and persists source_channel = WEBSITE and the
   try {
     const row = await client.query('select source_channel, attachment_path from custom_requests where id = $1', [body.id]);
     assert.equal(row.rows[0].source_channel, 'WEBSITE');
-    assert.equal(row.rows[0].attachment_path, payload.attachmentPath);
+    assert.equal(row.rows[0].attachment_path, null);
 
     const auditRow = await client.query(`select actor_id, action from audit_logs where entity_id = $1 and entity_type = 'custom_request'`, [body.id]);
     assert.equal(auditRow.rows[0].actor_id, null);

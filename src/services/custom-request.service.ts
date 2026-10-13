@@ -110,9 +110,11 @@ export function matchesMagicBytes(extension: string, head: Uint8Array, sizeBytes
   }
 }
 
+export type StoredObjectStat = { size: number; contentType: string | null };
+
 export type UploadedObjectStorage = {
-  /** Real stored size in bytes, or null when the object does not exist. */
-  size: (path: string) => Promise<number | null>;
+  /** Real stored size + stored Content-Type, or null when the object does not exist. */
+  stat: (path: string) => Promise<StoredObjectStat | null>;
   /** The first `length` bytes of the object. */
   readHead: (path: string, length: number) => Promise<Uint8Array>;
 };
@@ -123,7 +125,7 @@ export type UploadedObjectStorage = {
 async function readObjectHead(path: string, length: number): Promise<Uint8Array> {
   const { data, error } = await createSupabaseAdminClient().storage.from(ATTACHMENT_BUCKET).createSignedUrl(path, 60);
   if (error || !data?.signedUrl) throw new DomainError('ATTACHMENT_NOT_FOUND', 'Không tìm thấy file đã tải lên — vui lòng tải lại.', 400);
-  const response = await fetch(data.signedUrl, { headers: { Range: `bytes=0-${length - 1}` }, cache: 'no-store' });
+  const response = await fetch(data.signedUrl, { headers: { Range: `bytes=0-${length - 1}` }, cache: 'no-store', signal: AbortSignal.timeout(10_000) });
   if (!response.ok || !response.body) throw new DomainError('ATTACHMENT_NOT_FOUND', 'Không tìm thấy file đã tải lên — vui lòng tải lại.', 400);
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -150,12 +152,12 @@ async function readObjectHead(path: string, length: number): Promise<Uint8Array>
 }
 
 const supabaseObjectStorage: UploadedObjectStorage = {
-  // storage-js 2.112.4 exposes `info(path)` (GET /object/info) returning `size`; `list()` would need
-  // a prefix scan. A missing object comes back as an error → null.
-  async size(path) {
+  // storage-js 2.112.4 exposes `info(path)` (GET /object/info) returning `size` and `contentType`;
+  // `list()` would need a prefix scan. A missing object comes back as an error → null.
+  async stat(path) {
     const { data, error } = await createSupabaseAdminClient().storage.from(ATTACHMENT_BUCKET).info(path);
-    if (error || !data) return null;
-    return typeof data.size === 'number' ? data.size : null;
+    if (error || !data || typeof data.size !== 'number') return null;
+    return { size: data.size, contentType: typeof data.contentType === 'string' ? data.contentType : null };
   },
   readHead: readObjectHead,
 };
@@ -168,11 +170,19 @@ const supabaseObjectStorage: UploadedObjectStorage = {
  */
 export async function inspectUploadedObject(path: string, storage: UploadedObjectStorage = supabaseObjectStorage): Promise<{ sizeBytes: number }> {
   if (!ATTACHMENT_PATH_RE.test(path)) throw new DomainError('INVALID_ATTACHMENT_PATH', 'Đường dẫn file không hợp lệ.', 400);
-  const sizeBytes = await storage.size(path);
-  if (sizeBytes === null) throw new DomainError('ATTACHMENT_NOT_FOUND', 'Không tìm thấy file đã tải lên — vui lòng tải lại.', 400);
+  const stat = await storage.stat(path);
+  if (stat === null) throw new DomainError('ATTACHMENT_NOT_FOUND', 'Không tìm thấy file đã tải lên — vui lòng tải lại.', 400);
+  const sizeBytes = stat.size;
   if (sizeBytes <= 0) throw new DomainError('EMPTY_FILE', 'File tải lên bị rỗng — vui lòng tải lại.', 400);
   if (sizeBytes > MAX_UPLOAD_BYTES) throw new DomainError('FILE_TOO_LARGE', 'File vượt quá dung lượng cho phép.', 400);
   const extension = path.split('.').pop() ?? '';
+  // The uploader picks the stored Content-Type (a signed upload token is not bound to one), so a
+  // `.stl` path could be stored as image/jpeg. Require exactly the type this extension maps to.
+  const expectedType = CONTENT_TYPE_BY_EXTENSION[extension as UploadExtension];
+  const storedType = stat.contentType?.split(';')[0].trim().toLowerCase() ?? null;
+  if (!expectedType || storedType !== expectedType) {
+    throw new DomainError('ATTACHMENT_CONTENT_MISMATCH', 'Nội dung file không đúng với định dạng của nó — vui lòng kiểm tra và tải lại.', 400);
+  }
   const head = await storage.readHead(path, Math.min(MAGIC_HEAD_BYTES, sizeBytes));
   if (!matchesMagicBytes(extension, head, sizeBytes)) {
     throw new DomainError('ATTACHMENT_CONTENT_MISMATCH', 'Nội dung file không đúng với định dạng của nó — vui lòng kiểm tra và tải lại.', 400);
@@ -183,7 +193,7 @@ export async function inspectUploadedObject(path: string, storage: UploadedObjec
 /** Real stored size (bytes) of an attachment, or null when it does not exist. */
 export async function getCustomRequestAttachmentSize(path: string): Promise<number | null> {
   if (!ATTACHMENT_PATH_RE.test(path)) throw new DomainError('INVALID_ATTACHMENT_PATH', 'Đường dẫn file không hợp lệ.', 400);
-  return supabaseObjectStorage.size(path);
+  return (await supabaseObjectStorage.stat(path))?.size ?? null;
 }
 
 /** ADR-0034: server-side read of a just-uploaded attachment so the storefront can price it before the
