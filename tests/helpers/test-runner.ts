@@ -4,6 +4,7 @@ import { configureTestEnvironment } from './test-environment';
 
 configureTestEnvironment();
 process.env.ORDER_CONFIRMATION_SECRET ??= 'hardening-followup-test-secret-at-least-32-characters';
+process.env.UPLOAD_CLAIM_SECRET ??= 'phase-34-upload-claim-test-secret-at-least-32-characters';
 // Phase 33: /bao-gia is off by default in Production (uncalibrated model) but always tested.
 process.env.NEXT_PUBLIC_BAO_GIA_ENABLED ??= 'true';
 // Isolated from the default `.next` a developer's `npm run dev` is using — `next dev` and

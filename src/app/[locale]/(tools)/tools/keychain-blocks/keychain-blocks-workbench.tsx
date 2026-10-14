@@ -97,8 +97,8 @@ export default function KeychainBlocksWorkbench() {
       // slicer color verification. The description retains every requested color.
       const geometry=mergeBlocksGeometry(parts);
       let blob: Blob; try {blob=exportKeychainStl(geometry);} finally {geometry.dispose();}
-      const fileName='moc-khoa-khoi.stl'; const { path } = await uploadCustomRequestFile(blob, fileName);
-      setPrefill({attachmentPath:path,attachmentFileName:fileName,requestedMaterial:'PLA',requestedColor:'Đa màu',description:`Móc khoá khối ${baseType==='modular'?'Modular':'Compact'}: ${blocks.map(b=>b.char).join(' ')}; font ${fontName}; switch ${switchType}; màu đế ${baseColor}; ${blocks.map((b,i)=>`khối ${i+1}: ${b.char}, nền ${b.blockColor}, chữ ${b.glyphColor}`).join('; ')}`});
+      const fileName='moc-khoa-khoi.stl'; const { path, uploadClaim } = await uploadCustomRequestFile(blob, fileName);
+      setPrefill({attachmentPath:path,uploadClaim,attachmentFileName:fileName,requestedMaterial:'PLA',requestedColor:'Đa màu',description:`Móc khoá khối ${baseType==='modular'?'Modular':'Compact'}: ${blocks.map(b=>b.char).join(' ')}; font ${fontName}; switch ${switchType}; màu đế ${baseColor}; ${blocks.map((b,i)=>`khối ${i+1}: ${b.char}, nền ${b.blockColor}, chữ ${b.glyphColor}`).join('; ')}`});
       trackKeychainBlocksExportToRequest({blockCount:blocks.length,format:'stl'});
     } catch(reason) {setError(reason instanceof Error?reason.message:'Không thể chuẩn bị yêu cầu.');}
     finally {parts.forEach(p=>p.geometry.dispose());setUploading(false);}

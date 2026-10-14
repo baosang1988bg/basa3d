@@ -81,9 +81,9 @@ export default function HingeBoxWorkbench() {
     try {
       const geometry = mergeHingeBoxGeometry(parts);
       let blob: Blob; try { blob = exportKeychainStl(geometry); } finally { geometry.dispose(); }
-      const fileName = 'hop-ban-le.stl'; const { path } = await uploadCustomRequestFile(blob, fileName);
+      const fileName = 'hop-ban-le.stl'; const { path, uploadClaim } = await uploadCustomRequestFile(blob, fileName);
       setPrefill({
-        attachmentPath: path,
+        attachmentPath: path, uploadClaim,
         attachmentFileName: fileName,
         requestedMaterial: 'PLA',
         requestedColor: color,

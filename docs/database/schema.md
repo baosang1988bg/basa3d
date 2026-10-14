@@ -19,6 +19,11 @@
 - audit_logs
 - staff_profiles
 
+Phase 34 adds nullable `orders.checkout_request_id uuid` and
+`orders.checkout_request_hash varchar(64)`. A partial unique index on non-null request IDs makes
+guest-checkout retries atomic while leaving staff-created orders unchanged. The pair check requires
+both values to be null or a UUID plus a 64-character lowercase SHA-256 hash.
+
 Phase 10 adds nullable `orders.analytics_purchase_sent_at timestamptz` as the server-side,
 cross-device idempotency marker for the single GA4 `purchase` event. It does not affect order
 financial state or fulfillment workflow.

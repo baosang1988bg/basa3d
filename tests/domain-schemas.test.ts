@@ -53,7 +53,7 @@ test('publicCustomRequestInputSchema rejects a client-supplied sourceChannel', (
 
 test('publicCustomRequestInputSchema accepts a server-issued attachment path and rejects URLs', () => {
   const base = { customerName: 'Test', customerPhone: '0900000000', description: 'Test request', quantity: 1, copyrightConfirmed: true as const, tosVersion: '2026-09-08' };
-  assert.equal(publicCustomRequestInputSchema.safeParse({ ...base, attachmentPath: 'requests/00000000-0000-4000-8000-000000000001.stl' }).success, true);
+  assert.equal(publicCustomRequestInputSchema.safeParse({ ...base, attachmentPath: 'requests/00000000-0000-4000-8000-000000000001.stl', uploadClaim: 'claim' }).success, true);
   assert.equal(publicCustomRequestInputSchema.safeParse({ ...base, attachmentPath: 'https://example.com/model.stl' }).success, false);
 });
 
@@ -62,7 +62,7 @@ test('publicCustomRequestInputSchema accepts a server-issued attachment path and
 // anonymous caller zero out the order total while stock is still deducted for real. This must stay
 // a strict allowlist, never checkoutOrderInputSchema + honeypot.
 test('publicCheckoutOrderInputSchema rejects client-supplied shippingFee/discount/codFee', () => {
-  const base = { customerName: 'Test', customerPhone: '0900000000', items: [{ variantId: id, quantity: 1 }] };
+  const base = { checkoutRequestId: id, customerName: 'Test', customerPhone: '0900000000', items: [{ variantId: id, quantity: 1 }] };
   assert.equal(publicCheckoutOrderInputSchema.safeParse(base).success, true);
   assert.equal(publicCheckoutOrderInputSchema.safeParse({ ...base, discount: 999_999 }).success, false);
   assert.equal(publicCheckoutOrderInputSchema.safeParse({ ...base, shippingFee: 1 }).success, false);

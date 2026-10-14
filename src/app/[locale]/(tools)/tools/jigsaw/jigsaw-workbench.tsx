@@ -104,9 +104,9 @@ export default function JigsawWorkbench() {
     try {
       const geometry = mergeJigsawGeometry(parts);
       let blob: Blob; try { blob = exportKeychainStl(geometry); } finally { geometry.dispose(); }
-      const requestFileName = 'manh-ghep.stl'; const { path } = await uploadCustomRequestFile(blob, requestFileName);
+      const requestFileName = 'manh-ghep.stl'; const { path, uploadClaim } = await uploadCustomRequestFile(blob, requestFileName);
       setPrefill({
-        attachmentPath: path,
+        attachmentPath: path, uploadClaim,
         attachmentFileName: requestFileName,
         requestedMaterial: 'PLA',
         requestedColor: color,

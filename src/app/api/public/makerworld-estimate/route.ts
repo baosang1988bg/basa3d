@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { apiError } from '@/lib/api';
 import { MakerWorldNotFoundError } from '@/lib/parsers/makerworld-resolver';
-import { estimateMakerWorldUrl, estimateMakerWorldWithSpec } from '@/services/makerworld-estimate.service';
+import { estimateMakerWorldUrl, estimateMakerWorldWithSpec, requiresAutoResolver } from '@/services/makerworld-estimate.service';
+import { createDatabaseRateLimiter, getClientIp } from '@/lib/rate-limit';
 
 // Phase B public estimate (makerworld-phase-b-storefront-estimate.md §3, ADR-0033).
 // - Input is ONLY the link: no grams/minutes/material from the browser (B1 — otherwise a scraper
@@ -18,10 +19,21 @@ const inputSchema = z.object({
   url: z.string().trim().min(5).max(2_000),
   specText: z.string().trim().min(3).max(2_000).optional(),
 }).strict();
+const isAutoRateLimited = createDatabaseRateLimiter({ scope: 'makerworld-estimate-auto', maxRequests: 5, windowMs: 10 * 60_000 });
+const isLocalRateLimited = createDatabaseRateLimiter({ scope: 'makerworld-estimate-local', maxRequests: 60, windowMs: 10 * 60_000 });
+const NO_STORE = { 'cache-control': 'no-store' };
 
 export async function POST(request: Request) {
   try {
     const input = inputSchema.parse(await request.json().catch(() => null));
+    const ip = getClientIp(request.headers);
+    if (await isLocalRateLimited(ip)) {
+      return NextResponse.json({ code: 'RATE_LIMITED', message: 'Quá nhiều yêu cầu, vui lòng thử lại sau.' }, { status: 429, headers: NO_STORE });
+    }
+    const usesAutoResolver = !input.specText && await requiresAutoResolver(input.url);
+    if (usesAutoResolver && await isAutoRateLimited(ip)) {
+      return NextResponse.json({ code: 'RATE_LIMITED', message: 'Quá nhiều yêu cầu, vui lòng thử lại sau.' }, { status: 429, headers: NO_STORE });
+    }
     const estimate = input.specText
       ? await estimateMakerWorldWithSpec(input.url, input.specText)
       : await estimateMakerWorldUrl(input.url);

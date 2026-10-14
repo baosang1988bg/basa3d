@@ -13,7 +13,7 @@ import { DEFAULT_INFILL_PCT, INFILL_OPTIONS, MIN_ITEM_PRICE_VND } from '@/lib/pr
 import type { MeshMetrics } from '@/lib/pricing/mesh-metrics';
 import { CURRENT_TOS_VERSION } from '@/lib/copyright/tos-version';
 import { trackContactClick, trackQuoteEstimateShown, trackQuoteFileAdded, trackQuoteSubmitted } from '@/lib/analytics';
-import { uploadCustomRequestFiles } from '@/lib/uploads/upload-custom-request-file';
+import { uploadCustomRequestFiles, type UploadedCustomRequestFile } from '@/lib/uploads/upload-custom-request-file';
 import type { MeshAnalyzeRequest, MeshAnalyzeResponse } from '@/workers/mesh-analyze.worker';
 import { EstimatePrintSheet, type PrintLine } from './estimate-print-sheet';
 
@@ -69,7 +69,7 @@ export function QuoteFlow({ materials }: { materials: string[] }) {
   const [copyrightConfirmed, setCopyrightConfirmed] = useState(false);
   const [copied, setCopied] = useState(false);
   const workerRef = useRef<Worker | null>(null);
-  const uploadedPaths = useRef(new Map<string, string>());
+  const uploadedPaths = useRef(new Map<string, UploadedCustomRequestFile>());
   const defaultMaterial = materials[0] ?? 'PLA';
 
   const worker = useCallback(() => {
@@ -191,7 +191,8 @@ export function QuoteFlow({ materials }: { materials: string[] }) {
           copyrightConfirmed: true,
           tosVersion: CURRENT_TOS_VERSION,
           items: ready.map((item) => ({
-            attachmentPath: uploadedPaths.current.get(item.id),
+            attachmentPath: uploadedPaths.current.get(item.id)?.path,
+            uploadClaim: uploadedPaths.current.get(item.id)?.uploadClaim,
             displayName: item.name,
             materialType: item.materialType,
             infillPct: item.infillPct,

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { StorefrontButton, storefrontButtonClasses } from '@/components/storefront/button';
 import { formatVnd } from '@/components/storefront/format';
@@ -19,8 +19,11 @@ export default function CheckoutPage() {
   const { items, subtotal, clearCart } = useCart();
   const [state, setState] = useState<SubmitState>({ status: 'idle' });
   const [hasMounted, setHasMounted] = useState(false);
+  const checkoutRequestId = useRef('');
+  const cartSignature = items.map((item) => `${item.variantId}:${item.quantity}`).sort().join('|');
 
   useEffect(() => setHasMounted(true), []);
+  useEffect(() => { checkoutRequestId.current = crypto.randomUUID(); }, [cartSignature]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -29,6 +32,7 @@ export default function CheckoutPage() {
     setState({ status: 'submitting' });
 
     const payload = {
+      checkoutRequestId: checkoutRequestId.current || crypto.randomUUID(),
       customerName: String(form.get('customerName') ?? ''),
       customerPhone: String(form.get('customerPhone') ?? ''),
       customerEmail: form.get('customerEmail') ? String(form.get('customerEmail')) : null,

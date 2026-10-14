@@ -7,6 +7,7 @@ import test, { after } from 'node:test';
 import { Client } from 'pg';
 import { createClient } from '@supabase/supabase-js';
 import { configureTestEnvironment } from './helpers/test-environment';
+import { createUploadClaim } from '../src/lib/upload-claim.js';
 
 configureTestEnvironment();
 
@@ -35,16 +36,16 @@ async function requestUploads(files: Array<{ ext: string; sizeBytes: number }>, 
 }
 
 /** Same calls the browser makes (src/lib/uploads/upload-custom-request-file.ts). */
-async function uploadViaSignedUrl(bytes: Uint8Array<ArrayBuffer>, ext: string): Promise<string> {
+async function uploadViaSignedUrl(bytes: Uint8Array<ArrayBuffer>, ext: string): Promise<{ path: string; uploadClaim: string }> {
   const response = await requestUploads([{ ext, sizeBytes: bytes.length }]);
   assert.equal(response.status, 201);
-  const { uploads } = await response.json() as { uploads: Array<{ path: string; token: string; contentType: string }> };
+  const { uploads } = await response.json() as { uploads: Array<{ path: string; token: string; contentType: string; uploadClaim: string }> };
   const [target] = uploads;
   const anon = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } });
   const { error } = await anon.storage.from(BUCKET).uploadToSignedUrl(target.path, target.token, new Blob([bytes], { type: target.contentType }), { contentType: target.contentType });
   assert.equal(error, null, error?.message);
   uploadedPaths.push(target.path);
-  return target.path;
+  return { path: target.path, uploadClaim: target.uploadClaim };
 }
 
 function binaryStl(triangles: number): Uint8Array<ArrayBuffer> {
@@ -53,13 +54,13 @@ function binaryStl(triangles: number): Uint8Array<ArrayBuffer> {
   return out;
 }
 
-async function submit(attachmentPath: string | null) {
+async function submit(upload: { path: string; uploadClaim: string } | null) {
   return fetch(`${BASE_URL}/api/public/custom-requests`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       customerName: 'Attachment Flow Test', customerPhone: `05${randomUUID().replace(/\D/g, '').slice(0, 8)}`,
-      description: 'phase 33 upload flow', quantity: 1, attachmentPath,
+      description: 'phase 33 upload flow', quantity: 1, attachmentPath: upload?.path ?? null, uploadClaim: upload?.uploadClaim ?? null,
     }),
   });
 }
@@ -85,29 +86,37 @@ test('upload-urls rejects 11 files, a bad extension and an oversize declaration 
 test('a real upload > 4.5MB goes straight to Storage and the submitted request keeps its private path', { skip: !canRunLiveServer }, async () => {
   const stl = binaryStl(100_000); // ~5MB — would be a 413 through a Vercel function
   assert.ok(stl.length > 4.5 * 1024 * 1024);
-  const path = await uploadViaSignedUrl(stl, 'stl');
-  const response = await submit(path);
+  const upload = await uploadViaSignedUrl(stl, 'stl');
+  const response = await submit(upload);
   assert.equal(response.status, 201);
   const { id } = await response.json();
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
     const row = await client.query('select attachment_path from custom_requests where id = $1', [id]);
-    assert.equal(row.rows[0].attachment_path, path);
+    assert.equal(row.rows[0].attachment_path, upload.path);
   } finally {
     await client.end();
   }
 });
 
 test('POST /api/public/custom-requests: a path with no object behind it → 400', { skip: !canRunLiveServer }, async () => {
-  const response = await submit(`requests/${randomUUID()}.stl`);
+  const path = `requests/${randomUUID()}.stl`;
+  const response = await submit({ path, uploadClaim: createUploadClaim(path) });
   assert.equal(response.status, 400);
   assert.equal((await response.json()).code, 'ATTACHMENT_NOT_FOUND');
 });
 
+test('POST /api/public/custom-requests rejects a tampered upload claim before Storage lookup', { skip: !canRunLiveServer }, async () => {
+  const path = `requests/${randomUUID()}.stl`;
+  const response = await submit({ path, uploadClaim: `${createUploadClaim(path)}tampered` });
+  assert.equal(response.status, 403);
+  assert.equal((await response.json()).code, 'INVALID_UPLOAD_CLAIM');
+});
+
 test('POST /api/public/custom-requests: content that does not match the extension → 400', { skip: !canRunLiveServer }, async () => {
-  const path = await uploadViaSignedUrl(new TextEncoder().encode('<html><script>alert(1)</script></html>'), '3mf');
-  const response = await submit(path);
+  const upload = await uploadViaSignedUrl(new TextEncoder().encode('<html><script>alert(1)</script></html>'), '3mf');
+  const response = await submit(upload);
   assert.equal(response.status, 400);
   assert.equal((await response.json()).code, 'ATTACHMENT_CONTENT_MISMATCH');
 });
@@ -138,13 +147,13 @@ test('/bao-gia branch: two uploaded STL items → one request with 2 VERIFIED it
   const t = [[0, 2, 1], [0, 3, 2], [4, 5, 6], [4, 6, 7], [0, 1, 5], [0, 5, 4], [3, 6, 2], [3, 7, 6], [0, 4, 7], [0, 7, 3], [1, 2, 6], [1, 6, 5]];
   t.forEach((tri, i) => tri.forEach((vi, k) => v[vi].forEach((c, j) => view.setFloat32(84 + i * 50 + 12 + k * 12 + j * 4, c, true))));
   const clientMetrics = { volumeMm3: 8_000, surfaceMm2: 2_400, sizeMm: { x: 20, y: 20, z: 20 }, triangles: 12 };
-  const paths = [await uploadViaSignedUrl(stl, 'stl'), await uploadViaSignedUrl(stl, 'stl')];
+  const uploads = [await uploadViaSignedUrl(stl, 'stl'), await uploadViaSignedUrl(stl, 'stl')];
   const response = await fetch(`${BASE_URL}/api/public/custom-requests`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       customerName: 'Bao Gia Route Test', customerPhone: `06${randomUUID().replace(/\D/g, '').slice(0, 8)}`,
       copyrightConfirmed: true, tosVersion: 'v1',
-      items: paths.map((attachmentPath, index) => ({ attachmentPath, displayName: `cube-${index}.stl`, materialType: 'PLA', infillPct: 15, scalePermille: 1000, quantity: 1, clientMetrics })),
+      items: uploads.map(({ path: attachmentPath, uploadClaim }, index) => ({ attachmentPath, uploadClaim, displayName: `cube-${index}.stl`, materialType: 'PLA', infillPct: 15, scalePermille: 1000, quantity: 1, clientMetrics })),
     }),
   });
   assert.equal(response.status, 201);

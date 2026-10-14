@@ -10,6 +10,7 @@ configureTestEnvironment();
 const PORT = 3411;
 const BASE_URL = `http://localhost:${PORT}`;
 const WAREHOUSE_ID = '00000000-0000-4000-8000-000000000010'; // seeded warehouse, used by other test files too
+const requestHeaders = () => ({ 'content-type': 'application/json', 'x-forwarded-for': `phase5-${randomUUID()}` });
 
 // Creates a fresh product + variant + a fixed on-hand stock, isolated per-test by random slug/sku,
 // mirroring the pattern already used in tests/phase-2-services.test.ts.
@@ -27,6 +28,7 @@ async function seedVariant(client: Client, opts: { price: number; stock: number 
 
 function validPayload(variantId: string, overrides: Record<string, unknown> = {}) {
   return {
+    checkoutRequestId: randomUUID(),
     customerName: 'Test Customer',
     customerPhone: `09${randomUUID().replace(/\D/g, '').slice(0, 8)}`,
     shippingAddress: { line1: '123 Test St', ward: 'Test Ward', city: 'Test City' },
@@ -42,7 +44,7 @@ test('valid submission returns 201, recomputes price from the DB, and audit-logs
   try {
     const { variantId } = await seedVariant(client, { price: 50_000, stock: 5 });
     const response = await fetch(`${BASE_URL}/api/public/orders`, {
-      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(validPayload(variantId)),
+      method: 'POST', headers: requestHeaders(), body: JSON.stringify(validPayload(variantId)),
     });
     assert.equal(response.status, 201);
     const body = await response.json();
@@ -70,7 +72,7 @@ test('a client-sent discount/shippingFee/codFee is rejected, never silently zero
   try {
     const { variantId } = await seedVariant(client, { price: 50_000, stock: 5 });
     const response = await fetch(`${BASE_URL}/api/public/orders`, {
-      method: 'POST', headers: { 'content-type': 'application/json' },
+      method: 'POST', headers: requestHeaders(),
       body: JSON.stringify(validPayload(variantId, { discount: 49_999 })),
     });
     assert.equal(response.status, 400);
@@ -88,7 +90,7 @@ test('a filled honeypot returns a 201-shaped response but inserts no order', { s
     const { variantId } = await seedVariant(client, { price: 50_000, stock: 5 });
     const phone = `08${randomUUID().replace(/\D/g, '').slice(0, 8)}`;
     const response = await fetch(`${BASE_URL}/api/public/orders`, {
-      method: 'POST', headers: { 'content-type': 'application/json' },
+      method: 'POST', headers: requestHeaders(),
       body: JSON.stringify(validPayload(variantId, { customerPhone: phone, honeypot: 'i-am-a-bot' })),
     });
     assert.equal(response.status, 201);
@@ -110,12 +112,12 @@ test('submitting more than the rate limit for one phone number is rejected witho
     const phone = `07${randomUUID().replace(/\D/g, '').slice(0, 8)}`;
     for (let i = 0; i < 5; i += 1) {
       const response = await fetch(`${BASE_URL}/api/public/orders`, {
-        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(validPayload(variantId, { customerPhone: phone })),
+        method: 'POST', headers: requestHeaders(), body: JSON.stringify(validPayload(variantId, { customerPhone: phone })),
       });
       assert.equal(response.status, 201);
     }
     const sixth = await fetch(`${BASE_URL}/api/public/orders`, {
-      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(validPayload(variantId, { customerPhone: phone })),
+      method: 'POST', headers: requestHeaders(), body: JSON.stringify(validPayload(variantId, { customerPhone: phone })),
     });
     assert.equal(sixth.status, 429);
     const body = await sixth.json();
@@ -135,8 +137,8 @@ test('two concurrent public checkouts for the last unit of stock: exactly one su
     const { variantId } = await seedVariant(client, { price: 10_000, stock: 1 });
     const payload = validPayload(variantId);
     const responses = await Promise.all([
-      fetch(`${BASE_URL}/api/public/orders`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) }),
-      fetch(`${BASE_URL}/api/public/orders`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...payload, customerPhone: `06${randomUUID().replace(/\D/g, '').slice(0, 8)}` }) }),
+      fetch(`${BASE_URL}/api/public/orders`, { method: 'POST', headers: requestHeaders(), body: JSON.stringify(payload) }),
+      fetch(`${BASE_URL}/api/public/orders`, { method: 'POST', headers: requestHeaders(), body: JSON.stringify({ ...payload, checkoutRequestId: randomUUID(), customerPhone: `06${randomUUID().replace(/\D/g, '').slice(0, 8)}` }) }),
     ]);
     const statuses = responses.map((response) => response.status).sort();
     assert.deepEqual(statuses, [201, 409]);
@@ -154,7 +156,7 @@ test('GET /api/public/orders/[orderNumber] returns minimal fields for a real ord
   try {
     const { variantId } = await seedVariant(client, { price: 25_000, stock: 5 });
     const created = await fetch(`${BASE_URL}/api/public/orders`, {
-      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(validPayload(variantId)),
+      method: 'POST', headers: requestHeaders(), body: JSON.stringify(validPayload(variantId)),
     });
     const createdBody = await created.json();
     const orderNumber = createdBody.orderNumber;

@@ -86,9 +86,9 @@ export default function LampShadeWorkbench() {
     const parts = getLampShadeExportParts(group);
     try {
       const blob = exportKeychainStl(parts[0].geometry);
-      const fileName = 'chup-den.stl'; const { path } = await uploadCustomRequestFile(blob, fileName);
+      const fileName = 'chup-den.stl'; const { path, uploadClaim } = await uploadCustomRequestFile(blob, fileName);
       setPrefill({
-        attachmentPath: path,
+        attachmentPath: path, uploadClaim,
         attachmentFileName: fileName,
         requestedMaterial: 'PLA',
         requestedColor: color,

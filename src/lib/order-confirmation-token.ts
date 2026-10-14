@@ -3,11 +3,16 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 const DEFAULT_TTL_SECONDS = 45 * 60;
 const EXPIRY_BUFFER_SECONDS = 5;
 
-function tokenSecret(): string {
+export function assertOrderConfirmationConfigured(): void {
   const secret = process.env.ORDER_CONFIRMATION_SECRET;
   if (!secret || secret.length < 32) {
     throw new Error('ORDER_CONFIRMATION_SECRET must be configured with at least 32 characters.');
   }
+}
+
+function tokenSecret(): string {
+  assertOrderConfirmationConfigured();
+  const secret = process.env.ORDER_CONFIRMATION_SECRET!;
   return secret;
 }
 

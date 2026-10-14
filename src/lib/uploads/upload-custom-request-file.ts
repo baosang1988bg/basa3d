@@ -9,7 +9,8 @@ import {
 
 export class UploadError extends Error {}
 
-type UploadTarget = { path: string; token: string; contentType: string };
+type UploadTarget = { path: string; token: string; contentType: string; uploadClaim: string };
+export type UploadedCustomRequestFile = { path: string; uploadClaim: string };
 export type UploadSource = { file: Blob; fileName: string };
 
 function extensionOf(fileName: string): string {
@@ -59,26 +60,26 @@ async function putToTarget(source: UploadSource, target: UploadTarget): Promise<
  *   2. storage.uploadToSignedUrl(path, token, file, { contentType })
  * Returns the private storage path the existing flows already expect.
  */
-export async function uploadCustomRequestFile(file: Blob, fileName: string): Promise<{ path: string }> {
-  const [path] = await uploadCustomRequestFiles([{ file, fileName }]);
-  return { path };
+export async function uploadCustomRequestFile(file: Blob, fileName: string): Promise<UploadedCustomRequestFile> {
+  const [uploaded] = await uploadCustomRequestFiles([{ file, fileName }]);
+  return uploaded;
 }
 
 /** Phase 33 S6: several files — one token request per batch of MAX_UPLOAD_FILES_PER_REQUEST (the
  * route caps a call at 10 files and 20 calls/hour/IP), sequential uploads with a progress callback.
  * 50 files = 5 token calls. */
-export async function uploadCustomRequestFiles(sources: UploadSource[], onProgress?: (done: number, total: number) => void): Promise<string[]> {
+export async function uploadCustomRequestFiles(sources: UploadSource[], onProgress?: (done: number, total: number) => void): Promise<UploadedCustomRequestFile[]> {
   if (!sources.length) return [];
   sources.forEach(validate); // fail before uploading anything
-  const paths: string[] = [];
+  const uploaded: UploadedCustomRequestFile[] = [];
   for (let start = 0; start < sources.length; start += MAX_UPLOAD_FILES_PER_REQUEST) {
     const batch = sources.slice(start, start + MAX_UPLOAD_FILES_PER_REQUEST);
     const targets = await requestTargets(batch);
     for (const [index, source] of batch.entries()) {
       await putToTarget(source, targets[index]);
-      paths.push(targets[index].path);
-      onProgress?.(paths.length, sources.length);
+      uploaded.push({ path: targets[index].path, uploadClaim: targets[index].uploadClaim });
+      onProgress?.(uploaded.length, sources.length);
     }
   }
-  return paths;
+  return uploaded;
 }

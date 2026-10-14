@@ -60,7 +60,7 @@ function fakeFiles(objects: Record<string, Uint8Array>): ItemFileAccess & { down
 
 const pathFor = () => `requests/${randomUUID()}.stl`;
 const itemFor = (attachmentPath: string, overrides: Partial<BaoGiaItemInput> = {}): BaoGiaItemInput => ({
-  attachmentPath, displayName: 'cube.stl', materialType: 'PLA', infillPct: 15, scalePermille: 1000, quantity: 2, clientMetrics: metrics40, ...overrides,
+  attachmentPath, uploadClaim: 'test-claim', displayName: 'cube.stl', materialType: 'PLA', infillPct: 15, scalePermille: 1000, quantity: 2, clientMetrics: metrics40, ...overrides,
 });
 
 // ---------------------------------------------------------------------------------------------

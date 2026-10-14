@@ -68,6 +68,14 @@ export function isPublicResolverEnabled(env: Record<string, string | undefined> 
   return env.MAKERWORLD_PUBLIC_RESOLVER_ENABLED === 'true';
 }
 
+/** Cheap preflight used only to select the public abuse budget before any outbound resolver call. */
+export async function requiresAutoResolver(rawUrl: string): Promise<boolean> {
+  if (!isPublicResolverEnabled()) return false;
+  const { modelId } = parseMakerWorldUrl(rawUrl);
+  const verified = await lookupVerifiedPrices(modelId);
+  return verified.profiles.length === 0 && !verified.noPricingConfig;
+}
+
 export function roundAutoEstimate(value: number): number {
   return Math.round(value / AUTO_ESTIMATE_ROUNDING_VND) * AUTO_ESTIMATE_ROUNDING_VND;
 }

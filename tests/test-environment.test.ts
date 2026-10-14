@@ -4,7 +4,8 @@ import { isolatedTestEnvironment } from './helpers/test-environment';
 
 test('unit-only execution masks app database, auth, email and analytics credentials', () => {
   const result = isolatedTestEnvironment({ DATABASE_URL: 'postgres://owner:secret@db.example.com/app', NEXT_PUBLIC_SUPABASE_URL: 'https://app.example.com', SUPABASE_SERVICE_ROLE_KEY: 'app-key', RESEND_API_KEY: 'mail-key' });
-  assert.ok(Object.values(result).every((value) => value === ''));
+  const sensitiveKeys = ['DATABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'RESEND_API_KEY', 'RESEND_FROM_EMAIL', 'NEXT_PUBLIC_GA_ID'] as const;
+  assert.ok(sensitiveKeys.every((key) => result[key] === ''));
 });
 
 test('remote test databases and Supabase services are refused', () => {

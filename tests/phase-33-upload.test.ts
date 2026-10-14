@@ -18,6 +18,7 @@ import { cleanupOrphanUploads } from '../src/services/orphan-upload-cleanup.serv
 import { GET as cronGet } from '../src/app/api/cron/cleanup-orphan-uploads/route.js';
 
 configureTestEnvironment();
+process.env.UPLOAD_CLAIM_SECRET ??= 'phase-34-upload-claim-test-secret-at-least-32-characters';
 
 const bytes = (...values: number[]) => new Uint8Array(values);
 const text = (value: string) => new TextEncoder().encode(value);
@@ -62,6 +63,7 @@ test('createCustomRequestUploadTargets: server-generated random paths + contentT
     assert.match(target.path, new RegExp(`^requests/[0-9a-f-]{36}\\.${ext}$`));
     assert.equal(target.contentType, CONTENT_TYPE_BY_EXTENSION[ext]);
     assert.equal(target.token, `token-for-${target.path}`);
+    assert.equal(typeof target.uploadClaim, 'string');
   }
   assert.equal(new Set(signed).size, signed.length, 'every path is unique');
   const stl = targets[UPLOAD_EXTENSIONS.indexOf('stl')];

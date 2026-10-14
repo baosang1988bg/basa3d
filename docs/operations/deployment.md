@@ -9,6 +9,23 @@ MVP target:
 
 Do not make production depend on a developer laptop.
 
+## Phase 34 security environment and headers
+
+- Set a unique `UPLOAD_CLAIM_SECRET` of at least 32 random characters in Development, Preview,
+  and Production. Do not reuse `ORDER_CONFIRMATION_SECRET`; changing either secret invalidates its
+  outstanding bearer links/claims.
+- Verify `ORDER_CONFIRMATION_SECRET` and `CRON_SECRET` are present before smoke testing checkout
+  and orphan cleanup. The application fails closed when these are missing.
+- The app emits baseline security headers and a `Content-Security-Policy-Report-Only` policy.
+  Review browser/Vercel CSP reports for storefront, admin, Supabase images/Auth, VietQR, MakerWorld
+  images, and GA4 before changing it to enforcing mode.
+- Enable HSTS only after the canonical custom domain serves valid HTTPS. Verify it on that apex
+  domain at the Vercel/domain layer; do not apply it globally to localhost or Preview deployments.
+- Keep the Vercel MakerWorld firewall rule as edge defense in depth. Application limits remain
+  mandatory and use separate budgets for local/verified work and the outbound AUTO resolver.
+- The existing daily authenticated cleanup cron also removes expired `rate_limit_attempts`; do not
+  disable it, because customer request paths intentionally never run global stale-row deletion.
+
 ## Cloudflare/domain checklist for OWNER
 
 Decision (2026-09-17, see `docs/exec-plans/active/go-live-deployment-plan.md`): Cloudflare stays

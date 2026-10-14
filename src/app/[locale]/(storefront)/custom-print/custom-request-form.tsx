@@ -40,6 +40,7 @@ const STATUS_TEXT: Record<Exclude<PublicFileEstimate['status'], 'OK'>, string> =
 
 export type CustomRequestPrefill = {
   attachmentPath: string;
+  uploadClaim: string;
   attachmentFileName: string;
   requestedMaterial: string;
   requestedColor: string;
@@ -56,6 +57,7 @@ const inputClass = 'h-10 rounded-lg border border-input bg-background px-3 text-
 export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill }) {
   const [state, setState] = useState<SubmitState>({ status: 'idle' });
   const [attachmentPath, setAttachmentPath] = useState(prefill?.attachmentPath ?? '');
+  const [uploadClaim, setUploadClaim] = useState(prefill?.uploadClaim ?? '');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [upload, setUpload] = useState<UploadState>(prefill
     ? { status: 'done', fileName: prefill.attachmentFileName }
@@ -89,7 +91,7 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
         const response = await fetch('/api/public/file-estimate', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ attachmentPath, materialType: material || null }),
+          body: JSON.stringify({ attachmentPath, uploadClaim, materialType: material || null }),
           signal: controller.signal,
         });
         const data = await response.json().catch(() => null);
@@ -108,7 +110,7 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
       }
     })();
     return () => controller.abort();
-  }, [attachmentPath, material, canPrice]);
+  }, [attachmentPath, uploadClaim, material, canPrice]);
 
   async function handleFile(file: File) {
     const fileExtension = file.name.toLowerCase().split('.').pop() ?? '';
@@ -124,11 +126,13 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
     setUpload({ status: 'uploading', fileName: file.name });
     setImagePreview(file.type.startsWith('image/') ? URL.createObjectURL(file) : null);
     setAttachmentPath('');
+    setUploadClaim('');
 
     try {
       // Phase 33 S2: signed URL → straight to Storage (files over Vercel's 4.5MB limit work).
-      const { path } = await uploadCustomRequestFile(file, file.name);
+      const { path, uploadClaim: claim } = await uploadCustomRequestFile(file, file.name);
       setAttachmentPath(path);
+      setUploadClaim(claim);
       setUpload({ status: 'done', fileName: file.name });
       trackFileUpload({ name: file.name, extension: fileExtension, sizeMb: Number((file.size / (1024 * 1024)).toFixed(2)) });
     } catch (error) {
@@ -166,6 +170,7 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
     inflight.current?.abort();
     setImagePreview(null);
     setAttachmentPath('');
+    setUploadClaim('');
     setUpload({ status: 'idle' });
     setEstimate({ status: 'idle' });
     setSelectedOption(null);
@@ -195,6 +200,7 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
       requestedColor: form.get('requestedColor') ? String(form.get('requestedColor')) : null,
       quantity: Math.max(1, quantity),
       attachmentPath: attachmentPath.trim() !== '' ? attachmentPath.trim() : null,
+      uploadClaim: uploadClaim.trim() !== '' ? uploadClaim.trim() : null,
       description,
       honeypot: String(form.get('company-website') ?? ''),
       copyrightConfirmed: true as const,

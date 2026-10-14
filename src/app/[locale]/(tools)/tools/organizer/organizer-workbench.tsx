@@ -75,8 +75,8 @@ export default function OrganizerWorkbench() {
     if (!model) return;
     setUploading(true); setError('');
     try {
-      const { path } = await uploadCustomRequestFile(exportOrganizerStl(model.mergedGeometry), 'khay-chia-ngan.stl');
-      setPrefill({ attachmentPath: path, attachmentFileName: 'khay-chia-ngan.stl', requestedMaterial: 'PLA', requestedColor: '',
+      const { path, uploadClaim } = await uploadCustomRequestFile(exportOrganizerStl(model.mergedGeometry), 'khay-chia-ngan.stl');
+      setPrefill({ attachmentPath: path, uploadClaim, attachmentFileName: 'khay-chia-ngan.stl', requestedMaterial: 'PLA', requestedColor: '',
         description: `Khay chia ngăn: ${model.rows}x${model.cols}, ${options.widthMm}x${options.depthMm}x${options.heightMm}mm` });
       trackOrganizerExportToRequest(model);
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Không thể chuẩn bị yêu cầu.'); }

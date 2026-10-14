@@ -538,3 +538,29 @@ Status: accepted (2026-10-13, implemented in Phase 28 follow-up)
 - **Zero-lag navigation feedback without route abortion (`src/components/admin/admin-nav.tsx`)**: Menu items use Next.js native `<Link>` with a local `navigatingHref` click state. On click, the clicked nav item immediately renders an active border and `<Loader2>` spinner (0ms visual confirmation), while `<Link>` performs standard App Router soft navigation. State resets when `pathname` updates. No double `router.push()` or `useTransition()` conflicts.
 - **Query consolidation (`src/services/dashboard.service.ts`)**: Subquery batching combines independent count metrics into single SQL statements (`getOperationalMetrics` combines 4 counts; `getFinancialMetrics` combines 2 revenue sums), cutting multiple remote network round-trips to Tokyo.
 - **Site contact configuration (`src/config/site.ts`)**: Updated official email to `basa3d.vn@gmail.com` and shop location to `Hồ Chí Minh, Việt Nam`.
+
+## ADR-0037 — UI/UX design system standard and automated Playwright probe (evondevKit)
+
+Status: accepted (Owner, 2026-10-14)
+
+- **Context**: BaSa3D contains complex operational screens (admin production tracking, inventory movements, machine status), customer intake flows (instant quotes on `/bao-gia`, multi-step upload of STL/3MF files), and storefront product displays. Without a strict UI design system and verification protocol, AI code generation risks producing inconsistent components, missing boundary states (loading skeletons, empty states, error fallbacks), or breaking mobile viewports.
+- **Decision**: Adopt the open-source `evondevKit` (by Tran Anh Tuan / evondev) as a canonical agent skill in `.agents/skills/ui-ux/` (thin mirror at `.claude/skills/ui-ux/`):
+  1. **Stack adherence**: Skill audits existing components first (`src/components/ui/` with shadcn/ui) and forbids reinventing buttons/inputs or adding competing UI libraries.
+  2. **Comprehensive state handling**: All screens must account for initial empty states, loading skeletons, validation errors, and disabled triggers.
+  3. **Automated visual inspection (`probe.mjs`)**: Leverages project-level Playwright to audit routes across viewports (375px to 1920px), catching horizontal overflows, tap targets < 32px, keyboard navigation traps, and contrast issues.
+  4. **Non-disruptive integration**: Kept as an engineering guideline and automated verification tool; does not introduce extra runtime npm dependencies to the production app.
+## ADR-0038 — Pre-launch public-boundary hardening
+
+Status: accepted (Phase 34, Gemini challenge reconciled 2026-10-14)
+
+- Public checkout idempotency is stored atomically on `orders` with a unique nullable
+  `checkout_request_id` and canonical SHA-256 request hash. Same-key/same-payload retries replay
+  the committed order without another notification; changed payloads return 409.
+- Private direct uploads carry a stateless, expiring, path-bound HMAC capability signed with a
+  dedicated `UPLOAD_CLAIM_SECRET`. A random Storage path alone never authorizes a public
+  service-role read.
+- Public abuse limits remain in application code even when Vercel Firewall is configured. The
+  shared PostgreSQL limiter is one atomic UPSERT; stale-row deletion never runs synchronously on
+  the request path.
+- Baseline browser headers are enforced by the app. CSP begins in Report-Only mode with a static
+  hash for the fixed theme bootstrap; HSTS remains a production-domain deployment control.

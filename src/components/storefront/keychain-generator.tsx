@@ -109,8 +109,8 @@ export function KeychainGenerator() {
   async function exportToRequest() {
     setIsUploading(true); setError(null);
     try {
-      const fileName = safeFileName(text); const { path } = await uploadCustomRequestFile(makeStl(), fileName);
-      setPrefill({ attachmentPath: path, attachmentFileName: fileName, requestedMaterial: 'PLA', requestedColor: colorDescription(baseColor, textColor), description: `Móc khoá khắc tên: ${text.trim()} (${model?.widthMm.toFixed(1)} × ${model?.heightMm.toFixed(1)} × ${(baseThicknessMm + textThicknessMm).toFixed(1)} mm)` });
+      const fileName = safeFileName(text); const { path, uploadClaim } = await uploadCustomRequestFile(makeStl(), fileName);
+      setPrefill({ attachmentPath: path, uploadClaim, attachmentFileName: fileName, requestedMaterial: 'PLA', requestedColor: colorDescription(baseColor, textColor), description: `Móc khoá khắc tên: ${text.trim()} (${model?.widthMm.toFixed(1)} × ${model?.heightMm.toFixed(1)} × ${(baseThicknessMm + textThicknessMm).toFixed(1)} mm)` });
       trackKeychainExportToRequest({ characterCount: text.trim().length, hasKeyringHole: includeKeyringHole });
       window.setTimeout(() => document.querySelector('#keychain-request-form')?.scrollIntoView({ behavior: 'smooth' }), 0);
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Không thể chuẩn bị yêu cầu.'); }

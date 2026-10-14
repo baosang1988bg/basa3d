@@ -11,12 +11,23 @@ import { referencePriceFor } from '../../../../services/makerworld-estimate.serv
 import { parseMakerWorldUrl } from '../../../../lib/parsers/makerworld-resolver';
 import { estimateAttachment } from '../../../../services/file-estimate.service';
 import type { CustomRequestQuoteEstimateSnapshot } from '../../../../services/custom-request.service';
+import { createDatabaseRateLimiter, getClientIp } from '../../../../lib/rate-limit';
+import { verifyUploadClaim } from '../../../../lib/upload-claim';
+import { DomainError } from '../../../../lib/domain-error';
 
 // MVP spam defense (phase-4.md Risks section) — honeypot + phone-based rate limiting only.
 // No CAPTCHA in Phase 4; revisit with Cloudflare Turnstile (or similar) if spam becomes a real
 // problem post-launch, per phase-4.md Non-goals.
 const RATE_LIMIT_MAX_SUBMISSIONS = 3;
 const RATE_LIMIT_WINDOW_MINUTES = 10;
+const isIpRateLimited = createDatabaseRateLimiter({ scope: 'public-custom-request-create', maxRequests: 15, windowMs: 15 * 60_000 });
+const NO_STORE = { 'cache-control': 'no-store' };
+
+function requireUploadClaim(path: string, claim: string): void {
+  if (!verifyUploadClaim(path, claim)) {
+    throw new DomainError('INVALID_UPLOAD_CLAIM', 'Liên kết tải lên không hợp lệ hoặc đã hết hạn, vui lòng tải lại file.', 403);
+  }
+}
 
 function honeypotResponse() {
   // Bot filled the hidden field. Return a real-looking 201 without inserting anything or
@@ -39,8 +50,8 @@ const RATE_LIMITED_BODY = { code: 'RATE_LIMITED', message: 'Bạn đã gửi yê
 async function postBaoGiaRequest(body: unknown) {
   if (!isBaoGiaEnabled()) return NextResponse.json({ code: 'NOT_FOUND' }, { status: 404 });
   const input = publicBaoGiaRequestSchema.parse(body);
-  if (input.honeypot) return honeypotResponse();
-  if (await isPhoneRateLimited(input.customerPhone)) return NextResponse.json(RATE_LIMITED_BODY, { status: 429 });
+  if (await isPhoneRateLimited(input.customerPhone)) return NextResponse.json(RATE_LIMITED_BODY, { status: 429, headers: NO_STORE });
+  for (const item of input.items) requireUploadClaim(item.attachmentPath, item.uploadClaim);
   const items = await prepareCustomRequestItems(input.items, await loadPricingContext());
   const materials = [...new Set(items.map((item) => item.materialType))].join(', ');
   const created = await createCustomRequest({
@@ -64,18 +75,22 @@ async function postBaoGiaRequest(body: unknown) {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body: unknown = await request.json().catch(() => null);
+    if (body && typeof body === 'object' && 'honeypot' in body && typeof body.honeypot === 'string' && body.honeypot.trim()) return honeypotResponse();
+    if (await isIpRateLimited(getClientIp(request.headers))) return NextResponse.json(RATE_LIMITED_BODY, { status: 429, headers: NO_STORE });
     // The two shapes are mutually exclusive strict schemas; `items` selects the /bao-gia branch.
     if (body && typeof body === 'object' && 'items' in body) return await postBaoGiaRequest(body);
     const input = publicCustomRequestInputSchema.parse(body);
 
-    if (input.honeypot) return honeypotResponse();
-    if (await isPhoneRateLimited(input.customerPhone)) return NextResponse.json(RATE_LIMITED_BODY, { status: 429 });
+    if (await isPhoneRateLimited(input.customerPhone)) return NextResponse.json(RATE_LIMITED_BODY, { status: 429, headers: NO_STORE });
 
     // Phase 33 S2 (§6.3 step 2): files now go straight to Storage via signed URLs, so a path in the
     // body proves nothing. Confirm the object exists, is within MAX_UPLOAD_BYTES and its magic bytes
     // match the extension before it is attached to a request (400 otherwise).
-    if (input.attachmentPath) await inspectUploadedObject(input.attachmentPath);
+    if (input.attachmentPath && input.uploadClaim) {
+      requireUploadClaim(input.attachmentPath, input.uploadClaim);
+      await inspectUploadedObject(input.attachmentPath);
+    }
 
     // Phase B: the reference price the customer saw is recomputed here, never taken from the browser.
     let makerworldSnapshot: CustomRequestMakerWorldSnapshot | null = null;

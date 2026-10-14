@@ -108,9 +108,9 @@ export default function CarNameplateWorkbench() {
     try {
       const geometry = mergeCarGeometry(parts);
       let blob: Blob; try { blob = exportKeychainStl(geometry); } finally { geometry.dispose(); }
-      const fileName = 'bang-ten-xe.stl'; const { path } = await uploadCustomRequestFile(blob, fileName);
+      const fileName = 'bang-ten-xe.stl'; const { path, uploadClaim } = await uploadCustomRequestFile(blob, fileName);
       setPrefill({
-        attachmentPath: path,
+        attachmentPath: path, uploadClaim,
         attachmentFileName: fileName,
         requestedMaterial: 'PLA',
         requestedColor: `Bảng tên ${nameplateColor}${addBase ? ` - Đế ${baseColor}` : ''}`,
