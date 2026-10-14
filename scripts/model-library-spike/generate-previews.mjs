@@ -44,6 +44,8 @@ const maxBytes = Number(opt('max-mb', '300')) * 1024 * 1024;
 const timeoutMs = Number(opt('timeout', '120')) * 1000;
 const retryErrors = flag('retry-errors');
 const forceRender = flag('force-render'); // ignore embedded 3MF thumbnails (useful to compare)
+const channel = opt('channel', process.platform === 'win32' ? 'chrome' : undefined);
+const bedSize = Number(opt('bed-size', '256')); // Bambu Lab P1S/P2S/X1C/A1: 256x256x256mm
 const RECYCLE_EVERY = 40; // reload the page periodically so WebGL/JS memory cannot creep up
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -78,6 +80,28 @@ function findEmbeddedThumbnail(bytes) {
   }
   if (relsTarget && entries[relsTarget]) return { name: relsTarget, bytes: entries[relsTarget], designerCover: false };
   return null;
+}
+
+function get3mfSliceSummary(bytes) {
+  try {
+    const entries = unzipSync(bytes, { filter: (f) => f.name === 'Metadata/slice_info.config' || f.name === 'Metadata/slice_info.xml' });
+    const configPath = entries['Metadata/slice_info.config'] ? 'Metadata/slice_info.config' : entries['Metadata/slice_info.xml'] ? 'Metadata/slice_info.xml' : null;
+    if (!configPath) return null;
+    const text = strFromU8(entries[configPath]);
+    const timeMatch = text.match(/prediction="([^"]+)"/);
+    const timeSec = timeMatch ? parseInt(timeMatch[1], 10) : null;
+    let totalGrams = 0;
+    const filamentMatches = text.matchAll(/weight="([^"]+)"/g);
+    for (const m of filamentMatches) {
+      totalGrams += parseFloat(m[1]) || 0;
+    }
+    return {
+      timeMinutes: timeSec ? Math.round(timeSec / 60) : null,
+      filamentGrams: totalGrams > 0 ? Math.round(totalGrams * 10) / 10 : null,
+    };
+  } catch {
+    return null;
+  }
 }
 
 // ---------- file walk ----------
@@ -131,7 +155,9 @@ const manifest = existsSync(manifestPath)
   : { version: 1, items: {} };
 manifest.inputRoot = path.resolve(inputRoot);
 
-const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'] });
+const launchOptions = { args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'] };
+if (channel) launchOptions.channel = channel;
+const browser = await chromium.launch(launchOptions);
 let page = await openPage(browser);
 let renders = 0;
 const stats = { seen: 0, skipped: 0, embedded: 0, rendered: 0, errors: 0, tooLarge: 0 };
@@ -167,12 +193,28 @@ try {
       if (embedded) {
         blobs.set(`/blob/${id}`, Buffer.from(embedded.bytes));
         result = await withTimeout(page.evaluate(([u, s, q]) => window.imageToWebp(u, s, q), [`/blob/${id}`, size, quality]), timeoutMs);
-        Object.assign(item, { thumbnailSource: 'embedded', embeddedPath: embedded.name, designerCover: embedded.designerCover });
+        const sliceInfo = get3mfSliceSummary(new Uint8Array(bytes));
+        Object.assign(item, {
+          thumbnailSource: 'embedded',
+          embeddedPath: embedded.name,
+          designerCover: embedded.designerCover,
+          sliceInfo,
+          printable: true, // File 3MF từ slicer đã được xác nhận khả thi in
+        });
         stats.embedded++;
       } else {
         blobs.set(`/blob/${id}`, bytes);
         result = await withTimeout(page.evaluate(([u, k, s, q]) => window.renderModel(u, k, s, q), [`/blob/${id}`, kind, size, quality]), timeoutMs);
-        Object.assign(item, { thumbnailSource: 'rendered', triangles: result.triangles, bboxMm: result.bboxMm });
+        const isPrintable = result.bboxMm.x <= bedSize && result.bboxMm.y <= bedSize && result.bboxMm.z <= bedSize;
+        const estimatedGrams = result.volumeCm3 ? +(result.volumeCm3 * 1.24 * 0.35).toFixed(1) : null;
+        Object.assign(item, {
+          thumbnailSource: 'rendered',
+          triangles: result.triangles,
+          volumeCm3: result.volumeCm3,
+          estimatedGrams,
+          bboxMm: result.bboxMm,
+          printable: isPrintable,
+        });
         stats.rendered++;
         renders++;
       }
@@ -191,7 +233,8 @@ try {
     item.ms = Date.now() - t0;
     manifest.items[relPath] = item;
     await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
-    const tag = item.error ? `ERROR ${item.error}` : `${item.thumbnailSource}${item.triangles ? ` ${item.triangles.toLocaleString()} tris` : ''}`;
+    const printableTag = item.printable ? '[IN ĐƯỢC]' : '[VƯỢT KHỔ]';
+    const tag = item.error ? `ERROR ${item.error}` : `${printableTag} ${item.thumbnailSource}${item.triangles ? ` ${item.triangles.toLocaleString()} tris` : ''}`;
     console.log(`${String(stats.embedded + stats.rendered + stats.errors).padStart(5)}  ${(item.ms / 1000).toFixed(1).padStart(5)}s  ${(st.size / 1048576).toFixed(1).padStart(7)}MB  ${tag}  ${relPath}`);
 
     if (renders && renders % RECYCLE_EVERY === 0) {
@@ -206,22 +249,113 @@ try {
 // ---------- gallery.html (local review only) ----------
 const items = Object.values(manifest.items).sort((a, b) => a.relPath.localeCompare(b.relPath));
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-const cards = items.map((it) => `
-  <figure data-q="${esc(it.relPath.toLowerCase())}" class="${it.error ? 'err' : ''}">
-    ${it.error ? `<div class="ph">${esc(it.error)}</div>` : `<img loading="lazy" src="${esc(it.previewFile)}" alt="">`}
-    <figcaption><b>${esc(it.name)}</b><br><small>${esc(it.relPath)}</small><br>
-      <span class="tag">${it.kind}</span> <span class="tag ${it.designerCover ? 'warn' : ''}">${it.thumbnailSource ?? '—'}${it.designerCover ? ' · ảnh của tác giả' : ''}</span>
-      <small>${(it.bytes / 1048576).toFixed(1)} MB${it.triangles ? ` · ${it.triangles.toLocaleString()} tris` : ''}${it.bboxMm ? ` · ${it.bboxMm.x}×${it.bboxMm.y}×${it.bboxMm.z} mm` : ''}</small>
+const cards = items.map((it) => {
+  const isOk = it.printable;
+  const statusBadge = it.error
+    ? '<span class="tag err">Lỗi đọc file</span>'
+    : isOk
+    ? `<span class="tag ok">✓ IN ĐƯỢC (≤ ${bedSize}mm)</span>`
+    : `<span class="tag warn">⚠ VƯỢT KHỔ (> ${bedSize}mm)</span>`;
+
+  let specInfo = '';
+  if (it.sliceInfo && it.sliceInfo.timeMinutes) {
+    const hours = Math.floor(it.sliceInfo.timeMinutes / 60);
+    const mins = it.sliceInfo.timeMinutes % 60;
+    const timeStr = hours > 0 ? `${hours}h ${mins}p` : `${mins} phút`;
+    specInfo += `<span class="tag info">⏱ ${timeStr}</span> `;
+  }
+  if (it.sliceInfo && it.sliceInfo.filamentGrams) {
+    specInfo += `<span class="tag info">⚖ ${it.sliceInfo.filamentGrams}g nhựa</span> `;
+  } else if (it.estimatedGrams) {
+    specInfo += `<span class="tag info">⚖ ~${it.estimatedGrams}g nhựa</span> `;
+  }
+
+  const dimInfo = it.bboxMm ? `${it.bboxMm.x} × ${it.bboxMm.y} × ${it.bboxMm.z} mm` : '';
+
+  return `
+  <figure data-q="${esc(it.relPath.toLowerCase())}" data-printable="${isOk ? 'true' : 'false'}" class="${it.error ? 'err' : isOk ? 'is-ok' : 'is-warn'}">
+    ${it.error ? `<div class="ph">${esc(it.error)}</div>` : `<a href="${esc(it.previewFile)}" target="_blank" title="Xem ảnh gốc"><img loading="lazy" src="${esc(it.previewFile)}" alt="${esc(it.name)}"></a>`}
+    <figcaption>
+      <div class="title" title="${esc(it.name)}">${esc(it.name)}</div>
+      <div class="badges">
+        ${statusBadge}
+        <span class="tag">${it.kind.toUpperCase()}</span>
+      </div>
+      ${specInfo ? `<div class="specs">${specInfo}</div>` : ''}
+      <div class="meta">
+        ${dimInfo ? `<b>Kích thước:</b> ${dimInfo}<br>` : ''}
+        <b>Dung lượng:</b> ${(it.bytes / 1048576).toFixed(1)} MB ${it.triangles ? `· ${it.triangles.toLocaleString()} tam giác` : ''}
+      </div>
     </figcaption>
-  </figure>`).join('');
-await writeFile(path.join(outRoot, 'gallery.html'), `<!doctype html><meta charset="utf-8"><title>Model library spike</title>
-<style>body{font:14px system-ui;margin:16px;background:#f6f7f9}input{width:100%;max-width:420px;padding:8px;margin-bottom:12px}
-.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}figure{margin:0;background:#fff;border:1px solid #ddd;border-radius:10px;overflow:hidden}
-img,.ph{width:100%;aspect-ratio:1;object-fit:contain;display:block;background:#fff}.ph{display:flex;align-items:center;justify-content:center;color:#b00;padding:8px;box-sizing:border-box;text-align:center}
-figcaption{padding:8px;word-break:break-all}.tag{display:inline-block;background:#eef;border-radius:4px;padding:0 4px;font-size:12px}.warn{background:#fde68a}</style>
-<h1>Model library spike — ${items.length} file</h1>
-<input placeholder="Lọc theo tên/thư mục…" oninput="for(const f of document.querySelectorAll('figure'))f.hidden=!f.dataset.q.includes(this.value.toLowerCase())">
-<div class="g">${cards}</div>`);
+  </figure>`;
+}).join('');
+
+await writeFile(path.join(outRoot, 'gallery.html'), `<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <title>BaSa3D — Thư Viện Mẫu & Thẩm Định In 3D (Khổ P2S/256mm)</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 24px; background: #f1f5f9; color: #1e293b; }
+    header { max-width: 1200px; margin: 0 auto 24px; }
+    h1 { margin: 0 0 8px; font-size: 24px; color: #0f172a; display: flex; align-items: center; gap: 10px; }
+    p.sub { margin: 0 0 16px; color: #64748b; font-size: 14px; }
+    .toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 20px; }
+    input.search { flex: 1; min-width: 260px; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; outline: none; background: #fff; }
+    .btn-filter { padding: 9px 16px; border: 1px solid #cbd5e1; background: #fff; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: 500; transition: all 0.2s; }
+    .btn-filter.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+    .g { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; max-width: 1200px; margin: 0 auto; }
+    figure { margin: 0; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.03); transition: transform 0.2s, box-shadow 0.2s; display: flex; flex-direction: column; }
+    figure:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.08); }
+    figure a { display: block; overflow: hidden; background: #f8fafc; }
+    img, .ph { width: 100%; aspect-ratio: 1; object-fit: contain; display: block; background: #f8fafc; transition: transform 0.3s; }
+    figure:hover img { transform: scale(1.03); }
+    .ph { display: flex; align-items: center; justify-content: center; color: #ef4444; padding: 16px; box-sizing: border-box; text-align: center; font-size: 13px; font-weight: 500; }
+    figcaption { padding: 14px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+    .title { font-weight: 600; font-size: 15px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .badges, .specs { display: flex; gap: 6px; flex-wrap: wrap; }
+    .tag { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 6px; font-size: 12px; font-weight: 500; background: #e2e8f0; color: #334155; }
+    .tag.ok { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; font-weight: 600; }
+    .tag.warn { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; font-weight: 600; }
+    .tag.err { background: #fee2e2; color: #b91c1c; }
+    .tag.info { background: #e0f2fe; color: #0369a1; }
+    .meta { font-size: 12px; color: #64748b; line-height: 1.5; margin-top: auto; padding-top: 8px; border-top: 1px dashed #e2e8f0; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🏷️ BaSa3D — Thư Viện Mẫu & Bộ Lọc Khả Thi In 3D</h1>
+    <p class="sub">Tiêu chuẩn máy in: Bambu Lab P2S / Khổ in tiêu chuẩn <b>${bedSize} × ${bedSize} × ${bedSize} mm</b> · Đã kiểm tra ${items.length} file</p>
+    <div class="toolbar">
+      <input class="search" placeholder="🔍 Tìm kiếm theo tên mẫu hoặc đuôi file…" oninput="filterCards()">
+      <button class="btn-filter active" onclick="setFilter('all', this)">Tất cả (${items.length})</button>
+      <button class="btn-filter" onclick="setFilter('ok', this)">✓ In được ngay (≤ ${bedSize}mm)</button>
+      <button class="btn-filter" onclick="setFilter('warn', this)">⚠ Cảnh báo vượt khổ</button>
+    </div>
+  </header>
+  <div class="g">${cards}</div>
+  <script>
+    let currentFilter = 'all';
+    function setFilter(filter, el) {
+      currentFilter = filter;
+      document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
+      filterCards();
+    }
+    function filterCards() {
+      const q = document.querySelector('input.search').value.toLowerCase();
+      document.querySelectorAll('figure').forEach(f => {
+        const matchText = f.dataset.q.includes(q);
+        const isOk = f.dataset.printable === 'true';
+        let matchFilter = true;
+        if (currentFilter === 'ok') matchFilter = isOk;
+        if (currentFilter === 'warn') matchFilter = !isOk;
+        f.hidden = !(matchText && matchFilter);
+      });
+    }
+  </script>
+</body>
+</html>`);
 
 const secs = ((Date.now() - started) / 1000).toFixed(0);
 console.log(`\nDone in ${secs}s — seen ${stats.seen}, skipped(unchanged) ${stats.skipped}, embedded ${stats.embedded}, rendered ${stats.rendered}, errors ${stats.errors}, too large ${stats.tooLarge}`);

@@ -42,6 +42,31 @@
         return Math.round(n);
       }
 
+      function calculateVolumeCm3(root) {
+        let vol = 0;
+        root.traverse((o) => {
+          if (!o.isMesh || !o.geometry) return;
+          const g = o.geometry;
+          const pos = g.getAttribute('position');
+          if (!pos || pos.itemSize < 3) return;
+          const index = g.getIndex();
+          const count = index ? index.count / 3 : pos.count / 3;
+          let signed = 0;
+          for (let i = 0; i < count; i++) {
+            const off = i * 3;
+            const ai = index ? index.getX(off) : off;
+            const bi = index ? index.getX(off + 1) : off + 1;
+            const ci = index ? index.getX(off + 2) : off + 2;
+            const ax = pos.getX(ai), ay = pos.getY(ai), az = pos.getZ(ai);
+            const bx = pos.getX(bi), by = pos.getY(bi), bz = pos.getZ(bi);
+            const cx = pos.getX(ci), cy = pos.getY(ci), cz = pos.getZ(ci);
+            signed += (ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx) + az * (bx * cy - by * cx)) / 6;
+          }
+          vol += Math.abs(signed) / 1000;
+        });
+        return +vol.toFixed(1);
+      }
+
       // Converts any image bytes (embedded 3MF PNG) to a square WebP on a white background.
       window.imageToWebp = async (url, size, quality) => {
         const blob = await (await fetch(url)).blob();
@@ -102,9 +127,15 @@
         r.render(scene, camera);
         const dataUrl = r.domElement.toDataURL('image/webp', quality);
         const triangles = countTriangles(root);
+        const volumeCm3 = calculateVolumeCm3(root);
         disposeTree(root);
         // box is in rotated (Y-up) space; report it back in slicer axes (x, y = depth, z = height).
-        return { dataUrl, triangles, bboxMm: { x: +sizeMm.x.toFixed(1), y: +sizeMm.z.toFixed(1), z: +sizeMm.y.toFixed(1) } };
+        return {
+          dataUrl,
+          triangles,
+          volumeCm3,
+          bboxMm: { x: +sizeMm.x.toFixed(1), y: +sizeMm.z.toFixed(1), z: +sizeMm.y.toFixed(1) }
+        };
       };
 
       window.__ready = true;
