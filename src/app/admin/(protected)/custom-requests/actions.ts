@@ -3,14 +3,20 @@
 import type { AdminActionResult } from '@/components/admin/action-form';
 import { DomainError } from '@/lib/domain-error';
 import { revalidatePath } from 'next/cache';
-import { requireAdmin } from '@/lib/auth/require-admin';
+import { requireAdmin, requireOwner } from '@/lib/auth/require-admin';
 import {
+  customRequestAdminUpdateSchema,
   customRequestInputSchema,
   customRequestStatusUpdateSchema,
   printJobStatusUpdateSchema,
   quoteInputSchema,
 } from '@/domain/schemas';
-import { createCustomRequest, updateCustomRequestStatus } from '@/services/custom-request.service';
+import {
+  createCustomRequest,
+  deleteCustomRequest,
+  updateCustomRequest,
+  updateCustomRequestStatus,
+} from '@/services/custom-request.service';
 import { acceptQuote, createQuote } from '@/services/quote.service';
 import { updatePrintJobStatus } from '@/services/print-job.service';
 import { reverifyCustomRequestItem, type ReverifyResult } from '@/services/custom-request-items.service';
@@ -138,6 +144,75 @@ export async function reverifyCustomRequestItemAction(itemId: string): Promise<R
     return await reverifyCustomRequestItem(itemId, actorId);
   } catch (error) {
     if (error instanceof DomainError) return { status: 'ERROR', message: error.message };
+    throw error;
+  }
+}
+
+export async function updateCustomRequestAction(id: string, formData: FormData): Promise<AdminActionResult> {
+  const { actorId } = await requireOwner();
+  try {
+    const rawQuantity = formData.get('quantity');
+    const parsed = customRequestAdminUpdateSchema.safeParse({
+      sourceChannel: readFormValue(formData, 'sourceChannel'),
+      customerName: readFormValue(formData, 'customerName'),
+      customerPhone: readFormValue(formData, 'customerPhone'),
+      customerEmail: readFormValue(formData, 'customerEmail') ?? null,
+      description: readFormValue(formData, 'description'),
+      quantity: rawQuantity ? Number(rawQuantity) : undefined,
+      requestedMaterial: readFormValue(formData, 'requestedMaterial') ?? null,
+      requestedColor: readFormValue(formData, 'requestedColor') ?? null,
+      requestedSize: readFormValue(formData, 'requestedSize') ?? null,
+      status: readFormValue(formData, 'status'),
+      internalNote: readFormValue(formData, 'internalNote') ?? null,
+    });
+    if (!parsed.success) return { error: 'Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.' };
+    await updateCustomRequest(id, parsed.data, actorId);
+    revalidatePath('/admin/custom-requests');
+    revalidatePath(`/admin/custom-requests/${id}`);
+    revalidatePath('/admin/dashboard');
+    return { saved: true };
+  } catch (error) {
+    if (error instanceof DomainError) return { error: error.message };
+    throw error;
+  }
+}
+
+export async function deleteCustomRequestAction(id: string): Promise<AdminActionResult> {
+  const { actorId } = await requireOwner();
+  try {
+    await deleteCustomRequest(id, actorId);
+    revalidatePath('/admin/custom-requests');
+    revalidatePath('/admin/dashboard');
+    return { saved: true };
+  } catch (error) {
+    if (error instanceof DomainError) return { error: error.message };
+    throw error;
+  }
+}
+
+export async function createQuickTestCustomRequestAction(): Promise<AdminActionResult> {
+  const { actorId } = await requireOwner();
+  try {
+    const testCode = Math.random().toString(36).substring(2, 7).toUpperCase();
+    await createCustomRequest(
+      {
+        sourceChannel: 'WEBSITE',
+        customerName: `[TEST] Khách hàng ${testCode}`,
+        customerPhone: '0901234567',
+        customerEmail: `test.${testCode.toLowerCase()}@basa3d.vn`,
+        description: `Dữ liệu test phục vụ kiểm thử tính năng (mã ${testCode}). Có thể xoá bất cứ lúc nào.`,
+        quantity: 1,
+        requestedMaterial: 'PLA Basic',
+        requestedColor: 'Trắng',
+        requestedSize: '50x50x50 mm',
+      },
+      actorId,
+    );
+    revalidatePath('/admin/custom-requests');
+    revalidatePath('/admin/dashboard');
+    return { saved: true };
+  } catch (error) {
+    if (error instanceof DomainError) return { error: error.message };
     throw error;
   }
 }

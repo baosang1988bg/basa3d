@@ -9,10 +9,11 @@ const revalidated: string[] = [];
 const write = async (...args: unknown[]) => { if (serviceError) throw serviceError; writes.push(args); };
 mock.module('../src/lib/auth/require-admin.ts', { namedExports: {
   requireAdmin: async () => { if (authError) throw authError; return { actorId: 'actor', role: 'STAFF' }; },
+  requireOwner: async () => { if (authError) throw authError; return { actorId: 'actor', role: 'OWNER' }; },
 } });
 mock.module('next/cache', { namedExports: { revalidatePath: (path: string) => revalidated.push(path) } });
 mock.module('../src/services/order.service.ts', { namedExports: { updateOrderStatus: write, updateOrderPaymentAndShipping: write } });
-mock.module('../src/services/custom-request.service.ts', { namedExports: { createCustomRequest: write, updateCustomRequestStatus: write } });
+mock.module('../src/services/custom-request.service.ts', { namedExports: { createCustomRequest: write, updateCustomRequestStatus: write, updateCustomRequest: write, deleteCustomRequest: write } });
 mock.module('../src/services/quote.service.ts', { namedExports: { acceptQuote: write, createQuote: write } });
 // Phase 33 S7: custom-requests/actions also imports the item re-verify service.
 mock.module('../src/services/custom-request-items.service.ts', { namedExports: { reverifyCustomRequestItem: write } });

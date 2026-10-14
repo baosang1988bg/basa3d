@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { query, withTransaction } from '../lib/db';
 import { DomainError } from '../lib/domain-error';
 import { assertAvailableStock, lockVariantForInventoryWrite, recordSaleOut } from './inventory.service';
@@ -8,20 +8,47 @@ import { verifyOrderConfirmationToken } from '../lib/order-confirmation-token';
 import { sendStaffNotification } from '../lib/notify/send-staff-notification';
 
 type OrderItemRequest = { variantId: string; quantity: number };
-type CreateOrderInput = { customerName: string; customerPhone: string; customerEmail?: string | null; shippingAddress?: Record<string, unknown>; shippingFee?: number; discount?: number; codFee?: number; customerNote?: string | null; items: OrderItemRequest[] };
+type CreateOrderInput = { checkoutRequestId?: string | null; customerName: string; customerPhone: string; customerEmail?: string | null; shippingAddress?: Record<string, unknown>; shippingFee?: number; discount?: number; codFee?: number; customerNote?: string | null; items: OrderItemRequest[] };
 type VariantSnapshot = { id: string; price: number; sku: string; variant_name: string; product_name: string; product_type: 'READY_STOCK' | 'MADE_TO_ORDER'; attributes: Record<string, string> };
 
 export function reconcileOrderTotal(subtotal: number, shippingFee: number, discount: number, codFee: number): number {
   return subtotal + shippingFee + codFee - discount;
 }
 
-export async function createOrder(input: CreateOrderInput, actorId: string | null) {
+function stableValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, stableValue(item)]));
+  }
+  return value;
+}
+
+export function hashCheckoutRequest(input: CreateOrderInput): string {
+  const payload = {
+    customerName: input.customerName.trim(), customerPhone: input.customerPhone.trim(),
+    customerEmail: input.customerEmail?.trim() || null, shippingAddress: stableValue(input.shippingAddress ?? {}),
+    shippingFee: input.shippingFee ?? 0, discount: input.discount ?? 0, codFee: input.codFee ?? 0,
+    customerNote: input.customerNote?.trim() || null,
+    items: [...input.items].sort((a, b) => a.variantId.localeCompare(b.variantId) || a.quantity - b.quantity),
+  };
+  return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+}
+
+function isCheckoutIdConflict(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === '23505'
+    && 'constraint' in error && error.constraint === 'orders_checkout_request_id_idx';
+}
+
+export async function createOrder(input: CreateOrderInput, actorId: string | null, options: { notify?: typeof sendStaffNotification } = {}) {
+  const checkoutRequestHash = input.checkoutRequestId ? hashCheckoutRequest(input) : null;
   const byVariant = new Map<string, number>();
   for (const item of input.items) byVariant.set(item.variantId, (byVariant.get(item.variantId) ?? 0) + item.quantity);
   const variantIds = [...byVariant.keys()].sort();
   if (!variantIds.length) throw new DomainError('ORDER_ITEMS_REQUIRED', 'An order requires at least one item.');
 
-  const created = await withTransaction(async (client) => {
+  let created: { id: string; orderNumber: string; total: number; isReplay: boolean };
+  try {
+    created = await withTransaction(async (client) => {
     // Lock in a consistent order to avoid deadlocks during concurrent multi-variant checkout.
     // This lock is also what makes assertAvailableStock's `reserved` read (order_items/orders,
     // never locked directly) race-free: every writer of order_items/orders locks these
@@ -50,9 +77,9 @@ export async function createOrder(input: CreateOrderInput, actorId: string | nul
     if (total < 0) throw new DomainError('INVALID_ORDER_TOTAL', 'Order total cannot be negative.');
     const orderNumber = `ORD-${randomUUID().replaceAll('-', '').slice(0, 12).toUpperCase()}`;
     const order = await client.query<{ id: string; order_number: string; total: number }>(`
-      insert into orders (order_number, customer_name, customer_phone, customer_email, shipping_address, subtotal, shipping_fee, discount, cod_fee, total, customer_note)
-      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning id, order_number, total`, [
-      orderNumber, input.customerName, input.customerPhone, input.customerEmail ?? null, input.shippingAddress ?? {}, subtotal, shippingFee, discount, codFee, total, input.customerNote ?? null,
+      insert into orders (order_number, checkout_request_id, checkout_request_hash, customer_name, customer_phone, customer_email, shipping_address, subtotal, shipping_fee, discount, cod_fee, total, customer_note)
+      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) returning id, order_number, total`, [
+      orderNumber, input.checkoutRequestId ?? null, checkoutRequestHash, input.customerName.trim(), input.customerPhone.trim(), input.customerEmail?.trim() || null, input.shippingAddress ?? {}, subtotal, shippingFee, discount, codFee, total, input.customerNote?.trim() || null,
     ]);
     for (const item of input.items) {
       const variant = snapshotById.get(item.variantId)!;
@@ -61,11 +88,20 @@ export async function createOrder(input: CreateOrderInput, actorId: string | nul
         values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [order.rows[0].id, item.variantId, variant.product_name, variant.variant_name, variant.sku, variant.attributes, item.quantity, variant.price, variant.price * item.quantity]);
     }
     await writeAuditLog(client, { actorId, action: actorId === null ? 'ORDER_CREATED_PUBLIC' : 'ORDER_CREATED', entityType: 'order', entityId: order.rows[0].id, afterData: { orderNumber, total } });
-    return { id: order.rows[0].id, orderNumber: order.rows[0].order_number, total: order.rows[0].total };
-  });
+    return { id: order.rows[0].id, orderNumber: order.rows[0].order_number, total: Number(order.rows[0].total), isReplay: false };
+    });
+  } catch (error) {
+    if (!input.checkoutRequestId || !checkoutRequestHash || !isCheckoutIdConflict(error)) throw error;
+    const existing = await query<{ id: string; order_number: string; total: number; checkout_request_hash: string }>(
+      'select id, order_number, total, checkout_request_hash from orders where checkout_request_id = $1', [input.checkoutRequestId]);
+    if (!existing.rowCount || existing.rows[0].checkout_request_hash !== checkoutRequestHash) {
+      throw new DomainError('IDEMPOTENCY_CONFLICT', 'Mã yêu cầu đặt hàng đã được sử dụng cho một giỏ hàng khác.', 409);
+    }
+    created = { id: existing.rows[0].id, orderNumber: existing.rows[0].order_number, total: Number(existing.rows[0].total), isReplay: true };
+  }
   // Notified only after the transaction has committed (phase-15.md decision #1) — never inside
   // the callback above, so a rolled-back insert can never trigger a staff notification.
-  await sendStaffNotification({ type: 'ORDER', id: created.id, code: created.orderNumber });
+  if (!created.isReplay) await (options.notify ?? sendStaffNotification)({ type: 'ORDER', id: created.id, code: created.orderNumber });
   return created;
 }
 
@@ -159,7 +195,18 @@ export async function updateOrderStatus(orderId: string, nextStatus: string, act
   });
 }
 
-type OrderListRow = { id: string; orderNumber: string; customerName: string; status: string; paymentStatus: string; total: number; createdAt: string };
+export type OrderListRow = {
+  id: string;
+  orderNumber: string;
+  customerName: string;
+  customerPhone: string;
+  status: string;
+  paymentStatus: string;
+  shippingStatus: string;
+  total: number;
+  itemCount: number;
+  createdAt: string;
+};
 
 export async function listOrders(input: { page?: number; limit?: number; status?: string; statuses?: string[] } = {}) {
   const { page, limit, offset } = pagination(input);
@@ -169,9 +216,40 @@ export async function listOrders(input: { page?: number; limit?: number; status?
     : input.status ? (values.push(input.status), `and status = $${values.length}`) : '';
   values.push(limit + 1, offset);
   const rows = await query<OrderListRow>(`
-    select id, order_number as "orderNumber", customer_name as "customerName", status, payment_status as "paymentStatus", total, created_at as "createdAt"
+    select id, order_number as "orderNumber", customer_name as "customerName", customer_phone as "customerPhone",
+      status, payment_status as "paymentStatus", shipping_status as "shippingStatus", total, created_at as "createdAt",
+      (select count(*)::int from order_items where order_id = orders.id) as "itemCount"
     from orders where true ${statusSql} order by created_at desc, id limit $${values.length - 1} offset $${values.length}`, values);
   return { page, limit, hasNext: rows.rows.length > limit, items: rows.rows.slice(0, limit) };
+}
+
+export type OrderZoneCounts = {
+  all: number;
+  waitPrint: number;
+  waitPack: number;
+  waitShip: number;
+  shipping: number;
+  completed: number;
+  cancelled: number;
+};
+
+export async function getOrderZoneCounts(): Promise<OrderZoneCounts> {
+  const result = await query<{ status: string; count: string }>(
+    `select status, count(*)::int as count from orders group by status`
+  );
+  const byStatus: Record<string, number> = {};
+  for (const row of result.rows) {
+    byStatus[row.status] = Number(row.count);
+  }
+  const waitPrint = (byStatus.NEW ?? 0) + (byStatus.CONFIRMED ?? 0);
+  const waitPack = byStatus.PRODUCING ?? 0;
+  const waitShip = byStatus.READY_TO_SHIP ?? 0;
+  const shipping = byStatus.SHIPPED ?? 0;
+  const completed = byStatus.COMPLETED ?? 0;
+  const cancelled = byStatus.CANCELLED ?? 0;
+  const all = waitPrint + waitPack + waitShip + shipping + completed + cancelled;
+
+  return { all, waitPrint, waitPack, waitShip, shipping, completed, cancelled };
 }
 
 type OrderDetail = {

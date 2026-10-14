@@ -30,7 +30,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
       </head>
-      <body className="[font-feature-settings:'tnum']">
+      <body className="[font-feature-settings:'tnum']" suppressHydrationWarning>
         {children}
         <GoogleAnalytics />
         {process.env.NODE_ENV === 'development' ? <VisualAiInspector /> : null}

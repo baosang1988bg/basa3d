@@ -19,7 +19,6 @@ export const MAX_PAGE_SIZE = 100;
 function positiveInt(value: number | undefined, fallback: number): number {
   return Number.isFinite(value) ? Math.max(1, Math.floor(value as number)) : fallback;
 }
-
 export function pagination(input: { page?: number; limit?: number }) {
   const page = positiveInt(input.page, 1);
   const limit = Math.min(MAX_PAGE_SIZE, positiveInt(input.limit, DEFAULT_PAGE_SIZE));
@@ -28,7 +27,7 @@ export function pagination(input: { page?: number; limit?: number }) {
 
 export async function listCategories(input: { page?: number; limit?: number } = {}) {
   const { page, limit, offset } = pagination(input);
-  const result = await query(`select id, parent_id as "parentId", name, slug, description, sort_order as "sortOrder" from categories where is_active = true order by sort_order, name limit $1 offset $2`, [limit, offset]);
+  const result = await query<{ id: string; parentId: string | null; name: string; slug: string; description: string | null; sortOrder: number }>(`select id, parent_id as "parentId", name, slug, description, sort_order as "sortOrder" from categories where is_active = true order by sort_order, name limit $1 offset $2`, [limit, offset]);
   return { page, limit, items: result.rows };
 }
 
@@ -242,3 +241,189 @@ export async function deleteProduct(productId: string, actorId: string) {
     }
   });
 }
+
+export type ProductInventoryVariant = {
+  id: string;
+  sku: string;
+  name: string;
+  price: number;
+  costPrice: number | null;
+  weightGrams: number | null;
+  isActive: boolean;
+  onHand: number;
+  reserved: number;
+  available: number;
+};
+
+export type ProductInventoryItem = {
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+  productType: string;
+  basePrice: number | null;
+  costPrice: number | null;
+  categoryId: string | null;
+  categoryName: string | null;
+  pricingConfigId: string | null;
+  variants: ProductInventoryVariant[];
+  totalOnHand: number;
+  totalReserved: number;
+  totalAvailable: number;
+};
+
+export async function listProductInventory(input: {
+  search?: string;
+  stockFilter?: 'ALL' | 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
+  categoryId?: string;
+  status?: string;
+} = {}): Promise<ProductInventoryItem[]> {
+  const values: unknown[] = [];
+  let filterSql = '';
+
+  if (input.status) {
+    values.push(input.status);
+    filterSql += ` and p.status = $${values.length}`;
+  }
+  if (input.categoryId) {
+    values.push(input.categoryId);
+    filterSql += ` and p.category_id = $${values.length}`;
+  }
+  if (input.search) {
+    values.push(`%${input.search.trim()}%`);
+    filterSql += ` and (p.name ilike $${values.length} or exists (select 1 from product_variants pv where pv.product_id = p.id and pv.sku ilike $${values.length}))`;
+  }
+
+  const queryText = `
+    with stock_by_variant as (
+      select
+        v.id as variant_id,
+        coalesce(m.on_hand, 0)::int as on_hand,
+        coalesce(o.reserved, 0)::int as reserved,
+        (coalesce(m.on_hand, 0) - coalesce(o.reserved, 0))::int as available
+      from product_variants v
+      left join (
+        select product_variant_id, sum(quantity) as on_hand
+        from inventory_movements
+        group by product_variant_id
+      ) m on m.product_variant_id = v.id
+      left join (
+        select oi.variant_id, sum(oi.quantity) as reserved
+        from order_items oi
+        join orders ord on ord.id = oi.order_id
+        where ord.status in ('NEW', 'CONFIRMED')
+        group by oi.variant_id
+      ) o on o.variant_id = v.id
+    )
+    select
+      p.id,
+      p.name,
+      p.slug,
+      p.status,
+      p.product_type as "productType",
+      p.base_price as "basePrice",
+      p.cost_price as "costPrice",
+      p.category_id as "categoryId",
+      p.pricing_config_id as "pricingConfigId",
+      c.name as "categoryName",
+      coalesce(
+        jsonb_agg(
+          jsonb_build_object(
+            'id', v.id,
+            'sku', v.sku,
+            'name', v.name,
+            'price', v.price,
+            'costPrice', v.cost_price,
+            'weightGrams', v.weight_grams,
+            'isActive', v.is_active,
+            'onHand', coalesce(s.on_hand, 0),
+            'reserved', coalesce(s.reserved, 0),
+            'available', coalesce(s.available, 0)
+          ) order by v.sku
+        ) filter (where v.id is not null),
+        '[]'::jsonb
+      ) as variants
+    from products p
+    left join categories c on c.id = p.category_id
+    left join product_variants v on v.product_id = p.id
+    left join stock_by_variant s on s.variant_id = v.id
+    where true ${filterSql}
+    group by p.id, c.name
+    order by p.created_at desc, p.id
+  `;
+
+  const result = await query<{
+    id: string;
+    name: string;
+    slug: string;
+    status: string;
+    productType: string;
+    basePrice: number | string | null;
+    costPrice: number | string | null;
+    categoryId: string | null;
+    pricingConfigId: string | null;
+    categoryName: string | null;
+    variants: Array<{
+      id: string;
+      sku: string;
+      name: string;
+      price: number | string;
+      costPrice: number | string | null;
+      weightGrams: number | string | null;
+      isActive: boolean;
+      onHand: number;
+      reserved: number;
+      available: number;
+    }>;
+  }>(queryText, values);
+
+  const items: ProductInventoryItem[] = result.rows.map((row) => {
+    const rawVariants = Array.isArray(row.variants) ? row.variants : [];
+    const variants: ProductInventoryVariant[] = rawVariants.map((v) => ({
+      id: String(v.id),
+      sku: String(v.sku),
+      name: String(v.name),
+      price: Number(v.price),
+      costPrice: v.costPrice != null ? Number(v.costPrice) : null,
+      weightGrams: v.weightGrams != null ? Number(v.weightGrams) : null,
+      isActive: Boolean(v.isActive),
+      onHand: Number(v.onHand) || 0,
+      reserved: Number(v.reserved) || 0,
+      available: Number(v.available) || 0,
+    }));
+
+    const totalOnHand = variants.reduce((sum, v) => sum + v.onHand, 0);
+    const totalReserved = variants.reduce((sum, v) => sum + v.reserved, 0);
+    const totalAvailable = variants.reduce((sum, v) => sum + v.available, 0);
+
+    return {
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      status: row.status,
+      productType: row.productType,
+      basePrice: row.basePrice != null ? Number(row.basePrice) : null,
+      costPrice: row.costPrice != null ? Number(row.costPrice) : null,
+      categoryId: row.categoryId,
+      categoryName: row.categoryName,
+      pricingConfigId: row.pricingConfigId,
+      variants,
+      totalOnHand,
+      totalReserved,
+      totalAvailable,
+    };
+  });
+
+  if (input.stockFilter === 'IN_STOCK') {
+    return items.filter((item) => item.totalAvailable > 0);
+  }
+  if (input.stockFilter === 'LOW_STOCK') {
+    return items.filter((item) => item.totalAvailable > 0 && item.totalAvailable <= 5);
+  }
+  if (input.stockFilter === 'OUT_OF_STOCK') {
+    return items.filter((item) => item.totalAvailable <= 0);
+  }
+
+  return items;
+}
+

@@ -239,6 +239,21 @@ export const customRequestInputSchema = z.object({
   requestedSize: z.string().trim().max(100).nullable().optional(),
 }).strict();
 
+export const customRequestAdminUpdateSchema = z.object({
+  sourceChannel: customRequestSourceChannelSchema.optional(),
+  customerName: nonEmptyText.max(200).optional(),
+  customerPhone: nonEmptyText.max(30).optional(),
+  customerEmail: z.string().trim().email().max(320).nullable().optional(),
+  description: nonEmptyText.max(20_000).optional(),
+  quantity: positiveQuantitySchema.max(10_000).optional(),
+  requestedMaterial: z.string().trim().max(100).nullable().optional(),
+  requestedColor: z.string().trim().max(100).nullable().optional(),
+  requestedSize: z.string().trim().max(100).nullable().optional(),
+  status: customRequestStatusSchema.optional(),
+  internalNote: z.string().trim().max(2_000).nullable().optional(),
+}).strict();
+export type CustomRequestAdminUpdate = z.infer<typeof customRequestAdminUpdateSchema>;
+
 // Public-facing variant of customRequestInputSchema (POST /api/public/custom-requests):
 // - no sourceChannel field — the server always hardcodes 'WEBSITE', never trusts the client here.
 // - adds attachmentUrl (link-only file intake per phase-4.md Non-goals — no binary upload in Phase 4).
@@ -254,6 +269,7 @@ export const publicCustomRequestInputSchema = z.object({
   requestedColor: z.string().trim().max(100).nullable().optional(),
   requestedSize: z.string().trim().max(100).nullable().optional(),
   attachmentPath: z.string().trim().min(1).max(500).regex(/^requests\/[0-9a-f-]+\.(?:jpg|jpeg|png|webp|stl|step|stp|obj|3mf)$/).nullable().optional(),
+  uploadClaim: z.string().trim().min(1).max(1_000).nullable().optional(),
   honeypot: z.string().trim().max(200).optional().default(''),
   // Phase 29: the customer must actively confirm they own the rights to the file/description they
   // are submitting — z.literal(true) rejects both a missing field and an unchecked (false) box.
@@ -267,7 +283,11 @@ export const publicCustomRequestInputSchema = z.object({
   // ADR-0034: which option of the file estimate the customer picked. The price itself is recomputed
   // server-side from attachmentPath + requestedMaterial — never accepted from the browser.
   fileEstimateOption: z.enum(['ASSEMBLED', 'KIT', 'STANDARD']).optional(),
-}).strict();
+}).strict().superRefine((request, context) => {
+  if (Boolean(request.attachmentPath) !== Boolean(request.uploadClaim)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'attachmentPath and uploadClaim must be provided together.', path: ['uploadClaim'] });
+  }
+});
 
 // Phase 13: immutable model metadata snapshot captured from the MakerWorld resolver at "Tạo báo
 // giá" time — see quote.service.ts's QuoteModelSnapshot. Re-validated here because it round-trips
@@ -459,6 +479,7 @@ export const checkoutOrderInputSchema = z.object({
 // override fields at all, `createOrder` always sees them as 0 for this path (see route.ts).
 export const paymentMethodSchema = z.enum(['COD', 'BANK_TRANSFER']);
 export const publicCheckoutOrderInputSchema = z.object({
+  checkoutRequestId: uuidSchema,
   customerName: nonEmptyText.max(200),
   customerPhone: nonEmptyText.max(30),
   customerEmail: z.string().trim().email().max(320).nullable().optional(),
@@ -647,6 +668,7 @@ export const quoteEstimateRequestSchema = z.object({
 // field anywhere — the server re-measures each stored file and prices it itself.
 export const baoGiaItemInputSchema = z.object({
   attachmentPath: z.string().trim().max(500).regex(/^requests\/[0-9a-f-]+\.(?:stl|obj)$/),
+  uploadClaim: z.string().trim().min(1).max(1_000),
   displayName: nonEmptyText.max(200),
   materialType: z.enum(FDM_MATERIALS),
   infillPct: safeInteger.refine((value) => (INFILL_OPTIONS as readonly number[]).includes(value), { message: `infillPct must be one of ${INFILL_OPTIONS.join(', ')}` }),

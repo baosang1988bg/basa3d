@@ -19,13 +19,23 @@ const TOOL_LABELS: Record<QuoteTool, string> = {
  * unmounts the other (dropping its hidden inputs) and clears the price inputs so a price computed by
  * one tool is never submitted alongside the other tool's snapshot.
  */
+export type InitialMakerWorldData = {
+  url: string;
+  tier: 'ASSEMBLED' | 'KIT';
+  specText?: string | null;
+  profileTitle?: string | null;
+  estimatedPriceVnd?: number | null;
+  estimateSource?: 'VERIFIED' | 'AUTO' | 'SPEC' | 'NONE';
+  modelTitle?: string | null;
+};
+
 export function QuoteToolSwitcher({
   materials,
   config,
   priceInputIds,
   initialMakerWorld = null,
 }: {
-  initialMakerWorld?: { url: string; tier: 'ASSEMBLED' | 'KIT' } | null;
+  initialMakerWorld?: InitialMakerWorldData | null;
   materials: ComponentProps<typeof MakerWorldQuotePanel>['materials'] & ComponentProps<typeof PricingCalculatorPanel>['materials'];
   config: ComponentProps<typeof MakerWorldQuotePanel>['config'] & ComponentProps<typeof PricingCalculatorPanel>['config'];
   priceInputIds: string[];
@@ -57,7 +67,20 @@ export function QuoteToolSwitcher({
           </label>
         ))}
       </div>
-      {tool === 'MAKERWORLD' ? <MakerWorldQuotePanel materials={materials} config={config} priceInputIds={priceInputIds} initialUrl={initialMakerWorld?.url} initialTier={initialMakerWorld?.tier ?? null} /> : null}
+      {tool === 'MAKERWORLD' ? (
+        <MakerWorldQuotePanel
+          materials={materials}
+          config={config}
+          priceInputIds={priceInputIds}
+          initialUrl={initialMakerWorld?.url}
+          initialTier={initialMakerWorld?.tier ?? null}
+          initialSpecText={initialMakerWorld?.specText ?? null}
+          initialProfileTitle={initialMakerWorld?.profileTitle ?? null}
+          initialEstimatedPriceVnd={initialMakerWorld?.estimatedPriceVnd ?? null}
+          initialEstimateSource={initialMakerWorld?.estimateSource ?? null}
+          initialModelTitle={initialMakerWorld?.modelTitle ?? null}
+        />
+      ) : null}
       {tool === 'CALCULATOR' ? <PricingCalculatorPanel materials={materials} config={config} priceInputIds={priceInputIds} /> : null}
     </div>
   );

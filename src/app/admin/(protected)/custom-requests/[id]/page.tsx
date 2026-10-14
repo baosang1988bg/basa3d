@@ -21,6 +21,25 @@ import { acceptQuoteAction, createQuoteAction, reverifyCustomRequestItemAction, 
 import { listCustomRequestItems } from '@/services/custom-request-items.service';
 import { ReverifyItemButton } from '@/components/admin/reverify-item-button';
 import { CopyQuoteLinksButton } from '@/components/admin/copy-quote-links-button';
+import { AutoLinkText } from '@/components/ui/auto-link-text';
+import { parseMakerWorldSpecText } from '@/lib/parsers/makerworld-spec-text';
+
+function getModelDisplayTitle(sourceUrl: string, modelTitle?: string | null, profileTitle?: string | null): string {
+  if (modelTitle && modelTitle !== profileTitle && !/^\d+(\.\d+)?\s*mm\s+layer/i.test(modelTitle)) {
+    return modelTitle;
+  }
+  try {
+    const url = new URL(sourceUrl);
+    const match = url.pathname.match(/\/models\/\d+(?:-([^/?#]+))?/);
+    if (match && match[1]) {
+      const clean = match[1].replace(/[-_]+/g, ' ').trim();
+      return clean.charAt(0).toUpperCase() + clean.slice(1);
+    }
+  } catch {
+    // fallback
+  }
+  return modelTitle ?? sourceUrl;
+}
 
 const VERIFICATION_LABEL: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   VERIFIED: { label: 'Đã xác minh', variant: 'default' },
@@ -132,25 +151,108 @@ export default async function CustomRequestDetailPage({ params, searchParams }: 
               <p className="text-muted-foreground">Chưa có file đính kèm</p>
             )}
           </div>
-          {customRequest.makerworldSnapshot ? (
-            <div className="col-span-2 rounded-lg border border-emerald-600/40 bg-emerald-600/5 p-3">
-              <p className="font-medium">Yêu cầu từ MakerWorld (Storefront)</p>
-              <a href={customRequest.makerworldSnapshot.sourceUrl} target="_blank" rel="noreferrer" className="break-all text-primary hover:underline">
-                {customRequest.makerworldSnapshot.modelTitle ?? customRequest.makerworldSnapshot.sourceUrl}
-              </a>
-              <p className="mt-1 text-muted-foreground">
-                Profile: {customRequest.makerworldSnapshot.profileTitle ?? (customRequest.makerworldSnapshot.profileId ? `#${customRequest.makerworldSnapshot.profileId}` : 'khách chưa chọn')}
-                {' · '}{ASSEMBLY_TIERS[customRequest.makerworldSnapshot.tier].label}
-              </p>
-              <p className="text-muted-foreground">
-                Giá tham khảo khách đã thấy:{' '}
-                {customRequest.makerworldSnapshot.estimatedPriceVnd !== null
-                  ? `${customRequest.makerworldSnapshot.estimatedPriceVnd.toLocaleString('vi-VN')}đ (${customRequest.makerworldSnapshot.estimateSource === 'VERIFIED' ? 'giá đã duyệt' : customRequest.makerworldSnapshot.estimateSource === 'SPEC' ? 'ước tính từ thông số khách dán' : 'ước tính tự động'})`
-                  : 'không có (chưa có giá)'}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">Panel báo giá bên dưới đã điền sẵn link và phương án — bấm &quot;Tự động lấy dữ liệu&quot; hoặc nhập tay.</p>
-            </div>
-          ) : null}
+          {customRequest.makerworldSnapshot ? (() => {
+            const mw = customRequest.makerworldSnapshot;
+            const parsedSpec = mw.specText ? parseMakerWorldSpecText(mw.specText) : null;
+            const modelDisplayTitle = getModelDisplayTitle(mw.sourceUrl, mw.modelTitle, mw.profileTitle);
+            const sourceBadge = mw.estimateSource === 'VERIFIED'
+              ? { label: 'Giá đã duyệt (Verified)', variant: 'default' as const }
+              : mw.estimateSource === 'AUTO'
+                ? { label: 'Tự động (Auto)', variant: 'secondary' as const }
+                : mw.estimateSource === 'SPEC'
+                  ? { label: 'Khách dán thông số / Nhập tay (Spec)', variant: 'outline' as const }
+                  : { label: 'Chưa có giá tham khảo', variant: 'secondary' as const };
+
+            return (
+              <div className="col-span-2 flex flex-col gap-3 rounded-lg border border-emerald-600/40 bg-emerald-600/5 p-4 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-600/20 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-emerald-950 dark:text-emerald-100">Yêu cầu từ MakerWorld (Storefront)</span>
+                    <Badge variant={sourceBadge.variant}>{sourceBadge.label}</Badge>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    Phương án: <strong className="text-foreground">{ASSEMBLY_TIERS[mw.tier].label}</strong>
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs text-muted-foreground">Mô hình &amp; Liên kết gốc</span>
+                  <a href={mw.sourceUrl} target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline break-all">
+                    🔗 {modelDisplayTitle}
+                  </a>
+                </div>
+
+                {/* Bảng dữ liệu đã lưu trước đó để đối chiếu */}
+                <div className="rounded-md border border-emerald-600/20 bg-background/90 p-3 shadow-xs">
+                  <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-border/50">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Dữ liệu đã lưu trước đó (Đối chiếu khi làm báo giá)
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {mw.estimatedAt ? `Ghi nhận lúc: ${new Date(mw.estimatedAt).toLocaleString('vi-VN')}` : null}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 text-xs">
+                    <div>
+                      <span className="text-muted-foreground block">Profile yêu cầu</span>
+                      <span className="font-medium text-foreground">{mw.profileTitle ?? (mw.profileId ? `#${mw.profileId}` : 'Chưa chỉ định')}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block">Thời gian in</span>
+                      <span className="font-medium text-foreground">
+                        {parsedSpec?.printMinutes != null ? `${Math.round(parsedSpec.printMinutes / 60 * 10) / 10}h (${parsedSpec.printMinutes}p)` : 'Chưa có'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block">Trọng lượng (net)</span>
+                      <span className="font-medium text-foreground">{parsedSpec?.netWeightGrams != null ? `${parsedSpec.netWeightGrams}g` : 'Chưa có'}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block">Số plate</span>
+                      <span className="font-medium text-foreground">{parsedSpec?.platesCount != null ? `${parsedSpec.platesCount} plates` : 'Chưa có'}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block">Máy in mục tiêu</span>
+                      <span className="font-medium text-foreground">{parsedSpec?.printerTarget ?? 'Chưa rõ'}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block">Hệ thống AMS</span>
+                      <span className="font-medium text-foreground">
+                        {parsedSpec?.amsRequired === false ? 'Không AMS' : parsedSpec?.amsRequired === true ? 'Có AMS' : 'Chưa rõ'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block">Giá tham khảo khách thấy</span>
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                        {mw.estimatedPriceVnd !== null ? `${mw.estimatedPriceVnd.toLocaleString('vi-VN')}đ` : 'Chưa có giá'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block">Mã Profile ID</span>
+                      <span className="font-mono text-muted-foreground">{mw.profileId ? `#${mw.profileId}` : '—'}</span>
+                    </div>
+                  </div>
+
+                  {mw.specText ? (
+                    <div className="mt-2.5 pt-2 border-t border-border/50 text-xs">
+                      <span className="text-muted-foreground block mb-1">Đoạn thông số khách dán ban đầu:</span>
+                      <code className="block rounded bg-muted/60 px-2 py-1 font-mono text-[11px] text-foreground break-words select-all">
+                        {mw.specText}
+                      </code>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-emerald-500/10 rounded px-2.5 py-1.5 border border-emerald-500/20">
+                  <span>💡</span>
+                  <span>
+                    Dữ liệu trên đã được nạp sẵn xuống panel báo giá bên dưới. Bạn có thể bấm <strong>&quot;Tự động lấy dữ liệu&quot;</strong> để hệ thống đối chiếu song song 2 giá trị (số liệu khách gửi vs số liệu thực tế trên MakerWorld).
+                  </span>
+                </div>
+              </div>
+            );
+          })() : null}
           {customRequest.quoteEstimateSnapshot ? (
             <div className="col-span-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
               <p className="font-medium">Giá tự động khách đã thấy (từ file)</p>
@@ -170,12 +272,9 @@ export default async function CustomRequestDetailPage({ params, searchParams }: 
               </p>
             </div>
           ) : null}
-          {customRequest.makerworldSnapshot?.specText ? (
-            <div className="col-span-2 text-xs text-muted-foreground">Thông số khách dán (cần đối chiếu MakerWorld): <span className="font-mono">{customRequest.makerworldSnapshot.specText}</span></div>
-          ) : null}
-          <div className="col-span-2"><p className="text-muted-foreground">Mô tả</p><p className="whitespace-pre-wrap">{customRequest.description}</p></div>
+          <div className="col-span-2"><p className="text-muted-foreground">Mô tả</p><p className="whitespace-pre-wrap"><AutoLinkText text={customRequest.description} /></p></div>
           {customRequest.internalNote ? (
-            <div className="col-span-2"><p className="text-muted-foreground">Ghi chú nội bộ</p><p className="whitespace-pre-wrap">{customRequest.internalNote}</p></div>
+            <div className="col-span-2"><p className="text-muted-foreground">Ghi chú nội bộ</p><p className="whitespace-pre-wrap"><AutoLinkText text={customRequest.internalNote} /></p></div>
           ) : null}
         </CardContent>
       </Card>
@@ -247,8 +346,14 @@ export default async function CustomRequestDetailPage({ params, searchParams }: 
           <ActionForm action={updateCustomRequestStatusAction.bind(null, id)} className="flex items-end gap-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="status">Cập nhật trạng thái</Label>
-              <select id="status" name="status" defaultValue="" required className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm">
-                <option value="" disabled>— Chọn trạng thái —</option>
+              <select
+                id="status"
+                name="status"
+                defaultValue=""
+                required
+                className="h-8 cursor-pointer rounded-lg border border-input bg-background text-foreground px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-card dark:text-card-foreground dark:border-white/15 [&>option]:bg-background [&>option]:text-foreground dark:[&>option]:bg-card dark:[&>option]:text-card-foreground"
+              >
+                <option value="" disabled className="text-muted-foreground">— Chọn trạng thái —</option>
                 {statusOptions.map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)}
               </select>
             </div>
@@ -346,7 +451,15 @@ export default async function CustomRequestDetailPage({ params, searchParams }: 
               {/* B7: exactly one pricing tool mounted at a time — see QuoteToolSwitcher. */}
               <QuoteToolSwitcher
                 materials={materials} config={pricingConfig} priceInputIds={['subtotal']}
-                initialMakerWorld={customRequest.makerworldSnapshot ? { url: customRequest.makerworldSnapshot.sourceUrl, tier: customRequest.makerworldSnapshot.tier } : null}
+                initialMakerWorld={customRequest.makerworldSnapshot ? {
+                  url: customRequest.makerworldSnapshot.sourceUrl,
+                  tier: customRequest.makerworldSnapshot.tier,
+                  specText: customRequest.makerworldSnapshot.specText,
+                  profileTitle: customRequest.makerworldSnapshot.profileTitle,
+                  estimatedPriceVnd: customRequest.makerworldSnapshot.estimatedPriceVnd,
+                  estimateSource: customRequest.makerworldSnapshot.estimateSource,
+                  modelTitle: customRequest.makerworldSnapshot.modelTitle,
+                } : null}
               />
             </div>
             {/* Phase 33 S1: VAT line (read-only) + derived total, from the CURRENT pricing config. */}

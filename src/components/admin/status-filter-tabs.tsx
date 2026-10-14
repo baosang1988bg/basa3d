@@ -2,6 +2,7 @@ export interface StatusFilterGroup {
   key: string;
   label: string;
   statuses?: string[];
+  count?: number;
 }
 
 // Server-rendered filter pills driven by a `?filter=` query param — no client state, no polling,
@@ -26,11 +27,20 @@ export function StatusFilterTabs({ basePath, groups, activeKey }: { basePath: st
           <a
             key={group.key}
             href={href}
-            className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
               isActive ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground'
             }`}
           >
-            {group.label}
+            <span>{group.label}</span>
+            {group.count !== undefined ? (
+              <span
+                className={`rounded-full px-1.5 py-0.2 text-[10px] font-semibold leading-none ${
+                  isActive ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground'
+                }`}
+              >
+                {group.count}
+              </span>
+            ) : null}
           </a>
         );
       })}
@@ -39,6 +49,9 @@ export function StatusFilterTabs({ basePath, groups, activeKey }: { basePath: st
 }
 
 export function resolveStatusFilter(groups: StatusFilterGroup[], filterParam: string | undefined) {
-  const active = groups.find((group) => group.key === filterParam) ?? groups[0];
+  let resolvedKey = filterParam;
+  if (filterParam === 'pending') resolvedKey = 'wait_print';
+  if (filterParam === 'in_progress') resolvedKey = 'wait_pack';
+  const active = groups.find((group) => group.key === resolvedKey) ?? groups[0];
   return { activeKey: active.key, statuses: active.statuses };
 }

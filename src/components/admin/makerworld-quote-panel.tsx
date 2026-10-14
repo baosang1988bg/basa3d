@@ -131,6 +131,14 @@ const BLOCKED_CODES = new Set(['MAKERWORLD_BLOCKED_OR_TIMEOUT', 'MAKERWORLD_PROF
  * When MakerWorld blocks the server (Cloudflare 403), the Quick-Form + "Dán đoạn thông số" parser
  * produce the same PricingSource with dataSource MANUAL.
  */
+export type InitialCustomerData = {
+  specText?: string | null;
+  profileTitle?: string | null;
+  estimatedPriceVnd?: number | null;
+  estimateSource?: 'VERIFIED' | 'AUTO' | 'SPEC' | 'NONE' | null;
+  modelTitle?: string | null;
+};
+
 export function MakerWorldQuotePanel({
   materials,
   config,
@@ -138,6 +146,11 @@ export function MakerWorldQuotePanel({
   laborMinutesInputId,
   initialUrl = '',
   initialTier = null,
+  initialSpecText = null,
+  initialProfileTitle = null,
+  initialEstimatedPriceVnd = null,
+  initialEstimateSource = null,
+  initialModelTitle = null,
 }: {
   materials: MakerWorldQuoteMaterialOption[];
   config: MakerWorldPricingConfigOption | null;
@@ -147,15 +160,37 @@ export function MakerWorldQuotePanel({
   /** Phase B: prefilled from the customer's storefront MakerWorld intake (link incl. #profileId). */
   initialUrl?: string;
   initialTier?: AssemblyTier | null;
+  initialSpecText?: string | null;
+  initialProfileTitle?: string | null;
+  initialEstimatedPriceVnd?: number | null;
+  initialEstimateSource?: 'VERIFIED' | 'AUTO' | 'SPEC' | 'NONE' | null;
+  initialModelTitle?: string | null;
 }) {
   const [url, setUrl] = useState(initialUrl);
   const [state, setState] = useState<FetchState>({ kind: 'idle' });
   const [selectedProfileId, setSelectedProfileId] = useState('');
-  const [manualOpen, setManualOpen] = useState(false);
-  const [manualDraft, setManualDraft] = useState<ManualDraft>(EMPTY_MANUAL_DRAFT);
+  const [manualOpen, setManualOpen] = useState(Boolean(initialSpecText && initialEstimateSource === 'SPEC'));
+  const [specText, setSpecText] = useState(initialSpecText ?? '');
+  const [manualDraft, setManualDraft] = useState<ManualDraft>(() => {
+    if (initialSpecText) {
+      const parsed = parseMakerWorldSpecText(initialSpecText);
+      return {
+        ...EMPTY_MANUAL_DRAFT,
+        profileTitle: parsed.profileTitle ?? initialProfileTitle ?? '',
+        printerTarget: parsed.printerTarget ?? '',
+        hours: parsed.printMinutes !== null ? String(Math.round((parsed.printMinutes / 60) * 100) / 100) : '',
+        plates: parsed.platesCount !== null ? String(parsed.platesCount) : '',
+        grams: parsed.netWeightGrams !== null ? String(parsed.netWeightGrams) : '',
+        ams: parsed.amsRequired === null ? 'unknown' : parsed.amsRequired ? 'yes' : 'no',
+      };
+    }
+    return {
+      ...EMPTY_MANUAL_DRAFT,
+      profileTitle: initialProfileTitle ?? '',
+    };
+  });
   const [manualError, setManualError] = useState<string | null>(null);
   const [manualSource, setManualSource] = useState<PricingSource | null>(null);
-  const [specText, setSpecText] = useState('');
   const manualRevision = useRef(0);
   const inflight = useRef<AbortController | null>(null);
 
@@ -428,6 +463,13 @@ export function MakerWorldQuotePanel({
           priceInputIds={priceInputIds}
           laborMinutesInputId={laborMinutesInputId}
           initialTier={initialTier}
+          customerData={initialSpecText || initialEstimatedPriceVnd != null || initialProfileTitle ? {
+            specText: initialSpecText,
+            profileTitle: initialProfileTitle,
+            estimatedPriceVnd: initialEstimatedPriceVnd,
+            estimateSource: initialEstimateSource,
+            modelTitle: initialModelTitle,
+          } : null}
         />
       ) : null}
     </div>
@@ -451,7 +493,7 @@ type AppliedQuote = { breakdown: PricingBreakdown; snapshot: QuoteModelSnapshot;
  * stale price can never be submitted with a different profile's snapshot.
  */
 function ProfilePricing({
-  source, materials, config, priceInputIds, laborMinutesInputId, initialTier = null,
+  source, materials, config, priceInputIds, laborMinutesInputId, initialTier = null, customerData = null,
 }: {
   initialTier?: AssemblyTier | null;
   source: PricingSource;
@@ -459,6 +501,7 @@ function ProfilePricing({
   config: MakerWorldPricingConfigOption | null;
   priceInputIds: string[];
   laborMinutesInputId?: string;
+  customerData?: InitialCustomerData | null;
 }) {
   const { profile, colorsCount } = source;
   const [rows, setRows] = useState<FilamentRow[]>(() => profile.filaments.map(() => ({ materialId: '', wastePreset: 'DEFAULT', customWasteGrams: '' })));
@@ -621,8 +664,150 @@ function ProfilePricing({
     });
   }
 
+  const customerSpec = useMemo(() => {
+    if (!customerData?.specText) return null;
+    return parseMakerWorldSpecText(customerData.specText);
+  }, [customerData?.specText]);
+
+  const customerProfileTitle = customerData?.profileTitle ?? customerSpec?.profileTitle ?? null;
+  const isTimeMismatch = customerSpec?.printMinutes != null && Math.abs(customerSpec.printMinutes - profile.printTimeMinutes) > 15;
+  const isWeightMismatch = customerSpec?.netWeightGrams != null && (Math.abs(customerSpec.netWeightGrams - profile.netWeightGrams) > 15 || Math.abs(customerSpec.netWeightGrams - profile.netWeightGrams) / (customerSpec.netWeightGrams || 1) > 0.1);
+  const isPlatesMismatch = customerSpec?.platesCount != null && customerSpec.platesCount !== profile.platesCount;
+  const isAmsMismatch = customerSpec?.amsRequired != null && amsRequired != null && customerSpec.amsRequired !== amsRequired;
+  const hasMismatch = isTimeMismatch || isWeightMismatch || isPlatesMismatch || isAmsMismatch;
+
+  const customerPrice = customerData?.estimatedPriceVnd ?? null;
+  const currentPrice = breakdown?.finalPriceVnd ?? null;
+  const priceDiff = customerPrice != null && currentPrice != null ? currentPrice - customerPrice : null;
+
   return (
     <div className="flex flex-col gap-3">
+      {customerData ? (
+        <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 text-xs shadow-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-1.5">
+            <span className="font-semibold text-foreground text-sm">
+              Đối chiếu 2 giá trị: Dữ liệu khách gửi vs Dữ liệu MakerWorld
+            </span>
+            <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium ${
+              hasMismatch
+                ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                : 'border-emerald-600/40 bg-emerald-600/10 text-emerald-700 dark:text-emerald-300'
+            }`}>
+              {hasMismatch ? '⚠️ Có chênh lệch thông số' : '✓ Thông số đối chiếu khớp'}
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-border text-muted-foreground font-medium">
+                  <th className="py-1 px-1.5 w-28">Tiêu chí</th>
+                  <th className="py-1 px-1.5">1. Dữ liệu khách gửi (Đã lưu)</th>
+                  <th className="py-1 px-1.5">2. Dữ liệu MakerWorld ({source.dataSource === 'RESOLVER' ? 'Tự động' : 'Nhập tay'})</th>
+                  <th className="py-1 px-1.5 w-32 text-right">Đánh giá</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {customerProfileTitle ? (
+                  <tr>
+                    <td className="py-1.5 px-1.5 font-medium text-muted-foreground">Tên profile</td>
+                    <td className="py-1.5 px-1.5 font-medium">{customerProfileTitle}</td>
+                    <td className="py-1.5 px-1.5">{profile.profileTitle}</td>
+                    <td className="py-1.5 px-1.5 text-right">
+                      {customerProfileTitle.trim().toLowerCase() === profile.profileTitle.trim().toLowerCase() ? (
+                        <span className="text-emerald-600 dark:text-emerald-400">✓ Khớp</span>
+                      ) : (
+                        <span className="text-muted-foreground">Khác tên</span>
+                      )}
+                    </td>
+                  </tr>
+                ) : null}
+                {customerSpec?.printMinutes != null ? (
+                  <tr>
+                    <td className="py-1.5 px-1.5 font-medium text-muted-foreground">Thời gian in</td>
+                    <td className="py-1.5 px-1.5">{Math.round(customerSpec.printMinutes / 60 * 10) / 10}h ({customerSpec.printMinutes}p)</td>
+                    <td className="py-1.5 px-1.5">{Math.round(profile.printTimeMinutes / 60 * 10) / 10}h ({profile.printTimeMinutes}p)</td>
+                    <td className="py-1.5 px-1.5 text-right">
+                      {!isTimeMismatch ? (
+                        <span className="text-emerald-600 dark:text-emerald-400">✓ Khớp (~15p)</span>
+                      ) : (
+                        <span className="text-amber-600 dark:text-amber-400 font-medium">Lệch {Math.round(Math.abs(customerSpec.printMinutes - profile.printTimeMinutes) / 60 * 10) / 10}h</span>
+                      )}
+                    </td>
+                  </tr>
+                ) : null}
+                {customerSpec?.netWeightGrams != null ? (
+                  <tr>
+                    <td className="py-1.5 px-1.5 font-medium text-muted-foreground">Trọng lượng</td>
+                    <td className="py-1.5 px-1.5">{customerSpec.netWeightGrams}g</td>
+                    <td className="py-1.5 px-1.5">{Math.round(profile.netWeightGrams)}g</td>
+                    <td className="py-1.5 px-1.5 text-right">
+                      {!isWeightMismatch ? (
+                        <span className="text-emerald-600 dark:text-emerald-400">✓ Khớp (~10g)</span>
+                      ) : (
+                        <span className="text-amber-600 dark:text-amber-400 font-medium">Lệch {Math.round(Math.abs(customerSpec.netWeightGrams - profile.netWeightGrams))}g</span>
+                      )}
+                    </td>
+                  </tr>
+                ) : null}
+                {customerSpec?.platesCount != null ? (
+                  <tr>
+                    <td className="py-1.5 px-1.5 font-medium text-muted-foreground">Số plates</td>
+                    <td className="py-1.5 px-1.5">{customerSpec.platesCount} plates</td>
+                    <td className="py-1.5 px-1.5">{profile.platesCount} plates</td>
+                    <td className="py-1.5 px-1.5 text-right">
+                      {!isPlatesMismatch ? (
+                        <span className="text-emerald-600 dark:text-emerald-400">✓ Khớp</span>
+                      ) : (
+                        <span className="text-destructive font-medium">Lệch {Math.abs(customerSpec.platesCount - profile.platesCount)} plate</span>
+                      )}
+                    </td>
+                  </tr>
+                ) : null}
+                {customerSpec?.amsRequired != null ? (
+                  <tr>
+                    <td className="py-1.5 px-1.5 font-medium text-muted-foreground">Cấu hình AMS</td>
+                    <td className="py-1.5 px-1.5">{customerSpec.amsRequired ? 'Có AMS' : 'Không AMS'}</td>
+                    <td className="py-1.5 px-1.5">{amsRequired === null ? 'Chưa chọn' : amsRequired ? 'Có AMS' : 'Không AMS'}</td>
+                    <td className="py-1.5 px-1.5 text-right">
+                      {amsRequired === null ? (
+                        <span className="text-muted-foreground">Chưa chọn</span>
+                      ) : !isAmsMismatch ? (
+                        <span className="text-emerald-600 dark:text-emerald-400">✓ Khớp</span>
+                      ) : (
+                        <span className="text-destructive font-medium">Khác kiểu AMS</span>
+                      )}
+                    </td>
+                  </tr>
+                ) : null}
+                {customerPrice != null ? (
+                  <tr className="bg-muted/30 font-medium">
+                    <td className="py-1.5 px-1.5 text-muted-foreground">Giá đối chiếu</td>
+                    <td className="py-1.5 px-1.5 text-emerald-600 dark:text-emerald-400">
+                      {formatVnd(customerPrice)} <span className="text-[10px] text-muted-foreground font-normal">(khách đã thấy)</span>
+                    </td>
+                    <td className="py-1.5 px-1.5 text-primary">
+                      {currentPrice != null ? formatVnd(currentPrice) : 'Đang tính…'} <span className="text-[10px] text-muted-foreground font-normal">(đề xuất mới)</span>
+                    </td>
+                    <td className="py-1.5 px-1.5 text-right">
+                      {priceDiff === null ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : priceDiff === 0 ? (
+                        <span className="text-emerald-600 dark:text-emerald-400">✓ Khớp 100%</span>
+                      ) : priceDiff > 0 ? (
+                        <span className="text-amber-600 dark:text-amber-400">Tăng +{formatVnd(priceDiff)}</span>
+                      ) : (
+                        <span className="text-emerald-600 dark:text-emerald-400">Giảm {formatVnd(priceDiff)}</span>
+                      )}
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+
       <ProfileVerificationCard
         profileTitle={profile.profileTitle}
         modelTitle={source.dataSource === 'RESOLVER' ? source.modelTitle : null}

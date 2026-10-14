@@ -87,8 +87,14 @@ export default async function PrintJobDetailPage({ params }: { params: Promise<{
           <ActionForm action={updatePrintJobStatusAction.bind(null, id)} className="flex items-end gap-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="status">Cập nhật trạng thái</Label>
-              <select id="status" name="status" defaultValue="" required className="h-8 cursor-pointer rounded-lg border border-input bg-transparent px-2.5 text-sm">
-                <option value="" disabled>— Chọn trạng thái —</option>
+              <select
+                id="status"
+                name="status"
+                defaultValue=""
+                required
+                className="h-8 cursor-pointer rounded-lg border border-input bg-background text-foreground px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-card dark:text-card-foreground dark:border-white/15 [&>option]:bg-background [&>option]:text-foreground dark:[&>option]:bg-card dark:[&>option]:text-card-foreground"
+              >
+                <option value="" disabled className="text-muted-foreground">— Chọn trạng thái —</option>
                 {statusOptions.map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)}
               </select>
             </div>
@@ -111,8 +117,15 @@ export default async function PrintJobDetailPage({ params }: { params: Promise<{
           <ActionForm action={assignPrintJobMaterialAction.bind(null, id)} className="grid grid-cols-2 gap-4 border-t border-border pt-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="materialId">Vật liệu</Label>
-              <select key={printJob.materialId ?? 'unset'} id="materialId" name="materialId" required defaultValue={printJob.materialId ?? ''} className="h-9 cursor-pointer rounded-lg border border-input bg-transparent px-2.5 text-sm">
-                <option value="" disabled>Chọn vật liệu</option>
+              <select
+                key={printJob.materialId ?? 'unset'}
+                id="materialId"
+                name="materialId"
+                required
+                defaultValue={printJob.materialId ?? ''}
+                className="h-9 cursor-pointer rounded-lg border border-input bg-background text-foreground px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-card dark:text-card-foreground dark:border-white/15 [&>option]:bg-background [&>option]:text-foreground dark:[&>option]:bg-card dark:[&>option]:text-card-foreground"
+              >
+                <option value="" disabled className="text-muted-foreground">Chọn vật liệu</option>
                 {materials.map((material) => <option key={material.id} value={material.id}>{material.name}</option>)}
               </select>
             </div>
@@ -138,8 +151,15 @@ export default async function PrintJobDetailPage({ params }: { params: Promise<{
             <ActionForm action={assignPrintJobSpoolAction.bind(null, id)} className="grid grid-cols-2 gap-4 border-t border-border pt-4">
               <div className="col-span-2 flex flex-col gap-1.5">
                 <Label htmlFor="spoolId">Chọn cuộn (ACTIVE, cùng loại vật liệu)</Label>
-                <select key={printJob.spoolId ?? 'unset'} id="spoolId" name="spoolId" required defaultValue={printJob.spoolId ?? ''} className="h-9 cursor-pointer rounded-lg border border-input bg-transparent px-2.5 text-sm">
-                  <option value="" disabled>Chọn cuộn nhựa</option>
+                <select
+                  key={printJob.spoolId ?? 'unset'}
+                  id="spoolId"
+                  name="spoolId"
+                  required
+                  defaultValue={printJob.spoolId ?? ''}
+                  className="h-9 cursor-pointer rounded-lg border border-input bg-background text-foreground px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-card dark:text-card-foreground dark:border-white/15 [&>option]:bg-background [&>option]:text-foreground dark:[&>option]:bg-card dark:[&>option]:text-card-foreground"
+                >
+                  <option value="" disabled className="text-muted-foreground">Chọn cuộn nhựa</option>
                   {activeSpools.map((spool) => (
                     <option key={spool.id} value={spool.id}>
                       {spool.spoolCode} — còn {Math.round(spool.remainingPct)}% ({spool.remainingWeightGrams}g)

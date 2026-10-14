@@ -9,7 +9,11 @@ import { getFinancialMetrics, getOperationalMetrics } from '@/services/dashboard
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
     <Card>
-      <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle></CardHeader>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground whitespace-nowrap truncate" title={label}>
+          {label}
+        </CardTitle>
+      </CardHeader>
       <CardContent><p className="text-2xl font-semibold">{value}</p></CardContent>
     </Card>
   );
@@ -36,9 +40,9 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
         <StatCard label="Đơn hàng hôm nay" value={operational.ordersToday} />
-        <StatCard label="Đơn đang chờ xử lý" value={operational.pendingOrders} />
-        <StatCard label="Custom request đang mở" value={operational.customRequestsOpen} />
-        <StatCard label="Việc in đang chờ/đang chạy" value={operational.printJobsActive} />
+        <StatCard label="Đơn chờ xử lý" value={operational.pendingOrders} />
+        <StatCard label="Yêu cầu đang mở" value={operational.customRequestsOpen} />
+        <StatCard label="Việc in đang chạy" value={operational.printJobsActive} />
         <StatCard label="Sắp hết hàng" value={operational.lowStockCount} />
         {financial ? <StatCard label="Doanh thu hôm nay" value={`${financial.revenueToday.toLocaleString('vi-VN')}đ`} /> : null}
       </div>

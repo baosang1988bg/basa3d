@@ -120,8 +120,13 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           <ActionForm action={updateOrderStatusAction.bind(null, id)} className="flex items-end gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="status">Chuyển sang trạng thái</Label>
-              <select id="status" name="status" className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm" defaultValue="">
-                <option value="" disabled>— Chọn trạng thái —</option>
+              <select
+                id="status"
+                name="status"
+                className="h-8 cursor-pointer rounded-lg border border-input bg-background text-foreground px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-card dark:text-card-foreground dark:border-white/15 [&>option]:bg-background [&>option]:text-foreground dark:[&>option]:bg-card dark:[&>option]:text-card-foreground"
+                defaultValue=""
+              >
+                <option value="" disabled className="text-muted-foreground">— Chọn trạng thái —</option>
                 {nextStatusCandidates.map((candidate) => (
                   <option key={candidate} value={candidate}>{statusLabel(candidate)}</option>
                 ))}
@@ -139,13 +144,23 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="paymentStatus">Trạng thái thanh toán</Label>
-                <select id="paymentStatus" name="paymentStatus" defaultValue={order.paymentStatus} className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm">
+                <select
+                  id="paymentStatus"
+                  name="paymentStatus"
+                  defaultValue={order.paymentStatus}
+                  className="h-8 cursor-pointer rounded-lg border border-input bg-background text-foreground px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-card dark:text-card-foreground dark:border-white/15 [&>option]:bg-background [&>option]:text-foreground dark:[&>option]:bg-card dark:[&>option]:text-card-foreground"
+                >
                   {paymentOptions.map((status) => <option key={status} value={status}>{status}</option>)}
                 </select>
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="shippingStatus">Trạng thái vận chuyển</Label>
-                <select id="shippingStatus" name="shippingStatus" defaultValue={order.shippingStatus} className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm">
+                <select
+                  id="shippingStatus"
+                  name="shippingStatus"
+                  defaultValue={order.shippingStatus}
+                  className="h-8 cursor-pointer rounded-lg border border-input bg-background text-foreground px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-card dark:text-card-foreground dark:border-white/15 [&>option]:bg-background [&>option]:text-foreground dark:[&>option]:bg-card dark:[&>option]:text-card-foreground"
+                >
                   {shippingOptions.map((status) => <option key={status} value={status}>{status}</option>)}
                 </select>
               </div>

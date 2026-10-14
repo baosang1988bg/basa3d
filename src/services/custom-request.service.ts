@@ -7,6 +7,8 @@ import { detectIpRiskKeywords } from '../lib/copyright/ip-risk-keywords';
 import { writeAuditLog } from './audit.service';
 import { pagination } from './product.service';
 import type { PreparedCustomRequestItem } from './custom-request-items.service';
+import type { CustomRequestAdminUpdate } from '../domain/schemas';
+import { createUploadClaim } from '../lib/upload-claim';
 import {
   CONTENT_TYPE_BY_EXTENSION,
   CUSTOM_REQUEST_ATTACHMENT_BUCKET as ATTACHMENT_BUCKET,
@@ -23,7 +25,7 @@ export const MAX_ATTACHMENT_PARSE_BYTES = 20 * 1024 * 1024;
 /** Server-generated object path — the client never chooses it (no traversal, no overwrite). */
 export const ATTACHMENT_PATH_RE = /^requests\/[0-9a-f-]+\.(?:jpg|jpeg|png|webp|stl|step|stp|obj|3mf)$/;
 
-export type SignedUploadTarget = { path: string; token: string; contentType: string };
+export type SignedUploadTarget = { path: string; token: string; contentType: string; uploadClaim: string };
 
 /**
  * Phase 33 S2 (§6.2, T7): direct-to-Storage uploads. Mints one signed upload token per file for a
@@ -44,7 +46,7 @@ export async function createCustomRequestUploadTargets(
   for (const file of files) {
     const path = `requests/${randomUUID()}.${file.ext}`;
     const { token } = await sign(path);
-    targets.push({ path, token, contentType: CONTENT_TYPE_BY_EXTENSION[file.ext] });
+    targets.push({ path, token, contentType: CONTENT_TYPE_BY_EXTENSION[file.ext], uploadClaim: createUploadClaim(path) });
   }
   return targets;
 }
@@ -286,7 +288,24 @@ export async function updateCustomRequestStatus(id: string, status: string, acto
   });
 }
 
-type CustomRequestSummary = { id: string; requestNumber: string; sourceChannel: string; status: string; createdAt: Date; ipRiskFlag: boolean; itemCount: number };
+export type CustomRequestSummary = {
+  id: string;
+  requestNumber: string;
+  sourceChannel: string;
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string | null;
+  description: string;
+  quantity: number;
+  requestedMaterial: string | null;
+  requestedColor: string | null;
+  requestedSize: string | null;
+  internalNote: string | null;
+  status: string;
+  createdAt: Date;
+  ipRiskFlag: boolean;
+  itemCount: number;
+};
 
 export async function listCustomRequests(input: { page?: number; limit?: number; status?: string; statuses?: string[] } = {}) {
   const { page, limit, offset } = pagination(input);
@@ -296,13 +315,120 @@ export async function listCustomRequests(input: { page?: number; limit?: number;
     : input.status ? (values.push(input.status), `and status = $${values.length}`) : '';
   values.push(limit + 1, offset);
   const result = await query<CustomRequestSummary>(
-    `select id, request_number as "requestNumber", source_channel as "sourceChannel", status, created_at as "createdAt", ip_risk_flag as "ipRiskFlag",
+    `select id, request_number as "requestNumber", source_channel as "sourceChannel",
+       customer_name as "customerName", customer_phone as "customerPhone", customer_email as "customerEmail",
+       description, quantity, requested_material as "requestedMaterial", requested_color as "requestedColor",
+       requested_size as "requestedSize", internal_note as "internalNote",
+       status, created_at as "createdAt", ip_risk_flag as "ipRiskFlag",
        -- Phase 33 (B3): the "Đa món" badge counts real items, never attachment_path IS NULL.
        (select count(*)::int from custom_request_items i where i.custom_request_id = custom_requests.id) as "itemCount"
      from custom_requests where true ${statusSql} order by created_at desc, id limit $${values.length - 1} offset $${values.length}`,
     values,
   );
   return { page, limit, hasNext: result.rows.length > limit, items: result.rows.slice(0, limit) };
+}
+
+export async function updateCustomRequest(id: string, input: CustomRequestAdminUpdate, actorId: string) {
+  return withTransaction(async (client) => {
+    const current = await client.query('select * from custom_requests where id = $1 for update', [id]);
+    if (!current.rowCount) throw new DomainError('CUSTOM_REQUEST_NOT_FOUND', 'Yêu cầu không tồn tại.', 404);
+
+    const updates: string[] = [];
+    const values: unknown[] = [id];
+
+    const mapping: Record<keyof CustomRequestAdminUpdate, string> = {
+      sourceChannel: 'source_channel',
+      customerName: 'customer_name',
+      customerPhone: 'customer_phone',
+      customerEmail: 'customer_email',
+      description: 'description',
+      quantity: 'quantity',
+      requestedMaterial: 'requested_material',
+      requestedColor: 'requested_color',
+      requestedSize: 'requested_size',
+      status: 'status',
+      internalNote: 'internal_note',
+    };
+
+    for (const [key, col] of Object.entries(mapping)) {
+      const val = (input as Record<string, unknown>)[key];
+      if (val !== undefined) {
+        values.push(val);
+        updates.push(`${col} = $${values.length}`);
+      }
+    }
+
+    if (updates.length === 0) return current.rows[0];
+
+    const result = await client.query(
+      `update custom_requests set ${updates.join(', ')} where id = $1 returning *`,
+      values,
+    );
+
+    await writeAuditLog(client, {
+      actorId,
+      action: 'CUSTOM_REQUEST_UPDATED',
+      entityType: 'custom_request',
+      entityId: id,
+      beforeData: current.rows[0],
+      afterData: result.rows[0],
+    });
+
+    return result.rows[0];
+  });
+}
+
+export async function deleteCustomRequest(id: string, actorId: string) {
+  return withTransaction(async (client) => {
+    const current = await client.query('select * from custom_requests where id = $1 for update', [id]);
+    if (!current.rowCount) throw new DomainError('CUSTOM_REQUEST_NOT_FOUND', 'Yêu cầu không tồn tại.', 404);
+
+    // 1. Allow item purge in this transaction (satisfies trigger prevent_custom_request_item_mutation)
+    await client.query("set local basa3d.allow_item_purge = 'on'");
+
+    // 2. Cascade delete print_jobs for this custom request
+    await client.query('delete from print_jobs where custom_request_id = $1', [id]);
+
+    // 3. Cascade delete quotes for this custom request
+    await client.query('delete from quotes where custom_request_id = $1', [id]);
+
+    // 4. Collect item attachment paths if any
+    const items = await client.query<{ attachment_path: string }>(
+      'select attachment_path from custom_request_items where custom_request_id = $1',
+      [id],
+    );
+
+    // 5. Cascade delete custom_request_items
+    await client.query('delete from custom_request_items where custom_request_id = $1', [id]);
+
+    // 6. Delete custom request
+    await client.query('delete from custom_requests where id = $1', [id]);
+
+    // 7. Write audit log
+    await writeAuditLog(client, {
+      actorId,
+      action: 'CUSTOM_REQUEST_DELETED',
+      entityType: 'custom_request',
+      entityId: id,
+      beforeData: current.rows[0],
+    });
+
+    // 8. Clean up storage attachments if any
+    const pathsToRemove = [
+      current.rows[0].attachment_path,
+      ...items.rows.map((r) => r.attachment_path),
+    ].filter((p): p is string => Boolean(p));
+
+    if (pathsToRemove.length > 0) {
+      try {
+        await createSupabaseAdminClient().storage.from(ATTACHMENT_BUCKET).remove(pathsToRemove);
+      } catch {
+        // Storage removal is best-effort
+      }
+    }
+
+    return { id };
+  });
 }
 
 type CustomRequestDetail = {

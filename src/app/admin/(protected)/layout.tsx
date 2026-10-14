@@ -19,7 +19,7 @@ export default async function ProtectedAdminLayout({ children }: { children: Rea
             printJobsActive: operational.printJobsActive,
           }}
         />
-        <main className="flex-1 bg-background p-6">{children}</main>
+        <main className="flex-1 min-w-0 bg-background p-6">{children}</main>
       </div>
     );
   } catch (error) {

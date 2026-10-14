@@ -25,6 +25,8 @@ export type ItemVerification = 'VERIFIED' | 'CLIENT_REPORTED' | 'MISMATCH' | 'UN
 
 export type BaoGiaItemInput = {
   attachmentPath: string;
+  /** Verified at the public route boundary; ignored by the preparation service. */
+  uploadClaim?: string;
   displayName: string;
   materialType: string;
   infillPct: number;

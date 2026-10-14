@@ -1,5 +1,6 @@
 import { AdminPagination } from '@/components/admin/admin-pagination';
 import Link from 'next/link';
+import { Warehouse } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,7 +24,28 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">Sản phẩm</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Sản phẩm</h1>
+        <Link href="/admin/product-inventory" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+          <Warehouse className="mr-1.5 size-4" />
+          Kho sản phẩm &amp; Cấu hình giá
+        </Link>
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border border-primary/20 bg-primary/5 p-4">
+        <div className="flex items-center gap-3">
+          <Warehouse className="size-6 text-primary shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-foreground">Quản lý tồn kho &amp; cấu hình giá nhanh</p>
+            <p className="text-xs text-muted-foreground">
+              Xem sản phẩm nào còn tồn, kiểm tra giá bán và cấu hình giá in 3D nhanh gọn mà không cần đi qua form tạo/sửa chi tiết phức tạp.
+            </p>
+          </div>
+        </div>
+        <Link href="/admin/product-inventory" className={buttonVariants({ size: 'sm' })}>
+          Đến Kho sản phẩm
+        </Link>
+      </div>
 
       <Card>
         <CardHeader><CardTitle>Tạo sản phẩm mới</CardTitle></CardHeader>

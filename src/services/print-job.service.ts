@@ -5,40 +5,153 @@ import { pagination } from './product.service';
 import { lockMaterialForInventoryWrite, resolveWarehouseForMaterial } from './inventory.service';
 import { recordSpoolUsage } from './filament.service';
 
-type PrintJobSummary = {
-  id: string; orderId: string | null; customRequestId: string | null; quoteId: string | null;
-  materialId: string | null; printerName: string | null; status: string; createdAt: Date;
+export type PrintJobSummary = {
+  id: string;
+  orderId: string | null;
+  customRequestId: string | null;
+  quoteId: string | null;
+  materialId: string | null;
+  printerName: string | null;
+  status: string;
+  createdAt: Date;
+  estimatedWeightGrams: number | null;
+  estimatedPrintTimeMinutes: number | null;
+  orderNumber: string | null;
+  orderCustomerName: string | null;
+  orderCustomerPhone: string | null;
+  orderItemsSummary: string | null;
+  requestNumber: string | null;
+  requestCustomerName: string | null;
+  requestCustomerPhone: string | null;
+  requestDescription: string | null;
+  requestQuantity: number | null;
+  requestMaterial: string | null;
+  requestColor: string | null;
+  materialName: string | null;
+  spoolCode: string | null;
 };
 
-export async function listPrintJobs(input: { page?: number; limit?: number; status?: string; statuses?: string[] } = {}) {
+export async function listPrintJobs(input: {
+  page?: number;
+  limit?: number;
+  status?: string;
+  statuses?: string[];
+  orderBy?: 'queue' | 'created_asc' | 'created_desc';
+} = {}) {
   const { page, limit, offset } = pagination(input);
   const values: unknown[] = [];
   const statusSql = input.statuses?.length
-    ? (values.push(input.statuses), `and status = any($${values.length})`)
-    : input.status ? (values.push(input.status), `and status = $${values.length}`) : '';
+    ? (values.push(input.statuses), `and pj.status = any($${values.length})`)
+    : input.status ? (values.push(input.status), `and pj.status = $${values.length}`) : '';
   values.push(limit + 1, offset);
+
+  let orderClause = 'order by pj.created_at desc, pj.id asc';
+  if (input.orderBy === 'queue') {
+    orderClause = `order by
+      case
+        when pj.status = 'PRINTING' then 1
+        when pj.status in ('QUEUED', 'REPRINT') then 2
+        when pj.status = 'QC' then 3
+        when pj.status = 'FAILED' then 4
+        else 5
+      end asc,
+      case when pj.status in ('QUEUED', 'REPRINT') then pj.created_at end asc,
+      pj.created_at desc,
+      pj.id asc`;
+  } else if (input.orderBy === 'created_asc') {
+    orderClause = 'order by pj.created_at asc, pj.id asc';
+  }
+
   const result = await query<PrintJobSummary>(`
-    select id, order_id as "orderId", custom_request_id as "customRequestId", quote_id as "quoteId",
-      material_id as "materialId", printer_name as "printerName", status, created_at as "createdAt"
-    from print_jobs where true ${statusSql} order by created_at desc, id limit $${values.length - 1} offset $${values.length}`, values);
+    select
+      pj.id,
+      pj.order_id as "orderId",
+      pj.custom_request_id as "customRequestId",
+      pj.quote_id as "quoteId",
+      pj.material_id as "materialId",
+      pj.printer_name as "printerName",
+      pj.status,
+      pj.created_at as "createdAt",
+      pj.estimated_weight_grams as "estimatedWeightGrams",
+      pj.estimated_print_time_minutes as "estimatedPrintTimeMinutes",
+      o.order_number as "orderNumber",
+      o.customer_name as "orderCustomerName",
+      o.customer_phone as "orderCustomerPhone",
+      (
+        select string_agg(
+          oi.product_name_snapshot ||
+          case
+            when oi.variant_name_snapshot is not null and oi.variant_name_snapshot <> '' and oi.variant_name_snapshot <> 'Default'
+            then ' (' || oi.variant_name_snapshot || ')'
+            else ''
+          end || ' x' || oi.quantity,
+          ', ' order by oi.created_at
+        )
+        from order_items oi
+        where oi.order_id = pj.order_id
+      ) as "orderItemsSummary",
+      cr.request_number as "requestNumber",
+      cr.customer_name as "requestCustomerName",
+      cr.customer_phone as "requestCustomerPhone",
+      cr.description as "requestDescription",
+      cr.quantity as "requestQuantity",
+      cr.requested_material as "requestMaterial",
+      cr.requested_color as "requestColor",
+      m.name as "materialName",
+      fs.spool_code as "spoolCode"
+    from print_jobs pj
+    left join orders o on o.id = pj.order_id
+    left join custom_requests cr on cr.id = pj.custom_request_id
+    left join materials m on m.id = pj.material_id
+    left join filament_spools fs on fs.id = pj.spool_id
+    where true ${statusSql}
+    ${orderClause}
+    limit $${values.length - 1} offset $${values.length}`, values);
+
   return { page, limit, hasNext: result.rows.length > limit, items: result.rows.slice(0, limit) };
 }
 
-type PrintJobDetail = PrintJobSummary & {
+export type PrintJobDetail = PrintJobSummary & {
   spoolId: string | null;
-  estimatedWeightGrams: number | null; actualWeightGrams: number | null;
-  estimatedPrintTimeMinutes: number | null; actualPrintTimeMinutes: number | null;
-  startedAt: Date | null; completedAt: Date | null; note: string | null;
+  actualWeightGrams: number | null;
+  actualPrintTimeMinutes: number | null;
+  startedAt: Date | null;
+  completedAt: Date | null;
+  note: string | null;
 };
 
 export async function getPrintJobById(id: string): Promise<PrintJobDetail | null> {
   const result = await query<PrintJobDetail>(`
-    select id, order_id as "orderId", custom_request_id as "customRequestId", quote_id as "quoteId",
-      material_id as "materialId", spool_id as "spoolId", printer_name as "printerName", estimated_weight_grams as "estimatedWeightGrams",
-      actual_weight_grams as "actualWeightGrams", estimated_print_time_minutes as "estimatedPrintTimeMinutes",
-      actual_print_time_minutes as "actualPrintTimeMinutes", status, started_at as "startedAt",
-      completed_at as "completedAt", note, created_at as "createdAt"
-    from print_jobs where id = $1`, [id]);
+    select
+      pj.id, pj.order_id as "orderId", pj.custom_request_id as "customRequestId", pj.quote_id as "quoteId",
+      pj.material_id as "materialId", pj.spool_id as "spoolId", pj.printer_name as "printerName",
+      pj.estimated_weight_grams as "estimatedWeightGrams", pj.actual_weight_grams as "actualWeightGrams",
+      pj.estimated_print_time_minutes as "estimatedPrintTimeMinutes", pj.actual_print_time_minutes as "actualPrintTimeMinutes",
+      pj.status, pj.started_at as "startedAt", pj.completed_at as "completedAt", pj.note, pj.created_at as "createdAt",
+      o.order_number as "orderNumber", o.customer_name as "orderCustomerName", o.customer_phone as "orderCustomerPhone",
+      (
+        select string_agg(
+          oi.product_name_snapshot ||
+          case
+            when oi.variant_name_snapshot is not null and oi.variant_name_snapshot <> '' and oi.variant_name_snapshot <> 'Default'
+            then ' (' || oi.variant_name_snapshot || ')'
+            else ''
+          end || ' x' || oi.quantity,
+          ', ' order by oi.created_at
+        )
+        from order_items oi
+        where oi.order_id = pj.order_id
+      ) as "orderItemsSummary",
+      cr.request_number as "requestNumber", cr.customer_name as "requestCustomerName", cr.customer_phone as "requestCustomerPhone",
+      cr.description as "requestDescription", cr.quantity as "requestQuantity",
+      cr.requested_material as "requestMaterial", cr.requested_color as "requestColor",
+      m.name as "materialName", fs.spool_code as "spoolCode"
+    from print_jobs pj
+    left join orders o on o.id = pj.order_id
+    left join custom_requests cr on cr.id = pj.custom_request_id
+    left join materials m on m.id = pj.material_id
+    left join filament_spools fs on fs.id = pj.spool_id
+    where pj.id = $1`, [id]);
   return result.rows[0] ?? null;
 }
 
