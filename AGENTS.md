@@ -41,6 +41,15 @@ pinned in `.agents/skills/cad/requirements.txt`.
 Example prompt: "Use the cad skill to draft a 20 mm cube with a centered
 6 mm through-hole along Z, and export STEP and STL for internal review."
 
+## UI/UX design & review skill (evondevKit)
+`.agents/skills/ui-ux/SKILL.md` (mirrored at `.claude/skills/ui-ux/`) is the
+canonical UI/UX design system & review standard adapted from `evondevKit`.
+It enforces designer-led workflows (brief, wireframes, state enumeration: empty/loading/error),
+strict adherence to existing shadcn/ui components, responsive layout budgets, and
+automated visual audits using Playwright (`node .agents/skills/ui-ux/scripts/probe.mjs <url>`).
+Use it whenever designing, building, or refactoring UI screens (dashboards, tables, forms,
+storefront, and instant quote flows).
+
 ## Closing a phase
 `.agents/skills/close-phase/SKILL.md` (mirrored at `.claude/skills/close-phase/`)
 is the canonical procedure for Step 8 of `PHASE_START_PROTOCOL.md`: verify the
