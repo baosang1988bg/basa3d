@@ -412,7 +412,17 @@ export const publicMakerWorldIntakeSchema = z.object({
   profileConfirmed: z.literal(true),
   /** ADR-0034: spec line the customer pasted when MakerWorld couldn't be read automatically. */
   specText: z.string().trim().min(3).max(2_000).optional(),
-}).strict();
+  /** ADR-0039: id of the server-stored screenshot estimate + the server-assigned profile key. */
+  screenshotEstimateId: z.string().uuid().optional(),
+  profileKey: z.string().regex(/^p\d{1,2}$/).optional(),
+}).strict().superRefine((intake, context) => {
+  if (Boolean(intake.screenshotEstimateId) !== Boolean(intake.profileKey)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'screenshotEstimateId and profileKey must be provided together.', path: ['profileKey'] });
+  }
+  if (intake.screenshotEstimateId && intake.specText) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'specText and screenshotEstimateId are mutually exclusive.', path: ['specText'] });
+  }
+});
 
 export const quoteInputSchema = z.object({
   customRequestId: uuidSchema,

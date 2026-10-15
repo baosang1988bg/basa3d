@@ -564,3 +564,22 @@ Status: accepted (Phase 34, Gemini challenge reconciled 2026-10-14)
   the request path.
 - Baseline browser headers are enforced by the app. CSP begins in Report-Only mode with a static
   hash for the fixed theme bootstrap; HSTS remains a production-domain deployment control.
+
+## ADR-0039 — MakerWorld estimate from a customer screenshot (vision model)
+
+Status: accepted for implementation, behind `MAKERWORLD_SCREENSHOT_ESTIMATE_ENABLED` (default off).
+Plan: `docs/exec-plans/active/makerworld-screenshot-estimate.md`.
+
+- Context: ADR-0034's spec paste works but customers rarely copy/type the spec line. Circumventing
+  MakerWorld's Cloudflare challenge stays a non-goal.
+- Decision: the customer uploads a screenshot of the profile section (existing signed-upload flow)
+  and sends it **in the same request** as the link. The server asks a vision model (Gemini via REST,
+  no SDK; default `gemini-3.5-flash-lite`) for a JSON list of profiles, Zod-bounds every value, prices each complete profile with the
+  SPEC rules (`estimateFromSpec`) and stores the result in `makerworld_screenshot_estimates`. The
+  browser only gets `screenshotEstimateId` + profile keys `p0..p9`; submission sends the id + key and
+  the row is consumed in the same transaction that creates the custom request (single use, 2 h TTL).
+- Link ↔ screenshot check is model-level only (model id visible in the screenshot, else URL slug vs
+  extracted title): MATCH / MISMATCH / UNKNOWN; MISMATCH hides prices. Profile-level correctness is
+  confirmed by staff in the Phase A panel.
+- Trade-offs: a fake screenshot yields a fake *estimate* only (same as SPEC); customer screenshots
+  are sent to a third-party AI provider; per-call cost bounded by 10/h/IP and 200/h global.

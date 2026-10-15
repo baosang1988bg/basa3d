@@ -247,6 +247,17 @@ export async function createCustomRequest(input: Record<string, unknown>, actorI
         item.materialType, item.infillPct, item.scalePermille, item.color, item.quantity, item.verification, JSON.stringify(item.estimateSnapshot),
       ]);
     }
+    // ADR-0039: a screenshot estimate is single use — consumed in the SAME transaction, so two
+    // concurrent submissions of one estimate can never both create a request.
+    if (typeof input.screenshotEstimateId === 'string') {
+      const consumed = await client.query(
+        `update makerworld_screenshot_estimates set consumed_at = now(), custom_request_id = $2
+         where id = $1 and consumed_at is null and expires_at > now() returning id`,
+        [input.screenshotEstimateId, result.rows[0].id]);
+      if (!consumed.rowCount) {
+        throw new DomainError('SCREENSHOT_ESTIMATE_USED', 'Ảnh báo giá này đã được dùng hoặc đã hết hạn — vui lòng chụp và xem giá lại.', 409);
+      }
+    }
     const action = actorId ? 'CUSTOM_REQUEST_CREATED' : 'CUSTOM_REQUEST_CREATED_PUBLIC';
     await writeAuditLog(client, { actorId, action, entityType: 'custom_request', entityId: result.rows[0].id, afterData: input });
     return { id: result.rows[0].id, requestNumber: result.rows[0].request_number };
@@ -463,11 +474,22 @@ export type CustomRequestMakerWorldSnapshot = {
   profileTitle: string | null;
   tier: 'ASSEMBLED' | 'KIT';
   profileConfirmed: true;
-  estimateSource: 'VERIFIED' | 'AUTO' | 'SPEC' | 'NONE';
+  estimateSource: 'VERIFIED' | 'AUTO' | 'SPEC' | 'SCREENSHOT' | 'NONE';
   estimatedPriceVnd: number | null;
   estimatedAt: string;
-  /** ADR-0034: the spec line the customer pasted (estimateSource SPEC) — staff should double-check it. */
+  /** ADR-0034: the spec line the customer pasted (estimateSource SPEC) — staff should double-check it.
+   * ADR-0039: for a screenshot estimate, a spec line rebuilt from what the vision model read. */
   specText?: string;
+  /** ADR-0039: screenshot estimate details (the image itself is the request's attachment_path). */
+  screenshot?: CustomRequestScreenshotSnapshot;
+};
+
+export type CustomRequestScreenshotSnapshot = {
+  estimateId: string;
+  matchStatus: 'MATCH' | 'MISMATCH' | 'UNKNOWN';
+  modelTitleExtracted: string | null;
+  selectedProfileKey: string;
+  profiles: Array<{ key: string; title: string; specLine: string; dataIncomplete: boolean }>;
 };
 
 export async function getCustomRequestById(id: string): Promise<CustomRequestDetail | null> {

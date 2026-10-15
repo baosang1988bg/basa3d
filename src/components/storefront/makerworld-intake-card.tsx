@@ -15,11 +15,15 @@ import {
   RotateCcw,
   Sparkles,
   BadgeCheck,
+  Camera,
 } from 'lucide-react';
 import { CURRENT_TOS_VERSION } from '@/lib/copyright/tos-version';
 import { formatVnd } from '@/components/storefront/format';
 import { ProfileVerificationCard } from '@/components/makerworld/profile-verification-card';
 import type { PublicMakerWorldEstimate, EstimateReason } from '@/services/makerworld-estimate.service';
+import type { PublicScreenshotEstimate } from '@/services/makerworld-screenshot-estimate.service';
+import { uploadCustomRequestFile, UploadError } from '@/lib/uploads/upload-custom-request-file';
+import { prepareScreenshot } from '@/lib/uploads/prepare-screenshot';
 
 type Tier = 'ASSEMBLED' | 'KIT';
 
@@ -36,7 +40,14 @@ const REASON_TEXT: Record<Exclude<EstimateReason, 'OK'>, string> = {
   NO_PRICING_CONFIG: 'Hiện chưa thể hiển thị giá tự động. Gửi yêu cầu để BaSa3D báo giá cho bạn.',
   INCOMPLETE: 'Mẫu này thiếu thông số in trên MakerWorld nên chưa tính được giá tự động. Gửi yêu cầu để BaSa3D báo giá cho bạn.',
   SPEC_UNREADABLE: 'Chưa đọc được thời gian in và số gram trong đoạn bạn dán. Hãy copy cả dòng có dạng "7.4 h · 6 plates · 168 g" rồi thử lại.',
+  SCREENSHOT_UNREADABLE: 'Chưa đọc được thông số profile trong ảnh. Hãy chụp lại rõ phần có tên profile, số giờ in và số gram.',
+  SCREENSHOT_MISMATCH: 'Ảnh có vẻ không phải mẫu trong link bạn dán, nên chưa hiển thị giá. Hãy kiểm tra lại link/ảnh — bạn vẫn có thể gửi yêu cầu để xưởng kiểm tra.',
+  SCREENSHOT_UNAVAILABLE: 'Hiện chưa đọc được ảnh tự động. Bạn có thể dán thông số bên dưới hoặc gửi yêu cầu để BaSa3D báo giá.',
 };
+
+// ADR-0039: screenshot of the profile on the MakerWorld app/web, read server-side.
+const SCREENSHOT_HELP = 'Mở mẫu trên app hoặc web MakerWorld → bấm vào profile bạn muốn in → chụp màn hình phần có tên mẫu, tên profile, số giờ in, số gram và số plate.';
+const SCREENSHOT_MAX_BYTES = 8 * 1024 * 1024;
 
 // Option 1 (ADR-0034): MakerWorld blocks automated reads, so the customer copies the profile's spec
 // line from the MakerWorld page; the server parses and prices it with the admin rules.
@@ -57,6 +68,11 @@ export function MakerWorldIntakeCard() {
   const [specText, setSpecText] = useState('');
   const [usedSpecText, setUsedSpecText] = useState<string | null>(null);
   const inflight = useRef<AbortController | null>(null);
+  const [screenshotAvailable, setScreenshotAvailable] = useState(false);
+  const [screenshotEstimateId, setScreenshotEstimateId] = useState<string | null>(null);
+  const [matchStatus, setMatchStatus] = useState<PublicScreenshotEstimate['matchStatus']>(null);
+  const [isReadingScreenshot, setIsReadingScreenshot] = useState(false);
+  const screenshotInput = useRef<HTMLInputElement | null>(null);
 
   const [showDetailForm, setShowDetailForm] = useState(false);
   const [customerName, setCustomerName] = useState('');
@@ -74,8 +90,8 @@ export function MakerWorldIntakeCard() {
 
   const selectedProfile = estimate?.profiles.find((p) => p.profileId === selectedProfileId) ?? null;
   const isSinglePlate = selectedProfile?.platesCount === 1;
-  const hasPrices = estimate?.source === 'VERIFIED' || estimate?.source === 'AUTO' || estimate?.source === 'SPEC';
-  const isEstimateSource = estimate?.source === 'AUTO' || estimate?.source === 'SPEC';
+  const hasPrices = estimate?.source === 'VERIFIED' || estimate?.source === 'AUTO' || estimate?.source === 'SPEC' || estimate?.source === 'SCREENSHOT';
+  const isEstimateSource = estimate?.source === 'AUTO' || estimate?.source === 'SPEC' || estimate?.source === 'SCREENSHOT';
   const needsProfilePick = Boolean(estimate && estimate.profiles.length > 1 && !selectedProfile);
 
   useEffect(() => {
@@ -99,6 +115,8 @@ export function MakerWorldIntakeCard() {
     setSelectedProfileId(null);
     setProfileConfirmed(false);
     setShowDetailForm(false);
+    setScreenshotEstimateId(null);
+    setMatchStatus(null);
     try {
       const response = await fetch('/api/public/makerworld-estimate', {
         method: 'POST',
@@ -116,6 +134,7 @@ export function MakerWorldIntakeCard() {
       }
       const result = data as PublicMakerWorldEstimate;
       setEstimate(result);
+      setScreenshotAvailable(Boolean(result.screenshotAvailable));
       setUsedSpecText(spec && result.source === 'SPEC' ? spec : null);
       setSelectedProfileId(result.selectedProfileId ?? (result.profiles.length === 1 ? result.profiles[0].profileId : null));
       if (targetUrl) setUrl(targetUrl);
@@ -124,6 +143,57 @@ export function MakerWorldIntakeCard() {
       setEstimateError('Không thể kết nối đến máy chủ. Vui lòng thử lại sau.');
     } finally {
       if (inflight.current === controller) setIsEstimating(false);
+    }
+  }
+
+  /** ADR-0039: upload the screenshot (existing signed-upload flow), then send link + image path in ONE request. */
+  async function handleScreenshot(file: File) {
+    if (!estimate) return;
+    inflight.current?.abort();
+    const controller = new AbortController();
+    inflight.current = controller;
+    setIsReadingScreenshot(true);
+    setEstimateError('');
+    try {
+      // Re-encoded in the browser: strips EXIF (GPS), shrinks big photos, converts HEIC when possible.
+      const prepared = await prepareScreenshot(file);
+      if (!prepared) {
+        setEstimateError('Chỉ nhận ảnh PNG, JPG hoặc WEBP. Ảnh chụp màn hình trên điện thoại thường đã đúng định dạng.');
+        return;
+      }
+      if (prepared.blob.size > SCREENSHOT_MAX_BYTES) {
+        setEstimateError('Ảnh quá lớn (tối đa 8MB) — hãy cắt bớt hoặc chụp lại.');
+        return;
+      }
+      const uploaded = await uploadCustomRequestFile(prepared.blob, prepared.fileName);
+      const response = await fetch('/api/public/makerworld-screenshot-estimate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ url: estimate.sourceUrl, attachmentPath: uploaded.path, uploadClaim: uploaded.uploadClaim }),
+        signal: controller.signal,
+      });
+      const data = await response.json().catch(() => null);
+      if (controller.signal.aborted) return;
+      if (!response.ok) {
+        setEstimateError(data?.message || (response.status === 429
+          ? 'Bạn đã gửi ảnh quá nhiều lần, vui lòng thử lại sau.'
+          : 'Không đọc được ảnh này, vui lòng thử lại.'));
+        return;
+      }
+      const result = data as PublicScreenshotEstimate;
+      setEstimate(result);
+      setScreenshotEstimateId(result.screenshotEstimateId);
+      setMatchStatus(result.matchStatus);
+      setUsedSpecText(null);
+      setSelectedProfileId(result.selectedProfileId);
+      setProfileConfirmed(false);
+      setShowDetailForm(false);
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') return;
+      setEstimateError(error instanceof UploadError ? error.message : 'Không thể kết nối đến máy chủ. Vui lòng thử lại sau.');
+    } finally {
+      if (inflight.current === controller) setIsReadingScreenshot(false);
+      if (screenshotInput.current) screenshotInput.current.value = '';
     }
   }
 
@@ -165,10 +235,13 @@ export function MakerWorldIntakeCard() {
           tosVersion: CURRENT_TOS_VERSION,
           makerworld: {
             sourceUrl: estimate.sourceUrl,
-            profileId: selectedProfile?.profileId ?? estimate.requestedProfileId ?? null,
+            // Screenshot profiles use server keys (p0..); the MakerWorld #profileId stays the link's.
+            profileId: screenshotEstimateId ? estimate.requestedProfileId ?? null : selectedProfile?.profileId ?? estimate.requestedProfileId ?? null,
             tier,
             profileConfirmed,
-            ...(usedSpecText ? { specText: usedSpecText } : {}),
+            ...(screenshotEstimateId && selectedProfile
+              ? { screenshotEstimateId, profileKey: selectedProfile.profileId }
+              : usedSpecText ? { specText: usedSpecText } : {}),
           },
         }),
       });
@@ -187,6 +260,8 @@ export function MakerWorldIntakeCard() {
   }
 
   function handleReset() {
+    setScreenshotEstimateId(null);
+    setMatchStatus(null);
     setSpecText('');
     setUsedSpecText(null);
     inflight.current?.abort();
@@ -316,6 +391,8 @@ export function MakerWorldIntakeCard() {
               <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300">Giá ước tính tự động</span>
             ) : estimate.source === 'SPEC' ? (
               <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300">Giá ước tính từ thông số bạn dán</span>
+            ) : estimate.source === 'SCREENSHOT' ? (
+              <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300">Giá ước tính từ ảnh chụp</span>
             ) : null}
           </div>
 
@@ -326,9 +403,43 @@ export function MakerWorldIntakeCard() {
             </div>
           ) : null}
 
+          {matchStatus === 'UNKNOWN' && screenshotEstimateId ? (
+            <div className="flex items-start gap-2.5 rounded-xl border border-border bg-muted/30 p-4 text-xs text-muted-foreground">
+              <AlertCircle className="mt-0.5 size-4 shrink-0" />
+              <span>Chưa đối chiếu được ảnh với link (ảnh không thấy rõ tên mẫu). Hãy chắc chắn ảnh chụp đúng mẫu trong link — xưởng sẽ kiểm tra lại trước khi báo giá chính thức.</span>
+            </div>
+          ) : null}
+
+          {estimate.source === 'NONE' && estimate.reason !== 'NO_PRICING_CONFIG' && screenshotAvailable ? (
+            <div className="flex flex-col gap-2 rounded-xl border border-primary/30 bg-primary/5 p-4">
+              <p className="text-sm font-semibold text-foreground">Xem giá ngay bằng ảnh chụp màn hình</p>
+              <p className="text-xs text-muted-foreground">{SCREENSHOT_HELP}</p>
+              <p className="text-[11px] text-muted-foreground">Ảnh được đọc tự động bằng AI chỉ để lấy thông số in; xưởng vẫn kiểm tra lại trước khi báo giá chính thức.</p>
+              <input
+                ref={screenshotInput}
+                id="mw-screenshot"
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void handleScreenshot(file);
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => screenshotInput.current?.click()}
+                disabled={isReadingScreenshot || isEstimating}
+                className="inline-flex items-center justify-center gap-2 self-start rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-md hover:opacity-90 disabled:opacity-50 transition-all cursor-pointer"
+              >
+                {isReadingScreenshot ? (<><Loader2 className="size-4 animate-spin" /><span>Đang đọc ảnh…</span></>) : (<><Camera className="size-4" /><span>Chọn ảnh chụp màn hình</span></>)}
+              </button>
+            </div>
+          ) : null}
+
           {estimate.source === 'NONE' && estimate.reason !== 'NO_PRICING_CONFIG' ? (
             <div className="flex flex-col gap-2 rounded-xl border border-primary/30 bg-primary/5 p-4">
-              <p className="text-sm font-semibold text-foreground">Xem giá ngay bằng thông số profile</p>
+              <p className="text-sm font-semibold text-foreground">{screenshotAvailable ? 'Hoặc dán thông số profile' : 'Xem giá ngay bằng thông số profile'}</p>
               <p className="text-xs text-muted-foreground">{SPEC_HELP}</p>
               <textarea
                 id="mw-spec-text"
@@ -356,7 +467,7 @@ export function MakerWorldIntakeCard() {
               <p className="text-xs font-semibold text-foreground">
                 {estimate.profiles.length > 1 ? 'Chọn đúng profile in bạn muốn:' : 'Profile in:'}
               </p>
-              {estimate.requestedProfileId && !estimate.profiles.some((p) => p.profileId === estimate.requestedProfileId) ? (
+              {!screenshotEstimateId && estimate.requestedProfileId && !estimate.profiles.some((p) => p.profileId === estimate.requestedProfileId) ? (
                 <p className="text-xs text-muted-foreground">Profile trong link của bạn chưa có giá sẵn — chọn một profile bên dưới hoặc gửi yêu cầu để xưởng báo giá profile đó.</p>
               ) : null}
               <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
@@ -380,6 +491,11 @@ export function MakerWorldIntakeCard() {
                       netWeightGrams={profile.netWeightGrams}
                       amsRequired={profile.amsRequired}
                     />
+                    {profile.dataIncomplete ? (
+                      <span className="mt-1 block px-1 text-[11px] text-amber-700 dark:text-amber-400">
+                        Ảnh chưa thấy đủ số giờ in / số gram của profile này — bấm vào profile trên MakerWorld rồi chụp phần chi tiết để có giá.
+                      </span>
+                    ) : null}
                   </button>
                 ))}
               </div>
@@ -429,6 +545,8 @@ export function MakerWorldIntakeCard() {
                   ? 'Giá tham khảo do BaSa3D tính cho đúng profile này với cấu hình in và giá nhựa hiện tại. Giá chính thức sẽ được xác nhận khi xưởng kiểm tra màu nhựa bạn chọn.'
                   : estimate.source === 'SPEC'
                     ? 'Giá ước tính theo thông số bạn dán, làm tròn 5.000đ. BaSa3D sẽ kiểm tra lại đúng profile trên MakerWorld trước khi báo giá chính thức.'
+                    : estimate.source === 'SCREENSHOT'
+                      ? 'Giá ước tính theo thông số đọc từ ảnh chụp của bạn, làm tròn 5.000đ. BaSa3D sẽ kiểm tra lại đúng mẫu và profile trên MakerWorld trước khi báo giá chính thức.'
                     : 'Giá ước tính tự động, làm tròn 5.000đ. Giá chính thức do BaSa3D xác nhận sau khi kiểm tra mẫu.'}
               </span>
             </div>

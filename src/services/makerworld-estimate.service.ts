@@ -35,8 +35,10 @@ export const RESOLVER_NEGATIVE_CACHE_TTL_MINUTES = 10;
 export const RESOLVER_GLOBAL_BUDGET_PER_HOUR = 30;
 export const AUTO_ESTIMATE_ROUNDING_VND = 5_000;
 
-export type EstimateSource = 'VERIFIED' | 'AUTO' | 'SPEC' | 'NONE';
-export type EstimateReason = 'OK' | 'BLOCKED' | 'BUSY' | 'NO_PRICING_CONFIG' | 'INCOMPLETE' | 'NOT_VERIFIED' | 'SPEC_UNREADABLE';
+export type EstimateSource = 'VERIFIED' | 'AUTO' | 'SPEC' | 'SCREENSHOT' | 'NONE';
+export type EstimateReason = 'OK' | 'BLOCKED' | 'BUSY' | 'NO_PRICING_CONFIG' | 'INCOMPLETE' | 'NOT_VERIFIED' | 'SPEC_UNREADABLE'
+  // ADR-0039 screenshot estimate
+  | 'SCREENSHOT_UNREADABLE' | 'SCREENSHOT_MISMATCH' | 'SCREENSHOT_UNAVAILABLE';
 
 export type PublicEstimateProfile = {
   profileId: string;
@@ -48,6 +50,8 @@ export type PublicEstimateProfile = {
   netWeightGrams: number;
   amsRequired: boolean | null;
   prices: Record<AssemblyTier, number | null>;
+  /** ADR-0039: the screenshot is missing print time or grams for this profile — never priced. */
+  dataIncomplete?: boolean;
 };
 
 export type PublicMakerWorldEstimate = {
@@ -62,6 +66,8 @@ export type PublicMakerWorldEstimate = {
   selectedProfileId: string | null;
   /** The #profileId from the pasted link (even if it has no price) — UI explains "chưa có giá". */
   requestedProfileId: string | null;
+  /** ADR-0039: the route sets this when the screenshot estimate is enabled, so the card can offer it. */
+  screenshotAvailable?: boolean;
 };
 
 export function isPublicResolverEnabled(env: Record<string, string | undefined> = process.env): boolean {
@@ -81,7 +87,7 @@ export function roundAutoEstimate(value: number): number {
 }
 
 /** Strip the URL to model + optional profile (no query/tracking params) for storage/display. */
-function canonicalSourceUrl(rawUrl: string): string {
+export function canonicalSourceUrl(rawUrl: string): string {
   const parsed = parseMakerWorldUrl(rawUrl);
   const url = new URL(parsed.url.toString());
   url.search = '';

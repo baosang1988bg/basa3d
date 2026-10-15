@@ -161,7 +161,11 @@ export default async function CustomRequestDetailPage({ params, searchParams }: 
                 ? { label: 'Tự động (Auto)', variant: 'secondary' as const }
                 : mw.estimateSource === 'SPEC'
                   ? { label: 'Khách dán thông số / Nhập tay (Spec)', variant: 'outline' as const }
-                  : { label: 'Chưa có giá tham khảo', variant: 'secondary' as const };
+                  : mw.estimateSource === 'SCREENSHOT'
+                    ? { label: 'AI đọc từ ảnh chụp (Screenshot)', variant: 'outline' as const }
+                    : { label: 'Chưa có giá tham khảo', variant: 'secondary' as const };
+            const shot = mw.screenshot;
+            const matchLabel = shot?.matchStatus === 'MATCH' ? 'Khớp link' : shot?.matchStatus === 'MISMATCH' ? 'KHÔNG khớp link' : 'Chưa đối chiếu được';
 
             return (
               <div className="col-span-2 flex flex-col gap-3 rounded-lg border border-emerald-600/40 bg-emerald-600/5 p-4 text-sm">
@@ -234,7 +238,25 @@ export default async function CustomRequestDetailPage({ params, searchParams }: 
                     </div>
                   </div>
 
-                  {mw.specText ? (
+                  {shot ? (
+                    <div className="mt-2.5 flex flex-col gap-1.5 border-t border-border/50 pt-2 text-xs">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-muted-foreground">Ảnh chụp ↔ link:</span>
+                        <Badge variant={shot.matchStatus === 'MISMATCH' ? 'destructive' : shot.matchStatus === 'MATCH' ? 'default' : 'secondary'}>{matchLabel}</Badge>
+                        {shot.modelTitleExtracted ? <span className="text-muted-foreground">Tên mẫu AI đọc: <span className="text-foreground">{shot.modelTitleExtracted}</span></span> : null}
+                      </div>
+                      <span className="text-muted-foreground">Ảnh gốc ở mục &quot;File đính kèm / Ảnh mẫu&quot;. Các profile AI đọc được (★ = khách chọn) — AI có thể đọc sai, hãy mở link MakerWorld để xác nhận:</span>
+                      <ul className="flex flex-col gap-0.5">
+                        {shot.profiles.map((p) => (
+                          <li key={p.key} className={p.key === shot.selectedProfileKey ? 'font-semibold text-foreground' : 'text-muted-foreground'}>
+                            {p.key === shot.selectedProfileKey ? '★ ' : '• '}{p.specLine}{p.dataIncomplete ? ' (thiếu số liệu)' : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+
+                  {mw.specText && !shot ? (
                     <div className="mt-2.5 pt-2 border-t border-border/50 text-xs">
                       <span className="text-muted-foreground block mb-1">Đoạn thông số khách dán ban đầu:</span>
                       <code className="block rounded bg-muted/60 px-2 py-1 font-mono text-[11px] text-foreground break-words select-all">

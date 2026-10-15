@@ -135,7 +135,7 @@ export type InitialCustomerData = {
   specText?: string | null;
   profileTitle?: string | null;
   estimatedPriceVnd?: number | null;
-  estimateSource?: 'VERIFIED' | 'AUTO' | 'SPEC' | 'NONE' | null;
+  estimateSource?: 'VERIFIED' | 'AUTO' | 'SPEC' | 'SCREENSHOT' | 'NONE' | null;
   modelTitle?: string | null;
 };
 
@@ -163,13 +163,13 @@ export function MakerWorldQuotePanel({
   initialSpecText?: string | null;
   initialProfileTitle?: string | null;
   initialEstimatedPriceVnd?: number | null;
-  initialEstimateSource?: 'VERIFIED' | 'AUTO' | 'SPEC' | 'NONE' | null;
+  initialEstimateSource?: 'VERIFIED' | 'AUTO' | 'SPEC' | 'SCREENSHOT' | 'NONE' | null;
   initialModelTitle?: string | null;
 }) {
   const [url, setUrl] = useState(initialUrl);
   const [state, setState] = useState<FetchState>({ kind: 'idle' });
   const [selectedProfileId, setSelectedProfileId] = useState('');
-  const [manualOpen, setManualOpen] = useState(Boolean(initialSpecText && initialEstimateSource === 'SPEC'));
+  const [manualOpen, setManualOpen] = useState(Boolean(initialSpecText && (initialEstimateSource === 'SPEC' || initialEstimateSource === 'SCREENSHOT')));
   const [specText, setSpecText] = useState(initialSpecText ?? '');
   const [manualDraft, setManualDraft] = useState<ManualDraft>(() => {
     if (initialSpecText) {

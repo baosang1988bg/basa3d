@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { apiError } from '@/lib/api';
 import { MakerWorldNotFoundError } from '@/lib/parsers/makerworld-resolver';
 import { estimateMakerWorldUrl, estimateMakerWorldWithSpec, requiresAutoResolver } from '@/services/makerworld-estimate.service';
+import { isScreenshotEstimateEnabled } from '@/services/makerworld-screenshot-estimate.service';
 import { createDatabaseRateLimiter, getClientIp } from '@/lib/rate-limit';
 
 // Phase B public estimate (makerworld-phase-b-storefront-estimate.md §3, ADR-0033).
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
     const estimate = input.specText
       ? await estimateMakerWorldWithSpec(input.url, input.specText)
       : await estimateMakerWorldUrl(input.url);
-    return NextResponse.json(estimate, { headers: { 'cache-control': 'no-store' } });
+    return NextResponse.json({ ...estimate, screenshotAvailable: isScreenshotEstimateEnabled() }, { headers: { 'cache-control': 'no-store' } });
   } catch (error) {
     if (error instanceof MakerWorldNotFoundError) {
       return NextResponse.json({ code: 'INVALID_MAKERWORLD_URL', message: 'Link không hợp lệ — vui lòng dán link dạng https://makerworld.com/en/models/...' }, { status: 400 });

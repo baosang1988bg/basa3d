@@ -25,7 +25,7 @@ export type InitialMakerWorldData = {
   specText?: string | null;
   profileTitle?: string | null;
   estimatedPriceVnd?: number | null;
-  estimateSource?: 'VERIFIED' | 'AUTO' | 'SPEC' | 'NONE';
+  estimateSource?: 'VERIFIED' | 'AUTO' | 'SPEC' | 'SCREENSHOT' | 'NONE';
   modelTitle?: string | null;
 };
 

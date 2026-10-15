@@ -8,6 +8,7 @@ import { describeBaoGiaRequest, prepareCustomRequestItems } from '../../../../se
 import { loadPricingContext } from '../../../../services/instant-estimate.service';
 import { createCustomRequest, inspectUploadedObject, type CustomRequestMakerWorldSnapshot } from '../../../../services/custom-request.service';
 import { referencePriceFor } from '../../../../services/makerworld-estimate.service';
+import { loadScreenshotSubmission } from '../../../../services/makerworld-screenshot-estimate.service';
 import { parseMakerWorldUrl } from '../../../../lib/parsers/makerworld-resolver';
 import { estimateAttachment } from '../../../../services/file-estimate.service';
 import type { CustomRequestQuoteEstimateSnapshot } from '../../../../services/custom-request.service';
@@ -94,7 +95,21 @@ export async function POST(request: Request) {
 
     // Phase B: the reference price the customer saw is recomputed here, never taken from the browser.
     let makerworldSnapshot: CustomRequestMakerWorldSnapshot | null = null;
-    if (input.makerworld) {
+    // ADR-0039: screenshot estimate — snapshot + image path come from the stored row, never the body.
+    let attachmentPath = input.attachmentPath ?? null;
+    let screenshotEstimateId: string | null = null;
+    if (input.makerworld?.screenshotEstimateId && input.makerworld.profileKey) {
+      if (input.attachmentPath) throw new DomainError('ATTACHMENT_NOT_ALLOWED', 'Yêu cầu từ ảnh chụp MakerWorld không kèm thêm file.', 400);
+      const submission = await loadScreenshotSubmission({
+        screenshotEstimateId: input.makerworld.screenshotEstimateId,
+        sourceUrl: input.makerworld.sourceUrl,
+        profileKey: input.makerworld.profileKey,
+        tier: input.makerworld.tier,
+      });
+      makerworldSnapshot = submission.snapshot;
+      attachmentPath = submission.attachmentPath;
+      screenshotEstimateId = submission.screenshotEstimateId;
+    } else if (input.makerworld) {
       const { modelId } = parseMakerWorldUrl(input.makerworld.sourceUrl);
       const reference = await referencePriceFor(input.makerworld.sourceUrl, input.makerworld.profileId, input.makerworld.tier, input.makerworld.specText);
       makerworldSnapshot = {
@@ -144,8 +159,9 @@ export async function POST(request: Request) {
       requestedMaterial: input.requestedMaterial,
       requestedColor: input.requestedColor,
       requestedSize: input.requestedSize,
-      attachmentPath: input.attachmentPath,
+      attachmentPath,
       makerworldSnapshot,
+      screenshotEstimateId,
       quoteEstimateSnapshot,
       // Phase 29 consent record — validated above (z.literal(true)) but previously never forwarded,
       // so copyright_confirmed/tos_version were stored as false/null for every public request.

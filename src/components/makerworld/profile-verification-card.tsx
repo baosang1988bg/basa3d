@@ -65,9 +65,10 @@ export function ProfileVerificationCard(props: ProfileVerificationCardProps) {
         <p className="font-semibold text-foreground break-words">{props.profileTitle}</p>
         <div className="flex flex-wrap gap-1.5">
           {props.printerTarget ? <SpecBadge>{props.printerTarget}</SpecBadge> : null}
-          <SpecBadge>{formatHours(props.printMinutes)}</SpecBadge>
-          <SpecBadge>{props.platesCount} plates</SpecBadge>
-          <SpecBadge>{Math.round(props.netWeightGrams * 10) / 10}g</SpecBadge>
+          {/* 0 is never a real value (it means "not known", e.g. a screenshot that missed it). */}
+          {props.printMinutes > 0 ? <SpecBadge>{formatHours(props.printMinutes)}</SpecBadge> : null}
+          {props.platesCount > 0 ? <SpecBadge>{props.platesCount} plates</SpecBadge> : null}
+          {props.netWeightGrams > 0 ? <SpecBadge>{Math.round(props.netWeightGrams * 10) / 10}g</SpecBadge> : null}
           {props.amsRequired === false ? <SpecBadge tone="amber">NO AMS</SpecBadge> : null}
           {props.amsRequired === true ? <SpecBadge>AMS</SpecBadge> : null}
           {props.tier ? <SpecBadge tone="green">{ASSEMBLY_TIERS[props.tier].label}</SpecBadge> : null}
