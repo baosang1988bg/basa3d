@@ -18,6 +18,24 @@
 - print_jobs
 - audit_logs
 - staff_profiles
+- rate_limit_attempts (shared DB rate limiter + Phase 36 per-resource failure budgets)
+- blog_categories, blog_posts
+- pricing_configs (insert-only since Phase 36)
+- filament_spools, expenses (Phase 12)
+- makerworld_price_presets, makerworld_resolver_cache (Phase B)
+- custom_request_items (Phase 33)
+- makerworld_screenshot_estimates (ADR-0039)
+
+Phase 36 (ADR-0040/0041, migration `20261019000000`):
+- Every timestamp default is `now()` (was `timezone('utc', now())`, wrong in non-UTC sessions).
+- `order_items.product_type_snapshot product_type` (nullable, backfilled); order lines are
+  immutable except the FK's own `variant_id → NULL` (`prevent_order_item_edit()`).
+- `pricing_configs`: UPDATE/TRUNCATE refused; `quotes`/`products.pricing_config_id` FKs are
+  `on delete restrict`.
+- DELETE of an `ACCEPTED` quote or a started print job (not `QUEUED`/`CANCELLED`) is refused unless
+  the transaction ran `set local basa3d.allow_history_purge = 'on'` (test cleanup only).
+- `blog-images` bucket: 5 MB, JPEG/PNG/WEBP. New FK indexes on `print_jobs`, `quotes`, `products`,
+  `makerworld_screenshot_estimates`. Function EXECUTE no longer defaults to PUBLIC.
 
 Phase 34 adds nullable `orders.checkout_request_id uuid` and
 `orders.checkout_request_hash varchar(64)`. A partial unique index on non-null request IDs makes
@@ -118,11 +136,12 @@ hàng và cần cart đa thiết bị, quay lại dùng 2 bảng này.
 
 ### `staff_profiles` (Phase 3 — xem ADR-0011 / ADR-0012)
 Bảng hồ sơ phân quyền nhân viên nội bộ (liên kết 1-1 với `auth.users` của Supabase Auth):
-- `id`: `uuid primary key references auth.users(id) on delete cascade`
+- `id`: `uuid primary key references auth.users(id) on delete restrict` (changed from cascade by
+  `20260901000001` — deleting an Auth user must not silently erase the staff/audit link)
 - `full_name`: `varchar(200) not null check (btrim(full_name) <> '')`
-- `role`: `staff_role not null default 'STAFF'` (`create type staff_role as enum ('OWNER', 'STAFF')`)
+- `role`: `staff_role not null` — no default; callers always choose (`create type staff_role as enum ('OWNER', 'STAFF')`)
 - `is_active`: `boolean not null default true`
-- `created_at`, `updated_at`: `timestamptz not null default timezone('utc', now())`
+- `created_at`, `updated_at`: `timestamptz not null default now()` (Phase 36)
 
 ### `filament_spools` (Phase 12 — see ADR-0025)
 Per-physical-spool filament inventory, extending `materials`/`material_movements` (ADR-0008) down
