@@ -100,6 +100,10 @@ node --import tsx --test --test-concurrency=1 \
 
 Một số test DB khác (`filament-management`, `phase-28-*`, `phase-2-services` "overlapping order", `pricing-config-service`, thông báo Resend) phụ thuộc dữ liệu seed/cấu hình riêng và đang fail giống nhau trên DB local trắng **kể cả trước Phase A** — không phải lỗi do thay đổi mới.
 
+**Phase 36 — hai nguyên nhân thật của các fail "seed" ở trên:**
+- `supabase/seed.sql` phải chạy **ngay sau** migration đầu tiên (`20260830000000`), trước các migration còn lại — migration seed Phase 12 tự tạo warehouse `MAIN` với id ngẫu nhiên, nên chạy seed sau cùng sẽ lỗi trùng `code` và test thiếu warehouse `…000000000010`. Cách làm: `--reset`, áp riêng migration đầu, chạy `seed.sql`, rồi `npm run test:db:setup` cho phần còn lại.
+- Postgres Homebrew lấy TimeZone của máy (`Asia/Ho_Chi_Minh`). Trước Phase 36, default `timezone('utc', now())` lưu lệch −7 giờ trong session đó → `pricing-config-service` và rate limit theo SĐT của `phase-4`/`phase-5` fail. Migration `20261019000000` sửa tận gốc (dùng `now()`).
+
 Không chạy `npm test` ở mức này: khi có `TEST_DATABASE_URL`, `npm test` sẽ build + bật server Next, mà middleware cần Supabase Auth → server không lên được.
 
 Typecheck/lint/build thì chạy bình thường: `npm run typecheck && npm run lint && npm run build`.

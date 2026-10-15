@@ -35,6 +35,8 @@ Phase 30: Text-to-CAD agent skill — project-level internal CAD/STL/3MF draftin
 Phase 31: storefront/tools loading UX & request-waterfall cleanup — closed
 Phase 33: `/bao-gia` instant multi-file quote, 1 item = 1 Quote, versioned VAT, direct-to-Storage uploads — S0–S8 code done (2026-10-13; up to 50 files per request, 3D preview with on-model dimensions and a resize toolbar); `/bao-gia` behind `NEXT_PUBLIC_BAO_GIA_ENABLED` until the S0 calibration runs on real sliced files; awaiting review
 Phase 34: pre-launch security hardening — implementation in progress (dependency patches, headers/CSP report-only, public abuse controls, checkout idempotency, private-upload capabilities)
+Phase 35: go-live hardening (admin page auth, JSON-LD/analytics leaks, .3mf caps, public order guards, DB hardening) — code committed; OWNER infra checklist pending
+Phase 36: post-audit data integrity — order/inventory/print-job/quote state guards, history-delete guards, timezone-correct timestamps & reports, purpose-bound tokens, phone-suffix budget, server-action arg parsing — code done 2026-10-15, awaiting OWNER review
 
 
 Do not start a phase by coding immediately. Follow the Phase Start Protocol in the main project plan.

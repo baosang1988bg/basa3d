@@ -583,3 +583,66 @@ Plan: `docs/exec-plans/active/makerworld-screenshot-estimate.md`.
   confirmed by staff in the Phase A panel.
 - Trade-offs: a fake screenshot yields a fake *estimate* only (same as SPEC); customer screenshots
   are sent to a third-party AI provider; per-call cost bounded by 10/h/IP and 200/h global.
+
+## ADR-0040 — Phase 36 data-integrity guards (post-go-live audit)
+
+**Context.** A 4-way audit (orders/inventory, auth/RBAC, public surface, migrations) before DNS
+cut-over found no blocker but ~20 integrity gaps; several were reproduced against a real PostgreSQL
+(the sandbox now runs migrations + `next build` + the full test runner).
+
+**Decisions.**
+- Idempotent checkout replay is resolved **inside** the transaction right after the variant lock,
+  before stock/catalog checks — a retry for the last unit returns the original order (rule #21).
+- Order cancel cascades to unstarted print jobs; payment/shipping on a `CANCELLED` order is limited
+  to `REFUNDED`/`RETURNED` without an OWNER override (rule #22).
+- Manual stock-outs check warehouse on-hand and Available Stock (rule #23). Chosen over "allow and
+  warn" because the failure otherwise surfaces later as `INSUFFICIENT_STOCK_FOR_FULFILLMENT` at
+  PRODUCING, far from the cause. Trade-off: staff must cancel reserving orders before recording a
+  physical loss that exceeds unreserved stock.
+- **Assumption (owner to confirm):** manual quotes with no item and no MakerWorld link are revisions
+  of one another — at most one can be accepted per request. Multi-part manual work should use
+  `/bao-gia` items or separate requests. If the shop needs several accepted manual quotes per
+  request, relax `acceptQuote`'s null-sibling rule.
+- History deletion is refused in the service and backstopped by triggers
+  (`prevent_accepted_quote_delete`, `prevent_started_print_job_delete`). Test cleanup may opt out per
+  transaction via `set local basa3d.allow_history_purge = 'on'` — never from app code.
+- `pricing_configs` becomes truly insert-only (UPDATE/TRUNCATE refused, FKs `RESTRICT`).
+- Migration `20261019000000` fixes Phase 35's function-privilege revoke, which was a no-op: the
+  PUBLIC EXECUTE default is global and can only be removed by `alter default privileges` **without**
+  `in schema` (verified: a new function was executable by `anon` before the fix).
+
+**Migration cost.** One forward migration, no data rewrite except a nullable
+`order_items.product_type_snapshot` backfill. FK swap and new triggers take brief locks on small
+tables.
+
+## ADR-0041 — Timestamps are `now()`; calendar buckets are Asia/Ho_Chi_Minh
+
+**Context.** Column defaults used `timezone('utc', now())`, which yields a timestamp *without* time
+zone that PostgreSQL re-interprets in the session TimeZone. Hosted Supabase (UTC) stored correct
+values, but any non-UTC session (the owner's Homebrew test DB) stored times 7 h early — which made the
+phone-number rate limits on public submissions silently never trigger (reproduced by
+`phase-4`/`phase-5` route tests and `pricing-config-service.test.ts`). Separately, dashboard
+"orders today", "revenue this month" and expense months used the session/UTC calendar, so 00:00–07:00
+Vietnam time counted as the previous day in production.
+
+**Decision.** All defaults and `set_updated_at()` use `now()`. Every calendar bucket goes through
+`src/lib/business-time.ts` (`at time zone 'Asia/Ho_Chi_Minh'`), never `current_date` /
+`::date` on a timestamptz.
+
+**Trade-off.** Constant time zone (no DST in Vietnam); a future multi-country shop would make it a
+setting.
+
+## ADR-0042 — Purpose-bound access tokens, per-resource phone-suffix budget, /64 IPv6 rate-limit keys
+
+- Tokens are `o1.<id>.<exp>.<sig>` (order) / `q1.<id>.<exp>.<sig>` (quote); the purpose is part of
+  the signed message. Legacy 3-part quote links already sent over Zalo stay valid until they expire,
+  but only if they expire before 2027-01-31 — delete the legacy branch in
+  `src/lib/order-confirmation-token.ts` after that date. Legacy order links (45 min TTL) are not
+  accepted after deploy; affected customers fall back to the phone-suffix page.
+- The 4-digit phone check gets 10 wrong guesses per order/quote per 24 h, counted atomically before
+  the compare and refunded on success (rule #25). Trade-off: an attacker who knows an order number
+  can lock the phone-suffix path for that order for a day; the token link and staff remain.
+- Rate-limit keys group IPv6 by /64 and fold IPv4-mapped addresses; `x-real-ip` is preferred.
+- Server-action positional args are parsed with `src/lib/action-args.ts`; a static test enforces it
+  for every `actions.ts`, and another walks the import graph so no `'use client'` module can reach
+  `db`, secrets or `services/*` (instead of adding the `server-only` package).

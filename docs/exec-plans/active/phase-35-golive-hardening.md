@@ -42,8 +42,9 @@
 - Cloudflare Turnstile on `upload-urls` / custom-request submit + global storage byte budget.
 - Enforcing CSP (needs the GA inline init script hashed or moved, plus a Report-Only observation window on the real domain).
 - STAFF hard-deleting product images (business decision: OWNER-only vs soft delete).
-- Zod validation of server-action scalar args (`setStaffActiveAction`, etc.), `import 'server-only'` on server modules (needs the `server-only` package — dependency decision).
-- Separate HMAC domain prefix for order vs quote tokens; rate limit on order-confirmation `phoneSuffix` path.
+- ~~Zod validation of server-action scalar args (`setStaffActiveAction`, etc.), `import 'server-only'` on server modules~~ → done in Phase 36 S5 (`src/lib/action-args.ts`; static import-graph test instead of the package).
+- ~~Separate HMAC domain prefix for order vs quote tokens; rate limit on order-confirmation `phoneSuffix` path~~ → done in Phase 36 S4 (ADR-0042).
+- Note (Phase 36): D7 section 4's `alter default privileges in schema public revoke … from public` was a no-op; fixed by migration `20261019000000`.
 
 ## OWNER checklist before DNS cut-over (not code)
 
