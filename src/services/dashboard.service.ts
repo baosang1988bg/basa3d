@@ -1,5 +1,6 @@
 import { cache } from 'react';
 import { query } from '../lib/db';
+import { SQL_LOCAL_TODAY, sqlLocal, sqlLocalDate } from '../lib/business-time';
 import { getFilamentInventoryStats } from './filament.service';
 
 // STAFF-safe (ADR-0011 boundary #2: STAFF sees operational counts only, no money). Kept as its
@@ -61,8 +62,8 @@ async function getOrderTrends(): Promise<OrderTrendPoint[]> {
     select to_char(d.day, 'YYYY-MM-DD') as date,
       to_char(d.day, 'DD/MM') as day_label,
       count(o.id)::int as order_count
-    from generate_series(current_date - interval '${TREND_DAYS_INTERVAL}', current_date, '1 day'::interval) d(day)
-    left join orders o on o.created_at::date = d.day::date
+    from generate_series(${SQL_LOCAL_TODAY} - interval '${TREND_DAYS_INTERVAL}', ${SQL_LOCAL_TODAY}, '1 day'::interval) d(day)
+    left join orders o on ${sqlLocalDate('o.created_at')} = d.day::date
     group by d.day
     order by d.day asc`);
   return result.rows.map((row) => ({ date: row.date, dayLabel: row.day_label, orderCount: row.order_count }));
@@ -74,8 +75,8 @@ async function getRevenueTrends(): Promise<RevenueTrendPoint[]> {
       to_char(d.day, 'DD/MM') as day_label,
       count(o.id)::int as order_count,
       coalesce(sum(case when o.status <> 'CANCELLED' then o.total else 0 end), 0)::bigint as revenue
-    from generate_series(current_date - interval '${TREND_DAYS_INTERVAL}', current_date, '1 day'::interval) d(day)
-    left join orders o on o.created_at::date = d.day::date
+    from generate_series(${SQL_LOCAL_TODAY} - interval '${TREND_DAYS_INTERVAL}', ${SQL_LOCAL_TODAY}, '1 day'::interval) d(day)
+    left join orders o on ${sqlLocalDate('o.created_at')} = d.day::date
     group by d.day
     order by d.day asc`);
   return result.rows.map((row) => ({ date: row.date, dayLabel: row.day_label, orderCount: row.order_count, revenue: Number(row.revenue) }));
@@ -190,7 +191,7 @@ export const getOperationalMetrics = cache(async () => {
       print_jobs_active: string;
     }>(`
       select
-        (select count(*) from orders where created_at::date = current_date) as orders_today,
+        (select count(*) from orders where ${sqlLocalDate('created_at')} = ${SQL_LOCAL_TODAY}) as orders_today,
         (select count(*) from orders where status in ('NEW','CONFIRMED')) as pending_orders,
         (select count(*) from custom_requests where status in ('NEW','REVIEWING','NEED_INFO','QUOTED')) as custom_requests_open,
         (select count(*) from print_jobs where status in ('QUEUED','PRINTING')) as print_jobs_active
@@ -230,8 +231,8 @@ export async function getFinancialMetrics() {
   const [revenueCounts, dailyRevenueTrends] = await Promise.all([
     query<{ sum_today: string | null; sum_month: string | null }>(`
       select
-        (select sum(total) from orders where created_at::date = current_date and status <> 'CANCELLED') as sum_today,
-        (select sum(total) from orders where date_trunc('month', created_at) = date_trunc('month', current_date) and status <> 'CANCELLED') as sum_month
+        (select sum(total) from orders where ${sqlLocalDate('created_at')} = ${SQL_LOCAL_TODAY} and status <> 'CANCELLED') as sum_today,
+        (select sum(total) from orders where date_trunc('month', ${sqlLocal('created_at')}) = date_trunc('month', ${sqlLocal('now()')}) and status <> 'CANCELLED') as sum_month
     `),
     getRevenueTrends(),
   ]);

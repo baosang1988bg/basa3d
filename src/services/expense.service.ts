@@ -1,4 +1,5 @@
 import { query, withTransaction } from '../lib/db';
+import { sqlLocal } from '../lib/business-time';
 import { DomainError } from '../lib/domain-error';
 import { writeAuditLog } from './audit.service';
 import { pagination } from './product.service';
@@ -74,7 +75,7 @@ export type ExpenseFinancialSummary = {
 export async function getExpenseFinancialSummary(): Promise<ExpenseFinancialSummary> {
   const [totals, monthTotal, revenue, byCategory] = await Promise.all([
     query<{ sum: string | null }>(`select sum(amount) from expenses where status != 'CANCELLED'`),
-    query<{ sum: string | null }>(`select sum(amount) from expenses where status != 'CANCELLED' and date_trunc('month', spent_at) = date_trunc('month', timezone('utc', now()))`),
+    query<{ sum: string | null }>(`select sum(amount) from expenses where status != 'CANCELLED' and date_trunc('month', ${sqlLocal('spent_at')}) = date_trunc('month', ${sqlLocal('now()')})`),
     query<{ sum: string | null }>(`select sum(total) from orders where status != 'CANCELLED'`),
     query<{ category: ExpenseCategory; sum: string | null }>(`select category, sum(amount) from expenses where status != 'CANCELLED' group by category`),
   ]);
@@ -95,12 +96,12 @@ export type MonthlyExpenseTotal = { month: string; total: number };
 export async function getMonthlyExpenseTotals(): Promise<MonthlyExpenseTotal[]> {
   const result = await query<{ month: string; total: string | null }>(`
     with months as (
-      select date_trunc('month', timezone('utc', now())) - (n || ' months')::interval as month
+      select date_trunc('month', ${sqlLocal('now()')}) - (n || ' months')::interval as month
       from generate_series(0, 11) as n
     )
     select to_char(months.month, 'YYYY-MM') as month, sum(e.amount) as total
     from months
-    left join expenses e on e.status != 'CANCELLED' and date_trunc('month', e.spent_at) = months.month
+    left join expenses e on e.status != 'CANCELLED' and date_trunc('month', ${sqlLocal('e.spent_at')}) = months.month
     group by months.month order by months.month`);
   return result.rows.map((row) => ({ month: row.month, total: Number(row.total ?? 0) }));
 }
@@ -121,7 +122,7 @@ export async function createExpense(input: CreateExpenseInput, actorId: string):
   return withTransaction(async (client) => {
     const result = await client.query<{ id: string }>(
       `insert into expenses (expense_code, title, category, amount, quantity, status, payer_name, spent_at, note, created_by)
-       values ($1,$2,$3,$4,$5,$6,$7,coalesce($8, timezone('utc', now())),$9,$10) returning id`,
+       values ($1,$2,$3,$4,$5,$6,$7,coalesce($8, now()),$9,$10) returning id`,
       [
         input.expenseCode, input.title, input.category, input.amount, input.quantity ?? 1,
         input.status ?? 'PAID', input.payerName ?? null, input.spentAt ?? null, input.note ?? null, actorId,

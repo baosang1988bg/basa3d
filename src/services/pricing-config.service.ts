@@ -56,7 +56,7 @@ function toPricingConfigRow(row: PricingConfigRow): PricingConfigRow {
 export async function getCurrentPricingConfig(): Promise<PricingConfigRow | null> {
   const result = await query<PricingConfigRow>(
     `select ${PRICING_CONFIG_COLUMNS} from pricing_configs
-     where effective_from <= timezone('utc', now())
+     where effective_from <= now()
      order by effective_from desc, created_at desc limit 1`,
   );
   return result.rows[0] ? toPricingConfigRow(result.rows[0]) : null;
@@ -97,7 +97,7 @@ export async function createPricingConfig(input: PricingConfigInput, actorId: st
          (electricity_vnd_per_kwh, machine_price_vnd, machine_lifetime_hours, printer_power_kw,
           labor_vnd_per_hour, failure_buffer_pct, margin_pct, packaging_fee_vnd, vat_enabled, vat_rate_bps,
           effective_from, created_by)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, timezone('utc', now()), $11)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, now(), $11)
        returning id`,
       [
         input.electricityVndPerKwh, input.machinePriceVnd, input.machineLifetimeHours, input.printerPowerKw,
