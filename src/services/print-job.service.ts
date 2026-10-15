@@ -155,15 +155,32 @@ export async function getPrintJobById(id: string): Promise<PrintJobDetail | null
   return result.rows[0] ?? null;
 }
 
+// Phase 36 S1: material/spool may only change before the next attempt books filament. Once a job is
+// PRINTING/QC/COMPLETED/CANCELLED the ledger already reflects the material that was used.
+const MATERIAL_EDITABLE_STATUSES = new Set(['QUEUED', 'FAILED', 'REPRINT']);
+export function isPrintJobMaterialEditable(status: string): boolean {
+  return MATERIAL_EDITABLE_STATUSES.has(status);
+}
+function assertMaterialEditable(status: string) {
+  if (!isPrintJobMaterialEditable(status)) {
+    throw new DomainError('PRINT_JOB_MATERIAL_LOCKED', 'Không thể đổi vật liệu/cuộn nhựa khi print job đã bắt đầu in hoặc đã kết thúc.', 409);
+  }
+}
+
 export async function assignPrintJobMaterial(id: string, input: { materialId: string; estimatedWeightGrams: number; spoolId?: string | null }, actorId: string) {
   return withTransaction(async (client) => {
-    const before = await client.query<{ material_id: string | null; estimated_weight_grams: number | null; spool_id: string | null }>(
-      'select material_id, estimated_weight_grams, spool_id from print_jobs where id = $1 for update', [id],
+    const before = await client.query<{ status: string; material_id: string | null; estimated_weight_grams: number | null; spool_id: string | null }>(
+      'select status, material_id, estimated_weight_grams, spool_id from print_jobs where id = $1 for update', [id],
     );
     if (!before.rowCount) throw new DomainError('PRINT_JOB_NOT_FOUND', 'Print job was not found.', 404);
+    assertMaterialEditable(before.rows[0].status);
+    // Keep the chosen spool when the material is unchanged; a different material invalidates it.
+    const spoolId = input.spoolId !== undefined
+      ? input.spoolId
+      : before.rows[0].material_id === input.materialId ? before.rows[0].spool_id : null;
     const updated = await client.query<{ id: string; material_id: string; estimated_weight_grams: number; spool_id: string | null }>(`
       update print_jobs set material_id = $2, estimated_weight_grams = $3, spool_id = $4 where id = $1
-      returning id, material_id, estimated_weight_grams, spool_id`, [id, input.materialId, input.estimatedWeightGrams, input.spoolId ?? null]);
+      returning id, material_id, estimated_weight_grams, spool_id`, [id, input.materialId, input.estimatedWeightGrams, spoolId]);
     await writeAuditLog(client, { actorId, action: 'PRINT_JOB_MATERIAL_ASSIGNED', entityType: 'print_job', entityId: id, beforeData: before.rows[0], afterData: updated.rows[0] });
     return updated.rows[0];
   });
@@ -173,10 +190,11 @@ export async function assignPrintJobMaterial(id: string, input: { materialId: st
 // separate from assignPrintJobMaterial so choosing a spool doesn't require re-submitting material/weight.
 export async function assignPrintJobSpool(id: string, spoolId: string, actorId: string) {
   return withTransaction(async (client) => {
-    const before = await client.query<{ material_id: string | null; spool_id: string | null }>(
-      'select material_id, spool_id from print_jobs where id = $1 for update', [id],
+    const before = await client.query<{ status: string; material_id: string | null; spool_id: string | null }>(
+      'select status, material_id, spool_id from print_jobs where id = $1 for update', [id],
     );
     if (!before.rowCount) throw new DomainError('PRINT_JOB_NOT_FOUND', 'Print job was not found.', 404);
+    assertMaterialEditable(before.rows[0].status);
     const spool = await client.query<{ material_id: string }>("select material_id from filament_spools where id = $1 and status = 'ACTIVE'", [spoolId]);
     if (!spool.rowCount) throw new DomainError('SPOOL_NOT_FOUND', 'Filament spool was not found or is not ACTIVE.', 404);
     if (before.rows[0].material_id && before.rows[0].material_id !== spool.rows[0].material_id) {
@@ -239,6 +257,20 @@ export async function updatePrintJobStatus(id: string, status: string, actorId: 
       throw new DomainError('INVALID_PRINT_JOB_TRANSITION', `Cannot transition print job from ${previousStatus} to ${status}.`, 409);
     }
 
+    // Phase 36 S1 (business-rules.md #23): material is booked exactly once per real print attempt,
+    // and every path into PRINTING books. So even an OWNER override may only enter PRINTING from a
+    // "ready to start" status (QUEUED, REPRINT, or FAILED as a shortcut for a retry) — never from
+    // PRINTING/QC/COMPLETED/CANCELLED, which would either book twice or skip the booking. A mistaken
+    // cancel is undone with CANCELLED → QUEUED, allowed only while the job has never booked material.
+    if (!isForward && status === 'PRINTING' && !['QUEUED', 'REPRINT', 'FAILED'].includes(previousStatus)) {
+      throw new DomainError('INVALID_PRINT_JOB_TRANSITION', `Không thể override từ ${previousStatus} sang PRINTING — hãy chuyển qua REPRINT (in lại) hoặc QUEUED trước.`, 409);
+    }
+    if (!isForward && status === 'QUEUED') {
+      const booked = await client.query('select 1 from material_movements where reference_type = $1 and reference_id = $2 limit 1', ['print_job', id]);
+      if (previousStatus !== 'CANCELLED' || booked.rowCount) {
+        throw new DomainError('INVALID_PRINT_JOB_TRANSITION', 'Chỉ có thể đưa về QUEUED một print job đã huỷ mà chưa từng trừ vật liệu — job đã in thì dùng REPRINT.', 409);
+      }
+    }
     if (status === 'PRINTING') {
       const { material_id: materialId, estimated_weight_grams: estimatedWeightGrams, spool_id: spoolId } = current.rows[0];
       if (!materialId || estimatedWeightGrams == null) {

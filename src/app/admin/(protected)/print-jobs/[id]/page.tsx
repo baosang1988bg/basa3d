@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ProcessStepper } from '@/components/admin/process-stepper';
-import { getPrintJobById, nextPrintJobStatuses } from '@/services/print-job.service';
+import { getPrintJobById, nextPrintJobStatuses, isPrintJobMaterialEditable } from '@/services/print-job.service';
 import { requireAdmin } from '@/lib/auth/require-admin';
 import { listMaterials, listMaterialMovementsByReference } from '@/services/inventory.service';
 import { listActiveSpoolsForMaterial } from '@/services/filament.service';
@@ -54,6 +54,7 @@ export default async function PrintJobDetailPage({ params }: { params: Promise<{
   const statusOptions = session.role === 'OWNER'
     ? PRINT_JOB_STATUSES.filter((status) => status !== printJob.status)
     : nextPrintJobStatuses(printJob.status);
+  const materialEditable = isPrintJobMaterialEditable(printJob.status);
   const activeSpools = printJob.materialId ? await listActiveSpoolsForMaterial(printJob.materialId, session.role) : [];
 
   const variance = formatVariance(printJob.estimatedWeightGrams, printJob.actualWeightGrams);
@@ -114,6 +115,7 @@ export default async function PrintJobDetailPage({ params }: { params: Promise<{
             <div><p className="text-muted-foreground">Vật liệu đã gán</p><p>{materials.find((m) => m.id === printJob.materialId)?.name ?? '—'}</p></div>
             <div><p className="text-muted-foreground">Khối lượng ước tính</p><p>{printJob.estimatedWeightGrams != null ? `${printJob.estimatedWeightGrams}g` : '—'}</p></div>
           </div>
+          {materialEditable ? (
           <ActionForm action={assignPrintJobMaterialAction.bind(null, id)} className="grid grid-cols-2 gap-4 border-t border-border pt-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="materialId">Vật liệu</Label>
@@ -137,10 +139,15 @@ export default async function PrintJobDetailPage({ params }: { params: Promise<{
               <Button type="submit" className="cursor-pointer">Gán vật liệu</Button>
             </div>
           </ActionForm>
+          ) : (
+            <p className="border-t border-border pt-4 text-xs text-muted-foreground">
+              Vật liệu đã được trừ kho cho lần in này — không đổi được nữa. Cần in lại thì chuyển sang REPRINT.
+            </p>
+          )}
         </CardContent>
       </Card>
 
-      {printJob.materialId && activeSpools.length > 0 ? (
+      {printJob.materialId && activeSpools.length > 0 && materialEditable ? (
         <Card>
           <CardHeader><CardTitle>Cuộn nhựa sử dụng</CardTitle></CardHeader>
           <CardContent className="flex flex-col gap-4">

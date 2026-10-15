@@ -74,12 +74,34 @@ export async function lockVariantForInventoryWrite(client: PoolClient, variantId
 export async function recordInventoryMovement(input: { warehouseId: string; productVariantId: string; movementType: string; quantity: number; unitCost?: number | null; referenceType?: string | null; referenceId?: string | null; note?: string | null }, actorId: string) {
   return withTransaction(async (client) => {
     await lockVariantForInventoryWrite(client, input.productVariantId);
+    if (input.quantity < 0) await assertOutboundInventoryMovementAllowed(client, input);
     const result = await client.query<{ id: string }>(`
       insert into inventory_movements (warehouse_id, product_variant_id, movement_type, quantity, unit_cost, reference_type, reference_id, note, created_by)
       values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning id`, [input.warehouseId, input.productVariantId, input.movementType, input.quantity, input.unitCost ?? null, input.referenceType ?? null, input.referenceId ?? null, input.note ?? null, actorId]);
     if (input.movementType.startsWith('ADJUSTMENT')) await writeAuditLog(client, { actorId, action: 'INVENTORY_ADJUSTED', entityType: 'inventory_movement', entityId: result.rows[0].id, afterData: input });
     return result.rows[0];
   });
+}
+
+// Phase 36 S1 (business-rules.md #23): a manual stock-out can never take a warehouse below zero on
+// hand (physically impossible), and ADJUSTMENT_OUT/DAMAGE_OUT can never push Available Stock below
+// zero — that would silently oversell units already reserved by NEW/CONFIRMED orders, which would
+// then fail at PRODUCING. Staff cancel/adjust the reserving orders first. TRANSFER_OUT only checks the
+// warehouse balance: its paired TRANSFER_IN keeps the global total unchanged.
+// Caller must hold the variant lock (lockVariantForInventoryWrite) in the same transaction.
+async function assertOutboundInventoryMovementAllowed(client: PoolClient, input: { warehouseId: string; productVariantId: string; movementType: string; quantity: number }) {
+  const warehouse = await client.query<{ on_hand: string }>(
+    'select coalesce(sum(quantity), 0) as on_hand from inventory_movements where product_variant_id = $1 and warehouse_id = $2',
+    [input.productVariantId, input.warehouseId]);
+  if (Number(warehouse.rows[0].on_hand) + input.quantity < 0) {
+    throw new DomainError('INSUFFICIENT_WAREHOUSE_STOCK', 'Kho này không đủ tồn để xuất số lượng đã nhập.', 409);
+  }
+  if (input.movementType === 'ADJUSTMENT_OUT' || input.movementType === 'DAMAGE_OUT') {
+    const stock = await getStockLevel(input.productVariantId, client);
+    if (stock.available + input.quantity < 0) {
+      throw new DomainError('INSUFFICIENT_STOCK', `Không thể xuất kho: chỉ còn ${stock.available} sản phẩm khả dụng (${stock.reserved} đang giữ cho đơn chưa sản xuất). Hãy huỷ hoặc điều chỉnh đơn trước.`, 409);
+    }
+  }
 }
 
 // Available Stock is already warehouse-agnostic in this codebase (getStockLevel sums across all
@@ -105,6 +127,15 @@ export async function recordSaleOut(client: PoolClient, input: { variantId: stri
 export async function recordMaterialMovement(input: { warehouseId: string; materialId: string; movementType: string; quantity: number; unitCost?: number | null; referenceType?: string | null; referenceId?: string | null; note?: string | null }, actorId: string) {
   return withTransaction(async (client) => {
     await lockMaterialForInventoryWrite(client, input.materialId);
+    if (input.quantity < 0) {
+      // Phase 36 S1: same physical-balance rule as product stock — a warehouse can't go below zero.
+      const balance = await client.query<{ on_hand: string }>(
+        'select coalesce(sum(quantity), 0) as on_hand from material_movements where material_id = $1 and warehouse_id = $2',
+        [input.materialId, input.warehouseId]);
+      if (Number(balance.rows[0].on_hand) + input.quantity < 0) {
+        throw new DomainError('INSUFFICIENT_MATERIAL_STOCK', 'Kho này không đủ nguyên liệu để xuất số lượng đã nhập.', 409);
+      }
+    }
     const result = await client.query<{ id: string }>(`
       insert into material_movements (warehouse_id, material_id, movement_type, quantity, unit_cost, reference_type, reference_id, note, created_by)
       values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning id`, [input.warehouseId, input.materialId, input.movementType, input.quantity, input.unitCost ?? null, input.referenceType ?? null, input.referenceId ?? null, input.note ?? null, actorId]);

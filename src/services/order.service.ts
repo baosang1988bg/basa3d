@@ -6,6 +6,7 @@ import { writeAuditLog } from './audit.service';
 import { pagination } from './product.service';
 import { verifyOrderConfirmationToken } from '../lib/order-confirmation-token';
 import { sendStaffNotification } from '../lib/notify/send-staff-notification';
+import { createDatabaseFailureBudget } from '../lib/rate-limit';
 
 type OrderItemRequest = { variantId: string; quantity: number };
 type CreateOrderInput = { checkoutRequestId?: string | null; customerName: string; customerPhone: string; customerEmail?: string | null; shippingAddress?: Record<string, unknown>; shippingFee?: number; discount?: number; codFee?: number; customerNote?: string | null; items: OrderItemRequest[] };
@@ -57,6 +58,21 @@ export async function createOrder(input: CreateOrderInput, actorId: string | nul
     // phase-5.md Risks). Any future write path into order_items/orders MUST lock product_variants
     // first or this guarantee silently breaks.
     const locked = await client.query<{ id: string }>('select id from product_variants where id = any($1::uuid[]) order by id for update', [variantIds]);
+    // Phase 36 S1: idempotent replay is resolved BEFORE any stock/catalog check. Business rule #21
+    // says one checkoutRequestId resolves to exactly one order — a retry whose first attempt took the
+    // last unit (or whose product was archived since) must get that order back, not a 409/404.
+    // Checked after the variant lock so a concurrent first attempt has already committed or will
+    // still hit the unique index (handled by the catch below).
+    if (input.checkoutRequestId) {
+      const existing = await client.query<{ id: string; order_number: string; total: number; checkout_request_hash: string }>(
+        'select id, order_number, total, checkout_request_hash from orders where checkout_request_id = $1', [input.checkoutRequestId]);
+      if (existing.rowCount) {
+        if (existing.rows[0].checkout_request_hash !== checkoutRequestHash) {
+          throw new DomainError('IDEMPOTENCY_CONFLICT', 'Mã yêu cầu đặt hàng đã được sử dụng cho một giỏ hàng khác.', 409);
+        }
+        return { id: existing.rows[0].id, orderNumber: existing.rows[0].order_number, total: Number(existing.rows[0].total), isReplay: true };
+      }
+    }
     if (locked.rowCount !== variantIds.length) throw new DomainError('VARIANT_NOT_FOUND', 'One or more product variants were not found.', 404);
     const snapshots = await client.query<VariantSnapshot>(`
       select v.id, v.price, v.sku, v.name as variant_name, v.attributes, p.name as product_name, p.product_type,
@@ -90,8 +106,8 @@ export async function createOrder(input: CreateOrderInput, actorId: string | nul
     for (const item of input.items) {
       const variant = snapshotById.get(item.variantId)!;
       await client.query(`
-        insert into order_items (order_id, variant_id, product_name_snapshot, variant_name_snapshot, sku_snapshot, attributes_snapshot, quantity, unit_price, line_total)
-        values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [order.rows[0].id, item.variantId, variant.product_name, variant.variant_name, variant.sku, variant.attributes, item.quantity, variant.price, variant.price * item.quantity]);
+        insert into order_items (order_id, variant_id, product_name_snapshot, variant_name_snapshot, sku_snapshot, attributes_snapshot, product_type_snapshot, quantity, unit_price, line_total)
+        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, [order.rows[0].id, item.variantId, variant.product_name, variant.variant_name, variant.sku, variant.attributes, variant.product_type, item.quantity, variant.price, variant.price * item.quantity]);
     }
     await writeAuditLog(client, { actorId, action: actorId === null ? 'ORDER_CREATED_PUBLIC' : 'ORDER_CREATED', entityType: 'order', entityId: order.rows[0].id, afterData: { orderNumber, total } });
     return { id: order.rows[0].id, orderNumber: order.rows[0].order_number, total: Number(order.rows[0].total), isReplay: false };
@@ -155,8 +171,10 @@ export async function updateOrderStatus(orderId: string, nextStatus: string, act
 
     if (nextStatus === 'PRODUCING') {
       // SALE_OUT is recorded here (not at order creation) per ADR-0005.
-      const items = await client.query<{ variant_id: string | null; quantity: number; product_type: 'READY_STOCK' | 'MADE_TO_ORDER' }>(`
-        select oi.variant_id, oi.quantity, p.product_type
+      // Phase 36: the purchase-time product type decides SALE_OUT vs print job; the live join is only
+      // a fallback for lines created before product_type_snapshot existed (backfilled by migration).
+      const items = await client.query<{ variant_id: string | null; quantity: number; product_type: 'READY_STOCK' | 'MADE_TO_ORDER' | null }>(`
+        select oi.variant_id, oi.quantity, coalesce(oi.product_type_snapshot, p.product_type) as product_type
         from order_items oi
         left join product_variants v on v.id = oi.variant_id
         left join products p on p.id = v.product_id
@@ -193,6 +211,28 @@ export async function updateOrderStatus(orderId: string, nextStatus: string, act
         actorId, action: 'ORDER_CANCELLED_RESTOCKED', entityType: 'order', entityId: orderId,
         afterData: { movementCount: deducted.rowCount },
       });
+    }
+
+    if (nextStatus === 'CANCELLED') {
+      // Phase 36 S1: a cancelled order must not leave work in the print queue. Jobs that have not
+      // started (QUEUED) or are waiting for a retry (FAILED/REPRINT) are cancelled with the order.
+      // PRINTING/QC jobs are left for staff to finish or cancel explicitly — material for them is
+      // already booked and the physical print may still be sold as stock.
+      const cancelledJobs = await client.query<{ id: string; status: string }>(`
+        with targets as (
+          select id, status from print_jobs
+          where order_id = $1 and status in ('QUEUED', 'FAILED', 'REPRINT')
+          order by id for update
+        )
+        update print_jobs pj set status = 'CANCELLED'
+        from targets where pj.id = targets.id
+        returning pj.id, targets.status`, [orderId]);
+      for (const job of cancelledJobs.rows) {
+        await writeAuditLog(client, {
+          actorId, action: 'PRINT_JOB_CANCELLED_WITH_ORDER', entityType: 'print_job', entityId: job.id,
+          beforeData: { status: job.status }, afterData: { status: 'CANCELLED', orderId },
+        });
+      }
     }
 
     const updated = await client.query<{ id: string; status: string }>('update orders set status = $2 where id = $1 returning id, status', [orderId, nextStatus]);
@@ -331,6 +371,21 @@ type PublicOrderDetail = {
 // dual-verification/masking contract (business-rules.md #18 mirrors #14) instead of re-implementing it.
 export function digitsOnly(value: string) { return value.replace(/\D/g, ''); }
 
+// Phase 36 S4 (business-rules.md #14/#18): the last-4-digits check has only 10^4 answers, and an
+// order/quote number is not secret in practice (it goes into the bank-transfer memo and Zalo chats).
+// Budget wrong guesses PER RESOURCE, whatever the caller's IP: 10 wrong answers per 24h, then the
+// phone-suffix path refuses even a correct answer until the window resets (the token link and staff
+// still work). Correct answers refund their slot, so a customer revisiting the page is never counted.
+export const PHONE_SUFFIX_MAX_FAILURES = 10;
+const phoneSuffixBudget = createDatabaseFailureBudget({ scope: 'phone-suffix-verify', maxFailures: PHONE_SUFFIX_MAX_FAILURES, windowMs: 24 * 60 * 60_000 });
+
+export async function verifyPhoneSuffixWithBudget(resourceKey: string, customerPhone: string, phoneSuffix: string): Promise<boolean> {
+  if (!(await phoneSuffixBudget.tryConsume(resourceKey))) return false;
+  const matches = digitsOnly(customerPhone).slice(-4) === digitsOnly(phoneSuffix).slice(-4);
+  if (matches) await phoneSuffixBudget.refund(resourceKey);
+  return matches;
+}
+
 export function maskCustomerName(name: string): string {
   return name.split(/\s+/).filter(Boolean).map((part) => `${part.slice(0, 1)}${'*'.repeat(Math.min(3, Math.max(2, part.length - 1)))}`).join(' ');
 }
@@ -356,7 +411,7 @@ export async function getPublicOrderByNumber(orderNumber: string, phoneSuffix: s
     from orders where order_number = $1`, [orderNumber]);
   if (!result.rowCount) return null;
   const order = result.rows[0];
-  if (digitsOnly(order.customerPhone).slice(-4) !== digitsOnly(phoneSuffix).slice(-4)) return null;
+  if (!(await verifyPhoneSuffixWithBudget(`order:${order.orderNumber}`, order.customerPhone, phoneSuffix))) return null;
   const items = await query<OrderItemDetail>(`
     select product_name_snapshot as "productNameSnapshot", variant_name_snapshot as "variantNameSnapshot", sku_snapshot as "skuSnapshot",
       quantity, unit_price as "unitPrice", line_total as "lineTotal"
@@ -382,11 +437,21 @@ export async function getPublicOrderByNumber(orderNumber: string, phoneSuffix: s
 
 export async function updateOrderPaymentAndShipping(orderId: string, patch: { paymentStatus?: string; shippingStatus?: string; adminNote?: string | null }, actorId: string, authorization?: { role: 'OWNER' | 'STAFF'; overrideReason?: string }) {
   return withTransaction(async (client) => {
-    const before = await client.query('select payment_status, shipping_status, admin_note from orders where id = $1 for update', [orderId]);
-    if (!before.rowCount) throw new DomainError('ORDER_NOT_FOUND', 'Order was not found.', 404);
-    const previous = before.rows[0] as { payment_status: string; shipping_status: string; admin_note: string | null };
-    const invalidPayment = patch.paymentStatus !== undefined && patch.paymentStatus !== previous.payment_status && !nextPaymentStatuses(previous.payment_status).includes(patch.paymentStatus);
-    const invalidShipping = patch.shippingStatus !== undefined && patch.shippingStatus !== previous.shipping_status && !nextShippingStatuses(previous.shipping_status).includes(patch.shippingStatus);
+    const locked = await client.query<{ status: string; payment_status: string; shipping_status: string; admin_note: string | null }>(
+      'select status, payment_status, shipping_status, admin_note from orders where id = $1 for update', [orderId]);
+    if (!locked.rowCount) throw new DomainError('ORDER_NOT_FOUND', 'Order was not found.', 404);
+    const { status: orderStatus, ...previous } = locked.rows[0];
+    const paymentChanges = patch.paymentStatus !== undefined && patch.paymentStatus !== previous.payment_status;
+    const shippingChanges = patch.shippingStatus !== undefined && patch.shippingStatus !== previous.shipping_status;
+    // Phase 36 S1: a CANCELLED order can still be refunded (or its return recorded), but taking money
+    // for it or shipping it is not a normal transition — only an OWNER override may do that.
+    const isCancelled = orderStatus === 'CANCELLED';
+    const invalidPayment = paymentChanges && (
+      !nextPaymentStatuses(previous.payment_status).includes(patch.paymentStatus!)
+      || (isCancelled && patch.paymentStatus !== 'REFUNDED'));
+    const invalidShipping = shippingChanges && (
+      !nextShippingStatuses(previous.shipping_status).includes(patch.shippingStatus!)
+      || (isCancelled && patch.shippingStatus !== 'RETURNED'));
     const isOwnerOverride = authorization?.role === 'OWNER' && Boolean(authorization.overrideReason?.trim());
     if ((invalidPayment || invalidShipping) && !isOwnerOverride) {
       throw new DomainError('INVALID_ORDER_ADMIN_TRANSITION', 'Payment or shipping status transition is not allowed.', 409);
@@ -399,12 +464,12 @@ export async function updateOrderPaymentAndShipping(orderId: string, patch: { pa
       values.push(patch[key]);
       sets.push(`${column} = $${values.length}`);
     }
-    if (!sets.length) return before.rows[0];
+    if (!sets.length) return previous;
     values.push(orderId);
     const updated = await client.query('update orders set ' + sets.join(', ') + ` where id = $${values.length} returning id, payment_status, shipping_status, admin_note`, values);
     await writeAuditLog(client, {
       actorId, action: invalidPayment || invalidShipping ? 'ORDER_ADMIN_STATUS_OVERRIDDEN' : 'ORDER_ADMIN_FIELDS_UPDATED', entityType: 'order', entityId: orderId,
-      beforeData: before.rows[0], afterData: { ...updated.rows[0], overrideReason: invalidPayment || invalidShipping ? authorization?.overrideReason : undefined },
+      beforeData: previous, afterData: { ...updated.rows[0], overrideReason: invalidPayment || invalidShipping ? authorization?.overrideReason : undefined },
     });
     return updated.rows[0];
   });

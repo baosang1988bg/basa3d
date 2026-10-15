@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { nextCustomRequestStatuses } from '../domain/custom-request-status';
 import { query, withTransaction } from '../lib/db';
 import { DomainError } from '../lib/domain-error';
 import { createSupabaseAdminClient } from '../lib/supabase/admin';
@@ -268,19 +269,8 @@ export async function createCustomRequest(input: Record<string, unknown>, actorI
   return created;
 }
 
-export const CUSTOM_REQUEST_STATUS_TRANSITIONS: Record<string, string[]> = {
-  NEW: ['REVIEWING', 'REJECTED'],
-  REVIEWING: ['NEED_INFO', 'QUOTED', 'REJECTED'],
-  NEED_INFO: ['REVIEWING', 'REJECTED'],
-  QUOTED: ['APPROVED', 'REJECTED'],
-  APPROVED: ['CONVERTED'],
-  REJECTED: [],
-  CONVERTED: [],
-};
-
-export function nextCustomRequestStatuses(status: string) {
-  return CUSTOM_REQUEST_STATUS_TRANSITIONS[status] ?? [];
-}
+// Moved to src/domain so client components can use it (Phase 36); re-exported for existing callers.
+export { CUSTOM_REQUEST_STATUS_TRANSITIONS, nextCustomRequestStatuses } from '../domain/custom-request-status';
 
 export async function updateCustomRequestStatus(id: string, status: string, actorId: string, authorization?: { role: 'OWNER' | 'STAFF'; overrideReason?: string }) {
   return withTransaction(async (client) => {
@@ -344,6 +334,14 @@ export async function updateCustomRequest(id: string, input: CustomRequestAdminU
     const current = await client.query('select * from custom_requests where id = $1 for update', [id]);
     if (!current.rowCount) throw new DomainError('CUSTOM_REQUEST_NOT_FOUND', 'Yêu cầu không tồn tại.', 404);
 
+    // Phase 36 S1 (business-rules.md #13): the general edit form may move the status forward only.
+    // Anything else (e.g. CONVERTED → NEW) needs updateCustomRequestStatus with an OWNER override
+    // reason, so it is audited as an override instead of a plain field edit.
+    const previousStatus = current.rows[0].status as string;
+    if (input.status !== undefined && input.status !== previousStatus && !nextCustomRequestStatuses(previousStatus).includes(input.status)) {
+      throw new DomainError('INVALID_CUSTOM_REQUEST_TRANSITION', `Không thể chuyển trạng thái từ ${previousStatus} sang ${input.status} trong form sửa. Dùng "Override trạng thái" kèm lý do.`, 409);
+    }
+
     const updates: string[] = [];
     const values: unknown[] = [id];
 
@@ -389,57 +387,62 @@ export async function updateCustomRequest(id: string, input: CustomRequestAdminU
   });
 }
 
-export async function deleteCustomRequest(id: string, actorId: string) {
-  return withTransaction(async (client) => {
+// Phase 36 S1 (business-rules.md #7): hard delete is for spam/test/mistaken requests only. Once a
+// request carries financial or production history — an ACCEPTED quote, or a print job that has
+// started (anything other than QUEUED/CANCELLED) — it can only be REJECTED, never erased.
+const DELETABLE_PRINT_JOB_STATUSES = ['QUEUED', 'CANCELLED'];
+
+export async function deleteCustomRequest(id: string, actorId: string, options: { removeStorage?: (paths: string[]) => Promise<void> } = {}) {
+  const { pathsToRemove } = await withTransaction(async (client) => {
     const current = await client.query('select * from custom_requests where id = $1 for update', [id]);
     if (!current.rowCount) throw new DomainError('CUSTOM_REQUEST_NOT_FOUND', 'Yêu cầu không tồn tại.', 404);
 
-    // 1. Allow item purge in this transaction (satisfies trigger prevent_custom_request_item_mutation)
+    const history = await client.query<{ accepted_quotes: number; started_jobs: number }>(`
+      select
+        (select count(*)::int from quotes where custom_request_id = $1 and status = 'ACCEPTED') as accepted_quotes,
+        (select count(*)::int from print_jobs pj where pj.custom_request_id = $1 and (
+          pj.status <> all($2::print_job_status[])
+          or exists (select 1 from material_movements mm where mm.reference_type = 'print_job' and mm.reference_id = pj.id)
+        )) as started_jobs`,
+    [id, DELETABLE_PRINT_JOB_STATUSES]);
+    if (history.rows[0].accepted_quotes > 0 || history.rows[0].started_jobs > 0) {
+      throw new DomainError('CUSTOM_REQUEST_HAS_HISTORY', 'Yêu cầu đã có báo giá được chấp nhận hoặc print job đã chạy — không thể xoá. Hãy chuyển sang REJECTED thay vì xoá.', 409);
+    }
+
+    // Allow item purge in this transaction (satisfies trigger prevent_custom_request_item_mutation).
     await client.query("set local basa3d.allow_item_purge = 'on'");
 
-    // 2. Cascade delete print_jobs for this custom request
-    await client.query('delete from print_jobs where custom_request_id = $1', [id]);
-
-    // 3. Cascade delete quotes for this custom request
-    await client.query('delete from quotes where custom_request_id = $1', [id]);
-
-    // 4. Collect item attachment paths if any
-    const items = await client.query<{ attachment_path: string }>(
-      'select attachment_path from custom_request_items where custom_request_id = $1',
-      [id],
-    );
-
-    // 5. Cascade delete custom_request_items
-    await client.query('delete from custom_request_items where custom_request_id = $1', [id]);
-
-    // 6. Delete custom request
+    // Every removed child row goes into the audit log, so the delete stays reconstructable.
+    const printJobs = await client.query('delete from print_jobs where custom_request_id = $1 returning *', [id]);
+    const quotes = await client.query('delete from quotes where custom_request_id = $1 returning *', [id]);
+    const items = await client.query<{ attachment_path: string | null }>('delete from custom_request_items where custom_request_id = $1 returning *', [id]);
     await client.query('delete from custom_requests where id = $1', [id]);
 
-    // 7. Write audit log
     await writeAuditLog(client, {
       actorId,
       action: 'CUSTOM_REQUEST_DELETED',
       entityType: 'custom_request',
       entityId: id,
-      beforeData: current.rows[0],
+      beforeData: { request: current.rows[0], quotes: quotes.rows, printJobs: printJobs.rows, items: items.rows },
     });
 
-    // 8. Clean up storage attachments if any
-    const pathsToRemove = [
-      current.rows[0].attachment_path,
-      ...items.rows.map((r) => r.attachment_path),
-    ].filter((p): p is string => Boolean(p));
-
-    if (pathsToRemove.length > 0) {
-      try {
-        await createSupabaseAdminClient().storage.from(ATTACHMENT_BUCKET).remove(pathsToRemove);
-      } catch {
-        // Storage removal is best-effort
-      }
-    }
-
-    return { id };
+    return {
+      pathsToRemove: [current.rows[0].attachment_path, ...items.rows.map((row) => row.attachment_path)]
+        .filter((path): path is string => Boolean(path)),
+    };
   });
+
+  // Storage is cleaned only AFTER the delete has committed — a failed commit must not lose files
+  // for a request that still exists. Best-effort: the orphan-upload cron catches anything left.
+  if (pathsToRemove.length > 0) {
+    try {
+      if (options.removeStorage) await options.removeStorage(pathsToRemove);
+      else await createSupabaseAdminClient().storage.from(ATTACHMENT_BUCKET).remove(pathsToRemove);
+    } catch {
+      // Storage removal is best-effort.
+    }
+  }
+  return { id };
 }
 
 type CustomRequestDetail = {

@@ -28,16 +28,24 @@ export function getPool(): Pool {
 
 export async function withTransaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T> {
   const client = await getPool().connect();
+  // Phase 36: a connection whose ROLLBACK failed is in an unknown state (still inside a transaction,
+  // or broken). It must be destroyed — release(true) — not handed to the next request, and the
+  // ORIGINAL error is what the caller sees, not the rollback failure.
+  let broken = false;
   try {
     await client.query('BEGIN');
     const result = await work(client);
     await client.query('COMMIT');
     return result;
   } catch (error) {
-    await client.query('ROLLBACK');
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      broken = true;
+    }
     throw error;
   } finally {
-    client.release();
+    client.release(broken);
   }
 }
 

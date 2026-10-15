@@ -8,10 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { CustomRequestSummary } from '@/services/custom-request.service';
+import { nextCustomRequestStatuses } from '@/domain/custom-request-status';
 import { deleteCustomRequestAction, updateCustomRequestAction } from '@/app/admin/(protected)/custom-requests/actions';
 
 const CHANNELS = ['ZALO', 'FACEBOOK', 'WEBSITE', 'TIKTOK', 'INSTAGRAM', 'OTHER'];
-const STATUSES = ['NEW', 'REVIEWING', 'NEED_INFO', 'QUOTED', 'APPROVED', 'REJECTED', 'CONVERTED'];
 
 export function CustomRequestRowActions({
   item,
@@ -150,7 +150,9 @@ export function CustomRequestRowActions({
                     className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
                     required
                   >
-                    {STATUSES.map((st) => (
+                    {/* Phase 36: only the current status and its forward moves — backward moves need the
+                        detail page's OWNER override with a reason (the server refuses them here). */}
+                    {[item.status, ...nextCustomRequestStatuses(item.status)].map((st) => (
                       <option key={st} value={st} className="bg-popover text-popover-foreground">
                         {st}
                       </option>

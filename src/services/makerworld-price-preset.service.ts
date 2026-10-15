@@ -197,6 +197,7 @@ export async function listPricePresets(): Promise<PricePresetListItem[]> {
 
 /** OWNER-only (D2) — enforced by the calling action. */
 export async function setPricePresetActive(id: string, isActive: boolean, actorId: string): Promise<void> {
+  if (typeof isActive !== 'boolean') throw new DomainError('INVALID_ACTION_ARGUMENT', 'isActive must be a boolean.', 400);
   await withTransaction(async (client) => {
     const current = await client.query<{ modelId: string; profileId: string; tier: string; isActive: boolean }>(
       `select model_id as "modelId", profile_id as "profileId", tier, is_active as "isActive"

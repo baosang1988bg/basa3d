@@ -42,6 +42,9 @@ export async function createStaffAccount(input: { email: string; password: strin
 }
 
 export async function setStaffActive(staffId: string, isActive: boolean, actorId: string) {
+  // Phase 36 S5: the guards below branch on `isActive`; a non-boolean ("false") would skip them while
+  // Postgres still casts it to false. The action parses it too — this is defense in depth.
+  if (typeof isActive !== 'boolean') throw new DomainError('INVALID_ACTION_ARGUMENT', 'isActive must be a boolean.', 400);
   return withTransaction(async (client) => {
     if (!isActive) {
       // Phase 35 D6: never lock the business out of its own admin. Refuse self-deactivation, and

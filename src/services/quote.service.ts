@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { query, withTransaction } from '../lib/db';
 import { DomainError } from '../lib/domain-error';
 import { writeAuditLog } from './audit.service';
-import { createOrderConfirmationToken, verifyOrderConfirmationToken } from '../lib/order-confirmation-token';
-import { digitsOnly, maskCustomerName } from './order.service';
+import { createResourceAccessToken, verifyResourceAccessToken } from '../lib/order-confirmation-token';
+import { maskCustomerName, verifyPhoneSuffixWithBudget } from './order.service';
 import type { PricingBreakdown } from './pricing.service';
 import { quoteModelSnapshotSchema, type QuoteModelSnapshotData } from '../domain/schemas';
 import { sanitizeMakerWorldImageUrl } from '../lib/parsers/makerworld-image';
@@ -148,7 +148,7 @@ export async function createQuote(input: {
     // number than the one that would be stored.
     const vatConfig = await client.query<{ id: string; vat_enabled: boolean; vat_rate_bps: number }>(`
       select id, vat_enabled, vat_rate_bps from pricing_configs
-      where effective_from <= timezone('utc', now())
+      where effective_from <= now()
       order by effective_from desc, created_at desc limit 1`);
     const shippingFee = input.shippingFee ?? 0;
     const discount = input.discount ?? 0;
@@ -198,7 +198,7 @@ export async function createQuote(input: {
 // tokens already sent to a customer over Zalo keep working independently, they are never revoked).
 export function mintQuoteAccessToken(quoteId: string, validUntil: Date): string {
   const ttlSeconds = Math.floor((validUntil.getTime() - Date.now()) / 1000);
-  return createOrderConfirmationToken(quoteId, ttlSeconds);
+  return createResourceAccessToken('quote', quoteId, ttlSeconds);
 }
 
 export async function acceptQuote(id: string, actorId: string) {
@@ -209,7 +209,12 @@ export async function acceptQuote(id: string, actorId: string) {
     // Serializing on the parent row makes the second accept see the first one's result instead.
     const parent = await client.query<{ custom_request_id: string }>('select custom_request_id from quotes where id = $1', [id]);
     if (!parent.rowCount) throw new DomainError('QUOTE_NOT_FOUND', 'Quote was not found.', 404);
-    await client.query('select id from custom_requests where id = $1 for update', [parent.rows[0].custom_request_id]);
+    const request = await client.query<{ status: string }>('select status from custom_requests where id = $1 for update', [parent.rows[0].custom_request_id]);
+    // Phase 36 S1: a REJECTED request is closed — accepting one of its quotes would start production
+    // for work the shop already declined. Re-open it (OWNER override) first if that was a mistake.
+    if (request.rows[0]?.status === 'REJECTED') {
+      throw new DomainError('CUSTOM_REQUEST_CLOSED', 'Yêu cầu đã bị từ chối — không thể chấp nhận báo giá. Mở lại yêu cầu trước nếu cần.', 409);
+    }
 
     // Phase 33 §6.4: the sibling key is the /bao-gia ITEM when there is one (alternatives of the same
     // item), else the MakerWorld sourceUrl (tiers of the same profile). Quotes of OTHER items of the
@@ -226,14 +231,16 @@ export async function acceptQuote(id: string, actorId: string) {
     // A tier alternative of the same link created AFTER a sibling was accepted is still open — it must
     // not become a second print_job for the same item.
     const siblingKey = quote.rows[0].sibling_key;
-    if (siblingKey) {
-      const acceptedSibling = await client.query(
-        `select id from quotes where custom_request_id = $1 and id <> $2 and status = 'ACCEPTED'
-           and coalesce(custom_request_item_id::text, model_snapshot->>'sourceUrl') = $3 limit 1`,
-        [quote.rows[0].custom_request_id, id, siblingKey]);
-      if (acceptedSibling.rowCount) {
-        throw new DomainError('QUOTE_SIBLING_ALREADY_ACCEPTED', 'Một phương án khác của cùng mẫu/profile này đã được chấp nhận — không thể chấp nhận thêm.', 409);
-      }
+    // Phase 36 S1 (decisions.md ADR-0040): a quote with no item and no MakerWorld link is a manual
+    // revision of "the request" itself, so all such quotes of one request are siblings of each other —
+    // v1 and v2 of the same manual quote must never both become print jobs. `is not distinct from`
+    // makes the null key match other null keys.
+    const acceptedSibling = await client.query(
+      `select id from quotes where custom_request_id = $1 and id <> $2 and status = 'ACCEPTED'
+         and coalesce(custom_request_item_id::text, model_snapshot->>'sourceUrl') is not distinct from $3 limit 1`,
+      [quote.rows[0].custom_request_id, id, siblingKey]);
+    if (acceptedSibling.rowCount) {
+      throw new DomainError('QUOTE_SIBLING_ALREADY_ACCEPTED', 'Một phương án khác của cùng mẫu/profile này đã được chấp nhận — không thể chấp nhận thêm.', 409);
     }
     const result = await client.query('update quotes set status = $2 where id = $1 returning id, status', [id, 'ACCEPTED']);
     await writeAuditLog(client, { actorId, action: 'QUOTE_ACCEPTED', entityType: 'quote', entityId: id, afterData: result.rows[0] });
@@ -378,7 +385,7 @@ function toPublicQuoteDetail(row: QuoteRow, options: { masked: boolean }): Publi
 /** Full-detail mode: requires a valid, unexpired HMAC token whose signed resourceId matches this
  * quote's id (mint via mintQuoteAccessToken). Never masks customerName. */
 export async function getPublicQuoteByToken(quoteNumber: string, token: string): Promise<PublicQuoteDetail | null> {
-  const verified = verifyOrderConfirmationToken(token);
+  const verified = verifyResourceAccessToken(token, 'quote');
   if (!verified) return null;
   const row = await getQuoteRowByNumber(quoteNumber);
   if (!row || row.id !== verified.resourceId) return null;
@@ -390,6 +397,6 @@ export async function getPublicQuoteByToken(quoteNumber: string, token: string):
 export async function getPublicQuoteByPhoneSuffix(quoteNumber: string, phoneSuffix: string): Promise<PublicQuoteDetail | null> {
   const row = await getQuoteRowByNumber(quoteNumber);
   if (!row) return null;
-  if (digitsOnly(row.customerPhone).slice(-4) !== digitsOnly(phoneSuffix).slice(-4)) return null;
+  if (!(await verifyPhoneSuffixWithBudget(`quote:${row.quoteNumber}`, row.customerPhone, phoneSuffix))) return null;
   return toPublicQuoteDetail(row, { masked: true });
 }
