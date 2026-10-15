@@ -25,7 +25,14 @@ test('upload claims bind path and expiry and reject tampering', () => {
   const claim = createUploadClaim(path, 60);
   assert.equal(verifyUploadClaim(path, claim), true);
   assert.equal(verifyUploadClaim(path.replace('.stl', '.obj'), claim), false);
-  assert.equal(verifyUploadClaim(path, `${claim.slice(0, -1)}x`), false);
+  // Tamper a character in the MIDDLE of the signature: the last base64url char carries 2 padding
+  // bits, so swapping it can decode to the same bytes (flaky ~1/16) — verify also rejects that now.
+  const sigStart = claim.lastIndexOf('.') + 1;
+  const flipped = claim[sigStart + 5] === 'A' ? 'B' : 'A';
+  assert.equal(verifyUploadClaim(path, `${claim.slice(0, sigStart + 5)}${flipped}${claim.slice(sigStart + 6)}`), false);
+  const lastChar = claim.at(-1)!;
+  const sameBitsLastChar = String.fromCharCode(lastChar.charCodeAt(0) ^ 1);
+  assert.equal(verifyUploadClaim(path, `${claim.slice(0, -1)}${sameBitsLastChar}`), false, 'non-canonical base64url signature is rejected');
   assert.equal(verifyUploadClaim(path, createUploadClaim(path, -1)), false);
 });
 
@@ -68,7 +75,7 @@ test('concurrent checkout retries create one order and notify once; changed payl
   const input = { checkoutRequestId, customerName: 'Phase 34', customerPhone: '0900000034', items: [{ variantId, quantity: 1 }] };
   try {
     await client.query("insert into products (id,name,slug,product_type,status) values ($1,'Phase 34',$2,'MADE_TO_ORDER','ACTIVE')", [productId, `phase-34-${productId}`]);
-    await client.query("insert into product_variants (id,product_id,sku,name,price) values ($1,$2,$3,'Default',34000)", [variantId, productId, `PHASE34-${variantId.slice(0, 8)}`]);
+    await client.query("insert into product_variants (id,product_id,sku,name,price) values ($1,$2,$3,'Default',34000)", [variantId, productId, `PHASE34-${variantId.slice(0, 8).toUpperCase()}`]);
     const [first, second] = await Promise.all([createOrder(input, null, { notify }), createOrder(input, null, { notify })]);
     assert.equal(first.id, second.id);
     assert.equal(first.orderNumber, second.orderNumber);
@@ -80,7 +87,6 @@ test('concurrent checkout retries create one order and notify once; changed payl
     );
     assert.equal(notifications, 1);
   } finally {
-    await client.query('delete from audit_logs where entity_id in (select id from orders where checkout_request_id = $1)', [checkoutRequestId]);
     await client.query('delete from order_items where order_id in (select id from orders where checkout_request_id = $1)', [checkoutRequestId]);
     await client.query('delete from orders where checkout_request_id = $1', [checkoutRequestId]);
     await client.query('delete from product_variants where id = $1', [variantId]);

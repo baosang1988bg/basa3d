@@ -122,7 +122,7 @@ test('anonymous checkout rejects DRAFT/ARCHIVED products and inactive variants',
   const notify = async () => {};
   try {
     await client.query("insert into products (id,name,slug,product_type,status) values ($1,'Phase 35 Draft',$2,'MADE_TO_ORDER','DRAFT')", [productId, `phase-35-${productId}`]);
-    await client.query("insert into product_variants (id,product_id,sku,name,price) values ($1,$2,$3,'Default',35000)", [variantId, productId, `PHASE35-${variantId.slice(0, 8)}`]);
+    await client.query("insert into product_variants (id,product_id,sku,name,price) values ($1,$2,$3,'Default',35000)", [variantId, productId, `PHASE35-${variantId.slice(0, 8).toUpperCase()}`]);
     const input = { checkoutRequestId: randomUUID(), customerName: 'Phase 35', customerPhone: '0900000035', items: [{ variantId, quantity: 1 }] };
     await assert.rejects(createOrder(input, null, { notify }), isDomainError('VARIANT_NOT_FOUND'));
 
