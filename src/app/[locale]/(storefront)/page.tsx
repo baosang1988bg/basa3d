@@ -9,6 +9,7 @@ import { storefrontButtonClasses } from '@/components/storefront/button';
 import { MaterialBadge } from '@/components/storefront/material-badge';
 import { SITE_CONFIG } from '@/config/site';
 import { Link } from '@/i18n/navigation';
+import { serializeJsonLd } from '@/lib/json-ld';
 
 type DbCategoryItem = { id: string; name: string; slug: string };
 
@@ -95,9 +96,9 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* Static JSON-LD constructed server-side from our own data, not user input rendered as HTML. */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(LOCAL_BUSINESS_JSON_LD) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
+      {/* JSON-LD built server-side; serializeJsonLd escapes `</script>` in staff-entered fields. */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(LOCAL_BUSINESS_JSON_LD) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(faqJsonLd) }} />
       <section className="mx-auto max-w-6xl px-4 py-16 text-center md:py-24">
         <h1 className="font-heading mx-auto max-w-3xl text-4xl font-extrabold text-foreground md:text-[3.25rem] md:leading-[1.15]">
           {t('heroTitle')}

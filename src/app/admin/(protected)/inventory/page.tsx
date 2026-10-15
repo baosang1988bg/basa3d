@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { listAllVariantsWithProductName } from '@/services/product.service';
 import { getStockLevel, listInventoryMovements, listWarehouses } from '@/services/inventory.service';
 import { recordMovementAction } from './actions';
+import { requireAdmin } from '@/lib/auth/require-admin';
 
 const MOVEMENT_TYPES = [
   'PURCHASE',
@@ -22,6 +23,9 @@ const MOVEMENT_TYPES = [
 ];
 
 export default async function InventoryPage() {
+  // Phase 35 D1: never rely on the layout alone — RSC segment requests can render this page
+  // without re-running the layout. requireAdmin() is cache()-memoized, so this is free.
+  await requireAdmin();
   const [variants, warehouses, { items: movements }] = await Promise.all([
     listAllVariantsWithProductName(),
     listWarehouses(),

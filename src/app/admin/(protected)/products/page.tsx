@@ -12,8 +12,12 @@ import { listMaterials } from '@/services/inventory.service';
 import { getCurrentPricingConfig } from '@/services/pricing-config.service';
 import { listCategories, listProducts } from '@/services/product.service';
 import { archiveProductAction, createCategoryAction, createProductAction, unarchiveProductAction } from './actions';
+import { requireAdmin } from '@/lib/auth/require-admin';
 
 export default async function ProductsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  // Phase 35 D1: never rely on the layout alone — RSC segment requests can render this page
+  // without re-running the layout. requireAdmin() is cache()-memoized, so this is free.
+  await requireAdmin();
   const params = await searchParams;
   const [{ items: products, page, hasNext }, { items: categories }, materials, pricingConfig] = await Promise.all([
     listProducts({ page: Number(params.page) }),

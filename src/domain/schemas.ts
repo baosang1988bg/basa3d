@@ -478,6 +478,7 @@ export const checkoutOrderInputSchema = z.object({
 // stock is still deducted for real). This is a field-by-field allowlist instead: no monetary
 // override fields at all, `createOrder` always sees them as 0 for this path (see route.ts).
 export const paymentMethodSchema = z.enum(['COD', 'BANK_TRANSFER']);
+export const PUBLIC_CHECKOUT_MAX_ITEMS = 50;
 export const publicCheckoutOrderInputSchema = z.object({
   checkoutRequestId: uuidSchema,
   customerName: nonEmptyText.max(200),
@@ -486,7 +487,8 @@ export const publicCheckoutOrderInputSchema = z.object({
   shippingAddress: z.record(z.string(), z.unknown()).default({}),
   paymentMethod: paymentMethodSchema.default('COD'),
   customerNote: z.string().trim().max(2_000).nullable().optional(),
-  items: z.array(z.object({ variantId: uuidSchema, quantity: positiveQuantitySchema.max(10_000) }).strict()).min(1),
+  // Phase 35 D5: bound the cart size for anonymous callers (staff schema above stays unbounded).
+  items: z.array(z.object({ variantId: uuidSchema, quantity: positiveQuantitySchema.max(10_000) }).strict()).min(1).max(PUBLIC_CHECKOUT_MAX_ITEMS),
   honeypot: z.string().trim().max(200).optional().default(''),
 }).strict();
 

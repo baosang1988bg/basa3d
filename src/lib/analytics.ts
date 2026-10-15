@@ -28,10 +28,43 @@ declare global {
   }
 }
 
+// Phase 35 D3: order-confirmation and quote pages carry bearer credentials in the query string
+// (`?token=` grants unmasked name/phone/address). gtag auto-attaches document.location as
+// page_location (and document.referrer as page_referrer) to EVERY event, so they must be scrubbed
+// centrally here, not only in the page_view tracker.
+const SENSITIVE_QUERY_PARAMS = ['token', 'phoneSuffix', 'uploadClaim', 'claim'];
+
+export function sanitizeAnalyticsUrl(rawUrl: string): string {
+  if (!rawUrl) return rawUrl;
+  try {
+    const isAbsolute = /^[a-z][a-z0-9+.-]*:/i.test(rawUrl);
+    const url = new URL(rawUrl, 'http://placeholder.invalid');
+    for (const param of SENSITIVE_QUERY_PARAMS) url.searchParams.delete(param);
+    url.hash = '';
+    const search = url.searchParams.toString();
+    const pathAndQuery = `${url.pathname}${search ? `?${search}` : ''}`;
+    return isAbsolute ? `${url.origin}${pathAndQuery}` : pathAndQuery;
+  } catch {
+    return '';
+  }
+}
+
 export function sendGAEvent(eventName: string, params: GTagEcommerceParams | GTagCustomParams): void {
   if (typeof window === 'undefined') return;
   window.dataLayer ??= [];
-  window.dataLayer.push(createGTagCommand('event', eventName, params));
+  const locationParams: GTagCustomParams = {};
+  const href = window.location?.href;
+  if (href) locationParams.page_location = sanitizeAnalyticsUrl(href);
+  const referrer = typeof document === 'undefined' ? '' : document.referrer;
+  if (referrer) locationParams.page_referrer = sanitizeAnalyticsUrl(referrer);
+  const safeParams = { ...locationParams, ...params } as GTagEcommerceParams | GTagCustomParams;
+  if ('page_location' in safeParams && typeof safeParams.page_location === 'string') {
+    (safeParams as GTagCustomParams).page_location = sanitizeAnalyticsUrl(safeParams.page_location);
+  }
+  if ('page_path' in safeParams && typeof safeParams.page_path === 'string') {
+    (safeParams as GTagCustomParams).page_path = sanitizeAnalyticsUrl(safeParams.page_path);
+  }
+  window.dataLayer.push(createGTagCommand('event', eventName, safeParams));
 }
 
 // Google's gtag snippet queues its `arguments` object, which gtag.js drains after loading.

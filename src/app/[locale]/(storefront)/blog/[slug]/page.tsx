@@ -8,6 +8,7 @@ import { MARKDOWN_PROSE_CLASSES } from '@/lib/markdown';
 import { SITE_CONFIG } from '@/config/site';
 import { Breadcrumb } from '@/components/storefront/breadcrumb';
 import { ReadBlogPostTracker } from '@/components/analytics/storefront-trackers';
+import { serializeJsonLd } from '@/lib/json-ld';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,8 +49,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   return (
     <article className="mx-auto max-w-3xl px-4 py-10">
       <ReadBlogPostTracker title={post.title} slug={post.slug} category={post.categoryName} />
-      {/* Static JSON-LD constructed server-side from our own data, not user input rendered as HTML. */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      {/* JSON-LD built server-side; serializeJsonLd escapes `</script>` in staff-entered fields. */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }} />
 
       <Breadcrumb items={[{ label: 'Trang chủ', href: '/home' }, { label: 'Blog', href: '/blog' }, { label: post.title }]} />
 

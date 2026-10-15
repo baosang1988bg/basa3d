@@ -9,6 +9,7 @@ import { formatVnd } from '@/components/storefront/format';
 import { Breadcrumb, type BreadcrumbItem } from '@/components/storefront/breadcrumb';
 import { AddToCartForm } from './add-to-cart-form';
 import { ViewItemTracker } from '@/components/analytics/storefront-trackers';
+import { serializeJsonLd } from '@/lib/json-ld';
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -69,8 +70,8 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
       {firstVariant && <ViewItemTracker item={{ item_id: firstVariant.sku, item_name: product.name, item_category: category?.name, item_variant: firstVariant.name, price: firstVariant.price, quantity: 1 }} />}
-      {/* Static JSON-LD constructed server-side from our own data, not user input rendered as HTML. */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      {/* JSON-LD built server-side; serializeJsonLd escapes `</script>` in staff-entered fields. */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }} />
       <Breadcrumb items={breadcrumbItems} />
 
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2">

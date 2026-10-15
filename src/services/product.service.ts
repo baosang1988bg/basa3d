@@ -55,7 +55,10 @@ export async function listProducts(input: { page?: number; limit?: number; statu
 // Public listing (GET /api/products/variants, no auth) — cost_price is COGS, never exposed here.
 export async function listVariants(input: { page?: number; limit?: number } = {}) {
   const { page, limit, offset } = pagination(input);
-  const result = await query(`select id, product_id as "productId", sku, name, attributes, price, weight_grams as "weightGrams", is_active as "isActive" from product_variants where is_active = true order by created_at desc, id limit $1 offset $2`, [limit, offset]);
+  // Phase 35: public route — only variants of ACTIVE products (DRAFT/ARCHIVED stay unreleased).
+  const result = await query(`select v.id, v.product_id as "productId", v.sku, v.name, v.attributes, v.price, v.weight_grams as "weightGrams", v.is_active as "isActive"
+    from product_variants v join products p on p.id = v.product_id
+    where v.is_active = true and p.status = 'ACTIVE' order by v.created_at desc, v.id limit $1 offset $2`, [limit, offset]);
   return { page, limit, items: result.rows };
 }
 
@@ -178,9 +181,12 @@ export async function updateProduct(productId: string, patch: { categoryId?: str
   });
 }
 
-export async function listProductImages(productId: string) {
+export async function listProductImages(productId: string, options: { activeProductsOnly?: boolean } = {}) {
+  // Phase 35: the public GET route passes activeProductsOnly so DRAFT/ARCHIVED images stay hidden.
   const result = await query<{ id: string; storagePath: string; altText: string | null; sortOrder: number; variantId: string | null }>(
-    'select id, storage_path as "storagePath", alt_text as "altText", sort_order as "sortOrder", variant_id as "variantId" from product_images where product_id = $1 order by sort_order',
+    `select pi.id, pi.storage_path as "storagePath", pi.alt_text as "altText", pi.sort_order as "sortOrder", pi.variant_id as "variantId"
+     from product_images pi join products p on p.id = pi.product_id
+     where pi.product_id = $1 ${options.activeProductsOnly ? "and p.status = 'ACTIVE'" : ''} order by pi.sort_order`,
     [productId],
   );
   const supabase = createSupabaseAdminClient();

@@ -15,6 +15,7 @@ import {
   AlertCircle,
   Inbox,
 } from 'lucide-react';
+import { requireAdmin } from '@/lib/auth/require-admin';
 
 const FILTER_GROUPS: StatusFilterGroup[] = [
   { key: 'all', label: 'Tất cả' },
@@ -103,6 +104,9 @@ export default async function OrdersPage({
 }: {
   searchParams: Promise<{ filter?: string; page?: string }>;
 }) {
+  // Phase 35 D1: never rely on the layout alone — RSC segment requests can render this page
+  // without re-running the layout. requireAdmin() is cache()-memoized, so this is free.
+  await requireAdmin();
   const { filter, page: pageParam } = await searchParams;
   const { activeKey, statuses } = resolveStatusFilter(FILTER_GROUPS, filter);
   const [{ items: orders, page, hasNext }, counts] = await Promise.all([

@@ -8,8 +8,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { MarkdownEditor } from '@/components/admin/markdown-editor';
 import { listBlogCategories, listBlogPosts } from '@/services/blog.service';
 import { createBlogCategoryAction, createBlogPostAction } from './actions';
+import { requireAdmin } from '@/lib/auth/require-admin';
 
 export default async function BlogPage() {
+  // Phase 35 D1: never rely on the layout alone — RSC segment requests can render this page
+  // without re-running the layout. requireAdmin() is cache()-memoized, so this is free.
+  await requireAdmin();
   const [{ items: posts }, categories] = await Promise.all([
     listBlogPosts({ limit: 100 }),
     listBlogCategories(),

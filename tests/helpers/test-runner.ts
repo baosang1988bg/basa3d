@@ -7,6 +7,8 @@ process.env.ORDER_CONFIRMATION_SECRET ??= 'hardening-followup-test-secret-at-lea
 process.env.UPLOAD_CLAIM_SECRET ??= 'phase-34-upload-claim-test-secret-at-least-32-characters';
 // Phase 33: /bao-gia is off by default in Production (uncalibrated model) but always tested.
 process.env.NEXT_PUBLIC_BAO_GIA_ENABLED ??= 'true';
+// Phase 35 D5: POST /api/public/orders returns 404 while the cart is disabled.
+process.env.NEXT_PUBLIC_CART_ENABLED ??= 'true';
 // Isolated from the default `.next` a developer's `npm run dev` is using — `next dev` and
 // `next build`/`next start` write incompatible webpack module-ID layouts into their distDir, so
 // sharing `.next` between this test server and a concurrently running dev server corrupts

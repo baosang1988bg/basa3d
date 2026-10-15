@@ -43,6 +43,16 @@ export async function createStaffAccount(input: { email: string; password: strin
 
 export async function setStaffActive(staffId: string, isActive: boolean, actorId: string) {
   return withTransaction(async (client) => {
+    if (!isActive) {
+      // Phase 35 D6: never lock the business out of its own admin. Refuse self-deactivation, and
+      // refuse removing the last active OWNER. Locking every active OWNER row serializes two
+      // OWNERs deactivating each other at the same time.
+      if (staffId === actorId) throw new DomainError('CANNOT_DEACTIVATE_SELF', 'Bạn không thể tự vô hiệu hoá tài khoản của chính mình.', 409);
+      const owners = await client.query<{ id: string }>("select id from staff_profiles where role = 'OWNER' and is_active = true order by id for update");
+      if (owners.rows.length <= 1 && owners.rows.some((owner) => owner.id === staffId)) {
+        throw new DomainError('LAST_OWNER', 'Không thể vô hiệu hoá OWNER cuối cùng đang hoạt động.', 409);
+      }
+    }
     const result = await client.query<{ id: string; isActive: boolean }>('update staff_profiles set is_active = $2 where id = $1 returning id, is_active as "isActive"', [staffId, isActive]);
     if (!result.rowCount) throw new DomainError('STAFF_NOT_FOUND', 'Staff profile was not found.', 404);
     await writeAuditLog(client, { actorId, action: isActive ? 'STAFF_REACTIVATED' : 'STAFF_DEACTIVATED', entityType: 'staff_profile', entityId: staffId });

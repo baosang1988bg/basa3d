@@ -7,8 +7,12 @@ import { Label } from '@/components/ui/label';
 import { MarkdownEditor } from '@/components/admin/markdown-editor';
 import { getBlogPostById, listBlogCategories } from '@/services/blog.service';
 import { updateBlogPostAction } from '../actions';
+import { requireAdmin } from '@/lib/auth/require-admin';
 
 export default async function BlogPostDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  // Phase 35 D1: never rely on the layout alone — RSC segment requests can render this page
+  // without re-running the layout. requireAdmin() is cache()-memoized, so this is free.
+  await requireAdmin();
   const { id } = await params;
   const [post, categories] = await Promise.all([getBlogPostById(id), listBlogCategories()]);
   if (!post) notFound();

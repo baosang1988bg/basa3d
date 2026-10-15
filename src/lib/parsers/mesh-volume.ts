@@ -47,13 +47,23 @@ export function parseObjVolume(bytes: Uint8Array): MeshVolumeResult {
 // Copies placed on the plate count as separate items, exactly like the printer would print them.
 
 const UNIT_TO_MM: Record<string, number> = { micron: 0.001, millimeter: 1, centimeter: 10, inch: 25.4, foot: 304.8, meter: 1000 };
-const MAX_3MF_UNZIPPED_BYTES = 200 * 1024 * 1024;
+// Phase 35 D4: was 200 MB. The file can come from an anonymous upload; the whole XML becomes one JS
+// string, so keep the ceiling well under the function's memory. Large legitimate projects fall back
+// to a staff quote (MESH_TOO_LARGE), which is the existing behavior for oversized meshes.
+export const MAX_3MF_UNZIPPED_BYTES = 100 * 1024 * 1024;
+// A closed triangle mesh has roughly half as many vertices as triangles; 1:1 leaves ample headroom.
+export const MESH_MAX_VERTICES = MESH_MAX_TRIANGLES;
 
 type ModelObject = { volumeMm3?: number; components?: { path: string; objectId: string; det: number }[] };
 
+const attrRegexCache = new Map<string, RegExp>();
 function attr(attrs: string, name: string): string | undefined {
-  const match = attrs.match(new RegExp(`(?:^|\\s)${name}="([^"]*)"`));
-  return match?.[1];
+  let pattern = attrRegexCache.get(name);
+  if (!pattern) {
+    pattern = new RegExp(`(?:^|\\s)${name}="([^"]*)"`);
+    attrRegexCache.set(name, pattern);
+  }
+  return attrs.match(pattern)?.[1];
 }
 
 function transformDet(transform: string | undefined): number {
@@ -64,32 +74,83 @@ function transformDet(transform: string | undefined): number {
   return Math.abs(m[0] * (m[4] * m[8] - m[5] * m[7]) - m[1] * (m[3] * m[8] - m[5] * m[6]) + m[2] * (m[3] * m[7] - m[4] * m[6]));
 }
 
-function parseModelFile(xml: string, path: string, objects: Map<string, ModelObject>, triangleBudget: { used: number }) {
-  for (const objectMatch of xml.matchAll(/<object\b([^>]*)>([\s\S]*?)<\/object>/g)) {
-    const id = attr(objectMatch[1], 'id');
+// Phase 35 D4: indexOf-bounded element scanner. The previous lazy `[\s\S]*?` regexes re-scanned
+// to the end of the string from every opening tag when a closing tag was missing (O(n²) on a
+// crafted file). Every step here moves forward, so a full pass is O(n).
+type ScannedElement = { attrs: string; bodyStart: number; bodyEnd: number };
+
+function findTagStart(xml: string, tag: string, from: number, end: number): number {
+  let index = from;
+  for (;;) {
+    index = xml.indexOf(`<${tag}`, index);
+    if (index < 0 || index >= end) return -1;
+    const next = xml.charCodeAt(index + tag.length + 1);
+    // Tag name must end here: whitespace, '>' or '/'. Rejects `<components` when looking for `<component`.
+    if (next === 32 || next === 9 || next === 10 || next === 13 || next === 62 || next === 47) return index;
+    index += tag.length + 1;
+  }
+}
+
+function* scanElements(xml: string, tag: string, from: number, end: number, withBody: boolean): Generator<ScannedElement> {
+  let index = from;
+  for (;;) {
+    const start = findTagStart(xml, tag, index, end);
+    if (start < 0) return;
+    const gt = xml.indexOf('>', start);
+    if (gt < 0 || gt >= end) return;
+    const selfClosing = xml.charCodeAt(gt - 1) === 47;
+    const attrs = xml.slice(start + tag.length + 1, selfClosing ? gt - 1 : gt);
+    if (!withBody || selfClosing) {
+      yield { attrs, bodyStart: gt + 1, bodyEnd: gt + 1 };
+      index = gt + 1;
+      continue;
+    }
+    const close = xml.indexOf(`</${tag}>`, gt + 1);
+    if (close < 0 || close > end) throw new DomainError('MESH_INVALID', 'File .3mf bị hỏng (thiếu thẻ đóng).', 422);
+    yield { attrs, bodyStart: gt + 1, bodyEnd: close };
+    index = close + tag.length + 3;
+  }
+}
+
+function firstElement(xml: string, tag: string, from: number, end: number, withBody: boolean): ScannedElement | undefined {
+  for (const element of scanElements(xml, tag, from, end, withBody)) return element;
+  return undefined;
+}
+
+type ParseBudget = { triangles: number; vertices: number };
+
+function parseModelFile(xml: string, path: string, objects: Map<string, ModelObject>, budget: ParseBudget) {
+  for (const object of scanElements(xml, 'object', 0, xml.length, true)) {
+    const id = attr(object.attrs, 'id');
     if (!id) continue;
-    const body = objectMatch[2];
     const key = `${path}#${id}`;
-    const meshMatch = body.match(/<mesh\b[\s\S]*?<\/mesh>/);
-    if (meshMatch) {
-      const vertices: number[][] = [];
-      for (const v of meshMatch[0].matchAll(/<vertex\b([^>]*)\/?>/g)) {
-        vertices.push([Number(attr(v[1], 'x')), Number(attr(v[1], 'y')), Number(attr(v[1], 'z'))]);
+    const mesh = firstElement(xml, 'mesh', object.bodyStart, object.bodyEnd, true);
+    if (mesh) {
+      const coords: number[] = [];
+      for (const v of scanElements(xml, 'vertex', mesh.bodyStart, mesh.bodyEnd, false)) {
+        if (++budget.vertices > MESH_MAX_VERTICES) throw new DomainError('MESH_TOO_LARGE', 'File có quá nhiều đỉnh để ước tính tự động.', 422);
+        coords.push(Number(attr(v.attrs, 'x')), Number(attr(v.attrs, 'y')), Number(attr(v.attrs, 'z')));
       }
+      const vertexCount = coords.length / 3;
       let signed = 0;
-      for (const t of meshMatch[0].matchAll(/<triangle\b([^>]*)\/?>/g)) {
-        if (++triangleBudget.used > MESH_MAX_TRIANGLES) throw new DomainError('MESH_TOO_LARGE', 'File có quá nhiều tam giác để ước tính tự động.', 422);
-        const a = vertices[Number(attr(t[1], 'v1'))]; const b = vertices[Number(attr(t[1], 'v2'))]; const c = vertices[Number(attr(t[1], 'v3'))];
-        if (!a || !b || !c) throw new DomainError('MESH_INVALID', 'File .3mf tham chiếu đỉnh không tồn tại.', 422);
-        signed += (a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) + a[2] * (b[0] * c[1] - b[1] * c[0])) / 6;
+      for (const t of scanElements(xml, 'triangle', mesh.bodyStart, mesh.bodyEnd, false)) {
+        if (++budget.triangles > MESH_MAX_TRIANGLES) throw new DomainError('MESH_TOO_LARGE', 'File có quá nhiều tam giác để ước tính tự động.', 422);
+        const ia = Number(attr(t.attrs, 'v1')); const ib = Number(attr(t.attrs, 'v2')); const ic = Number(attr(t.attrs, 'v3'));
+        if (![ia, ib, ic].every((i) => Number.isInteger(i) && i >= 0 && i < vertexCount)) {
+          throw new DomainError('MESH_INVALID', 'File .3mf tham chiếu đỉnh không tồn tại.', 422);
+        }
+        const a = ia * 3; const b = ib * 3; const c = ic * 3;
+        signed += (coords[a] * (coords[b + 1] * coords[c + 2] - coords[b + 2] * coords[c + 1])
+          - coords[a + 1] * (coords[b] * coords[c + 2] - coords[b + 2] * coords[c])
+          + coords[a + 2] * (coords[b] * coords[c + 1] - coords[b + 1] * coords[c])) / 6;
       }
       objects.set(key, { volumeMm3: Math.abs(signed) });
       continue;
     }
-    const components = [...body.matchAll(/<component\b([^>]*)\/?>/g)].map((c) => ({
-      path: (attr(c[1], 'p:path') ?? path).replace(/^\//, ''),
-      objectId: attr(c[1], 'objectid') ?? '',
-      det: transformDet(attr(c[1], 'transform')),
+    const components = [...scanElements(xml, 'component', object.bodyStart, object.bodyEnd, false)].map((c) => ({
+      path: (attr(c.attrs, 'p:path') ?? path).replace(/^\//, ''),
+      objectId: attr(c.attrs, 'objectid') ?? '',
+      det: transformDet(attr(c.attrs, 'transform')),
     }));
     objects.set(key, { components });
   }
@@ -115,11 +176,12 @@ export function parseThreeMfMeshVolume(bytes: Uint8Array): MeshVolumeResult {
   if (!mainPath) throw new DomainError('MESH_EMPTY', 'Không tìm thấy mô hình trong file .3mf.', 422);
 
   const objects = new Map<string, ModelObject>();
-  const budget = { used: 0 };
+  const budget: ParseBudget = { triangles: 0, vertices: 0 };
   for (const [path, data] of Object.entries(files)) parseModelFile(strFromU8(data), path, objects, budget);
 
   const mainXml = strFromU8(files[mainPath]);
-  const unitScale = UNIT_TO_MM[(mainXml.match(/<model\b[^>]*\sunit="([^"]+)"/)?.[1] ?? 'millimeter').toLowerCase()] ?? 1;
+  const modelElement = firstElement(mainXml, 'model', 0, mainXml.length, false);
+  const unitScale = UNIT_TO_MM[(attr(modelElement?.attrs ?? '', 'unit') ?? 'millimeter').toLowerCase()] ?? 1;
 
   const memo = new Map<string, number>();
   const volumeOf = (key: string, depth: number): number => {
@@ -133,13 +195,15 @@ export function parseThreeMfMeshVolume(bytes: Uint8Array): MeshVolumeResult {
     return volume;
   };
 
-  const buildMatch = mainXml.match(/<build\b[^>]*>([\s\S]*?)<\/build>/);
+  const build = firstElement(mainXml, 'build', 0, mainXml.length, true);
   let totalMm3 = 0;
-  for (const item of (buildMatch?.[1] ?? '').matchAll(/<item\b([^>]*)\/?>/g)) {
-    const objectId = attr(item[1], 'objectid');
-    if (objectId) totalMm3 += volumeOf(`${mainPath}#${objectId}`, 0) * transformDet(attr(item[1], 'transform'));
+  if (build) {
+    for (const item of scanElements(mainXml, 'item', build.bodyStart, build.bodyEnd, false)) {
+      const objectId = attr(item.attrs, 'objectid');
+      if (objectId) totalMm3 += volumeOf(`${mainPath}#${objectId}`, 0) * transformDet(attr(item.attrs, 'transform'));
+    }
   }
   const volumeCm3 = (totalMm3 * unitScale ** 3) / 1_000;
-  if (!budget.used || !Number.isFinite(volumeCm3) || volumeCm3 <= 0) throw new DomainError('MESH_EMPTY', 'Không đọc được hình khối nào trong file .3mf.', 422);
-  return { volumeCm3, triangles: budget.used };
+  if (!budget.triangles || !Number.isFinite(volumeCm3) || volumeCm3 <= 0) throw new DomainError('MESH_EMPTY', 'Không đọc được hình khối nào trong file .3mf.', 422);
+  return { volumeCm3, triangles: budget.triangles };
 }

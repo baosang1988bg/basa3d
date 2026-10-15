@@ -5,7 +5,7 @@ import { requireAdmin } from '../../../../../lib/auth/require-admin';
 import { uuidSchema } from '../../../../../domain/schemas';
 import { listProductImages, uploadProductImage } from '../../../../../services/product.service';
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) { try { const id = uuidSchema.parse((await params).id); return NextResponse.json(await listProductImages(id)); } catch (error) { return apiError(error); } }
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) { try { const id = uuidSchema.parse((await params).id); return NextResponse.json(await listProductImages(id, { activeProductsOnly: true })); } catch (error) { return apiError(error); } }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {

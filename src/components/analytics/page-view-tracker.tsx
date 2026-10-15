@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { sendGAEvent } from '@/lib/analytics';
+import { sanitizeAnalyticsUrl, sendGAEvent } from '@/lib/analytics';
 
 export function PageViewTracker({ gaId }: { gaId: string }) {
   const pathname = usePathname();
@@ -10,7 +10,8 @@ export function PageViewTracker({ gaId }: { gaId: string }) {
   const query = searchParams.toString();
 
   useEffect(() => {
-    const pagePath = query ? `${pathname}?${query}` : pathname;
+    // Phase 35 D3: strip ?token= / ?phoneSuffix= before anything leaves for Google.
+    const pagePath = sanitizeAnalyticsUrl(query ? `${pathname}?${query}` : pathname);
     sendGAEvent('page_view', {
       page_path: pagePath,
       page_location: `${window.location.origin}${pagePath}`,

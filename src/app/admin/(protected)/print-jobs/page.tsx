@@ -9,6 +9,7 @@ import { resolveStatusFilter, StatusFilterTabs, type StatusFilterGroup } from '@
 import { listPrintJobs, nextPrintJobStatuses } from '@/services/print-job.service';
 import { updatePrintJobStatusAction } from '../custom-requests/actions';
 import { Printer, Inbox, Play, AlertTriangle, ArrowRight } from 'lucide-react';
+import { requireAdmin } from '@/lib/auth/require-admin';
 
 const FILTER_GROUPS: StatusFilterGroup[] = [
   { key: 'all', label: 'Tất cả' },
@@ -66,6 +67,9 @@ const PRINT_JOB_STATUS_MAP: Record<string, { label: string; badgeClass: string; 
 };
 
 export default async function PrintJobsPage({ searchParams }: { searchParams: Promise<{ filter?: string; page?: string; sort?: string }> }) {
+  // Phase 35 D1: never rely on the layout alone — RSC segment requests can render this page
+  // without re-running the layout. requireAdmin() is cache()-memoized, so this is free.
+  await requireAdmin();
   const { filter, page: pageParam, sort: sortParam } = await searchParams;
   const { activeKey, statuses } = resolveStatusFilter(FILTER_GROUPS, filter);
   const orderBy = sortParam === 'desc' ? 'created_desc' : sortParam === 'asc' ? 'created_asc' : 'queue';

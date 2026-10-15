@@ -9,7 +9,7 @@ import { sendStaffNotification } from '../lib/notify/send-staff-notification';
 
 type OrderItemRequest = { variantId: string; quantity: number };
 type CreateOrderInput = { checkoutRequestId?: string | null; customerName: string; customerPhone: string; customerEmail?: string | null; shippingAddress?: Record<string, unknown>; shippingFee?: number; discount?: number; codFee?: number; customerNote?: string | null; items: OrderItemRequest[] };
-type VariantSnapshot = { id: string; price: number; sku: string; variant_name: string; product_name: string; product_type: 'READY_STOCK' | 'MADE_TO_ORDER'; attributes: Record<string, string> };
+type VariantSnapshot = { id: string; price: number; sku: string; variant_name: string; product_name: string; product_type: 'READY_STOCK' | 'MADE_TO_ORDER'; attributes: Record<string, string>; variant_is_active: boolean; product_status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED' };
 
 export function reconcileOrderTotal(subtotal: number, shippingFee: number, discount: number, codFee: number): number {
   return subtotal + shippingFee + codFee - discount;
@@ -59,8 +59,14 @@ export async function createOrder(input: CreateOrderInput, actorId: string | nul
     const locked = await client.query<{ id: string }>('select id from product_variants where id = any($1::uuid[]) order by id for update', [variantIds]);
     if (locked.rowCount !== variantIds.length) throw new DomainError('VARIANT_NOT_FOUND', 'One or more product variants were not found.', 404);
     const snapshots = await client.query<VariantSnapshot>(`
-      select v.id, v.price, v.sku, v.name as variant_name, v.attributes, p.name as product_name, p.product_type
+      select v.id, v.price, v.sku, v.name as variant_name, v.attributes, p.name as product_name, p.product_type,
+             v.is_active as variant_is_active, p.status as product_status
       from product_variants v join products p on p.id = v.product_id where v.id = any($1::uuid[])`, [variantIds]);
+    // Phase 35 D5: anonymous checkout may only buy what the storefront actually shows — an ACTIVE
+    // product and an active variant. Staff-created orders (actorId set) keep the old behavior.
+    if (actorId === null && snapshots.rows.some((variant) => !variant.variant_is_active || variant.product_status !== 'ACTIVE')) {
+      throw new DomainError('VARIANT_NOT_FOUND', 'One or more product variants were not found.', 404);
+    }
     const snapshotById = new Map(snapshots.rows.map((variant) => [variant.id, variant]));
     // ADR-0017: made-to-order catalog items reserve raw material later, not finished goods now.
     // TODO(Phase 2 risks): NEW READY_STOCK orders reserve stock indefinitely until expiry exists.

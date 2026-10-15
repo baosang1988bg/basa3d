@@ -11,7 +11,12 @@ import { DomainError } from '../domain-error';
 
 const SLICE_INFO_PATHS = ['Metadata/slice_info.config', 'Metadata/slice_info.xml'] as const;
 
-const xmlParser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
+// Phase 35 D4: the archive may come from an anonymous upload. Cap the declared uncompressed size of
+// the one entry we read (fflate allocates `originalSize` up front — a zip bomb would otherwise ask for
+// ~4 GB), and never expand XML entities. Real Bambu/Orca slice_info.config files are a few KB.
+export const MAX_SLICE_INFO_BYTES = 2 * 1024 * 1024;
+
+const xmlParser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_', processEntities: false });
 
 export type ParsedFilament = { filamentId: string; type: string | null; color: string | null; usedGrams: number };
 export type ParsedPlate = { index: number; predictionSeconds: number; filaments: ParsedFilament[] };
@@ -39,8 +44,17 @@ function findMetadataValue(metadata: Record<string, unknown>[], key: string): st
 export function parseThreeMfSliceInfo(fileBytes: Uint8Array): ParsedSliceInfo {
   let entries: Record<string, Uint8Array>;
   try {
-    entries = unzipSync(fileBytes, { filter: (file) => SLICE_INFO_PATHS.includes(file.name as typeof SLICE_INFO_PATHS[number]) });
-  } catch {
+    entries = unzipSync(fileBytes, {
+      filter: (file) => {
+        if (!SLICE_INFO_PATHS.includes(file.name as typeof SLICE_INFO_PATHS[number])) return false;
+        if (file.originalSize > MAX_SLICE_INFO_BYTES) {
+          throw new DomainError('3MF_SLICE_INFO_TOO_LARGE', 'File .3mf có dữ liệu slice bất thường (quá lớn) — vui lòng nhập thông số tay.', 422);
+        }
+        return true;
+      },
+    });
+  } catch (error) {
+    if (error instanceof DomainError) throw error;
     throw new DomainError('INVALID_3MF_FILE', 'File không đọc được — không phải định dạng .3mf (ZIP) hợp lệ.', 400);
   }
 

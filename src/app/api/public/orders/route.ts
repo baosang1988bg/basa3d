@@ -6,6 +6,7 @@ import { publicCheckoutOrderInputSchema } from '../../../../domain/schemas';
 import { createOrder } from '../../../../services/order.service';
 import { assertOrderConfirmationConfigured, createOrderConfirmationToken } from '../../../../lib/order-confirmation-token';
 import { createDatabaseRateLimiter, getClientIp } from '../../../../lib/rate-limit';
+import { SITE_CONFIG } from '../../../../config/site';
 
 // MVP spam defense (phase-5.md Risks section) — honeypot + phone-based rate limiting only, same
 // pattern as POST /api/public/custom-requests (Phase 4). Threshold is looser than that route's
@@ -17,6 +18,8 @@ const RATE_LIMITED_BODY = { code: 'RATE_LIMITED', message: 'Bạn đã đặt qu
 const NO_STORE = { 'cache-control': 'no-store' };
 
 export async function POST(request: Request) {
+  // Phase 35 D5: hiding the cart in the UI is not a control — the API must refuse too.
+  if (!SITE_CONFIG.cartEnabled) return NextResponse.json({ code: 'NOT_FOUND', message: 'Not found.' }, { status: 404, headers: NO_STORE });
   try {
     assertOrderConfirmationConfigured();
     const body: unknown = await request.json().catch(() => null);
