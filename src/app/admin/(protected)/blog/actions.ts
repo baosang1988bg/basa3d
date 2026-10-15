@@ -1,5 +1,6 @@
 'use server';
 
+import { parseActionId } from '@/lib/action-args';
 import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/auth/require-admin';
 import { blogCategoryInputSchema, blogPostInputSchema, blogPostUpdateInputSchema } from '@/domain/schemas';
@@ -48,6 +49,7 @@ export async function createBlogPostAction(formData: FormData) {
 
 export async function updateBlogPostAction(id: string, formData: FormData) {
   const { actorId } = await requireAdmin();
+  id = parseActionId(id, 'id');
   const input = blogPostUpdateInputSchema.parse({
     categoryId: readFormValue(formData, 'categoryId') ?? null,
     title: formData.get('title'),

@@ -1,5 +1,6 @@
 'use server';
 
+import { parseActionBoolean, parseActionId } from '@/lib/action-args';
 import { revalidatePath } from 'next/cache';
 import { requireOwner } from '@/lib/auth/require-admin';
 import { staffCreateInputSchema } from '@/domain/schemas';
@@ -19,6 +20,8 @@ export async function createStaffAction(formData: FormData) {
 
 export async function setStaffActiveAction(staffId: string, isActive: boolean) {
   const { actorId } = await requireOwner();
+  staffId = parseActionId(staffId, 'staffId');
+  isActive = parseActionBoolean(isActive, 'isActive');
   await setStaffActive(staffId, isActive, actorId);
   revalidatePath('/admin/staff');
 }

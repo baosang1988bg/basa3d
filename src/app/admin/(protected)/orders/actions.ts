@@ -1,5 +1,6 @@
 'use server';
 
+import { parseActionId } from '@/lib/action-args';
 import type { AdminActionResult } from '@/components/admin/action-form';
 import { DomainError } from '@/lib/domain-error';
 import { revalidatePath } from 'next/cache';
@@ -15,6 +16,7 @@ function readFormValue(formData: FormData, key: string): string | undefined {
 export async function updateOrderStatusAction(orderId: string, formData: FormData): Promise<AdminActionResult> {
   const session = await requireAdmin();
   try {
+    orderId = parseActionId(orderId, 'orderId');
     const parsed = orderStatusUpdateSchema.safeParse({ status: formData.get('status') });
     if (!parsed.success) return { error: 'Dữ liệu không hợp lệ. Vui lòng kiểm tra các trường đã nhập.' };
     const input = parsed.data;
@@ -31,6 +33,7 @@ export async function updateOrderStatusAction(orderId: string, formData: FormDat
 export async function updateOrderAdminFieldsAction(orderId: string, formData: FormData): Promise<AdminActionResult> {
   const session = await requireAdmin();
   try {
+    orderId = parseActionId(orderId, 'orderId');
     const parsed = orderAdminUpdateSchema.safeParse({
       paymentStatus: readFormValue(formData, 'paymentStatus'),
       shippingStatus: readFormValue(formData, 'shippingStatus'),

@@ -1,5 +1,6 @@
 'use server';
 
+import { parseActionId } from '@/lib/action-args';
 import type { AdminActionResult } from '@/components/admin/action-form';
 import { DomainError } from '@/lib/domain-error';
 import { revalidatePath } from 'next/cache';
@@ -54,6 +55,7 @@ export async function createCustomRequestAction(formData: FormData): Promise<Adm
 export async function updateCustomRequestStatusAction(id: string, formData: FormData): Promise<AdminActionResult> {
   const session = await requireAdmin();
   try {
+    id = parseActionId(id, 'id');
     const parsed = customRequestStatusUpdateSchema.safeParse({ status: formData.get('status'), overrideReason: readFormValue(formData, 'overrideReason') });
     if (!parsed.success) return { error: 'Dữ liệu không hợp lệ. Vui lòng kiểm tra các trường đã nhập.' };
     const input = parsed.data;
@@ -70,6 +72,7 @@ export async function updateCustomRequestStatusAction(id: string, formData: Form
 export async function createQuoteAction(customRequestId: string, formData: FormData): Promise<AdminActionResult> {
   const { actorId } = await requireAdmin();
   try {
+    customRequestId = parseActionId(customRequestId, 'customRequestId');
     const pricingBreakdownRaw = readFormValue(formData, 'pricingBreakdown');
     const modelSnapshotRaw = readFormValue(formData, 'modelSnapshot');
     const parsed = quoteInputSchema.safeParse({
@@ -110,6 +113,8 @@ export async function createQuoteAction(customRequestId: string, formData: FormD
 export async function acceptQuoteAction(quoteId: string, customRequestId: string): Promise<AdminActionResult> {
   const { actorId } = await requireAdmin();
   try {
+    quoteId = parseActionId(quoteId, 'quoteId');
+    customRequestId = parseActionId(customRequestId, 'customRequestId');
     await acceptQuote(quoteId, actorId);
     revalidatePath(`/admin/custom-requests/${customRequestId}`);
     return { saved: true };
@@ -122,6 +127,7 @@ export async function acceptQuoteAction(quoteId: string, customRequestId: string
 export async function updatePrintJobStatusAction(id: string, formData: FormData): Promise<AdminActionResult> {
   const session = await requireAdmin();
   try {
+    id = parseActionId(id, 'id');
     const parsed = printJobStatusUpdateSchema.safeParse({ status: formData.get('status'), overrideReason: readFormValue(formData, 'overrideReason') });
     if (!parsed.success) return { error: 'Dữ liệu không hợp lệ. Vui lòng kiểm tra các trường đã nhập.' };
     const input = parsed.data;
@@ -141,6 +147,7 @@ export async function updatePrintJobStatusAction(id: string, formData: FormData)
 export async function reverifyCustomRequestItemAction(itemId: string): Promise<ReverifyResult | { status: 'ERROR'; message: string }> {
   const { actorId } = await requireAdmin();
   try {
+    itemId = parseActionId(itemId, 'itemId');
     return await reverifyCustomRequestItem(itemId, actorId);
   } catch (error) {
     if (error instanceof DomainError) return { status: 'ERROR', message: error.message };
@@ -151,6 +158,7 @@ export async function reverifyCustomRequestItemAction(itemId: string): Promise<R
 export async function updateCustomRequestAction(id: string, formData: FormData): Promise<AdminActionResult> {
   const { actorId } = await requireOwner();
   try {
+    id = parseActionId(id, 'id');
     const rawQuantity = formData.get('quantity');
     const parsed = customRequestAdminUpdateSchema.safeParse({
       sourceChannel: readFormValue(formData, 'sourceChannel'),
@@ -180,6 +188,7 @@ export async function updateCustomRequestAction(id: string, formData: FormData):
 export async function deleteCustomRequestAction(id: string): Promise<AdminActionResult> {
   const { actorId } = await requireOwner();
   try {
+    id = parseActionId(id, 'id');
     await deleteCustomRequest(id, actorId);
     revalidatePath('/admin/custom-requests');
     revalidatePath('/admin/dashboard');

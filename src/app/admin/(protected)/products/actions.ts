@@ -1,5 +1,6 @@
 'use server';
 
+import { parseActionId } from '@/lib/action-args';
 import { revalidatePath } from 'next/cache';
 import { requireAdmin, requireOwner } from '@/lib/auth/require-admin';
 import {
@@ -67,6 +68,7 @@ export async function createCategoryAction(formData: FormData) {
 
 export async function updateProductAction(productId: string, formData: FormData) {
   const { actorId } = await requireAdmin();
+  productId = parseActionId(productId, 'productId');
   const pricingBreakdownRaw = readFormValue(formData, 'pricingBreakdown');
   const patch = productUpdateInputSchema.parse({
     name: readFormValue(formData, 'name'),
@@ -92,12 +94,14 @@ export async function updateProductAction(productId: string, formData: FormData)
 // STAFF-allowed soft archive (ADR-0011 boundary #3) — same updateProduct call, just status.
 export async function archiveProductAction(productId: string) {
   const { actorId } = await requireAdmin();
+  productId = parseActionId(productId, 'productId');
   await updateProduct(productId, { status: 'ARCHIVED' }, actorId);
   revalidatePath('/admin/products');
 }
 
 export async function unarchiveProductAction(productId: string) {
   const { actorId } = await requireAdmin();
+  productId = parseActionId(productId, 'productId');
   await updateProduct(productId, { status: 'ACTIVE' }, actorId);
   revalidatePath('/admin/products');
 }
@@ -105,12 +109,14 @@ export async function unarchiveProductAction(productId: string) {
 // Hard delete — OWNER only (ADR-0011 boundary #3).
 export async function deleteProductAction(productId: string) {
   const { actorId } = await requireOwner();
+  productId = parseActionId(productId, 'productId');
   await deleteProduct(productId, actorId);
   revalidatePath('/admin/products');
 }
 
 export async function createVariantAction(productId: string, formData: FormData) {
   const { actorId } = await requireAdmin();
+  productId = parseActionId(productId, 'productId');
   const input = productVariantInputSchema.parse({
     productId,
     sku: formData.get('sku'),
@@ -124,6 +130,8 @@ export async function createVariantAction(productId: string, formData: FormData)
 
 export async function updateVariantAction(productId: string, variantId: string, formData: FormData) {
   const { actorId } = await requireAdmin();
+  productId = parseActionId(productId, 'productId');
+  variantId = parseActionId(variantId, 'variantId');
   const patch = variantUpdateInputSchema.parse({
     name: readFormValue(formData, 'name'),
     price: readFormValue(formData, 'price') ? Number(formData.get('price')) : undefined,
@@ -136,12 +144,15 @@ export async function updateVariantAction(productId: string, variantId: string, 
 // Hard delete — OWNER only (ADR-0011 boundary #3).
 export async function deleteVariantAction(productId: string, variantId: string) {
   const { actorId } = await requireOwner();
+  productId = parseActionId(productId, 'productId');
+  variantId = parseActionId(variantId, 'variantId');
   await deleteVariant(variantId, actorId);
   revalidatePath(`/admin/products/${productId}`);
 }
 
 export async function uploadProductImageAction(productId: string, formData: FormData) {
   const { actorId } = await requireAdmin();
+  productId = parseActionId(productId, 'productId');
   const file = formData.get('file');
   if (!(file instanceof Blob) || file.size === 0) return;
   await uploadProductImage({ productId, file, fileName: file instanceof File ? file.name : 'upload' }, actorId);
@@ -150,6 +161,8 @@ export async function uploadProductImageAction(productId: string, formData: Form
 
 export async function deleteProductImageAction(productId: string, imageId: string) {
   const { actorId } = await requireAdmin();
+  productId = parseActionId(productId, 'productId');
+  imageId = parseActionId(imageId, 'imageId');
   await deleteProductImage(imageId, actorId);
   revalidatePath(`/admin/products/${productId}`);
 }

@@ -1,5 +1,6 @@
 'use server';
 
+import { parseActionBoolean, parseActionId } from '@/lib/action-args';
 import { revalidatePath } from 'next/cache';
 import { ZodError } from 'zod';
 import { requireAdmin, requireOwner } from '@/lib/auth/require-admin';
@@ -29,6 +30,8 @@ export async function savePricePresetAction(payload: unknown): Promise<SavePrice
 export async function setPricePresetActiveAction(id: string, isActive: boolean): Promise<{ error?: string; saved?: boolean }> {
   const { actorId } = await requireOwner();
   try {
+    id = parseActionId(id, 'id');
+    isActive = parseActionBoolean(isActive, 'isActive');
     await setPricePresetActive(id, isActive, actorId);
     revalidatePath('/admin/settings/makerworld-prices');
     return { saved: true };
