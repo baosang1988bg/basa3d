@@ -123,6 +123,11 @@ export function parseMakerWorldUrl(rawUrl: string): ParsedMakerWorldUrl {
     throw new MakerWorldNotFoundError('Chỉ chấp nhận link từ makerworld.com (https).');
   }
   const modelMatch = url.pathname.match(/\/models\/(\d+)/);
+  // Phase 36: exactly one /models/<id> segment — `/models/1000/models/2000` must not be read as
+  // model 1000 while the page served (and cached under 1000) is model 2000.
+  if (modelMatch && (url.pathname.match(/\/models\//g) ?? []).length > 1) {
+    throw new MakerWorldNotFoundError('Link MakerWorld không hợp lệ (nhiều mã model).');
+  }
   if (!modelMatch) {
     throw new MakerWorldNotFoundError('Không tìm thấy mã model (models/<id>) trong link.');
   }
@@ -431,6 +436,12 @@ export function extractResolutionFromHtml(html: string, parsed: ParsedMakerWorld
   const instances = design?.instances;
   if (!design || !Array.isArray(instances) || instances.length === 0) {
     throw new MakerWorldProfileNotFoundError();
+  }
+  // Phase 36: the page must be the model the link asked for — the 24h resolver cache is keyed by
+  // model id, so a mismatch would serve model B's profiles/prices to everyone asking for model A.
+  const designId = (design as { id?: unknown }).id;
+  if (designId !== undefined && designId !== null && String(designId) !== parsed.modelId) {
+    throw new MakerWorldProfileNotFoundError('Trang MakerWorld trả về một model khác với link — vui lòng kiểm tra lại link.');
   }
   if (instances.length > MAKERWORLD_LIMITS.maxProfiles) {
     throw new MakerWorldProfileNotFoundError('Model có quá nhiều profile in — vui lòng nhập tay thông số.');

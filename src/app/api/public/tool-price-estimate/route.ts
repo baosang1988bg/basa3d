@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     if (await isRateLimited(ip)) {
       return NextResponse.json({ code: 'RATE_LIMITED', message: 'Bạn đã yêu cầu ước tính quá nhiều lần, vui lòng thử lại sau.' }, { status: 429 });
     }
-    const input = inputSchema.parse(await request.json());
+    const input = inputSchema.parse(await request.json().catch(() => null));
     const [config, materials] = await Promise.all([getCurrentPricingConfig(), listMaterials()]);
     if (!config) throw new DomainError('PRICING_CONFIG_UNAVAILABLE', 'Chưa thể ước tính giá lúc này.', 503);
     const pla = materials.find((material) => material.materialType.toUpperCase() === 'PLA');
