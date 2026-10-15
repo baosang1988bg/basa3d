@@ -23,10 +23,11 @@ test('order confirmation token accepts a valid token and rejects expired or modi
   // so mutating the string's last character can coincidentally decode to the *same* bytes and
   // pass timingSafeEqual ~7% of the time — not a forgery, just a flaky assertion. Flipping a byte
   // before re-encoding guarantees the decoded signature actually differs.
-  const [orderIdPart, expiresAtPart, sigPart] = valid.split('.');
+  const [prefixPart, orderIdPart, expiresAtPart, sigPart] = valid.split('.');
+  assert.equal(prefixPart, 'o1');
   const tamperedSig = Buffer.from(sigPart, 'base64url');
   tamperedSig[0] ^= 0xff;
-  const tampered = `${orderIdPart}.${expiresAtPart}.${tamperedSig.toString('base64url')}`;
+  const tampered = `${prefixPart}.${orderIdPart}.${expiresAtPart}.${tamperedSig.toString('base64url')}`;
   assert.equal(verifyOrderConfirmationToken(tampered), null);
 });
 
@@ -36,7 +37,7 @@ test('client IP uses Vercel x-forwarded-for and ignores a spoofed Cloudflare hea
     'x-forwarded-for': '198.51.100.7, 10.0.0.1',
   });
 
-  assert.equal(getClientIp(headers), '198.51.100.7');
+  assert.equal(getClientIp(headers), 'v4:198.51.100.7');
   assert.equal(getClientIp(new Headers()), 'unknown');
 });
 

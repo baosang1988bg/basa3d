@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
 import { CheckCircle2 } from 'lucide-react';
 import { claimAnalyticsPurchase, getOrderConfirmationByToken, getPublicOrderByNumber } from '@/services/order.service';
 import { formatVnd } from '@/components/storefront/format';
@@ -8,8 +9,13 @@ import { storefrontButtonClasses } from '@/components/storefront/button';
 import { SITE_CONFIG } from '@/config/site';
 import { buildVietQrUrl } from '@/lib/vietqr';
 import { PurchaseTracker } from '@/components/analytics/storefront-trackers';
+import { createDatabaseRateLimiter, getClientIp } from '@/lib/rate-limit';
 
 const DEPOSIT_SUGGESTED_THRESHOLD = 300_000; // ADR-0009 / business-rules.md #8
+
+// Phase 36 S4: same per-IP budget (and scope) as GET /api/public/orders/[orderNumber] — this page is
+// the other door to the same lookup. The per-order wrong-guess budget lives in getPublicOrderByNumber.
+const isRateLimited = createDatabaseRateLimiter({ scope: 'public-order-lookup', maxRequests: 30, windowMs: 60_000 });
 
 function formatAddress(address: Record<string, unknown>): string {
   return [address.line1, address.ward, address.city].filter((part) => typeof part === 'string' && part.trim() !== '').join(', ');
@@ -18,6 +24,15 @@ function formatAddress(address: Record<string, unknown>): string {
 export default async function OrderConfirmationPage({ params, searchParams }: { params: Promise<{ orderNumber: string }>; searchParams: Promise<{ phoneSuffix?: string; token?: string }> }) {
   const { orderNumber } = await params;
   const { phoneSuffix = '', token = '' } = await searchParams;
+  if (await isRateLimited(getClientIp(await headers()))) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-12">
+        <div className="rounded-xl border border-border bg-card p-6 text-center shadow-xs">
+          <p className="text-sm font-medium text-foreground">Quá nhiều yêu cầu, vui lòng thử lại sau ít phút.</p>
+        </div>
+      </div>
+    );
+  }
   const tokenOrder = token ? await getOrderConfirmationByToken(orderNumber, token) : null;
   const order = tokenOrder ?? (/^\d{4}$/.test(phoneSuffix) ? await getPublicOrderByNumber(orderNumber, phoneSuffix) : null);
   if (!order) notFound();

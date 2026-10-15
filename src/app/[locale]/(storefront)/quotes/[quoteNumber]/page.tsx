@@ -70,7 +70,10 @@ export default async function PublicQuotePage({
   if (!quote) return <PhoneSuffixGate quoteNumber={quoteNumber} invalid={hasPhoneSuffixAttempt} />;
 
   const isExpired = new Date(quote.validUntil).getTime() < Date.now();
-  const qrUrl = !isExpired ? buildVietQrUrl(quote.pricing.depositVnd, quote.quoteNumber) : null;
+  // Phase 36: a REJECTED/EXPIRED quote (e.g. the KIT tier auto-rejected when the customer's ASSEMBLED
+  // tier was accepted) must never show a deposit QR — the customer would pay for a closed quote.
+  const isClosed = isExpired || quote.status === 'REJECTED' || quote.status === 'EXPIRED';
+  const qrUrl = !isClosed ? buildVietQrUrl(quote.pricing.depositVnd, quote.quoteNumber) : null;
 
   return (
     <Shell>
@@ -157,9 +160,13 @@ export default async function PublicQuotePage({
         </div>
       ) : null}
 
-      {isExpired ? (
+      {isClosed ? (
         <div className="mt-6 rounded-xl border border-destructive/40 bg-destructive/5 p-6 text-center">
-          <p className="text-sm font-medium text-destructive">Báo giá này đã hết hạn. Vui lòng liên hệ BaSa3D để được báo giá lại.</p>
+          <p className="text-sm font-medium text-destructive">
+            {quote.status === 'REJECTED'
+              ? 'Báo giá này đã đóng (bạn đã chọn một phương án khác hoặc yêu cầu đã huỷ). Vui lòng liên hệ BaSa3D nếu cần hỗ trợ.'
+              : 'Báo giá này đã hết hạn. Vui lòng liên hệ BaSa3D để được báo giá lại.'}
+          </p>
         </div>
       ) : (
         <div className="mt-6 rounded-xl border border-border bg-card p-6 text-center shadow-xs">

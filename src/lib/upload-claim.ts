@@ -23,6 +23,7 @@ export function createUploadClaim(path: string, ttlSeconds = DEFAULT_TTL_SECONDS
 }
 
 export function verifyUploadClaim(path: string, claim: string): boolean {
+  if (!claim.startsWith(`${path}.`)) return false;
   const suffix = claim.slice(path.length);
   if (!suffix.startsWith('.')) return false;
   const [expiresAtRaw, signatureRaw, ...extra] = suffix.slice(1).split('.');
@@ -35,6 +36,9 @@ export function verifyUploadClaim(path: string, claim: string): boolean {
   } catch {
     return false;
   }
+  // Canonical encoding only: base64url's last char carries padding bits, so several strings decode to
+  // the same bytes. Rejecting non-canonical forms keeps one claim = one string (no malleability).
+  if (supplied.toString('base64url') !== signatureRaw) return false;
   const expected = signature(path, expiresAt);
   return supplied.length === expected.length && timingSafeEqual(supplied, expected);
 }

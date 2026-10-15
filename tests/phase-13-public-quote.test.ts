@@ -5,7 +5,7 @@ import { configureTestEnvironment } from './helpers/test-environment';
 import { Client } from 'pg';
 import { getPool } from '../src/lib/db.js';
 import { mintQuoteAccessToken, getPublicQuoteByPhoneSuffix, getPublicQuoteByToken } from '../src/services/quote.service.js';
-import { createOrderConfirmationToken } from '../src/lib/order-confirmation-token.js';
+import { createResourceAccessToken } from '../src/lib/order-confirmation-token.js';
 
 configureTestEnvironment();
 process.env.ORDER_CONFIRMATION_SECRET ??= 'phase-13-public-quote-test-secret-at-least-32-chars';
@@ -85,7 +85,7 @@ test('getPublicQuoteByToken returns unmasked name and a public pricing DTO with 
     assert.equal(result!.pricing.finishingCostVnd, 20_000);
 
     // A token minted for a different quote id must not work here.
-    const wrongToken = createOrderConfirmationToken(randomUUID(), 60);
+    const wrongToken = createResourceAccessToken('quote', randomUUID(), 60);
     assert.equal(await getPublicQuoteByToken(quoteNumber, wrongToken), null);
   } finally {
     await client.end();
@@ -152,7 +152,7 @@ test('GET /quotes/[quoteNumber]: full detail via token, dual-verification fallba
     // (not derived from the already-past valid_until) so we isolate "detail visible via a valid
     // token" from "expiry state shown because valid_until < now".
     const { quoteId: expiredId, quoteNumber: expiredNumber } = await seedQuote(client, { validUntil: new Date(Date.now() - 60_000) });
-    const stillValidToken = createOrderConfirmationToken(expiredId, 60);
+    const stillValidToken = createResourceAccessToken('quote', expiredId, 60);
     const expiredResponse = await fetch(`${BASE_URL}/quotes/${expiredNumber}?token=${encodeURIComponent(stillValidToken)}`);
     assert.equal(expiredResponse.status, 200);
     const expiredHtml = await expiredResponse.text();
