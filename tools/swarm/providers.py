@@ -30,6 +30,9 @@ class ToolCall:
     id: str
     name: str
     arguments: dict
+    # Gemini 3 (OpenAI-compat) trả `extra_content.google.thought_signature` và BẮT BUỘC nhận lại
+    # nguyên văn ở lượt sau, nếu không sẽ báo 400. Provider khác bỏ qua trường này.
+    extra: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -50,6 +53,7 @@ class LLMResult:
                     "id": tc.id,
                     "type": "function",
                     "function": {"name": tc.name, "arguments": json.dumps(tc.arguments, ensure_ascii=False)},
+                    **({"extra_content": tc.extra} if tc.extra else {}),
                 }
                 for tc in self.tool_calls
             ]
@@ -83,10 +87,21 @@ def estimate_tokens(messages: list[dict], tools: list[dict] | None = None) -> in
 
 
 # ---------------------------------------------------------------- openai_compat
+def _strip_extra_content(messages: list[dict]) -> list[dict]:
+    out = []
+    for m in messages:
+        if m.get("tool_calls") and any("extra_content" in tc for tc in m["tool_calls"]):
+            m = {**m, "tool_calls": [{k: v for k, v in tc.items() if k != "extra_content"} for tc in m["tool_calls"]]}
+        out.append(m)
+    return out
+
+
 def _call_openai_compat(
     client: httpx.Client, prov: ProviderCfg, model: str, messages: list[dict],
     tools: list[dict] | None, temperature: float, max_tokens: int,
 ) -> LLMResult:
+    if "googleapis.com" not in prov.base_url:
+        messages = _strip_extra_content(messages)  # chỉ Gemini hiểu extra_content; hãng khác có thể từ chối
     payload: dict = {"model": model, "messages": messages, prov.max_tokens_field: max_tokens}
     if prov.send_temperature:
         payload["temperature"] = temperature
@@ -110,6 +125,7 @@ def _call_openai_compat(
             id=tc.get("id") or f"call_{i}",
             name=fn.get("name", ""),
             arguments=_parse_args(fn.get("arguments")),
+            extra=tc.get("extra_content") if isinstance(tc.get("extra_content"), dict) else {},
         ))
     usage = data.get("usage") or {}
     return LLMResult(

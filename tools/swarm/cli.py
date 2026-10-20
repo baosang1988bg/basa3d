@@ -204,7 +204,9 @@ def cmd_check(args) -> int:
         for role in ROLE_ORDER:
             rc = cfg.roles[role]
             saved = rc.models, rc.max_output_tokens
-            rc.models, rc.max_output_tokens = rc.models[:1], 16
+            usable = [m for m in rc.models if cfg.provider_for(m).has_key() and not m.startswith("ollama/")]
+            first = usable[:1] or rc.models[:1]   # ping model sẽ thật sự được dùng (có key)
+            rc.models, rc.max_output_tokens = first, 16
             try:
                 t0 = time.monotonic()
                 res = router.complete(role, [{"role": "user", "content": "Trả lời đúng một chữ: OK"}])

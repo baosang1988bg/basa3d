@@ -159,7 +159,10 @@ def test_router_falls_back_when_key_missing_or_http_error(cfg, monkeypatch):
     res = router.complete("qa", [{"role": "user", "content": "x"}])
     assert res.model_ref.startswith("google/") and calls == ["api.anthropic.com", "generativelanguage.googleapis.com"]
     assert any(t == "llm_call" for t, _ in events)
-    # coder: OpenAI thiếu key, Claude 401 → lỗi rõ ràng
+    # coder: OpenAI thiếu key, Claude 401 → rơi xuống Gemini (cuối chuỗi)
+    assert router.complete("coder", [{"role": "user", "content": "x"}]).model_ref.startswith("google/")
+    # Không còn model nào dùng được → lỗi rõ ràng
+    monkeypatch.delenv("GEMINI_API_KEY")
     with pytest.raises(AllProvidersFailed):
         router.complete("coder", [{"role": "user", "content": "x"}])
 
@@ -169,3 +172,52 @@ def test_router_budget_exceeded_is_not_swallowed(cfg):
                        fake=lambda *a: LLMResult(text="x"))
     with pytest.raises(BudgetExceeded):
         router.complete("coder", [{"role": "user", "content": "x" * 3000}])
+
+
+def test_gemini_only_key_covers_every_role(cfg, monkeypatch):
+    """Chỉ có GEMINI_API_KEY: mọi vai vẫn chạy (Gemini nằm cuối mọi chuỗi dự phòng)."""
+    for k in ("ANTHROPIC_API_KEY", "XAI_API_KEY", "OPENAI_API_KEY"):
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("GEMINI_API_KEY", "g")
+    hosts = []
+
+    def handler(req):
+        hosts.append(req.url.host)
+        if req.url.host == "localhost":          # Ollama không chạy
+            raise httpx.ConnectError("refused", request=req)
+        return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}],
+                                         "usage": {"prompt_tokens": 5, "completion_tokens": 1}})
+
+    router = LLMRouter(cfg, Budget(5), lambda *a, **k: None, client=_client(handler))
+    for role in ("spec", "architect", "coder", "qa", "healer"):
+        res = router.complete(role, [{"role": "user", "content": "x"}])
+        assert res.model_ref.startswith("google/"), (role, res.model_ref)
+    assert set(hosts) <= {"generativelanguage.googleapis.com", "localhost"}
+
+
+def test_gemini_thought_signature_round_trip(cfg, monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "g")
+    sig = {"google": {"thought_signature": "SIG123"}}
+    sent = []
+
+    def handler(req):
+        sent.append(json.loads(req.content))
+        return httpx.Response(200, json={"choices": [{"message": {"content": "", "tool_calls": [
+            {"id": "c1", "type": "function", "function": {"name": "read_file", "arguments": "{\"path\": \"a\"}"},
+             "extra_content": sig}]}}], "usage": {"prompt_tokens": 5, "completion_tokens": 1}})
+
+    router = LLMRouter(cfg, Budget(5), lambda *a, **k: None, client=_client(handler))
+    res = router.complete("spec", [{"role": "user", "content": "x"}])
+    assert res.tool_calls[0].extra == sig
+    msg = res.assistant_message()
+    assert msg["tool_calls"][0]["extra_content"] == sig          # gửi lại nguyên văn cho Gemini
+    router.complete("spec", [{"role": "user", "content": "x"}, msg,
+                             {"role": "tool", "tool_call_id": "c1", "content": "ok"}])
+    assert sent[-1]["messages"][1]["tool_calls"][0]["extra_content"] == sig
+
+
+def test_extra_content_stripped_for_other_providers():
+    from tools.swarm.providers import _strip_extra_content
+    msgs = [{"role": "assistant", "content": "", "tool_calls": [{"id": "c1", "extra_content": {"g": 1}}]}]
+    out = _strip_extra_content(msgs)
+    assert "extra_content" not in out[0]["tool_calls"][0] and "extra_content" in msgs[0]["tool_calls"][0]

@@ -44,6 +44,9 @@ các quyết định đã chốt trong file.
 2. **Ollama** cho Local Healer (tuỳ chọn — không có thì dùng Claude): `ollama pull qwen2.5-coder:7b`.
 3. **API key** — `cp tools/swarm/env.swarm.example .env.swarm` (đã gitignore), điền
    `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`.
+   **Chỉ có một key cũng chạy được**: model thiếu key bị bỏ qua và Gemini nằm cuối mọi chuỗi dự phòng,
+   nên chỉ cần `GEMINI_API_KEY` là đủ (mọi vai dùng `gemini-3.1-pro-preview`, Healer dùng `gemini-3.8-flash`).
+   Đổi lại là mất phần "khác hãng phản biện nhau" giữa Coder và Reviewer.
    Swarm **chỉ đọc `.env.swarm`**, không đọc `.env`/`.env.local` (secret production). Dùng key RIÊNG,
    đừng tái dùng `GEMINI_API_KEY` của tính năng screenshot-estimate; đặt hạn mức chi tiêu ở trang từng hãng.
 4. **DB test local (khuyến nghị)** — để cổng `test` chạy cả test DB và cổng `e2e` chạy được:
