@@ -27,3 +27,9 @@ test-results/
 .claude/worktrees/
 .claude/settings.local.json
 .claude/terminals/
+
+# Spec Kit swarm (/speckit-auto): key riêng, venv, log run
+.env.swarm
+.swarm/
+.venv-swarm/
+__pycache__/

@@ -2,6 +2,9 @@
 
 Use this at the beginning of every phase.
 
+> Feature mới cũng có thể đi qua Spec Kit (`/speckit-specify` … hoặc `/speckit-auto`). Bảng ánh xạ
+> từng bước của protocol này sang Spec Kit nằm ở `docs/RUNBOOK_SWARM.md` §1 — protocol vẫn áp dụng.
+
 ## Step 1 — Establish the contract
 Read:
 1. `AGENTS.md`

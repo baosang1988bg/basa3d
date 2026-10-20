@@ -29,3 +29,11 @@ Return:
 - RECOMMENDATION
 
 When proposing an alternative, explain the trade-off and the migration cost.
+
+## Spec Kit / `/speckit-auto`
+Khi được yêu cầu làm tính năng mới theo Spec Kit: dùng các skill `speckit-*` (xem mục
+"Spec Kit & `/speckit-auto`" trong `AGENTS.md`). `/speckit-auto` chạy cả đội đa tác tử —
+không tự duyệt gate thay người dùng, không push, không deploy. Runbook: `docs/RUNBOOK_SWARM.md`.
+Ở vai reviewer, đọc thêm `docs/exec-plans/active/feature-NNN-*.md` + `specs/NNN-*/plan.md`
+(mục "BaSa3D Phase Bridge") và trả lời theo format BLOCKERS / IMPORTANT / NICE TO HAVE / RECOMMENDATION.
+

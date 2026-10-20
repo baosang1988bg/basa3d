@@ -72,6 +72,23 @@ of `PHASE_START_PROTOCOL.md` directly from a freshly-drafted
 decisions instead of hand-writing the prompt each time. Use it right after
 drafting a phase's decisions, before running `codex-handoff`.
 
+## Spec Kit & `/speckit-auto` (feature mới)
+GitHub Spec Kit v1.2.2 is installed for spec-driven feature work: `.specify/` (templates,
+bash scripts, constitution at `.specify/memory/constitution.md` — derived from this file;
+this file wins on conflict) and `speckit-*` skills in `.claude/skills/` (copies in
+`.agents/skills/` for Codex/Gemini — keep both in sync). Order: `/speckit-specify` →
+`/speckit-clarify` → `/speckit-plan` → `/speckit-tasks` → `/speckit-analyze` →
+`/speckit-implement` → `/speckit-converge`. Specs live in `specs/NNN-slug/`.
+Project template overrides (`.specify/templates/overrides/`) add a mandatory
+"BaSa3D Phase Bridge" section to plan.md, so every feature still follows
+`PHASE_START_PROTOCOL.md` and gets `docs/exec-plans/active/feature-NNN-slug.md`
+(closed with `close-phase`).
+`/speckit-auto <mô tả>` (or `tools/swarm/speckit-auto.sh`) runs the whole flow with a
+multi-provider swarm (Gemini spec → Claude plan → OpenAI/Codex code → Claude review →
+Ollama lint fix) behind 2 human approval gates, in its own worktree under `../BaSa3D-swarm/`,
+committing locally only — no push, no deploy. See `docs/RUNBOOK_SWARM.md`.
+Never edit `tools/swarm/` through the swarm itself (blocked on purpose).
+
 ## Stack
 - Next.js + TypeScript
 - PostgreSQL / Supabase
