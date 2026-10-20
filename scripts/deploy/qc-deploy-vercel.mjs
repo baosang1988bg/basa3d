@@ -29,7 +29,9 @@ const DB_KEYS = ['DATABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABA
 // Added only when missing in Vercel (existing values are kept).
 const COPY_IF_MISSING = ['NEXT_PUBLIC_ZALO_PHONE', 'NEXT_PUBLIC_ZALO_URL', 'NEXT_PUBLIC_HOTLINE', 'NEXT_PUBLIC_MESSENGER_URL', 'NEXT_PUBLIC_CART_ENABLED', 'NEXT_PUBLIC_GA_ID', 'NEXT_PUBLIC_CONTACT_EMAIL', 'NEXT_PUBLIC_BANK_ID', 'NEXT_PUBLIC_BANK_ACCOUNT_NUMBER', 'NEXT_PUBLIC_BANK_ACCOUNT_NAME', 'RESEND_API_KEY', 'RESEND_FROM_EMAIL'];
 // Never copied from a dev .env: generated fresh for this environment when missing.
-const GENERATED = ['ORDER_CONFIRMATION_SECRET', 'CRON_SECRET'];
+// UPLOAD_CLAIM_SECRET (Phase 34) was missing here, so Production never got it and every public upload
+// (/custom-print, /bao-gia) returned 500 — see tests/phase-38-deploy-env.test.ts.
+const GENERATED = ['ORDER_CONFIRMATION_SECRET', 'CRON_SECRET', 'UPLOAD_CLAIM_SECRET'];
 // Deliberately skipped — see docs/operations/deployment.md (needs the Vercel Firewall rule first).
 const SKIPPED = ['MAKERWORLD_PUBLIC_RESOLVER_ENABLED'];
 
