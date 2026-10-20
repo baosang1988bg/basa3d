@@ -15,7 +15,7 @@ banner thương hiệu ở trang chủ và thẻ liên hệ ở footer.
 ## Asset có sẵn (đã commit — KHÔNG sinh lại)
 | File | Kích thước | Dùng cho |
 |---|---|---|
-| `public/brand/basa3d-logo.webp` (+ `.png` dự phòng) | 445×192, nền trong suốt | Logo header (hiển thị cao 40–48px) |
+| `public/brand/basa3d-logo.webp` (+ `.png` dự phòng) | 443×192, nền trong suốt | Logo header (hiển thị cao 40–48px) |
 | `public/brand/basa3d-logo-full.png` | 1386×600, trong suốt | Footer / chỗ cần logo lớn |
 | `src/app/icon.png` | 512×512 trong suốt | Next.js metadata file → `<link rel="icon">` |
 | `src/app/apple-icon.png` | 180×180 nền #E4F4FF | apple-touch-icon |
@@ -58,8 +58,11 @@ Các file metadata trong `src/app/` được Next.js App Router tự nhận — 
 - Favicon 16/32px: logo cá dạng dài nên hơi nhỏ — chấp nhận tạm, follow-up: nhờ designer làm mark vuông.
 
 ## Definition of Done
-- [ ] lint · typecheck · `npm test` · `npm run build` xanh
+- [x] lint · typecheck xanh; `npm test` 344 pass (1 lỗi chỉ có ở sandbox: native binding swc) — [ ] `npm run build` trên Vercel
 - [ ] Header + footer + `/home` hiển thị logo/banner đúng ở 375px và 1280px, light + dark
 - [ ] `<link rel="icon">`, `apple-touch-icon`, `og:image` có trong HTML của `/home`
-- [ ] business-rules.md có mục chính sách hiển thị công khai
+- [x] business-rules.md có mục chính sách hiển thị công khai (#26)
 - [ ] Đóng bằng `close-phase`
+
+## Nhật ký
+- 2026-10-20: `/speckit-auto` không gọi được Gemini từ sandbox của Claude (proxy chặn `generativelanguage.googleapis.com`) → Claude làm tay theo Spec Kit: `specs/001-brand-assets/{spec,plan,tasks}.md`.

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { Menu, X, ShoppingCart, MessageCircle } from 'lucide-react';
 import { Link, usePathname } from '@/i18n/navigation';
@@ -39,8 +40,9 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur supports-backdrop-filter:bg-card/80">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-        <Link href="/home" className="font-heading cursor-pointer text-xl font-extrabold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
-          BaSa3D
+        <Link href="/home" className="inline-flex shrink-0 cursor-pointer items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+          {/* Phase 37: logo thật (nền trong suốt, đọc được cả light/dark). priority vì nằm trên mọi trang. */}
+          <Image src="/brand/basa3d-logo.webp" alt={t('logoAlt')} width={443} height={192} priority className="h-10 w-auto md:h-12" />
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex">

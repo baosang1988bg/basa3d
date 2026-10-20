@@ -12,7 +12,8 @@
     "openMenu": "Mở menu",
     "closeMenu": "Đóng menu",
     "menuTitle": "Menu",
-    "quote": "Báo giá"
+    "quote": "Báo giá",
+    "logoAlt": "BASA 3D — về trang chủ"
   },
   "footer": {
     "hotline": "Hotline/Zalo",
@@ -28,7 +29,9 @@
     "shippingPolicy": "Vận chuyển",
     "returnPolicy": "Đổi trả",
     "fileConfidentialityPolicy": "Bảo mật file thiết kế",
-    "copyright": "© {year} BaSa3D. All rights reserved."
+    "copyright": "© {year} BaSa3D. All rights reserved.",
+    "logoAlt": "Logo {name}",
+    "contactCardAlt": "BASA 3D — Ideas, Print, Real life: in sản phẩm 3D theo nhu cầu; móc khóa, quà tặng; mô hình, prototype; tư vấn và thiết kế. Hotline/Zalo {phone}"
   },
   "languageSwitcher": {
     "vi": "Tiếng Việt",
@@ -142,7 +145,8 @@
         "question": "Không tìm thấy mẫu tôi cần trong danh mục sản phẩm thì sao?",
         "answer": "Gửi file thiết kế hoặc mô tả ý tưởng qua trang Đặt in theo yêu cầu — đội ngũ kỹ thuật sẽ tư vấn vật liệu và báo giá riêng cho đơn của bạn."
       }
-    ]
+    ],
+    "bannerAlt": "Biến ý tưởng thành hiện thực — Trên mạng không bán? Để BASA3D in. Móc khóa, đồ decor, phụ kiện, quà tặng, sản phẩm sáng tạo. Nhận in 3D theo yêu cầu, chất lượng tỉ mỉ. Hotline/Zalo {phone}. Nhận in từ 1 sản phẩm, freeship đơn từ 299k, ship toàn quốc."
   },
   "products": {
     "breadcrumbHome": "Trang chủ",

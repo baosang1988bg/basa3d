@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import { getTranslations } from 'next-intl/server';
 import { Zap, ShieldCheck, Timer } from 'lucide-react';
 import { listStorefrontProducts } from '@/services/storefront-catalog.service';
@@ -99,6 +100,13 @@ export default async function HomePage() {
       {/* JSON-LD built server-side; serializeJsonLd escapes `</script>` in staff-entered fields. */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(LOCAL_BUSINESS_JSON_LD) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(faqJsonLd) }} />
+      {/* Phase 37: banner thương hiệu. Chữ in sẵn trong ảnh → alt mang đủ nội dung; hero text bên dưới giữ nguyên
+          vì trên mobile chữ trong ảnh rất nhỏ. */}
+      <div className="mx-auto max-w-6xl px-4 pt-6">
+        <Link href="/custom-print" className="block cursor-pointer overflow-hidden rounded-2xl border border-border shadow-sm transition-opacity duration-150 hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+          <Image src="/brand/home-banner-2058.webp" alt={t('bannerAlt', { phone: SITE_CONFIG.zaloPhone })} width={2058} height={764} priority sizes="(max-width: 1152px) 100vw, 1120px" className="h-auto w-full" />
+        </Link>
+      </div>
       <section className="mx-auto max-w-6xl px-4 py-16 text-center md:py-24">
         <h1 className="font-heading mx-auto max-w-3xl text-4xl font-extrabold text-foreground md:text-[3.25rem] md:leading-[1.15]">
           {t('heroTitle')}

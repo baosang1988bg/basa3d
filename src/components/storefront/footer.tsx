@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { SITE_CONFIG } from '@/config/site';
@@ -11,7 +12,9 @@ export function Footer() {
     <footer className="border-t border-border bg-card">
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 md:grid-cols-4">
         <div>
-          <p className="font-heading text-lg font-bold text-foreground">{SITE_CONFIG.name}</p>
+          <Link href="/home" className="inline-flex cursor-pointer rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+            <Image src="/brand/basa3d-logo-full.png" alt={t('logoAlt', { name: SITE_CONFIG.name })} width={1386} height={600} className="h-12 w-auto" />
+          </Link>
           <p className="mt-2 text-sm text-muted-foreground">{SITE_CONFIG.description}</p>
           <p className="mt-2 text-sm text-muted-foreground">
             {t('hotline')}:{' '}
@@ -19,6 +22,9 @@ export function Footer() {
               {SITE_CONFIG.zaloPhone}
             </ContactLink>
           </p>
+          <ContactLink href={SITE_CONFIG.zaloUrl} channel="zalo" placement="footer" target="_blank" rel="noreferrer" className="mt-4 block w-full max-w-[240px] cursor-pointer overflow-hidden rounded-xl border border-border transition-opacity duration-150 hover:opacity-90">
+            <Image src="/brand/contact-card-800.webp" alt={t('contactCardAlt', { phone: SITE_CONFIG.zaloPhone })} width={800} height={800} sizes="240px" className="h-auto w-full" />
+          </ContactLink>
         </div>
         <div>
           <p className="text-sm font-semibold text-foreground">{t('commitmentsTitle')}</p>
