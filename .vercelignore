@@ -19,3 +19,12 @@ agents
 test-results
 playwright-report
 coverage
+
+# Spec Kit + swarm /speckit-auto: công cụ dev, không cần trong bản deploy; .env.swarm chứa API key
+# Neo bằng "/" — "tools" trần sẽ khớp cả src/app/tools (route sản phẩm)!
+/.specify
+/specs
+/tools
+/.swarm
+/.venv-swarm
+/.env.swarm
