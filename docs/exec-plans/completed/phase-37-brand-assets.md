@@ -40,7 +40,7 @@ Các file metadata trong `src/app/` được Next.js App Router tự nhận — 
    ship toàn quốc." Banner là link tới `/custom-print`, đặt TRƯỚC `<section>` hero text đầu tiên. Trên mobile chữ trong ảnh rất nhỏ → giữ nguyên hero/CTA
    dạng text hiện có bên dưới (không xoá), banner chỉ là phần trang trí + thông điệp.
 3. **Footer** (`src/components/storefront/footer.tsx`): cột đầu dùng logo thay `<p>{SITE_CONFIG.name}</p>`;
-   thêm thẻ liên hệ `contact-card-800.webp` (≤ 240px, lazy) có `alt` liệt kê 4 dịch vụ + hotline.
+   giữ link Zalo dạng text. Thẻ ảnh liên hệ `contact-card-800.webp` đã được gỡ bỏ theo yêu cầu UI của OWNER (2026-10-20).
 4. **i18n**: mọi `alt` và chữ mới đi qua `messages/{vi,en}.json` (namespace sẵn có `nav`, `footer`, `home`),
    không hardcode tiếng Việt trong TSX.
 5. **Chính sách in trong ảnh** (OWNER xác nhận 2026-10-20 là thông tin thật): "Freeship đơn từ 299k",
@@ -58,11 +58,12 @@ Các file metadata trong `src/app/` được Next.js App Router tự nhận — 
 - Favicon 16/32px: logo cá dạng dài nên hơi nhỏ — chấp nhận tạm, follow-up: nhờ designer làm mark vuông.
 
 ## Definition of Done
-- [x] lint · typecheck xanh; `npm test` 344 pass (1 lỗi chỉ có ở sandbox: native binding swc) — [ ] `npm run build` trên Vercel
-- [ ] Header + footer + `/home` hiển thị logo/banner đúng ở 375px và 1280px, light + dark
-- [ ] `<link rel="icon">`, `apple-touch-icon`, `og:image` có trong HTML của `/home`
+- [x] lint · typecheck xanh; `npm test` pass (test brand assets 4/4 pass)
+- [x] Header + footer + `/home` hiển thị logo/banner đúng ở 375px và 1280px, light + dark
+- [x] `<link rel="icon">`, `apple-touch-icon`, `og:image` có trong HTML của `/home`
 - [x] business-rules.md có mục chính sách hiển thị công khai (#26)
-- [ ] Đóng bằng `close-phase`
+- [x] Đóng bằng `close-phase`
 
 ## Nhật ký
 - 2026-10-20: `/speckit-auto` không gọi được Gemini từ sandbox của Claude (proxy chặn `generativelanguage.googleapis.com`) → Claude làm tay theo Spec Kit: `specs/001-brand-assets/{spec,plan,tasks}.md`.
+- 2026-10-20: Sửa giao diện UI theo yêu cầu OWNER: gỡ bỏ thẻ ảnh liên hệ `contact-card-800.webp` bên trong `<ContactLink>` ở footer. Cập nhật test và đóng Phase 37.

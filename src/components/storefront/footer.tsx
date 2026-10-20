@@ -22,9 +22,6 @@ export function Footer() {
               {SITE_CONFIG.zaloPhone}
             </ContactLink>
           </p>
-          <ContactLink href={SITE_CONFIG.zaloUrl} channel="zalo" placement="footer" target="_blank" rel="noreferrer" className="mt-4 block w-full max-w-[240px] cursor-pointer overflow-hidden rounded-xl border border-border transition-opacity duration-150 hover:opacity-90">
-            <Image src="/brand/contact-card-800.webp" alt={t('contactCardAlt', { phone: SITE_CONFIG.zaloPhone })} width={800} height={800} sizes="240px" className="h-auto w-full" />
-          </ContactLink>
         </div>
         <div>
           <p className="text-sm font-semibold text-foreground">{t('commitmentsTitle')}</p>

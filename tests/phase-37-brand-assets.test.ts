@@ -74,6 +74,6 @@ test('header, footer and home page reference the committed brand assets', () => 
   assert.match(readFileSync('src/components/storefront/header.tsx', 'utf8'), /\/brand\/basa3d-logo\.webp/);
   const footer = readFileSync('src/components/storefront/footer.tsx', 'utf8');
   assert.match(footer, /\/brand\/basa3d-logo-full\.png/);
-  assert.match(footer, /\/brand\/contact-card-800\.webp/);
+  assert.doesNotMatch(footer, /\/brand\/contact-card-800\.webp/);
   assert.match(readFileSync('src/app/[locale]/(storefront)/page.tsx', 'utf8'), /\/brand\/home-banner-2058\.webp/);
 });
