@@ -23,6 +23,9 @@ class ProviderCfg:
     api_key_env: str = ""
     max_tokens_field: str = "max_tokens"
     send_temperature: bool = True
+    # Gemini 3 qua OpenAI-compat: "low" → thinking_level=low (nhanh hơn nhiều; mặc định của model là high,
+    # từng làm 1 lượt gọi mất 90–290s). Rỗng = không gửi, model dùng mức mặc định.
+    reasoning_effort: str = ""
 
     def api_key(self) -> str | None:
         if not self.api_key_env:

@@ -105,6 +105,8 @@ def _call_openai_compat(
     payload: dict = {"model": model, "messages": messages, prov.max_tokens_field: max_tokens}
     if prov.send_temperature:
         payload["temperature"] = temperature
+    if prov.reasoning_effort:
+        payload["reasoning_effort"] = prov.reasoning_effort
     if tools:
         payload["tools"] = tools
         payload["tool_choice"] = "auto"

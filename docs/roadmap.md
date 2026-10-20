@@ -38,6 +38,7 @@ Phase 34: pre-launch security hardening — implementation in progress (dependen
 Phase 35: go-live hardening (admin page auth, JSON-LD/analytics leaks, .3mf caps, public order guards, DB hardening) — code committed; OWNER infra checklist pending
 Phase 36: post-audit data integrity — order/inventory/print-job/quote state guards, history-delete guards, timezone-correct timestamps & reports, purpose-bound tokens, phone-suffix budget, server-action arg parsing — code done 2026-10-15, awaiting OWNER review
 Phase 37: brand identity on storefront (logo header/footer, favicon/app icons, default OG image, home banner, footer contact card) — first feature via Spec Kit (`specs/001-brand-assets/`), code done 2026-10-20; build + E2E smoke pending on Vercel/Mac
+Phase 38: hotfix — every public upload (/custom-print, /bao-gia) returned 500 because Production lacked `UPLOAD_CLAIM_SECRET` (never synced by the release script); script + guard test fixed 2026-10-20, OWNER must set the Vercel env var and redeploy
 
 
 Do not start a phase by coding immediately. Follow the Phase Start Protocol in the main project plan.

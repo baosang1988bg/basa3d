@@ -13,7 +13,7 @@ max_coder_steps = 40                      # số lượt tool-calling tối đa 
 max_qa_rounds = 2
 max_fix_rounds = 2
 max_revisions = 3                         # số lần "Yêu cầu sửa" ở mỗi gate
-http_timeout_s = 300
+http_timeout_s = 600   # Gemini thinking có lượt > 290s (run 20261020-161450); 300 là quá sát
 e2e = "auto"     # auto: chạy Playwright khi đổi src/ | e2e/ | supabase/migrations/ VÀ có TEST_* local; always | never
 build = "auto"   # auto: chạy next build khi đổi src/, messages/, next.config…; always | never
 
@@ -26,6 +26,7 @@ api_key_env = "ANTHROPIC_API_KEY"
 kind = "openai_compat"
 base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
 api_key_env = "GEMINI_API_KEY"
+reasoning_effort = "low"   # Gemini 3: thinking_level=low — ai.google.dev/gemini-api/docs/openai
 
 [providers.openai]
 kind = "openai_compat"

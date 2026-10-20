@@ -9,6 +9,18 @@ MVP target:
 
 Do not make production depend on a developer laptop.
 
+## Biến môi trường bắt buộc (Phase 38)
+
+Server ném lỗi (→ HTTP 500) nếu thiếu các biến dưới. `scripts/deploy/qc-deploy-vercel.mjs` phải xử lý tất
+cả — `tests/phase-38-deploy-env.test.ts` fail nếu code thêm biến bắt buộc mới mà script chưa biết.
+
+| Biến | Nguồn khi release | Hậu quả nếu thiếu |
+|---|---|---|
+| `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | từ `.env` (DB_KEYS) | cả site lỗi |
+| `ORDER_CONFIRMATION_SECRET` | sinh mới (64 hex) | checkout / link xác nhận đơn lỗi |
+| `UPLOAD_CLAIM_SECRET` | sinh mới (64 hex), KHÁC secret trên | **mọi upload /custom-print, /bao-gia lỗi 500** (sự cố 2026-10-20) |
+| `CRON_SECRET` | sinh mới | cron dọn file mồ côi trả 401 |
+
 ## Phase 34 security environment and headers
 
 - Set a unique `UPLOAD_CLAIM_SECRET` of at least 32 random characters in Development, Preview,

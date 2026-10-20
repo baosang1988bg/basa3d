@@ -125,7 +125,17 @@ Rồi đóng `docs/exec-plans/active/feature-NNN-slug.md` bằng skill `close-ph
 
 Chi phí ước tính một run tính năng nhỏ: **~$0.4–1.0** (spec ~$0.2, plan ~$0.2, phần còn lại tuỳ số lượt Coder).
 
-## 8. Xử lý sự cố
+## 8. Trạng thái xác minh (2026-10-20)
+
+- Run thật đầu tiên `20261020-161450-12c3` (Mac, chỉ có `GEMINI_API_KEY`, model `gemini-3.8-flash`):
+  ✅ gọi Gemini thật · ✅ spec.md + plan.md/tasks.md đúng định dạng · ✅ 2 gate · ✅ exec-plan cầu nối ·
+  ✅ Coder gọi tool (thought signature không gây 400). ⏳ Đang chờ Coder/QA/cổng kiểm tra + commit.
+- Mỗi lượt gọi mất 90–293s (spec 293s, sát timeout 300s cũ) vì Gemini 3 mặc định thinking_level=high.
+  Đã sửa: `[providers.google] reasoning_effort = "low"` + `http_timeout_s = 600`.
+- Sandbox của Claude bị proxy chặn `generativelanguage.googleapis.com` → swarm chỉ chạy được trên Mac
+  (hoặc khi domain đó được thêm vào danh sách mạng cho phép).
+
+## 9. Xử lý sự cố
 
 | Triệu chứng | Cách xử lý |
 |---|---|
@@ -136,4 +146,5 @@ Chi phí ước tính một run tính năng nhỏ: **~$0.4–1.0** (spec ~$0.2, 
 | Cổng `test` hỏng vì cổng 3411 bận | Đang có run khác / `npm test` khác chạy song song — chờ xong |
 | "Bỏ qua E2E" | Chưa có đủ `TEST_*` localhost trong `.env.swarm` |
 | `BỊ CHẶN` trong log Coder | Agent đụng vùng cấm — nếu thật sự cần (vd thêm dependency), tự làm tay sau run |
+| Mỗi lượt Gemini rất chậm (> 1 phút) | Kiểm tra `reasoning_effort = "low"` ở `[providers.google]`; tăng `http_timeout_s` |
 | Log chi tiết | `.swarm/runs/<run-id>/events.jsonl` (đã gitignore) |

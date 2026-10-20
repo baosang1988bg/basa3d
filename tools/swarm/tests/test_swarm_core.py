@@ -221,3 +221,24 @@ def test_extra_content_stripped_for_other_providers():
     msgs = [{"role": "assistant", "content": "", "tool_calls": [{"id": "c1", "extra_content": {"g": 1}}]}]
     out = _strip_extra_content(msgs)
     assert "extra_content" not in out[0]["tool_calls"][0] and "extra_content" in msgs[0]["tool_calls"][0]
+
+
+def test_reasoning_effort_sent_only_when_configured(cfg, monkeypatch):
+    """Gemini 3: reasoning_effort=low → thinking_level=low (lượt gọi nhanh hơn nhiều)."""
+    monkeypatch.setenv("GEMINI_API_KEY", "g")
+    monkeypatch.setenv("OPENAI_API_KEY", "o")
+    sent = []
+
+    def handler(req):
+        sent.append((req.url.host, json.loads(req.content)))
+        return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}],
+                                         "usage": {"prompt_tokens": 1, "completion_tokens": 1}})
+
+    assert cfg.providers["google"].reasoning_effort == "low"
+    assert cfg.run.http_timeout_s >= 600
+    router = LLMRouter(cfg, Budget(5), lambda *a, **k: None, client=_client(handler))
+    router.complete("spec", [{"role": "user", "content": "x"}])
+    assert sent[-1][0] == "generativelanguage.googleapis.com" and sent[-1][1]["reasoning_effort"] == "low"
+    cfg.providers["google"].reasoning_effort = ""
+    router.complete("spec", [{"role": "user", "content": "x"}])
+    assert "reasoning_effort" not in sent[-1][1]
