@@ -23,7 +23,28 @@ ALWAYS = ["AGENTS.md", ".specify/memory/constitution.md", "package.json",
           "docs/product/requirements.md", "docs/architecture/architecture.md",
           "docs/architecture/api-conventions.md", "docs/database/schema.md",
           "docs/database/business-rules.md", "docs/roadmap.md"]
+LOW_PRIORITY_PREFIXES = ("docs/exec-plans/", "docs/operations/", "docs/RUNBOOK")
+PATH_RX = re.compile(r"[\w.\[\]()@/-]+\.(?:tsx?|jsx?|mjs|json|md|sql|css|toml)\b")
 MAX_FILE_CHARS = 60_000
+
+
+def mentioned_files(query: str, files: list[str]) -> list[str]:
+    """File được nêu đích danh trong yêu cầu (vd `src/components/storefront/header.tsx`).
+
+    Hỗ trợ cả dạng `messages/{vi,en}.json`. Luôn được đưa vào ngữ cảnh ngay sau ALWAYS.
+    """
+    fileset = set(files)
+    cands: list[str] = []
+    for raw in re.findall(r"[\w.\[\]()@/-]*\{[^}]+\}[\w.\[\]()@/-]*", query):  # mở rộng {a,b}
+        pre, alts, post = re.match(r"(.*)\{([^}]+)\}(.*)", raw).groups()
+        cands += [pre + a.strip() + post for a in alts.split(",")]
+    cands += PATH_RX.findall(query)
+    out: list[str] = []
+    for c in cands:
+        c = c.strip("`'\"()").lstrip("./")
+        if c in fileset and c not in out:
+            out.append(c)
+    return out
 CHARS_PER_TOKEN = 3
 
 
@@ -66,10 +87,14 @@ def pack_context(sb: Sandbox, query: str, budget_tokens: int) -> tuple[str, list
             continue
         path_l = f.lower()
         score = sum(5 for k in kws if k in path_l) + sum(min(text.count(k), 5) for k in kws)
+        if f.startswith(LOW_PRIORITY_PREFIXES):
+            score *= 0.2   # exec-plan/review cũ trùng từ khoá nhiều nhưng ít khi là code cần sửa
         if score:
             scored.append((score / (1 + len(text) / 20_000), f))
     scored.sort(reverse=True)
-    order = [f for f in ALWAYS if f in files] + [f for _, f in scored if f not in ALWAYS]
+    named = mentioned_files(query, files)
+    head = [f for f in ALWAYS if f in files] + [f for f in named if f not in ALWAYS]
+    order = head + [f for _, f in scored if f not in head]
     out, used, total = [], [], 0
     for f in order:
         text = (sb.root / f).read_text(encoding="utf-8", errors="replace")[:MAX_FILE_CHARS]

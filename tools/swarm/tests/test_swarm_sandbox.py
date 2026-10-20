@@ -116,3 +116,17 @@ def test_sanitized_env_keeps_proxy_and_ca(tmp_path, monkeypatch):
     env = sanitized_env(tmp_path)
     assert env["HTTPS_PROXY"] == "http://proxy.local:3128" and env["no_proxy"] == "localhost"
     assert env["NODE_EXTRA_CA_CERTS"] == "/etc/ca.pem"
+
+
+def test_context_prioritizes_explicitly_named_files(sb, tmp_repo):
+    from tools.swarm.context import mentioned_files
+    (tmp_repo / "messages").mkdir()
+    for n in ("vi", "en"):
+        (tmp_repo / f"messages/{n}.json").write_text("{}", encoding="utf-8")
+    (tmp_repo / "docs/exec-plans/active").mkdir(parents=True)
+    (tmp_repo / "docs/exec-plans/active/old.md").write_text("logo banner footer header " * 50, encoding="utf-8")
+    q = "Sửa `src/app/page.tsx` và `messages/{vi,en}.json`, thêm logo banner footer header"
+    files = sb.tracked_files()
+    assert mentioned_files(q, files) == ["messages/vi.json", "messages/en.json", "src/app/page.tsx"]
+    _, used = pack_context(sb, q, 50_000)
+    assert used.index("src/app/page.tsx") < used.index("docs/exec-plans/active/old.md")
