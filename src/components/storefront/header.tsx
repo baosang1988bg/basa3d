@@ -71,7 +71,7 @@ export function Header() {
           >
             <MessageCircle className="size-4 text-[#0068FF]" /> {t('zaloConsult')}
           </a>
-          <LanguageSwitcher />
+          {SITE_CONFIG.languageSwitcherEnabled && <LanguageSwitcher />}
           <ThemeToggle />
           {SITE_CONFIG.cartEnabled && (
             <Link

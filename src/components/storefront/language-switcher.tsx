@@ -3,6 +3,7 @@
 import { useTranslations, useLocale } from 'next-intl';
 import { usePathname, getPathname } from '@/i18n/navigation';
 import { routing } from '@/i18n/routing';
+import { SITE_CONFIG } from '@/config/site';
 
 // Deliberately a plain <a> (full page navigation), not next-intl's client router: the <html lang>
 // attribute lives in the root layout (src/app/layout.tsx), which sits *above* the `[locale]`
@@ -13,6 +14,8 @@ export function LanguageSwitcher() {
   const t = useTranslations('languageSwitcher');
   const locale = useLocale();
   const pathname = usePathname();
+
+  if (!SITE_CONFIG.languageSwitcherEnabled) return null;
 
   return (
     <div className="flex items-center gap-1" role="group" aria-label={t('label')}>

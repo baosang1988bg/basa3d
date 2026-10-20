@@ -14,6 +14,8 @@ export default tseslint.config(
       '.agents/**',
       '.claude/**',
       '.vnx-data/**',
+      '.venv-swarm/**',
+      '.swarm/**',
     ],
   },
   {
