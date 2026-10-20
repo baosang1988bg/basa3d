@@ -108,8 +108,14 @@ def sanitized_env(sandbox_home: Path) -> dict[str, str]:
         "NUMBER_OF_PROCESSORS", "PROCESSOR_ARCHITECTURE", "LANG", "LC_ALL", "TZ",
         "PROGRAMDATA", "PROGRAMFILES", "PROGRAMFILES(X86)", "COMMONPROGRAMFILES",
         "NVM_HOME", "NVM_SYMLINK", "NVM_DIR", "VOLTA_HOME", "FNM_DIR", "USER", "LOGNAME", "SHELL",
+        # Mạng công ty / sandbox: thiếu proxy + CA nội bộ thì `npm ci` không tới được registry.
+        "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY",
+        "NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE", "SSL_CERT_DIR", "REQUESTS_CA_BUNDLE",
     }
     env = {k: v for k, v in os.environ.items() if k.upper() in keep}
+    for k in ("npm_config_proxy", "npm_config_https_proxy", "npm_config_noproxy", "npm_config_cafile"):
+        if os.environ.get(k):
+            env[k] = os.environ[k]
     real_home = Path.home()
     npm_cache = os.environ.get("npm_config_cache") or (
         str(Path(os.environ["LOCALAPPDATA"]) / "npm-cache") if os.environ.get("LOCALAPPDATA")
@@ -284,8 +290,15 @@ class Sandbox:
     def ensure_deps(self, needs: list[str]) -> str:
         notes = []
         if "root" in needs and not (self.root / "node_modules").is_dir():
-            r = self._run([_which("npm"), "ci", "--no-audit", "--no-fund"])
+            npm = _which("npm")
+            r = self._run([npm, "ci", "--no-audit", "--no-fund"])
             notes.append(f"npm ci → exit {r[0]}")
+            if r[0] != 0 and "EUSAGE" in r[1]:
+                # Lock lệch package.json (vd optional peer mà npm 10 coi là thiếu). Không sửa lock thay
+                # người dùng: cài theo lock hiện có nhưng không ghi lại file nào (package-lock.json bị khoá).
+                r = self._run([npm, "install", "--no-audit", "--no-fund", "--no-save", "--package-lock=false"])
+                notes.append(f"lock lệch → npm install --no-save → exit {r[0]} "
+                             "(nên chạy `npm install` để cập nhật package-lock.json)")
         return "; ".join(notes)
 
     def _run(self, argv: list[str]) -> tuple[int, str]:

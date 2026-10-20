@@ -107,3 +107,12 @@ def test_slugify_vietnamese_and_numbering(tmp_repo):
     assert slugify("Đổi màu") == "doi-mau"
     (tmp_repo / "specs/007-x").mkdir(parents=True)
     assert next_feature_number(tmp_repo) == 8
+
+
+def test_sanitized_env_keeps_proxy_and_ca(tmp_path, monkeypatch):
+    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.local:3128")
+    monkeypatch.setenv("no_proxy", "localhost")
+    monkeypatch.setenv("NODE_EXTRA_CA_CERTS", "/etc/ca.pem")
+    env = sanitized_env(tmp_path)
+    assert env["HTTPS_PROXY"] == "http://proxy.local:3128" and env["no_proxy"] == "localhost"
+    assert env["NODE_EXTRA_CA_CERTS"] == "/etc/ca.pem"
