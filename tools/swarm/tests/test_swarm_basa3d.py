@@ -10,6 +10,13 @@ from tools.swarm.tests.test_swarm_pipeline import make_pipeline
 FEATURE = "001-them-nut-chia-se-chuong"
 
 
+def test_launcher_delimits_python_variable_before_unicode():
+    launcher = Path(__file__).parents[1] / "speckit-auto.sh"
+    text = launcher.read_text(encoding="utf-8")
+    assert 'bằng ${PY}…' in text
+    assert 'bằng $PY…' not in text
+
+
 def test_bridge_exec_plan_written_and_committed(tmp_repo):
     pipe, bus, _ = make_pipeline(tmp_repo)
     pipe.run()

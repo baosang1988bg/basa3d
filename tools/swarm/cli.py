@@ -246,7 +246,8 @@ def main(argv: list[str] | None = None) -> int:
     p.set_defaults(fn=cmd_demo)
     p = sub.add_parser("run", help="Chạy trong terminal, duyệt gate bằng bàn phím")
     common(p)
-    p.add_argument("--yes", action="store_true", help="Tự duyệt mọi gate (chỉ nên dùng với --demo)")
+    p.add_argument("--yes", action="store_true",
+                   help="Tự duyệt gate spec/plan; tự dừng nếu chạm trần --budget")
     p.set_defaults(fn=cmd_run)
     p = sub.add_parser("check", help="Kiểm tra key, Ollama, git/npm, cấu hình")
     p.add_argument("--ping", action="store_true", help="Gọi thử model chính của từng vai trò")

@@ -1,6 +1,9 @@
 """Rào chắn của công cụ agent: đường dẫn, secret, vùng cấm ghi, env đã lọc."""
+from types import SimpleNamespace
+
 import pytest
 
+from tools.swarm import workspace
 from tools.swarm.context import pack_context, repo_map
 from tools.swarm.sandbox import Sandbox, has_e2e_env, sanitized_env
 from tools.swarm.workspace import next_feature_number, slugify
@@ -107,6 +110,19 @@ def test_slugify_vietnamese_and_numbering(tmp_repo):
     assert slugify("Đổi màu") == "doi-mau"
     (tmp_repo / "specs/007-x").mkdir(parents=True)
     assert next_feature_number(tmp_repo) == 8
+
+
+def test_git_disables_fsmonitor(tmp_path, monkeypatch):
+    seen = {}
+
+    def fake_run(args, **kwargs):
+        seen["args"] = args
+        return SimpleNamespace(returncode=0, stdout="ok\n", stderr="")
+
+    monkeypatch.setattr(workspace.shutil, "which", lambda _: "/usr/bin/git")
+    monkeypatch.setattr(workspace.subprocess, "run", fake_run)
+    assert workspace.git(tmp_path, "status") == "ok\n"
+    assert seen["args"][:3] == ["/usr/bin/git", "-c", "core.fsmonitor=false"]
 
 
 def test_sanitized_env_keeps_proxy_and_ca(tmp_path, monkeypatch):

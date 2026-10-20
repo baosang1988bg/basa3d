@@ -26,6 +26,9 @@ def test_config_has_all_roles_and_prices(cfg):
     assert cfg.roles["coder"].models[0].startswith("openai/")      # vai Codex theo AI_WORKFLOW.md
     assert cfg.roles["qa"].models[0].startswith("anthropic/")      # Claude = final reviewer
     assert cfg.roles["healer"].models[0].startswith("ollama/")
+    coder_google = [m for m in cfg.roles["coder"].models if m.startswith("google/")]
+    assert len(coder_google) >= 2 and len(set(coder_google)) == len(coder_google)
+    assert cfg.providers["google"].reasoning_effort == "low"
 
 
 def test_public_view_has_no_secrets(cfg, monkeypatch):
@@ -165,6 +168,33 @@ def test_router_falls_back_when_key_missing_or_http_error(cfg, monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY")
     with pytest.raises(AllProvidersFailed):
         router.complete("coder", [{"role": "user", "content": "x"}])
+
+
+def test_router_falls_back_between_google_models_on_daily_quota(cfg, monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "g")
+    first, second = [m for m in cfg.roles["coder"].models if m.startswith("google/")][:2]
+    cfg.roles["coder"].models = [first, second]
+    calls = []
+
+    def handler(req):
+        model = json.loads(req.content)["model"]
+        calls.append(model)
+        if model == first.split("/", 1)[1]:
+            return httpx.Response(429, json={"error": {"message": "daily quota"}})
+        return httpx.Response(200, json={"choices": [{"message": {"content": "pass"}}],
+                                         "usage": {"prompt_tokens": 10, "completion_tokens": 2}})
+
+    router = LLMRouter(cfg, Budget(5), lambda *a, **k: None, client=_client(handler))
+    assert router.complete("coder", [{"role": "user", "content": "x"}]).model_ref == second
+    assert calls == [first.split("/", 1)[1]] * 3 + [second.split("/", 1)[1]]
+
+
+def test_coder_prompt_inlines_artifacts_and_batches_tools():
+    from tools.swarm import prompts
+    text = prompts.coder_user("specs/002-x", "SPEC BODY", "PLAN BODY", "TASKS BODY")
+    assert all(marker in text for marker in ("<<<SPEC>>>", "SPEC BODY", "<<<PLAN>>>", "PLAN BODY",
+                                              "<<<TASKS>>>", "TASKS BODY"))
+    assert "không gọi read_file" in text.lower() and "song song" in text.lower()
 
 
 def test_router_budget_exceeded_is_not_swallowed(cfg):

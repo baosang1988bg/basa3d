@@ -53,7 +53,8 @@ class GateController:
             self._answers.pop(gate, None)
         self.bus.emit("gate_opened", gate=gate, title=title, artifacts=artifacts, message=message)
         if self.auto_approve:
-            self.resolve(gate, "approve", "")
+            # --yes chỉ tự duyệt artifact; budget vẫn là hard cap trong run không tương tác.
+            self.resolve(gate, "stop" if gate == "budget" else "approve", "")
         while not ev.wait(0.5):
             if self.cancelled.is_set():
                 raise Cancelled()
@@ -297,7 +298,11 @@ class Pipeline:
     def stage_implement(self, extra: str = "", label: str = "Triển khai tasks.md", src: str = "architect") -> str:
         self.handoff(src, "coder", label)
         self.status("coder", "running", label)
-        summary = self.agent_loop("coder", prompts.CODER_SYSTEM, prompts.coder_user(self.feature_rel(), extra),
+        spec = (self.ws.spec_dir / "spec.md").read_text(encoding="utf-8")
+        plan = (self.ws.spec_dir / "plan.md").read_text(encoding="utf-8")
+        tasks = (self.ws.spec_dir / "tasks.md").read_text(encoding="utf-8")
+        summary = self.agent_loop("coder", prompts.CODER_SYSTEM,
+                                  prompts.coder_user(self.feature_rel(), spec, plan, tasks, extra),
                                   CODER_TOOLS, self.cfg.run.max_coder_steps)
         self.log("coder", f"Tóm tắt: {summary}")
         self.emit("artifact", name="diff", path=None, content=self.ws.diff()[:MAX_DIFF_CHARS])

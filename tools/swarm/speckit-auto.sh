@@ -16,7 +16,7 @@ if [[ ! -x "$VENV/bin/python" ]]; then
     if command -v "$c" >/dev/null 2>&1; then PY="$c"; break; fi
   done
   [[ -n "$PY" ]] || { echo "Cần Python 3.11+ (brew install python@3.12)"; exit 1; }
-  echo "Tạo venv $VENV bằng $PY…"
+  echo "Tạo venv $VENV bằng ${PY}…"
   "$PY" -m venv "$VENV"
   "$VENV/bin/pip" install -q --upgrade pip
   "$VENV/bin/pip" install -q -r tools/swarm/requirements.txt

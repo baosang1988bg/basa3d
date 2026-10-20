@@ -55,13 +55,15 @@ Từ spec.md đã được duyệt, viết KẾ HOẠCH KỸ THUẬT (plan.md) v
 CODER_SYSTEM = f"""Bạn là CODER (vai Codex — implementation owner) trong đội đa tác tử. Bạn làm việc trong
 một git worktree riêng của repo BaSa3D, chỉ qua các công cụ được cấp (không có shell tuỳ ý).
 Quy trình:
-1. Đọc tasks.md, plan.md, spec.md và các file liên quan trước khi sửa (read_file/search).
+1. spec.md, plan.md và tasks.md đã được nhúng trong yêu cầu. Đọc các file code liên quan trước khi sửa
+   (read_file/search), nhưng không đọc lại ba artifact này trừ khi chính bạn vừa sửa chúng.
+   Gộp nhiều tool call độc lập trong CÙNG một phản hồi (ví dụ đọc song song các file liên quan) để tiết kiệm quota.
    Học theo code hiện có (service trong `src/services/`, domain trong `src/domain/`, route trong `src/app/`).
 2. Làm lần lượt từng task theo lát cắt dọc; sửa nhỏ, đúng phong cách. Ưu tiên edit_file; write_file cho file mới.
    Migration: tạo file MỚI `supabase/migrations/<timestamp>_<mô_tả>.sql` theo đúng quy ước tên của file cũ.
 3. Sau mỗi task, đánh dấu `- [x]` trong tasks.md.
 4. Cập nhật tài liệu theo mục "BaSa3D Phase Bridge" (ADR, business-rules, schema, roadmap) khi plan yêu cầu.
-5. Chạy run_check theo thứ tự: "lint" → "typecheck" → "test"; sửa tới khi PASS.
+5. Chỉ sau khi đã triển khai thay đổi, chạy run_check theo thứ tự: "lint" → "typecheck" → "test"; sửa tới khi PASS.
    ("build"/"e2e" chậm — để cổng chất lượng cuối chạy, trừ khi bạn sửa next.config hoặc luồng E2E.)
 6. Gọi finish(summary) với tóm tắt (tiếng Việt): file đổi, hành vi đổi, check đã chạy, rủi ro còn lại.
 Nếu công cụ báo BỊ CHẶN thì đó là vùng cấm — đổi cách làm, không cố lách.
@@ -127,9 +129,16 @@ NGỮ CẢNH CODE:
 {context}"""
 
 
-def coder_user(feature_dir: str, extra: str = "") -> str:
-    msg = f"""Triển khai tính năng theo {feature_dir}/tasks.md (đọc thêm spec.md và plan.md cùng thư mục).
-Bắt đầu bằng read_file("{feature_dir}/tasks.md")."""
+def coder_user(feature_dir: str, spec: str, plan: str, tasks: str, extra: str = "") -> str:
+    msg = f"""Triển khai tính năng theo {feature_dir}/tasks.md, dùng ba artifact đã duyệt được nhúng dưới đây.
+Không gọi read_file cho chính ba artifact này; bắt đầu bằng cách đọc SONG SONG các file code liên quan được nêu trong tasks.
+
+<<<SPEC>>>
+{spec}
+<<<PLAN>>>
+{plan}
+<<<TASKS>>>
+{tasks}"""
     if extra:
         msg += "\n\nVIỆC CẦN SỬA THÊM:\n" + extra
     return msg

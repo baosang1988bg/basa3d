@@ -80,6 +80,13 @@ def test_budget_gate(tmp_repo):
     assert bus.snapshot()["status"] == "stopped"
 
 
+def test_auto_approve_keeps_budget_as_hard_cap(tmp_path):
+    bus = EventBus("20261020-000000-auto", tmp_path / "events.jsonl")
+    gates = GateController(bus, auto_approve=True)
+    assert gates.open("spec", "Spec", ["spec.md"])[0] == "approve"
+    assert gates.open("budget", "Budget", [])[0] == "stop"
+
+
 def test_cancel(tmp_repo):
     pipe, bus, gates = make_pipeline(tmp_repo, auto=False)
     import threading
