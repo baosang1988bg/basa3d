@@ -146,3 +146,18 @@ Ghi chú: Claude chưa tự chạy được Mức 3 (môi trường của Claude
 ## Test trên Vercel Preview
 
 Muốn test trên môi trường gần Production nhất (IP datacenter, env Preview) trước khi lên Production: xem `docs/exec-plans/active/makerworld-phase-a-release-plan.md`.
+
+## Phase 41 — xem tab "Kinh doanh & Tài chính" bằng dữ liệu giả (chỉ `npm run dev`)
+
+Supabase Development thường có rất ít đơn, nên dashboard 30 ngày gần như trống. Để kiểm tra giao diện:
+
+1. `npm run dev`, đăng nhập tài khoản **OWNER**.
+2. Mở `http://localhost:3000/admin/dashboard?tab=business&demo=normal`.
+   - `demo=normal` — 30 ngày có doanh thu, cuối tuần cao hơn, 1 ngày trống, 2 loại nhựa dưới ngưỡng (1 loại đúng bằng ngưỡng).
+   - `demo=empty` — chưa có đơn nào (empty state).
+   - `demo=first-month` — kỳ trước = 0, badge tăng trưởng hiện "—".
+3. Trang hiện băng vàng **DỮ LIỆU GIẢ**; bấm "Thoát demo" để về dữ liệu thật.
+
+Dữ liệu sinh trong code (`src/lib/executive-demo-data.ts`), **không ghi/đọc database**. `?demo=` bị bỏ qua khi
+`NODE_ENV` khác `development` (Vercel Preview/Production, `next start`) và với STAFF — có test trong
+`tests/phase-41-demo-data.test.ts` và `tests/phase-41-dashboard-tabs.test.ts`.

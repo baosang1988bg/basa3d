@@ -2,6 +2,7 @@ import type { PoolClient } from 'pg';
 import { query, withTransaction } from '../lib/db';
 import { DomainError } from '../lib/domain-error';
 import { maskIfNotOwner } from '../lib/mask';
+import { FILAMENT_LOW_STOCK_PCT, FILAMENT_WATCH_PCT } from '../lib/filament-thresholds';
 import type { StaffRole } from '../lib/auth/require-admin';
 import { writeAuditLog } from './audit.service';
 import { pagination } from './product.service';
@@ -24,8 +25,8 @@ export function warningTier(initialWeightGrams: number, usedWeightGrams: number)
   const remaining = remainingWeightGrams(initialWeightGrams, usedWeightGrams);
   if (remaining <= 0) return 'DA_HET';
   const pct = remainingPct(initialWeightGrams, usedWeightGrams);
-  if (pct <= 20) return 'SAP_HET';
-  if (pct <= 50) return 'CAN_THEO_DOI';
+  if (pct <= FILAMENT_LOW_STOCK_PCT) return 'SAP_HET';
+  if (pct <= FILAMENT_WATCH_PCT) return 'CAN_THEO_DOI';
   return 'CON_NHIEU';
 }
 

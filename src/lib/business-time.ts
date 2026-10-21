@@ -17,5 +17,14 @@ export function sqlLocalDate(column: string): string {
   return `${sqlLocal(column)}::date`;
 }
 
+/**
+ * 00:00 Asia/Ho_Chi_Minh of a SQL `date` expression, as a timestamptz. Use it as a lower bound on a
+ * raw `created_at` column (`created_at >= sqlLocalDayStart(...)`) so Postgres can use the
+ * `created_at` index instead of converting every row (Phase 41).
+ */
+export function sqlLocalDayStart(dateExpression: string): string {
+  return `((${dateExpression})::timestamp at time zone '${BUSINESS_TIME_ZONE}')`;
+}
+
 /** Today's local calendar date. */
 export const SQL_LOCAL_TODAY = sqlLocalDate('now()');

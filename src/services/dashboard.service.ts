@@ -1,6 +1,9 @@
 import { cache } from 'react';
 import { query } from '../lib/db';
-import { SQL_LOCAL_TODAY, sqlLocal, sqlLocalDate } from '../lib/business-time';
+import { SQL_LOCAL_TODAY, sqlLocal, sqlLocalDate, sqlLocalDayStart } from '../lib/business-time';
+import {
+  averageOrderValue, filamentThresholdGrams, isFilamentBelowThreshold, pctChange, weekdayLabel,
+} from '../lib/executive-metrics';
 import { getFilamentInventoryStats } from './filament.service';
 
 // STAFF-safe (ADR-0011 boundary #2: STAFF sees operational counts only, no money). Kept as its
@@ -57,6 +60,12 @@ export interface ActionableRecentItems {
 
 const TREND_DAYS_INTERVAL = '13 days';
 
+// ADR-0044 §1: the one definition of "an order that counts as revenue" for every dashboard money
+// figure (OWNER-only). Shop orders only — custom-print quotes are not in `orders`.
+function revenueEligible(alias: string): string {
+  return `(${alias}.status <> 'CANCELLED' and ${alias}.payment_status <> 'REFUNDED')`;
+}
+
 async function getOrderTrends(): Promise<OrderTrendPoint[]> {
   const result = await query<{ date: string; day_label: string; order_count: number }>(`
     select to_char(d.day, 'YYYY-MM-DD') as date,
@@ -74,7 +83,7 @@ async function getRevenueTrends(): Promise<RevenueTrendPoint[]> {
     select to_char(d.day, 'YYYY-MM-DD') as date,
       to_char(d.day, 'DD/MM') as day_label,
       count(o.id)::int as order_count,
-      coalesce(sum(case when o.status <> 'CANCELLED' then o.total else 0 end), 0)::bigint as revenue
+      coalesce(sum(case when ${revenueEligible('o')} then o.total else 0 end), 0)::bigint as revenue
     from generate_series(${SQL_LOCAL_TODAY} - interval '${TREND_DAYS_INTERVAL}', ${SQL_LOCAL_TODAY}, '1 day'::interval) d(day)
     left join orders o on ${sqlLocalDate('o.created_at')} = d.day::date
     group by d.day
@@ -231,8 +240,8 @@ export async function getFinancialMetrics() {
   const [revenueCounts, dailyRevenueTrends] = await Promise.all([
     query<{ sum_today: string | null; sum_month: string | null }>(`
       select
-        (select sum(total) from orders where ${sqlLocalDate('created_at')} = ${SQL_LOCAL_TODAY} and status <> 'CANCELLED') as sum_today,
-        (select sum(total) from orders where date_trunc('month', ${sqlLocal('created_at')}) = date_trunc('month', ${sqlLocal('now()')}) and status <> 'CANCELLED') as sum_month
+        (select sum(total) from orders where ${sqlLocalDate('created_at')} = ${SQL_LOCAL_TODAY} and ${revenueEligible('orders')}) as sum_today,
+        (select sum(total) from orders where date_trunc('month', ${sqlLocal('created_at')}) = date_trunc('month', ${sqlLocal('now()')}) and ${revenueEligible('orders')}) as sum_month
     `),
     getRevenueTrends(),
   ]);
@@ -243,5 +252,179 @@ export async function getFinancialMetrics() {
     revenueThisMonth: Number(row?.sum_month ?? 0),
     revenueLast14Days,
     dailyRevenueTrends,
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Phase 41 (ADR-0044) — "Kinh doanh & Tài chính" tab: 30 days vs the previous 30 days.
+// ---------------------------------------------------------------------------------------------
+
+const PERIOD_DAYS = 30;
+// Local (Asia/Ho_Chi_Minh) calendar dates; both bounds are inclusive days, today included.
+const PERIOD_START_DATE = `(${SQL_LOCAL_TODAY} - ${PERIOD_DAYS - 1})`;
+const PREVIOUS_PERIOD_START_DATE = `(${SQL_LOCAL_TODAY} - ${2 * PERIOD_DAYS - 1})`;
+
+export interface PeriodComparison {
+  current: number;
+  previous: number;
+  pctChange: number | null; // null when previous = 0 (no base to compare with)
+}
+
+// OWNER-only (carries revenue).
+export interface ExecutiveDailyPoint {
+  date: string; // YYYY-MM-DD, local calendar day
+  dayLabel: string; // "01/09"
+  weekdayLabel: string; // "T2" … "CN"
+  isWeekend: boolean; // Saturday/Sunday — from Postgres isodow, not JS Date parsing
+  revenue: number;
+  orderCount: number;
+}
+
+// OWNER-only (carries revenue).
+export interface CategoryRevenueRow {
+  categoryId: string | null; // null = "Chưa phân loại" (no variant/product/category any more)
+  categoryName: string;
+  revenue: number; // sum(order_items.line_total) — merchandise, before order discount and fees
+  orderCount: number; // distinct orders containing this category
+}
+
+// STAFF-safe: grams only — never selects purchase_cost / cost_per_spool / current_unit_cost.
+export interface FilamentThresholdRow {
+  materialId: string;
+  materialName: string;
+  materialType: string;
+  color: string | null;
+  spoolCount: number;
+  capacityGrams: number; // sum(initial_weight_grams) of ACTIVE spools
+  remainingGrams: number;
+  thresholdGrams: number; // FILAMENT_LOW_STOCK_PCT of capacity
+  isLow: boolean;
+}
+
+export interface ExecutiveBusinessMetrics {
+  revenue30d: PeriodComparison;
+  orders30d: PeriodComparison;
+  aov30d: PeriodComparison;
+  filamentUsedGrams30d: PeriodComparison;
+  dailyTrends30d: ExecutiveDailyPoint[];
+  categoryRevenue: CategoryRevenueRow[];
+  filamentStock: FilamentThresholdRow[];
+}
+
+function compare(current: number, previous: number): PeriodComparison {
+  return { current, previous, pctChange: pctChange(current, previous) };
+}
+
+// STAFF-safe (no money). Per material (type + color), over ACTIVE spools, using the same SAP_HET
+// cutoff as filament.service.ts's warningTier() (ADR-0044 §4). Low materials first.
+export async function getFilamentThresholdStock(): Promise<FilamentThresholdRow[]> {
+  const result = await query<{
+    material_id: string; material_name: string; material_type: string; color: string | null;
+    spool_count: number; capacity_grams: string; remaining_grams: string;
+  }>(`
+    select m.id as material_id, m.name as material_name, m.material_type, m.color,
+      count(*)::int as spool_count,
+      sum(fs.initial_weight_grams)::bigint as capacity_grams,
+      sum(fs.initial_weight_grams - fs.used_weight_grams)::bigint as remaining_grams
+    from filament_spools fs
+    join materials m on m.id = fs.material_id
+    where fs.status = 'ACTIVE'
+    group by m.id, m.name, m.material_type, m.color`);
+  const rows = result.rows.map((row) => {
+    const capacityGrams = Number(row.capacity_grams);
+    const remainingGrams = Number(row.remaining_grams);
+    return {
+      materialId: row.material_id,
+      materialName: row.material_name,
+      materialType: row.material_type,
+      color: row.color,
+      spoolCount: row.spool_count,
+      capacityGrams,
+      remainingGrams,
+      thresholdGrams: filamentThresholdGrams(capacityGrams),
+      isLow: isFilamentBelowThreshold(remainingGrams, capacityGrams),
+    };
+  });
+  return rows.sort((a, b) => Number(b.isLow) - Number(a.isLow)
+    || a.remainingGrams / a.capacityGrams - b.remainingGrams / b.capacityGrams
+    || a.materialName.localeCompare(b.materialName, 'vi'));
+}
+
+// OWNER-only (ADR-0011 boundary #2) — enforced by the page via resolveDashboardTab(), not here
+// (caller-enforces convention, ADR-0026). 4 independent queries, no N+1; every `created_at` filter is
+// a plain lower bound so the created_at indexes stay usable.
+export async function getExecutiveBusinessMetrics(): Promise<ExecutiveBusinessMetrics> {
+  const periodStart = sqlLocalDayStart(PERIOD_START_DATE);
+  const previousPeriodStart = sqlLocalDayStart(PREVIOUS_PERIOD_START_DATE);
+  const [days, categories, filamentUsed, filamentStock] = await Promise.all([
+    // 60 zero-gap local days; the first 30 are the previous period, the last 30 the current one.
+    query<{ date: string; day_label: string; iso_dow: number; order_count: number; revenue: string }>(`
+      with eligible as (
+        select o.total, ${sqlLocalDate('o.created_at')} as local_day
+        from orders o
+        where o.created_at >= ${previousPeriodStart} and ${revenueEligible('o')}
+      )
+      select to_char(d.day, 'YYYY-MM-DD') as date,
+        to_char(d.day, 'DD/MM') as day_label,
+        extract(isodow from d.day)::int as iso_dow,
+        count(e.local_day)::int as order_count,
+        coalesce(sum(e.total), 0)::bigint as revenue
+      from generate_series(${PREVIOUS_PERIOD_START_DATE}::timestamp, ${SQL_LOCAL_TODAY}::timestamp, interval '1 day') d(day)
+      left join eligible e on e.local_day = d.day::date
+      group by d.day
+      order by d.day asc`),
+    query<{ category_id: string | null; category_name: string; revenue: string; order_count: number }>(`
+      select c.id as category_id,
+        coalesce(c.name, 'Chưa phân loại') as category_name,
+        sum(oi.line_total)::bigint as revenue,
+        count(distinct o.id)::int as order_count
+      from orders o
+      join order_items oi on oi.order_id = o.id
+      left join product_variants v on v.id = oi.variant_id
+      left join products p on p.id = v.product_id
+      left join categories c on c.id = p.category_id
+      where o.created_at >= ${periodStart} and ${revenueEligible('o')}
+      group by c.id, c.name
+      order by revenue desc, category_name asc`),
+    // Stock ledger (ADR-0044 §3): includes failed/reprinted jobs; GRAM materials only.
+    query<{ current_grams: string; previous_grams: string }>(`
+      select
+        coalesce(sum(-mm.quantity) filter (where mm.created_at >= ${periodStart}), 0)::bigint as current_grams,
+        coalesce(sum(-mm.quantity) filter (where mm.created_at < ${periodStart}), 0)::bigint as previous_grams
+      from material_movements mm
+      join materials m on m.id = mm.material_id
+      where mm.movement_type = 'PRODUCTION_OUT' and m.unit = 'GRAM' and mm.created_at >= ${previousPeriodStart}`),
+    getFilamentThresholdStock(),
+  ]);
+
+  const points: ExecutiveDailyPoint[] = days.rows.map((row) => ({
+    date: row.date,
+    dayLabel: row.day_label,
+    weekdayLabel: weekdayLabel(row.iso_dow),
+    isWeekend: row.iso_dow >= 6,
+    revenue: Number(row.revenue),
+    orderCount: row.order_count,
+  }));
+  const previousPoints = points.slice(0, points.length - PERIOD_DAYS);
+  const dailyTrends30d = points.slice(-PERIOD_DAYS);
+  const sumOf = (list: ExecutiveDailyPoint[], key: 'revenue' | 'orderCount') => list.reduce((total, point) => total + point[key], 0);
+
+  const revenue = compare(sumOf(dailyTrends30d, 'revenue'), sumOf(previousPoints, 'revenue'));
+  const orders = compare(sumOf(dailyTrends30d, 'orderCount'), sumOf(previousPoints, 'orderCount'));
+  const used = filamentUsed.rows[0];
+
+  return {
+    revenue30d: revenue,
+    orders30d: orders,
+    aov30d: compare(averageOrderValue(revenue.current, orders.current), averageOrderValue(revenue.previous, orders.previous)),
+    filamentUsedGrams30d: compare(Number(used?.current_grams ?? 0), Number(used?.previous_grams ?? 0)),
+    dailyTrends30d,
+    categoryRevenue: categories.rows.map((row) => ({
+      categoryId: row.category_id,
+      categoryName: row.category_name,
+      revenue: Number(row.revenue),
+      orderCount: row.order_count,
+    })),
+    filamentStock,
   };
 }

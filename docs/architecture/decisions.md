@@ -692,6 +692,37 @@ vs the sliced file, to be checked against a real exported project. `COLOR_CHANGE
 `DEFAULT_FLUSH_MM3` are code constants until measured on the P2S. Multi-plate labor (15'/plate vs
 tier minutes) is unchanged and tracked separately.
 
+## ADR-0044 — Phase 41: Executive dashboard revenue definition and OWNER-only tab
+
+**Context.** Phase 41 adds a "Kinh doanh & Tài chính" tab (30-day KPIs vs the previous 30 days) to
+`/admin/dashboard`. Review found that (a) custom-print revenue lives in ACCEPTED `quotes`, not in
+`orders`, and `quotes` has no reliable acceptance date; (b) `orders.total` (incl. shipping/COD/VAT,
+minus discount) cannot be split per category, while `order_items.line_total` can; (c) the schema has
+no per-material minimum-stock column. Decisions taken by OWNER on 2026-10-21
+(`docs/exec-plans/active/phase-41-admin-executive-dashboard.md`, Slice 0).
+
+**Decision.**
+1. Dashboard revenue = **shop orders only**: `orders.status <> 'CANCELLED' AND payment_status <> 'REFUNDED'`,
+   one shared SQL constant (`REVENUE_ORDER_FILTER` in `dashboard.service.ts`) used by every dashboard
+   revenue number (executive tab and the OWNER figures on the operations tab). `expense.service.ts`
+   (cash-flow report) is unchanged for now — follow-up.
+2. KPI revenue/AOV use `orders.total`; "revenue by category" uses `order_items.line_total` and is
+   labelled as merchandise revenue before order-level discount and fees. Category = the product's
+   *current* category; missing variant/product/category → "Chưa phân loại". The two numbers are not
+   expected to add up.
+3. Filament used = `sum(-quantity)` of `material_movements` `PRODUCTION_OUT` for `unit = 'GRAM'`
+   materials (the stock ledger, incl. failed/reprinted jobs), not `print_jobs` weights.
+4. Filament minimum = the existing SAP_HET cutoff (≤ 20 % of the ACTIVE spools' initial weight,
+   per material), exported from `filament.service.ts` — no second threshold.
+5. Periods are Asia/Ho_Chi_Minh calendar days (ADR-0041): current = today−29…today, previous =
+   today−59…today−30; growth is `null` when the previous value is 0.
+6. ADR-0011 boundary #2: the tab is resolved server-side by `resolveDashboardTab(role, ?tab)`, which
+   always returns `operations` for STAFF; `getExecutiveBusinessMetrics()` is only called for
+   `business`. Caller-enforces convention (ADR-0026) — the service does not re-check the role.
+
+**Trade-off.** Revenue on the dashboard excludes custom-print quotes until `quotes.accepted_at`
+exists, and the OWNER "Doanh thu hôm nay" now excludes refunded orders (a small, intended change).
+
 ## ADR-0045 — Phase 42: Storefront page + catalog data caching (ISR, build without DB)
 
 **Context.** OWNER asked that static storefront pages (Home first) stop re-rendering on every visit.
