@@ -35,6 +35,7 @@
     "playwright.config.ts",
     "src/**/*.ts",
     "tests/**/*.ts",
+    "scripts/stl-import/**/*.ts",
     ".next-test/types/**/*.ts"
   ],
   "exclude": [

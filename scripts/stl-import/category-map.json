@@ -1,0 +1,12 @@
+{
+  "groupBy": "folder",
+  "rules": [
+    { "folderPattern": "Keychain", "categorySlug": "keychain", "skuCode": "KEY" },
+    { "folderPattern": "Móc khoá", "categorySlug": "keychain", "skuCode": "KEY" },
+    { "folderPattern": "Figures", "categorySlug": "figure-model", "skuCode": "FIG" },
+    { "folderPattern": "Mô hình", "categorySlug": "figure-model", "skuCode": "FIG" },
+    { "folderPattern": "Home Decor", "categorySlug": "home-decor", "skuCode": "DEC" },
+    { "folderPattern": "Trang trí", "categorySlug": "home-decor", "skuCode": "DEC" },
+    { "folderPattern": "Gadgets", "categorySlug": "accessories-gadgets", "skuCode": "ACC" }
+  ]
+}

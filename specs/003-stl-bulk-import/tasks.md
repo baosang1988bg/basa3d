@@ -133,7 +133,7 @@ chạy lại không trùng, lỗi giữa chừng không để ảnh mồ côi.
 
 **Lát 3 — service ghi từ script**
 
-- [ ] T015 [US1] `src/services/stl-import-write.service.ts` (không import `next/*`): kiểu `ImageStore { upload(path, bytes,
+- [X] T015 [US1] `src/services/stl-import-write.service.ts` (không import `next/*`): kiểu `ImageStore { upload(path, bytes,
   contentType); remove(paths[]) }`; `importModel(client|pool, store, model, ctx)` theo R3/R8: render bytes đã có → upload ảnh
   mới `product-images/{productId}/{uuid}.webp` → `withTransaction`: `select … for update` item theo `source_key` → nhánh
   CREATE (insert product `status 'DRAFT'`, `product_type 'MADE_TO_ORDER'`, `license_type 'UNKNOWN'`, `base_price` +
@@ -147,25 +147,25 @@ chạy lại không trùng, lỗi giữa chừng không để ảnh mồ côi.
   commit xong mới `store.remove(ảnh cũ)`; transaction lỗi → `store.remove(ảnh mới)` rồi ném lại; **không** ghi
   `inventory_movements`. Slug/SKU duy nhất: kiểm cả DB lẫn tập đã dùng trong lô. Nhận diện SKIP cần biết trước khi
   render → tách `planModel()` (đọc item, trả action) và `applyModel()`
-- [ ] T016 [US1] `src/services/storage-usage.service.ts`: `getBucketUsageBytes(bucket)` = `select coalesce(sum((metadata->>
+- [X] T016 [US1] `src/services/storage-usage.service.ts`: `getBucketUsageBytes(bucket)` = `select coalesce(sum((metadata->>
   'size')::bigint),0) from storage.objects where bucket_id = $1`; hằng `STORAGE_WARN_BYTES = 800*1024**2`,
   `STORAGE_BLOCK_BYTES = 950*1024**2`
-- [ ] T017 [US1] `tests/stl-import-write.test.ts` (DB + ImageStore giả): CREATE tạo đúng 1 product DRAFT/MADE_TO_ORDER/
+- [X] T017 [US1] `tests/stl-import-write.test.ts` (DB + ImageStore giả): CREATE tạo đúng 1 product DRAFT/MADE_TO_ORDER/
   UNKNOWN + 1 variant + N ảnh + 0 movement + audit; chạy lại = SKIP, số dòng không đổi (SC-005); slug trùng → `-2`;
   unpriced → base_price null, cặp pricing null, `needs_price_review`; lỗi trong transaction (ép bằng product slug vi phạm
   hoặc hook test) → ảnh mới đã bị `remove`, không còn dòng nào (SC-006); bucket usage đọc từ stub `storage.objects`
 
 **Lát 4 — script CLI**
 
-- [ ] T018 [P] [US1] `scripts/stl-import/render-page.html` mở rộng từ `scripts/model-library-spike/render-page.html`: nhận
+- [X] T018 [P] [US1] `scripts/stl-import/render-page.html` mở rộng từ `scripts/model-library-spike/render-page.html`: nhận
   nhiều part, `views` 4|2 (3/4 trước = cover, chính diện, cạnh, trên), 1200 px, nền `#eef1f4`, bóng mềm, màu `--color`,
   xuất WebP q 0.85, tuỳ chọn overlay kích thước
-- [ ] T019 [P] [US1] `scripts/stl-import/render.ts`: điều khiển Playwright chromium mở `render-page.html` (mẫu
+- [X] T019 [P] [US1] `scripts/stl-import/render.ts`: điều khiển Playwright chromium mở `render-page.html` (mẫu
   `generate-previews.mjs`), tái chế page mỗi 40 mẫu, timeout mỗi mẫu; trả `Buffer[]` WebP
-- [ ] T020 [P] [US1] `scripts/stl-import/report.ts` + `scripts/stl-import/report-template.html`: ghi `manifest.json` đúng
+- [X] T020 [P] [US1] `scripts/stl-import/report.ts` (HTML sinh trực tiếp + escape, không tách file template): ghi `manifest.json` đúng
   schema contracts/cli-import-stl.md và `report.html` (lưới cover, lọc lỗi/cảnh báo, thống kê số mẫu, tỉ lệ lỗi, ms TB/mẫu,
   banner dung lượng); escape HTML mọi chuỗi từ tên file
-- [ ] T021 [US1] `scripts/stl-import/import-stl.ts` CLI theo contracts/cli-import-stl.md: parse cờ (cờ lạ → exit 2), đọc
+- [X] T021 [US1] `scripts/stl-import/import-stl.ts` CLI theo contracts/cli-import-stl.md: parse cờ (cờ lạ → exit 2), đọc
   `category-map.json`, `walkDir` → `groupModels` → `analyzeModel` → `estimateImportPrice` → `planModel` (DB chỉ đọc khi
   dry-run; bỏ qua DB nếu không có `DATABASE_URL`) → render (bỏ qua SKIP) → report; `--apply`: `pg_try_advisory_lock
   (hashtext('stl-import'))` (không lấy được → exit 1), kiểm dung lượng (> 950 MB ước tính và không `--allow-storage-over`
@@ -174,13 +174,13 @@ chạy lại không trùng, lỗi giữa chừng không để ảnh mồ côi.
   chromium. **Script KHÔNG tự nạp `.env`/`.env.local`** (không gọi `@next/env`/dotenv): OWNER chạy
   `npx tsx --env-file=.env.local scripts/stl-import/import-stl.ts …`; nếu `BASA3D_TEST_ENVIRONMENT=isolated` mà
   `DATABASE_URL` không phải localhost → exit 1 (chặn test chạm DB hosted — analyze H1)
-- [ ] T022 [P] [US1] `scripts/stl-import/category-map.json` (mẫu, `groupBy: 'folder'`, vài rule) + `scripts/stl-import/README.md`
-- [ ] T023 [US1] `tests/stl-import-cli.test.ts`: chạy CLI (child process `tsx`) dry-run `--no-render` trên fixture T002 với
+- [X] T022 [P] [US1] `scripts/stl-import/category-map.json` (mẫu, `groupBy: 'folder'`, vài rule) + `scripts/stl-import/README.md`
+- [X] T023 [US1] `tests/stl-import-cli.test.ts`: chạy CLI (child process `tsx`) dry-run `--no-render` trên fixture T002 với
   env DB trống → exit 0, manifest có đúng số mẫu, mẫu hỏng ở `ERROR` không làm dừng lô, `UNIT_TOO_SMALL` có mặt; cờ lạ →
   exit 2; `--apply` không có `DATABASE_URL` → exit 1 (không bao giờ chạy apply thật); child process luôn chạy với env
   tường minh `{ DATABASE_URL: '', BASA3D_TEST_ENVIRONMENT: 'isolated', PATH }` (không kế thừa key); assert mọi path
   ImageStore nhận được trong `tests/stl-import-write.test.ts` đều đuôi `.webp` (FR-012)
-- [ ] T024 [US1] Commit Lát 3+4: `feat(stl-import): script write service and import CLI` (lint/typecheck/test xanh)
+- [X] T024 [US1] Commit Lát 3+4: `feat(stl-import): script write service and import CLI` (lint/typecheck/test xanh)
 
 **Checkpoint**: MVP nhập nháp chạy được trên fixture.
 

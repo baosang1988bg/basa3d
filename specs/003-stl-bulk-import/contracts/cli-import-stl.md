@@ -21,6 +21,8 @@ nạp file env (chỉ đọc `process.env`). Mac + Windows.
 | `--retry-errors` | tắt | Xử lý lại các item `render_status = 'ERROR'` |
 | `--apply` | tắt (dry-run) | Ghi DB + upload ảnh. Không có cờ này: không kết nối Storage, DB chỉ **đọc** |
 | `--allow-storage-over` | tắt | Cho phép `--apply` khi ước tính bucket sau lô > 950 MB |
+| `--map <file>` | `scripts/stl-import/category-map.json` | File ánh xạ thư mục → danh mục (thêm khi implement) |
+| `--no-render` | tắt | Chạy thử không mở Chromium; không dùng cùng `--apply` (exit 2) |
 
 Cờ lạ → thoát mã 2 kèm danh sách cờ hợp lệ (mẫu `cleanup-test-data.mjs`).
 
