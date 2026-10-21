@@ -10,14 +10,16 @@ test('visitor generates an Organizer STL, submits it, and admin can see the requ
   const phone = `07${Date.now().toString().slice(-8)}`;
   const customerName = `Organizer E2E ${randomUUID().slice(0, 6)}`;
   await page.goto('/tools/organizer');
-  await page.getByLabel('Chiều rộng (mm)', { exact: true }).fill('200');
-  await page.getByLabel('Số hàng', { exact: true }).fill('2');
-  await page.getByLabel('Số cột', { exact: true }).fill('3');
+  await page.getByLabel('Rộng', { exact: true }).fill('200');
+  await page.getByLabel('Hàng', { exact: true }).fill('2');
+  await page.getByLabel('Cột', { exact: true }).fill('3');
   await expect(page.locator('[data-testid="organizer-preview-canvas"]')).toBeVisible({ timeout: 15_000 });
+  // Phase 45: geometry is rebuilt in a manifold-3d worker; wait for the model info of the new size.
+  await expect(page.getByText('200×80×40 mm')).toBeVisible({ timeout: 15_000 });
   await page.getByRole('button', { name: 'Gửi yêu cầu báo giá' }).click();
   await expect(page.getByRole('heading', { name: 'Hoàn tất yêu cầu báo giá' })).toBeVisible({ timeout: 15_000 });
   await expect(page.locator('#requestedMaterial')).toHaveValue('PLA');
-  await expect(page.locator('#description')).toHaveValue('Khay chia ngăn: 2x3, 200x120x35mm');
+  await expect(page.locator('#description')).toHaveValue('Khay chia ngăn: 2x3, 200x80x40mm');
   await page.locator('#customerName').fill(customerName);
   await page.locator('#customerPhone').fill(phone);
   await page.locator('#quantity').fill('2');

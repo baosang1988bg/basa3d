@@ -9,7 +9,9 @@ const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 const themeBootstrapSha256 = 'juHZOERlE4qisK7x2nBcrg1t1koqMPODe+dy9NfUa0s=';
 const contentSecurityPolicyReportOnly = [
   "default-src 'self'",
-  `script-src 'self' 'sha256-${themeBootstrapSha256}' https://www.googletagmanager.com`,
+  // 'wasm-unsafe-eval': Phase 45 Organizer compiles manifold-3d's WebAssembly inside a Web Worker.
+  `script-src 'self' 'sha256-${themeBootstrapSha256}' 'wasm-unsafe-eval' https://www.googletagmanager.com`,
+  "worker-src 'self' blob:",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://*.supabase.co https://img.vietqr.io https://*.bblmw.com https://image.makerworld.com",
   "font-src 'self' data:",
@@ -78,6 +80,22 @@ const nextConfig = {
       // Static VietQR transfer QR on the order-confirmation page (Phase 5, ADR-0014).
       { protocol: 'https', hostname: 'img.vietqr.io', pathname: '/image/**' },
     ],
+  },
+  webpack: (config, { isServer, webpack }) => {
+    if (!isServer) {
+      config.plugins.push(
+        new webpack.NormalModuleReplacementPlugin(/^node:/, (resource) => {
+          resource.request = resource.request.replace(/^node:/, '');
+        })
+      );
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        module: false,
+      };
+    }
+    return config;
   },
 };
 

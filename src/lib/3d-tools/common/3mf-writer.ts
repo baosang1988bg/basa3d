@@ -16,7 +16,7 @@ function validate(parts: ExportPart[]) {
   }
 }
 /** One colored object per solid part; one assembly keeps all parts registered on the plate. */
-export function write3mf(parts: ExportPart[]): Uint8Array {
+export function write3mf(parts: ExportPart[], assemblyName = 'Compact keychain'): Uint8Array {
   validate(parts);
   const colors=[...new Set(parts.map(p=>p.colorHex.toUpperCase()))];
   const objects=parts.map((part,i)=>{
@@ -26,7 +26,7 @@ export function write3mf(parts: ExportPart[]): Uint8Array {
     return `<object id="${i+2}" type="model" name="${xml(part.name)}" pid="1" pindex="${colors.indexOf(part.colorHex.toUpperCase())}"><mesh><vertices>${vertices}</vertices><triangles>${triangles}</triangles></mesh></object>`;
   }).join('');
   const assemblyId=parts.length+2;
-  const model=`<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:m="http://schemas.microsoft.com/3dmanufacturing/material/2015/02"><resources><m:colorgroup id="1">${colors.map(color=>`<m:color color="${color}"/>`).join('')}</m:colorgroup>${objects}<object id="${assemblyId}" type="model" name="Compact keychain"><components>${parts.map((_,i)=>`<component objectid="${i+2}"/>`).join('')}</components></object></resources><build><item objectid="${assemblyId}"/></build></model>`;
+  const model=`<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:m="http://schemas.microsoft.com/3dmanufacturing/material/2015/02"><resources><m:colorgroup id="1">${colors.map(color=>`<m:color color="${color}"/>`).join('')}</m:colorgroup>${objects}<object id="${assemblyId}" type="model" name="${xml(assemblyName)}"><components>${parts.map((_,i)=>`<component objectid="${i+2}"/>`).join('')}</components></object></resources><build><item objectid="${assemblyId}"/></build></model>`;
   return zipSync({
     '[Content_Types].xml':strToU8('<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>'),
     '_rels/.rels':strToU8('<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>'),
