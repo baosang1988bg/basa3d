@@ -190,7 +190,12 @@ Kết quả spike lát A: `manifold-3d@3.5.4` chạy trong Node 22 (hộp bo gó
 
 ## 5. Lát cắt
 
-- [~] **A. Spike WASM + worker** — Node OK; `next build` + chạy thật trên trình duyệt: OWNER kiểm.
+- [x] **A. Spike WASM + worker** — kiểm 2026-10-21 trên macOS: `next build` xanh; `manifold.wasm` (541 KB) xuất
+  thành `static/media/manifold.<hash>.wasm`, worker là chunk riêng chỉ do webpack runtime nạp (không page nào
+  khác tham chiếu). Chromium headless ở cả `next dev` và `next start`: worker khởi động, wasm 200
+  `application/wasm`, mặc định hiện 65,6 cm³ / 81,3 g; không vi phạm CSP `worker-src`/`wasm-unsafe-eval`.
+  (Vi phạm `script-src-elem inline` dạng report-only có sẵn trên mọi trang, kể cả trang chủ — không thuộc
+  Phase 45.) Lưu ý: build vào `.next` khi `next dev` đang chạy sẽ làm hỏng dev server — dùng `NEXT_DIST_DIR`.
 - [x] **B. Params & chuẩn hoá** — `organizer-params.ts` (mặc định, preset, máy in, `normalizeOrganizerParams`
   trả `{params, warnings}`, `fitsPrinter`), `organizer-share-url.ts` (encode/decode). Test đủ các nhánh mục 1.3.
 - [x] **C. Hình học lõi** — vỏ bo góc, lòng ngăn, lỗ đáy, rãnh lấy đồ, vành xếp chồng, label tab; trả
@@ -225,7 +230,7 @@ Kết quả spike lát A: `manifold-3d@3.5.4` chạy trong Node 22 (hộp bo gó
 ## 7. Definition of Done
 
 - [x] typecheck, lint, unit test (không DB) xanh; `next build` xanh; storefront không tăng JS (so sánh chunk).
-- [x] Parity test (lát G) xanh cho toàn bộ bảng giá trị vàng.
+- [ ] Parity test (lát G) xanh cho toàn bộ bảng giá trị vàng (hiện mới có giá trị mặc định).
 - [x] STL xuất ra manifold (kiểm bằng `Manifold.status()` trong test) và mở được trong Bambu Studio không lỗi.
 - [ ] E2E `organizer.spec.ts` xanh (cần DB test).
 - [ ] OWNER: in thử 1 hộp có vành xếp chồng + 1 nhãn snap để xác nhận dung sai 0,25 mm khớp thật.

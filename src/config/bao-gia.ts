@@ -1,13 +1,13 @@
-// Phase 33 (plan §12b D7): /bao-gia, its nav link and its APIs stay OFF until the FDM model is
-// calibrated (S0 PASS → fdm-v1). ONE flag: NEXT_PUBLIC_BAO_GIA_ENABLED=true. It is NEXT_PUBLIC_ so
-// the storefront header can hide the link; Next inlines it into client bundles at build time, so
-// changing it needs a redeploy. Server code reads it at runtime through isBaoGiaEnabled().
+// /bao-gia, its nav link and its APIs are enabled by default unless explicitly disabled with
+// NEXT_PUBLIC_BAO_GIA_ENABLED=false. It is NEXT_PUBLIC_ so the storefront header can hide the link;
+// Next inlines it into client bundles at build time, so changing it needs a redeploy.
+// Server code reads it at runtime through isBaoGiaEnabled().
 export function isBaoGiaEnabled(env: Record<string, string | undefined> = process.env): boolean {
-  return env.NEXT_PUBLIC_BAO_GIA_ENABLED === 'true';
+  return env.NEXT_PUBLIC_BAO_GIA_ENABLED !== 'false';
 }
 
 /** Client-side copy (static dot access so Next can inline it — see src/lib/supabase/client.ts). */
-export const BAO_GIA_ENABLED_IN_BROWSER = process.env.NEXT_PUBLIC_BAO_GIA_ENABLED === 'true';
+export const BAO_GIA_ENABLED_IN_BROWSER = process.env.NEXT_PUBLIC_BAO_GIA_ENABLED !== 'false';
 
 /** Items per estimate request / per custom request (DB: custom_request_items_position_range 1–50).
  * Raised from 10 (Owner, 2026-10-13): 10 made customers split one order. Uploads still go in
