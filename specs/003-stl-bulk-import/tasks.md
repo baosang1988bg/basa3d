@@ -245,18 +245,18 @@ cùng `expectedUpdatedAt` → lần hai `STALE_WRITE`.
   `stlImportFilterSchema`
 - [X] T035 [US3] Test trong `tests/stl-import-admin.test.ts`: lọc ERROR/danh mục/sourceDir/q trả đúng tập + phân trang;
   `needs_rerender` → `planModel` trả RERENDER, sau `applyModel` ảnh/metrics mới, tên/giá/license admin giữ nguyên, cờ về false
-- [ ] T036 [US3] Commit: `feat(stl-import): filters and rerender request`
+- [X] T036 [US3] Commit: gộp vào commit lát 5 `feat(admin): STL import review page…` (lọc + làm lại ảnh làm cùng lúc)
 
 ---
 
 ## Phase 6: User Story 4 — File gốc thay đổi sau khi đã nhập (P2)
 
-- [ ] T037 [US4] Test trong `tests/stl-import-write.test.ts`: DRAFT đã sửa tên → đổi fingerprint → RERENDER giữ tên/danh
+- [X] T037 [US4] Test trong `tests/stl-import-write.test.ts`: DRAFT đã sửa tên → đổi fingerprint → RERENDER giữ tên/danh
   mục/giá/license/mô tả, cập nhật ảnh + metrics; APPROVED → đổi fingerprint → SOURCE_CHANGED, ảnh/giá/status không đổi,
   `source_changed_at` có giá trị, không upload ảnh (FR-011)
-- [ ] T038 [US4] Badge "Nguồn đã đổi — cần xem lại" trong `import-grid.tsx` khi `sourceChangedAt` khác null; sửa
+- [X] T038 [US4] (đã có từ T027) Badge "Nguồn đã đổi — cần xem lại" trong `import-grid.tsx` khi `sourceChangedAt` khác null; sửa
   `stl-import-write.service.ts` nếu T037 lộ lỗi
-- [ ] T039 [US4] Commit: `test(stl-import): source change keeps admin edits and public data`
+- [X] T039 [US4] Commit: `test(stl-import): source change keeps admin edits and public data`
 
 ---
 

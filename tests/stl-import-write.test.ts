@@ -173,3 +173,48 @@ test('bucket usage sums storage.objects metadata sizes', { skip: !hasDb }, async
   assert.equal(await getBucketUsageBytes('stl-test-bucket'), 1234);
   assert.equal(await getBucketUsageBytes('stl-no-such-bucket'), 0);
 });
+
+test('US4: a changed source re-renders a DRAFT but keeps every admin edit (FR-010)', { skip: !hasDb }, async () => {
+  const store = new MemoryStore();
+  const tag = randomUUID().slice(0, 8);
+  const created = await run(store, model(tag));
+  assert.ok(created.productId);
+  const db = getPool();
+  await db.query(`update products set name = 'Tên admin sửa', base_price = 77000, license_type = 'CC0', description = 'Mô tả admin' where id = $1`, [created.productId]);
+  const firstImages = [...store.objects.keys()];
+  const bigger = analyzeModel([{ relPath: 'a.stl', bytes: binaryStl(boxTriangles([0, 0, 0], [40, 10, 5])) }]);
+  const result = await run(store, model(tag, { analysis: bigger, files: [{ relPath: `WriteTest/${tag}/a.stl`, bytes: 999, mtimeMs: 2_000 }] }));
+  assert.equal(result.action, 'RERENDER');
+  const product = (await db.query('select name, base_price, license_type, description, status from products where id = $1', [created.productId])).rows[0];
+  assert.deepEqual(product, { name: 'Tên admin sửa', base_price: '77000', license_type: 'CC0', description: 'Mô tả admin', status: 'DRAFT' });
+  const item = (await db.query('select bbox_mm, needs_price_review, source_bytes from product_import_items where id = $1', [created.itemId])).rows[0];
+  assert.deepEqual(item.bbox_mm, { x: 40, y: 10, z: 5 });
+  assert.equal(item.needs_price_review, true);
+  assert.equal(Number(item.source_bytes), 999);
+  assert.ok(firstImages.every((path) => !store.objects.has(path)), 'old images removed after commit');
+  assert.equal((await counts(created.productId)).images, 4);
+});
+
+test('US4: a changed source of a PUBLISHED product changes nothing public, only flags it (FR-011)', { skip: !hasDb }, async () => {
+  const store = new MemoryStore();
+  const tag = randomUUID().slice(0, 8);
+  const created = await run(store, model(tag));
+  assert.ok(created.productId);
+  const db = getPool();
+  await db.query(`update product_variants set price = 50000 where product_id = $1`, [created.productId]);
+  await db.query(`update products set base_price = 50000, category_id = (select id from categories where slug <> 'chua-phan-loai' order by slug limit 1) where id = $1`, [created.productId]);
+  await db.query(`update product_import_items set license_reviewed = true, review_status = 'APPROVED', reviewed_at = now() where id = $1`, [created.itemId]);
+  await db.query(`update products set status = 'ACTIVE' where id = $1`, [created.productId]);
+  const imagesBefore = (await db.query('select storage_path from product_images where product_id = $1 order by sort_order', [created.productId])).rows;
+  const uploadsBefore = store.uploads.length;
+  const result = await run(store, model(tag, { files: [{ relPath: `WriteTest/${tag}/a.stl`, bytes: 1234, mtimeMs: 3_000 }] }));
+  assert.equal(result.action, 'SOURCE_CHANGED');
+  assert.equal(store.uploads.length, uploadsBefore, 'no image is rendered or uploaded for a published product');
+  assert.deepEqual((await db.query('select storage_path from product_images where product_id = $1 order by sort_order', [created.productId])).rows, imagesBefore);
+  const product = (await db.query('select base_price, status from products where id = $1', [created.productId])).rows[0];
+  assert.deepEqual(product, { base_price: '50000', status: 'ACTIVE' });
+  const item = (await db.query('select source_changed_at, review_status from product_import_items where id = $1', [created.itemId])).rows[0];
+  assert.ok(item.source_changed_at instanceof Date);
+  assert.equal(item.review_status, 'APPROVED');
+  assert.equal((await run(store, model(tag, { files: [{ relPath: `WriteTest/${tag}/a.stl`, bytes: 1234, mtimeMs: 3_000 }] }))).action, 'SKIP', 'flagged once, not on every run');
+});
