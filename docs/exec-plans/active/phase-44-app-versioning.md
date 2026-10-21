@@ -41,14 +41,31 @@
   commit khác.
 
 ## Lát cắt
-- [ ] A. `next.config.mjs` tính build info → `env`; `src/config/build-info.ts` (đọc + format nhãn).
-- [ ] B. `src/app/api/version/route.ts` (force-static).
-- [ ] C. Hiển thị: footer `AdminNav`, `EnvironmentBadge` + meta trong `HtmlShell`.
-- [ ] D. `qc-deploy-vercel.mjs`: `--build-env APP_COMMIT_SHA`, smoke `/api/version`, cảnh báo version/tag, tạo tag.
-- [ ] E. `package.json` → `1.0.0`; `CHANGELOG.md`; `docs/operations/versioning.md`; ADR-0046; roadmap.
-- [ ] F. Tests `tests/phase-44-app-versioning.test.ts`.
+- [x] A. `next.config.mjs` tính build info → `env`; `src/config/build-info.ts` (đọc + format nhãn).
+- [x] B. `src/app/api/version/route.ts` (force-static).
+- [x] C. Hiển thị: footer `AdminNav`, `EnvironmentBadge` + meta trong `HtmlShell`.
+- [x] D. `qc-deploy-vercel.mjs`: `--build-env APP_COMMIT_SHA`, smoke `/api/version`, cảnh báo version/tag, tạo tag.
+- [x] E. `package.json` → `1.0.0`; `CHANGELOG.md`; `docs/operations/versioning.md`; ADR-0046; roadmap.
+- [x] F. Tests `tests/phase-44-app-versioning.test.ts`.
 
 ## Definition of Done
-- [ ] typecheck, lint, test (không DB) xanh; build không DB xanh, số trang static không đổi.
-- [ ] `/api/version` trả đúng version/commit/channel trong 3 kịch bản build (local, preview, production giả lập).
+- [x] typecheck, lint, test (không DB) xanh; build không DB xanh, số trang static không đổi.
+- [x] `/api/version` trả đúng version/commit/channel trong 3 kịch bản build (local, preview, production giả lập).
 - [ ] OWNER: lần deploy production kế tiếp chạy script mới → tag `v1.0.0` được tạo và push (`git push origin v1.0.0`).
+
+## Kết quả verify (Claude, 2026-10-21, sandbox Linux, bản copy repo)
+- `tsc` ✅ · `eslint .` ✅ · tests không DB **409 pass / 0 fail / 159 skip** (7 test mới của Phase 44).
+- 3 bản build thật + `next start`, gọi `/api/version` và đọc HTML `/privacy-policy`:
+
+| Kịch bản | env lúc build | `/api/version` label | `<meta app-version>` | Badge |
+|---|---|---|---|---|
+| Máy local, không có `.git` | — | `1.0.0-development.unknown` | như label | `DEV · …` |
+| Vercel Preview | `VERCEL_ENV=preview`, `VERCEL_GIT_COMMIT_SHA` | `1.0.0-preview.a1b2c3d` | như label | `PREVIEW · …` |
+| Production (qua script) | `VERCEL_ENV=production`, `APP_COMMIT_SHA` | `1.0.0` | `1.0.0` | không render |
+
+- `/api/version` là static (`x-nextjs-cache: HIT`); số route prerender 37 → 38 (chính `/api/version`), các trang
+  static của Phase 42 không đổi.
+- Giá trị build được inline cả vào bundle client của admin (đã kiểm chunk `admin/(protected)/layout`).
+- Ghi chú: commit `3a19c67` chứa Phase 44 còn kèm skill `reverse-engineer-anything` và thay đổi `AGENTS.md` — không
+  thuộc Phase 44 (agent khác gộp vào).
+
