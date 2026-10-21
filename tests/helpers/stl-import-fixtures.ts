@@ -1,10 +1,10 @@
 // Feature 003 test fixtures: an imported product (category, product, variant, image, import item) and
 // staff profiles, inserted straight into the disposable local test DB. Call after configureTestEnvironment().
 import { randomUUID } from 'node:crypto';
-import type { Pool, PoolClient } from 'pg';
+import type { Client, Pool, PoolClient } from 'pg';
 import { sourceKey } from '../../src/lib/stl-import/source-key';
 
-type Db = Pool | PoolClient;
+type Db = Pool | PoolClient | Client;
 
 export type ImportedFixture = { productId: string; itemId: string; variantId: string; categoryId: string; sourceRelPath: string; tag: string };
 
@@ -57,8 +57,8 @@ export async function seedImportedProduct(db: Db, options: {
   const reviewStatus = options.reviewStatus ?? 'PENDING';
   const itemId = (await db.query<{ id: string }>(
     `insert into product_import_items (product_id, source_key, source_rel_path, source_dir, group_mode, source_files, source_bytes, source_mtime,
-       bbox_mm, volume_cm3, triangle_count, render_status, license_reviewed, review_status, reviewed_at)
-     values ($1, $2, $3, $4, 'FOLDER', $5, 100, now(), '{"x":10,"y":10,"z":10}', 1, 12, 'RENDERED', $6, $7, $8) returning id`,
+       bbox_mm, volume_cm3, triangle_count, render_status, license_reviewed, license_reviewed_at, review_status, reviewed_at)
+     values ($1, $2, $3, $4, 'FOLDER', $5, 100, now(), '{"x":10,"y":10,"z":10}', 1, 12, 'RENDERED', $6, case when $6 then now() end, $7, $8) returning id`,
     [productId, sourceKey(sourceRelPath), sourceRelPath, sourceDir, JSON.stringify([{ relPath: `${sourceRelPath}/a.stl`, bytes: 100, mtimeMs: 1 }]),
       options.licenseReviewed ?? true, reviewStatus, reviewStatus === 'PENDING' ? null : new Date()],
   )).rows[0].id;

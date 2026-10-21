@@ -21,8 +21,10 @@ before(async () => {
   if (!hasDb) return;
   ownerId = await createStaff(getPool(), 'OWNER');
   fixture = await seedImportedProduct(getPool());
-  const stamp = (await getPool().query(`select to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as t from product_import_items where id = $1`, [fixture.itemId])).rows[0].t;
-  const result = await approveImportItems({ actorId: ownerId, role: 'OWNER' }, { items: [{ itemId: fixture.itemId, expectedItemUpdatedAt: stamp }] });
+  const TS = `to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
+  const stamp = (await getPool().query(`select ${TS} as t from product_import_items where id = $1`, [fixture.itemId])).rows[0].t;
+  const productStamp = (await getPool().query(`select ${TS} as t from products where id = $1`, [fixture.productId])).rows[0].t;
+  const result = await approveImportItems({ actorId: ownerId, role: 'OWNER' }, { items: [{ itemId: fixture.itemId, expectedItemUpdatedAt: stamp, expectedProductUpdatedAt: productStamp }] });
   assert.deepEqual(result.done, [fixture.itemId]);
   slug = (await getPool().query('select slug from products where id = $1', [fixture.productId])).rows[0].slug;
 });

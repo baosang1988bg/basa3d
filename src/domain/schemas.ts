@@ -758,9 +758,13 @@ export const stlImportQuickEditSchema = z.object({
   categoryId: uuidSchema.nullable(),
   basePrice: vndSchema.nullable(),
   licenseType: productLicenseTypeSchema,
-  licenseSourceUrl: z.string().trim().url().max(2_000).nullable(),
+  // http(s) only: z.url() alone also accepts javascript: links.
+  licenseSourceUrl: z.string().trim().url().max(2_000).regex(/^https?:\/\//i).nullable(),
   licenseReviewed: z.boolean(),
 }).strict();
 
 export const stlImportItemRefSchema = z.object({ itemId: uuidSchema, expectedItemUpdatedAt: microsecondTimestampSchema }).strict();
-export const stlImportBulkDecisionSchema = z.object({ items: z.array(stlImportItemRefSchema).min(1).max(100) }).strict();
+// A decision also pins the product version the reviewer saw: an edit on the product page meanwhile
+// makes the decision STALE instead of publishing content nobody reviewed.
+export const stlImportDecisionRefSchema = stlImportItemRefSchema.extend({ expectedProductUpdatedAt: microsecondTimestampSchema.nullable() }).strict();
+export const stlImportBulkDecisionSchema = z.object({ items: z.array(stlImportDecisionRefSchema).min(1).max(100) }).strict();

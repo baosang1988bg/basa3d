@@ -203,7 +203,7 @@ test('US4: a changed source of a PUBLISHED product changes nothing public, only 
   const db = getPool();
   await db.query(`update product_variants set price = 50000 where product_id = $1`, [created.productId]);
   await db.query(`update products set base_price = 50000, category_id = (select id from categories where slug <> 'chua-phan-loai' order by slug limit 1) where id = $1`, [created.productId]);
-  await db.query(`update product_import_items set license_reviewed = true, review_status = 'APPROVED', reviewed_at = now() where id = $1`, [created.itemId]);
+  await db.query(`update product_import_items set license_reviewed = true, license_reviewed_at = now(), review_status = 'APPROVED', reviewed_at = now() where id = $1`, [created.itemId]);
   await db.query(`update products set status = 'ACTIVE' where id = $1`, [created.productId]);
   const imagesBefore = (await db.query('select storage_path from product_images where product_id = $1 order by sort_order', [created.productId])).rows;
   const uploadsBefore = store.uploads.length;

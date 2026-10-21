@@ -18,7 +18,7 @@ import { PRODUCT_IMAGE_BUCKET } from './stl-import-write.service';
 export const STL_IMPORT_PAGE_SIZE = 24;
 const TS = (column: string) => `to_char(${column} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 
-export type DecisionBlockReason = PublishBlockReason | 'NOT_RENDERED' | 'STALE' | 'NOT_PENDING' | 'NOT_FOUND';
+export type DecisionBlockReason = PublishBlockReason | 'NOT_RENDERED' | 'STALE' | 'NOT_PENDING' | 'NOT_FOUND' | 'ERROR';
 export type DecisionResult = { done: string[]; blocked: { itemId: string; reasons: DecisionBlockReason[] }[] };
 
 export type ImportListItem = {
@@ -99,11 +99,11 @@ async function lockItem(client: PoolClient, itemId: string): Promise<LockedItem 
   return result.rows[0] ?? null;
 }
 
-type LockedProduct = { id: string; status: string; name: string; category_id: string | null; category_slug: string | null; base_price: string | null; license_type: string; license_source_url: string | null; updated_at: string };
+type LockedProduct = { id: string; status: string; name: string; category_id: string | null; category_slug: string | null; category_active: boolean | null; base_price: string | null; license_type: string; license_source_url: string | null; updated_at: string };
 
 async function lockProduct(client: PoolClient, productId: string): Promise<LockedProduct> {
   const result = await client.query<LockedProduct>(
-    `select p.id, p.status::text as status, p.name, p.category_id, c.slug as category_slug, p.base_price, p.license_type, p.license_source_url,
+    `select p.id, p.status::text as status, p.name, p.category_id, c.slug as category_slug, c.is_active as category_active, p.base_price, p.license_type, p.license_source_url,
        ${TS('p.updated_at')} as updated_at
      from products p left join categories c on c.id = p.category_id where p.id = $1 for update of p`, [productId]);
   if (!result.rowCount) throw new DomainError('PRODUCT_NOT_FOUND', 'Sản phẩm của mẫu nhập không còn tồn tại.', 404);
@@ -189,7 +189,7 @@ async function publishReasons(client: PoolClient, item: LockedItem, product: Loc
        exists (select 1 from product_variants where product_id = $1 and is_active and price > 0) as has_price`, [product.id]);
   if (!checks.rows[0].has_image) reasons.push('NO_IMAGE');
   if (product.base_price === null || Number(product.base_price) <= 0 || !checks.rows[0].has_price) reasons.push('NO_PRICE');
-  if (!product.category_id || product.category_slug === UNCATEGORIZED_SLUG) reasons.push('UNCATEGORIZED');
+  if (!product.category_id || product.category_slug === UNCATEGORIZED_SLUG || !product.category_active) reasons.push('UNCATEGORIZED');
   return reasons;
 }
 
@@ -198,6 +198,7 @@ async function decide(session: StaffSession, rawInput: unknown, decision: 'APPRO
   const { items } = stlImportBulkDecisionSchema.parse(rawInput);
   const result: DecisionResult = { done: [], blocked: [] };
   const sorted = [...new Map(items.map((item) => [item.itemId, item])).values()].sort((a, b) => (a.itemId < b.itemId ? -1 : 1));
+  try {
   for (const ref of sorted) {
     try {
       const outcome = await withTransaction(async (client): Promise<DecisionBlockReason[]> => {
@@ -208,6 +209,7 @@ async function decide(session: StaffSession, rawInput: unknown, decision: 'APPRO
         if (decision === 'APPROVE') {
           if (item.render_status !== 'RENDERED' || !item.product_id) return ['NOT_RENDERED'];
           const product = await lockProduct(client, item.product_id);
+          if (product.updated_at !== ref.expectedProductUpdatedAt) return ['STALE'];
           const reasons = await publishReasons(client, item, product);
           if (reasons.length) return reasons;
           // Item first: the products trigger requires the item to be APPROVED already.
@@ -224,12 +226,19 @@ async function decide(session: StaffSession, rawInput: unknown, decision: 'APPRO
       if (outcome.length) result.blocked.push({ itemId: ref.itemId, reasons: outcome });
       else result.done.push(ref.itemId);
     } catch (error) {
+      // One bad item (gate refusal, deleted product, deadlock, dropped connection) never hides the
+      // items already committed nor stops the rest of the batch.
       const reasons = publishBlockedReasons(error);
-      if (!reasons) throw error;
-      result.blocked.push({ itemId: ref.itemId, reasons });
+      if (!reasons) {
+        const { code, message } = error as { code?: string; message?: string };
+        console.error('[stl-import] decision failed', { itemId: ref.itemId, decision, code, message });
+      }
+      result.blocked.push({ itemId: ref.itemId, reasons: reasons ?? ['ERROR'] });
     }
   }
-  if (result.done.length) invalidateStorefrontCatalog();
+  } finally {
+    if (result.done.length) invalidateStorefrontCatalog();
+  }
   return result;
 }
 

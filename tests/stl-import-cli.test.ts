@@ -100,6 +100,12 @@ test('bad flags exit 2; --apply without DATABASE_URL exits 1; --apply with --no-
   assert.match(apply.output, /DATABASE_URL/);
 });
 
+test('in the isolated test environment a hosted Supabase URL is refused too (no upload can reach prod Storage)', async () => {
+  const { code, output } = await runCli(['--in', fixtures, '--out', path.join(root, 'out-hosted-storage'), '--no-render'], { NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co' });
+  assert.equal(code, 1);
+  assert.match(output, /NEXT_PUBLIC_SUPABASE_URL/);
+});
+
 test('in the isolated test environment a non-local DATABASE_URL is refused before any connection', async () => {
   const { code, output } = await runCli(['--in', fixtures, '--out', path.join(root, 'out-hosted'), '--no-render'], { DATABASE_URL: 'postgresql://user:pw@db.example.invalid:5432/postgres' });
   assert.equal(code, 1);

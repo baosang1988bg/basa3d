@@ -92,11 +92,12 @@ export function parseArgs(argv: string[]): Options {
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 
-/** Test runs (BASA3D_TEST_ENVIRONMENT=isolated) may only ever reach a local database. */
+/** Test runs (BASA3D_TEST_ENVIRONMENT=isolated) may only ever reach a local database and Storage. */
 function assertSafeEnvironment(): void {
-  const url = process.env.DATABASE_URL;
-  if (process.env.BASA3D_TEST_ENVIRONMENT === 'isolated' && url && !LOCAL_HOSTS.has(new URL(url).hostname)) {
-    throw new Error('Môi trường test chỉ được dùng database local.');
+  if (process.env.BASA3D_TEST_ENVIRONMENT !== 'isolated') return;
+  for (const name of ['DATABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL'] as const) {
+    const url = process.env[name];
+    if (url && !LOCAL_HOSTS.has(new URL(url).hostname)) throw new Error(`Môi trường test chỉ được dùng database local (${name}).`);
   }
 }
 

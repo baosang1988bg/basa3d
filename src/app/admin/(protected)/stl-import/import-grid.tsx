@@ -26,7 +26,7 @@ const WARNING_LABELS: Record<string, string> = {
 const REASON_LABELS: Record<DecisionBlockReason, string> = {
   NOT_APPROVED: 'chưa duyệt', LICENSE_NOT_REVIEWED: 'chưa kiểm tra bản quyền', NO_IMAGE: 'chưa có ảnh', NO_PRICE: 'giá chưa > 0',
   UNCATEGORIZED: 'chưa chọn danh mục', NOT_RENDERED: 'chưa có ảnh render', STALE: 'dữ liệu đã đổi — tải lại trang',
-  NOT_PENDING: 'không còn ở trạng thái chờ duyệt', NOT_FOUND: 'không tìm thấy',
+  NOT_PENDING: 'không còn ở trạng thái chờ duyệt', NOT_FOUND: 'không tìm thấy', ERROR: 'lỗi hệ thống — thử lại',
 };
 
 const STATUS_LABELS: Record<string, string> = { PENDING: 'Chờ duyệt', APPROVED: 'Đã duyệt', REJECTED: 'Đã từ chối' };
@@ -154,7 +154,7 @@ export function ImportGrid({ items, categories, isOwner }: { items: ImportListIt
   }
 
   function decide(kind: 'approve' | 'reject') {
-    const refs = [...selected].map((itemId) => ({ itemId, expectedItemUpdatedAt: byId.get(itemId)?.itemUpdatedAt ?? '' }));
+    const refs = [...selected].map((itemId) => ({ itemId, expectedItemUpdatedAt: byId.get(itemId)?.itemUpdatedAt ?? '', expectedProductUpdatedAt: byId.get(itemId)?.productUpdatedAt ?? null }));
     startTransition(async () => {
       const result = await (kind === 'approve' ? approveImportItemsAction : rejectImportItemsAction)({ items: refs });
       setConfirmReject(false);

@@ -241,6 +241,8 @@ export async function deleteProductImage(imageId: string, actorId: string) {
 export async function deleteProduct(productId: string, actorId: string) {
   return invalidatesStorefrontCatalog(withTransaction(async (client) => {
     try {
+      // Feature 003: lock the import item first (item → product), the order every import path uses.
+      await client.query('select id from product_import_items where product_id = $1 for update', [productId]);
       const result = await client.query('delete from products where id = $1 returning id', [productId]);
       if (!result.rowCount) throw new DomainError('PRODUCT_NOT_FOUND', 'Product was not found.', 404);
       await writeAuditLog(client, { actorId, action: 'PRODUCT_DELETED', entityType: 'product', entityId: productId });

@@ -44,6 +44,10 @@ async function stamps(fixture: ImportedFixture) {
   return { item, product };
 }
 async function ref(fixture: ImportedFixture) {
+  const s = await stamps(fixture);
+  return { itemId: fixture.itemId, expectedItemUpdatedAt: s.item, expectedProductUpdatedAt: s.product };
+}
+async function itemRef(fixture: ImportedFixture) {
   return { itemId: fixture.itemId, expectedItemUpdatedAt: (await stamps(fixture)).item };
 }
 async function productStatus(fixture: ImportedFixture) {
@@ -113,6 +117,35 @@ test('approve twice / stale timestamp / already approved → STALE or NOT_PENDIN
   assert.deepEqual(reject.blocked, [{ itemId: fixture.itemId, reasons: ['NOT_PENDING'] }], 'an approved item is not rejected (un-approve is out of scope)');
 });
 
+test('approve is refused as STALE when the product was edited elsewhere after the grid loaded', { skip: !hasDb }, async () => {
+  const fixture = await seed();
+  const seen = await ref(fixture);
+  await getPool().query(`update products set description = 'sửa ở trang sản phẩm' where id = $1`, [fixture.productId]);
+  const result = await approveImportItems(owner, { items: [seen] });
+  assert.deepEqual(result, { done: [], blocked: [{ itemId: fixture.itemId, reasons: ['STALE'] }] });
+  assert.equal(await productStatus(fixture), 'DRAFT');
+});
+
+test('an unexpected failure on one item is reported as ERROR, committed items stay, the batch goes on', { skip: !hasDb }, async () => {
+  const [first, broken, last] = (await Promise.all([seed(), seed(), seed()])).sort((x, y) => (x.itemId < y.itemId ? -1 : 1));
+  const db = getPool();
+  // A non-gate failure (stands in for a deadlock / dropped connection) on the middle item only.
+  await db.query(`create or replace function public.stl_test_boom() returns trigger language plpgsql as $$
+    begin if new.id = '${broken.itemId}' then raise exception 'boom'; end if; return new; end $$`);
+  await db.query('create trigger stl_test_boom before update on product_import_items for each row execute function public.stl_test_boom()');
+  try {
+    const result = await approveImportItems(owner, { items: await Promise.all([first, broken, last].map(ref)) });
+    assert.deepEqual(result.done, [first.itemId, last.itemId]);
+    assert.deepEqual(result.blocked, [{ itemId: broken.itemId, reasons: ['ERROR'] }]);
+  } finally {
+    await db.query('drop trigger if exists stl_test_boom on product_import_items');
+    await db.query('drop function if exists public.stl_test_boom()');
+  }
+  assert.equal(await productStatus(first), 'ACTIVE');
+  assert.equal(await productStatus(broken), 'DRAFT');
+  assert.equal(await productStatus(last), 'ACTIVE');
+});
+
 test('reject → product ARCHIVED, and the next import run skips it (FR-022)', { skip: !hasDb }, async () => {
   const fixture = await seed();
   const result = await rejectImportItems(owner, { items: [await ref(fixture)] });
@@ -151,14 +184,14 @@ test('a published import keeps its gate conditions: no un-ticking the license, n
 
 test('rerender request: only for PENDING items, optimistic-locked, picked up by the next import run', { skip: !hasDb }, async () => {
   const fixture = await seed();
-  await requestRerender(staff, await ref(fixture));
+  await requestRerender(staff, await itemRef(fixture));
   const key = (await getPool().query('select source_key, source_files from product_import_items where id = $1', [fixture.itemId])).rows[0];
   const item = await findImportItem(getPool(), key.source_key);
   assert.equal(planImport(item, key.source_files), 'RERENDER');
   await assert.rejects(requestRerender(staff, { itemId: fixture.itemId, expectedItemUpdatedAt: '2000-01-01T00:00:00.000000Z' }), isDomain('STALE_WRITE', 409));
   const approved = await seed();
   await approveImportItems(owner, { items: [await ref(approved)] });
-  await assert.rejects(requestRerender(owner, await ref(approved)), isDomain('NOT_PENDING', 409));
+  await assert.rejects(requestRerender(owner, await itemRef(approved)), isDomain('NOT_PENDING', 409));
 });
 
 test('list: filter by status, ERROR, category, source folder, name search; paginated by 24', { skip: !hasDb }, async () => {

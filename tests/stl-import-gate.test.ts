@@ -91,7 +91,7 @@ test('gate: several failures are reported together', { skip: !hasDb }, async () 
   await expectBlocked(activate(fixture.productId), ['NOT_APPROVED', 'LICENSE_NOT_REVIEWED', 'NO_IMAGE', 'NO_PRICE', 'UNCATEGORIZED']);
 });
 
-test('gate: non-imported products and ACTIVE → ACTIVE updates are untouched', { skip: !hasDb }, async () => {
+test('gate: non-imported products and harmless ACTIVE → ACTIVE updates are untouched', { skip: !hasDb }, async () => {
   const db = getPool();
   const plain = (await db.query<{ id: string }>(`insert into products (name, slug, product_type, status) values ('stl plain', $1, 'READY_STOCK', 'DRAFT') returning id`, [`stl-plain-${Date.now()}`])).rows[0].id;
   try {
@@ -102,6 +102,29 @@ test('gate: non-imported products and ACTIVE → ACTIVE updates are untouched', 
   } finally {
     await db.query('delete from products where id = $1', [plain]);
   }
+});
+
+test('gate while ACTIVE: editing price or category of a live import may not break the rules (product page, PATCH)', { skip: !hasDb }, async () => {
+  const fixture = await seed({ reviewStatus: 'APPROVED' });
+  await activate(fixture.productId);
+  const db = getPool();
+  const unc = (await db.query(`select id from categories where slug = 'chua-phan-loai'`)).rows[0].id;
+  await expectBlocked(db.query('update products set category_id = $2 where id = $1', [fixture.productId, unc]), ['UNCATEGORIZED']);
+  await expectBlocked(db.query('update products set base_price = null where id = $1', [fixture.productId]), ['NO_PRICE']);
+  const inactive = (await db.query<{ id: string }>(`insert into categories (name, slug, is_active) values ($1, $1, false) returning id`, [`${fixture.tag}-off`])).rows[0].id;
+  try {
+    await expectBlocked(db.query('update products set category_id = $2 where id = $1', [fixture.productId, inactive]), ['UNCATEGORIZED']);
+  } finally {
+    await db.query('delete from categories where id = $1', [inactive]);
+  }
+  await assert.rejects(updateProduct(fixture.productId, { basePrice: null }, ACTOR_ID), (error: unknown) => error instanceof PublishBlockedError);
+  await db.query('update products set base_price = 60000 where id = $1', [fixture.productId]);
+  assert.equal((await db.query('select status from products where id = $1', [fixture.productId])).rows[0].status, 'ACTIVE');
+});
+
+test('license-review pair: ticked ⇔ timestamp', { skip: !hasDb }, async () => {
+  const fixture = await seed({ licenseReviewed: false });
+  await assert.rejects(getPool().query('update product_import_items set license_reviewed = true where id = $1', [fixture.itemId]), /product_import_items_license_pair/);
 });
 
 test('link gate: a pending item cannot be attached to an ACTIVE product, nor un-reviewed while it is ACTIVE', { skip: !hasDb }, async () => {

@@ -34,7 +34,8 @@ create table if not exists public.product_import_items (
   reviewed_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint product_import_items_review_pair check ((review_status = 'PENDING') = (reviewed_at is null))
+  constraint product_import_items_review_pair check ((review_status = 'PENDING') = (reviewed_at is null)),
+  constraint product_import_items_license_pair check (license_reviewed = (license_reviewed_at is not null))
 );
 
 create index if not exists product_import_items_review_created_idx on public.product_import_items (review_status, created_at desc);
@@ -68,16 +69,15 @@ comment on column public.products.license_type is
   'OWN_DESIGN | CC_BY | CC0 | COMMERCIAL_LICENSE | OTHER | UNKNOWN (imported models). Validated by Zod (productLicenseTypeSchema), not by a DB constraint.';
 
 -- 4. Publish gate: an imported product only becomes ACTIVE when it is approved, license-reviewed,
---    has an image, a price > 0 and a real category. Collects every reason, raises once.
+--    has an image, a price > 0 and a real category — and while ACTIVE, an edit of its price or
+--    category may not break that (security review 2026-10-21). Collects every reason, raises once.
+--    Deleting its images/variants after publishing is not covered (accepted, business-rules #28).
 create or replace function public.enforce_import_publish_gate() returns trigger
 language plpgsql security invoker set search_path = '' as $$
 declare
   item record;
   reasons text[] := array[]::text[];
 begin
-  if tg_op = 'UPDATE' and old.status = 'ACTIVE' then
-    return new;
-  end if;
   select review_status, license_reviewed into item
   from public.product_import_items where product_id = new.id;
   if not found then
@@ -92,8 +92,9 @@ begin
      or not exists (select 1 from public.product_variants where product_id = new.id and is_active and price > 0) then
     reasons := reasons || 'NO_PRICE'::text;
   end if;
+  -- "Chưa phân loại" is seeded inactive; any inactive category counts (survives a slug rename).
   if new.category_id is null
-     or exists (select 1 from public.categories where id = new.category_id and slug = 'chua-phan-loai') then
+     or exists (select 1 from public.categories where id = new.category_id and (slug = 'chua-phan-loai' or not is_active)) then
     reasons := reasons || 'UNCATEGORIZED'::text;
   end if;
   if cardinality(reasons) > 0 then
@@ -104,7 +105,7 @@ end;
 $$;
 
 drop trigger if exists products_import_publish_gate on public.products;
-create trigger products_import_publish_gate before insert or update of status on public.products
+create trigger products_import_publish_gate before insert or update of status, base_price, category_id on public.products
   for each row when (new.status = 'ACTIVE') execute function public.enforce_import_publish_gate();
 
 -- 5. Item side of the gate: an item linked to an ACTIVE product must stay APPROVED and
