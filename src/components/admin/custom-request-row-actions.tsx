@@ -56,42 +56,46 @@ export function CustomRequestRowActions({
       <div className="flex items-center justify-end gap-1.5">
         <Link
           href={`/admin/custom-requests/${item.id}`}
-          className={buttonVariants({ size: 'sm', variant: 'default' })}
+          className={buttonVariants({
+            size: 'sm',
+            variant: 'default',
+            className: 'h-8 px-2.5 text-xs font-medium gap-1 shrink-0',
+          })}
           title="Mở màn hình phân tích file 3D, báo giá và xử lý yêu cầu"
         >
           <span>Xử lý</span>
-          <ArrowRight className="size-3.5 ml-1" />
+          <ArrowRight className="size-3.5" />
         </Link>
 
         {isOwner && (
           <>
             <Button
               type="button"
-              size="sm"
-              variant="outline"
-              className="text-foreground hover:bg-muted"
+              size="icon-sm"
+              variant="ghost"
+              className="size-8 shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted"
               onClick={() => {
                 setError(null);
                 setIsEditOpen(true);
               }}
               title="Chỉnh sửa yêu cầu (Dành cho Owner)"
             >
-              <Pencil className="size-3.5 mr-1" />
-              Sửa
+              <Pencil className="size-3.5" />
+              <span className="sr-only">Sửa</span>
             </Button>
             <Button
               type="button"
-              size="sm"
-              variant="destructive"
-              className="bg-destructive/90 hover:bg-destructive"
+              size="icon-sm"
+              variant="ghost"
+              className="size-8 shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
               onClick={() => {
                 setError(null);
                 setIsDeleteOpen(true);
               }}
               title="Xóa yêu cầu / dữ liệu test (Dành cho Owner)"
             >
-              <Trash2 className="size-3.5 mr-1" />
-              Xóa
+              <Trash2 className="size-3.5" />
+              <span className="sr-only">Xóa</span>
             </Button>
           </>
         )}

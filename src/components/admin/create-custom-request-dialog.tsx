@@ -40,6 +40,7 @@ export function CreateCustomRequestDialog() {
     <>
       <Button
         type="button"
+        size="sm"
         onClick={() => {
           setError(null);
           setIsOpen(true);
