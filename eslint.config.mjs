@@ -9,6 +9,9 @@ export default tseslint.config(
       'node_modules/',
       '.next/',
       '.next-test/',
+      '.next-e2e/',
+      // One-off reverse-engineering helpers kept with the research notes, not app code.
+      'docs/research/**',
       'coverage/',
       'next-env.d.ts',
       '.agents/**',
