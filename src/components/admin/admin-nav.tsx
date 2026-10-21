@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import type { StaffRole } from '@/lib/auth/require-admin';
+import { BUILD_INFO, CHANNEL_LABELS, SHORT_COMMIT } from '@/config/build-info';
 
 export interface AdminNavBadges {
   pendingOrders?: number;
@@ -236,6 +237,10 @@ export function AdminNav({ role, badges = {} }: { role: StaffRole; badges?: Admi
       <div className="flex flex-col gap-2 px-2">
         <p className="text-xs text-muted-foreground">Vai trò: {role}</p>
         <Button variant="outline" size="sm" onClick={handleLogout}>Đăng xuất</Button>
+        {/* Phase 44: which build staff are on — quote this line when reporting a bug. */}
+        <p className="text-[11px] tabular-nums text-muted-foreground" title={BUILD_INFO.builtAt ? `Build lúc ${BUILD_INFO.builtAt}` : undefined}>
+          v{BUILD_INFO.version} · {CHANNEL_LABELS[BUILD_INFO.channel]} · {SHORT_COMMIT}
+        </p>
       </div>
     </nav>
   );

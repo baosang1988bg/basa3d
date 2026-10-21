@@ -12,5 +12,7 @@ Run a consistent quality gate before release.
 6. migration review
 7. environment variable check
 8. smoke test plan
+9. version: `package.json` version not yet tagged, `CHANGELOG.md` entry dated; after deploy `/api/version`
+   shows that version + commit and the `v<version>` tag is created and pushed (`docs/operations/versioning.md`)
 
 Release only when blockers are understood and explicitly accepted.

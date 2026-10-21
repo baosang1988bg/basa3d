@@ -1,4 +1,7 @@
 import createNextIntlPlugin from 'next-intl/plugin';
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { resolveBuildInfo } from './src/config/resolve-build-info.mjs';
 
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
@@ -33,7 +36,28 @@ const supabaseHostname = (() => {
   }
 })();
 
+// Phase 44 (ADR-0046): this build's identity, computed once here and inlined into the app through
+// `env` below (read back by src/config/build-info.ts). See docs/operations/versioning.md.
+const packageVersion = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version;
+export const buildInfo = resolveBuildInfo({
+  env: process.env,
+  version: packageVersion,
+  readGitSha: () => {
+    try {
+      return execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    } catch {
+      return undefined; // no git (e.g. a `git archive` export) — the deploy script passes APP_COMMIT_SHA
+    }
+  },
+});
+
 const nextConfig = {
+  env: {
+    BASA3D_BUILD_VERSION: buildInfo.version,
+    BASA3D_BUILD_CHANNEL: buildInfo.channel,
+    BASA3D_BUILD_COMMIT: buildInfo.commit,
+    BASA3D_BUILD_TIME: buildInfo.builtAt,
+  },
   async headers() {
     return [{ source: '/(.*)', headers: securityHeaders }];
   },

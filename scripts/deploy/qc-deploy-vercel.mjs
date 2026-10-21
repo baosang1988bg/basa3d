@@ -2,7 +2,8 @@
 //   1. sync missing env vars into the Vercel Production environment (from .env + generated secrets)
 //   2. apply pending DB migrations to the DATABASE_URL in .env (scripts/deploy/apply-pending-migrations.mjs)
 //   3. deploy exactly the committed HEAD (git archive → temp dir) with `vercel deploy --prod`
-//   4. smoke-check the deployed URL
+//   4. smoke-check the deployed URL, incl. /api/version = this exact commit (Phase 44)
+//   5. tag the release: annotated `v<package.json version>` at HEAD (never pushed automatically)
 //
 //   node scripts/deploy/qc-deploy-vercel.mjs              # interactive, asks before each write
 //   SITE_URL=https://basa3d.vn node scripts/deploy/...    # override NEXT_PUBLIC_SITE_URL if not set yet
@@ -17,6 +18,7 @@ import { randomBytes } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline/promises';
+import { setTimeout as sleep } from 'node:timers/promises';
 import nextEnv from '@next/env';
 
 /* global fetch -- Node 22 built-in */
@@ -72,6 +74,18 @@ async function main() {
   const head = execFileSync('git', ['rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).trim();
   const dirty = execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], { encoding: 'utf8' }).trim();
   console.log(`Deploying commit: ${head}${dirty ? '  (uncommitted tracked changes exist — they will NOT be deployed)' : ''}`);
+
+  // Phase 44 (ADR-0046, docs/operations/versioning.md): package.json holds the version being released.
+  // A tag for it on ANOTHER commit means the version was not bumped after the previous release.
+  const fullSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  const version = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
+  const tag = `v${version}`;
+  const taggedSha = gitTagCommit(tag);
+  console.log(`Release version: ${version}${taggedSha === fullSha ? `  (${tag} already tags this commit — redeploy)` : ''}`);
+  if (taggedSha && taggedSha !== fullSha) {
+    console.log(`⚠ ${tag} already tags ${taggedSha.slice(0, 7)}, not HEAD. Bump package.json first (npm version minor --no-git-tag-version) and add a CHANGELOG entry.`);
+    if (!(await confirm(`Deploy anyway as ${version} (it will NOT be tagged)?`))) return console.log('Aborted.');
+  }
 
   const { combinedEnv: local } = nextEnv.loadEnvConfig(ROOT, false, { info() {}, error: console.error });
 
@@ -130,7 +144,9 @@ async function main() {
     // Only tracked files at HEAD → no .env, tmp/, backups or WIP edits get uploaded.
     execFileSync('sh', ['-c', `git archive --format=tar HEAD | tar -x -C "${workdir}"`], { cwd: ROOT });
     cpSync(path.join(ROOT, '.vercel'), path.join(workdir, '.vercel'), { recursive: true });
-    const out = vercel(['deploy', '--prod', '--yes'], { cwd: workdir });
+    // A `git archive` export has no .git, so Vercel cannot know the commit — pass it to the build
+    // (read by next.config.mjs → /api/version, admin footer).
+    const out = vercel(['deploy', '--prod', '--yes', '--build-env', `APP_COMMIT_SHA=${fullSha}`], { cwd: workdir });
     const url = (out.match(/https:\/\/\S+\.vercel\.app/g) ?? []).pop();
     console.log(`Deployed: ${url ?? '(see Vercel dashboard)'}`);
   } finally {
@@ -155,7 +171,44 @@ async function main() {
   const robotsOk = !robots.includes('localhost');
   if (!robotsOk) failed += 1;
   console.log(`${robotsOk ? '✓' : '✗'} robots.txt sitemap URL ${robotsOk ? 'uses the real origin' : 'still points at localhost'}`);
+  const live = await waitForLiveVersion(base, fullSha);
+  const versionOk = live?.commit === fullSha && live?.version === version && live?.channel === 'production';
+  if (!versionOk) failed += 1;
+  console.log(`${versionOk ? '✓' : '✗'} /api/version ${live ? `${live.label} @ ${String(live.commit).slice(0, 7)} (${live.channel})` : 'unreachable'} — expected ${version} @ ${head} (production)`);
   console.log(failed ? `\n${failed} smoke check(s) failed.` : '\nAll smoke checks passed — hand over to QC.');
+
+  // ── 5. Tag ─────────────────────────────────────────────────────────────────────────────────
+  step(`5. Tag release ${tag}`);
+  if (failed) return console.log('Not tagging: smoke checks failed.');
+  if (taggedSha === fullSha) return console.log(`${tag} already points at this commit.`);
+  if (taggedSha) return console.log(`Not tagging: ${tag} belongs to another commit (see warning above).`);
+  if (!(await confirm(`Create annotated tag ${tag} at ${head}?`))) return console.log('Tag skipped.');
+  execFileSync('git', ['tag', '-a', tag, '-m', `Release ${tag}`, fullSha], { cwd: ROOT });
+  console.log(`Tagged ${tag}. Next:\n  git push origin ${tag}\n  then on dev: npm version minor --no-git-tag-version (or patch) + new CHANGELOG section`);
+}
+
+// Phase 44: commit a tag points at, or null when the tag does not exist.
+function gitTagCommit(tag) {
+  try {
+    return execFileSync('git', ['rev-parse', '-q', '--verify', `refs/tags/${tag}^{commit}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+// Phase 44: the production alias can lag the deploy by a few seconds — poll /api/version until it
+// reports the commit just deployed (or give up after ~60s and report what is live instead).
+async function waitForLiveVersion(base, expectedSha) {
+  let last = null;
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    try {
+      const res = await fetch(`${base}/api/version`, { cache: 'no-store' });
+      if (res.ok) last = await res.json();
+    } catch { /* not reachable yet */ }
+    if (last?.commit === expectedSha) return last;
+    await sleep(5_000);
+  }
+  return last;
 }
 
 main()

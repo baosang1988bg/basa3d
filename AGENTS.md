@@ -41,6 +41,16 @@ pinned in `.agents/skills/cad/requirements.txt`.
 Example prompt: "Use the cad skill to draft a 20 mm cube with a centered
 6 mm through-hole along Z, and export STEP and STL for internal review."
 
+## Reverse-engineering skill (REA)
+`.agents/skills/reverse-engineer-anything/` (copied to `.claude/skills/`) is the
+bundled skill of `morluto/rea` (`rea-agents@6.7.0`, MIT). The MCP server is
+registered as `rea` in `.mcp.json` (`npx -y rea-agents@6.7.0 mcp`, Node >=22.19).
+Use it only to study shipped artifacts (competitor web/Electron apps, APK,
+binaries, HAR captures) we own or are authorized to examine — never for
+ordinary analysis of this repo's own source. Native decompilation needs
+Hopper/Ghidra/IDA; static JS/website analysis needs none. Upgrade by bumping
+the pinned version in `.mcp.json` and re-copying the skill from the same package.
+
 ## UI/UX design & review skill (evondevKit)
 `.agents/skills/ui-ux/SKILL.md` (mirrored at `.claude/skills/ui-ux/`) is the
 canonical UI/UX design system & review standard adapted from `evondevKit`.

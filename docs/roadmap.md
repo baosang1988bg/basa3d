@@ -45,5 +45,6 @@ Phase 41: admin executive business dashboard (Tab Kinh doanh & Tài chính 30 ng
 
 Phase 42: storefront caching — pass-through root layout (no request read), Home ISR 60 s, policy/tools/custom-print/cart/checkout static, catalog data cache with tag invalidation after commit in services, build still works without a DB (ADR-0045) — code done + verified in sandbox 2026-10-21; OWNER smoke on Vercel Preview + DB test suite pending
 Phase 43: storefront motion (CSS-only) — scroll reveal bằng CSS scroll-driven animation, nút tactile nhấn như phím, FAQ accordion, gallery sản phẩm, menu mobile trượt (sửa bug menu bị kẹt trong header), chuyển trang mềm — code done + verified in sandbox 2026-10-21; OWNER xem thử pending
+Phase 44: web versioning — SemVer một dãy (package.json 1.0.0), nhãn kênh development/preview/production, /api/version, footer admin, badge PREVIEW/DEV, script release kiểm commit + tạo tag, CHANGELOG (ADR-0046) — code done 2026-10-21; tag v1.0.0 ở lần deploy production kế tiếp
 
 Do not start a phase by coding immediately. Follow the Phase Start Protocol in the main project plan.

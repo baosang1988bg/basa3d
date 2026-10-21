@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
+import { VERSION_LABEL } from '@/config/build-info';
 
 // metadataBase turns every relative `alternates.canonical`/`openGraph.images` in child routes'
 // generateMetadata into an absolute URL (Next.js requires this for correct <link rel="canonical">
@@ -8,6 +9,8 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: 'BaSa3D', description: '3D-printing business platform',
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
+  // Phase 44: <meta name="app-version"> on every page — view-source tells which build served it.
+  other: { 'app-version': VERSION_LABEL },
 };
 
 // Phase 42 (ADR-0045): pass-through root layout (next-intl's documented pattern). It must NOT read

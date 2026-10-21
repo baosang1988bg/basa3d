@@ -760,3 +760,21 @@ Plan + verification log: `docs/exec-plans/active/phase-42-storefront-caching.md`
 still locks the variant and re-checks stock (`createOrder`). An `/en/...` 404 is server-rendered in
 Vietnamese and switches to English after hydration. Not using `'use cache'`/`dynamicIO` (experimental
 in Next 15.5). Blog stays `force-dynamic` (follow-up).
+
+## ADR-0046 — Phase 44: One SemVer line for the web; environment is a label
+
+**Context.** OWNER wanted versions for the dev and production web. The project had an unused
+`package.json` version (`0.1.0`), no tags, and production is deployed by
+`scripts/deploy/qc-deploy-vercel.mjs` from a `git archive` export (no git metadata reaches Vercel).
+
+**Decision.** SemVer, one line. `package.json.version` is the version being prepared (starts at
+`1.0.0`). Each build resolves `{version, channel, commit, builtAt}` once in `next.config.mjs`
+(`src/config/resolve-build-info.mjs`) and inlines it via `env`; production shows `1.0.0`, other channels
+a pre-release `1.0.0-<channel>.<sha7>`. Shown in the admin sidebar footer, `GET /api/version` (static),
+`<meta name="app-version">`, and a PREVIEW/DEV corner badge on non-production builds only. The release
+script passes `APP_COMMIT_SHA`, verifies `/api/version` serves the deployed commit, and offers an
+annotated `v<version>` tag (never pushed automatically). Runbook: `docs/operations/versioning.md`.
+
+**Trade-off.** Manual bump + CHANGELOG (no semantic-release/changesets dependency). `/api/version`
+publicly exposes version and commit SHA (not secrets). Not CalVer: SemVer matches the owner's mobile
+background and the existing `package.json`.
