@@ -675,6 +675,18 @@ change, so they were badly under-quoted. Sliced files were already right (`slice
    risk at current volume. Exact prices keep coming from (a) customers uploading a sliced file, or
    (b) staff slicing for the official quote.
 
+6. **Amendment (OWNER, 2026-10-21) — price on a single-color basis until calibrated.** For a multi-color
+   unsliced project the PRICE excludes purge and change time (`INCLUDE_PURGE_IN_PRICE = false`,
+   `specs.priceBasis = 'SINGLE_COLOR'`) and is shown as a floor: **"Từ ~X đ"**, with a note right under it
+   (same text size): "Giá này tính như in 1 màu. Mẫu của bạn dùng N màu nên máy cần đổi màu khoảng C lần
+   (thêm khoảng G g nhựa và H giờ máy) — phần này chưa có trong giá trên. Xưởng sẽ báo giá chính xác…".
+   Rationale: an uncalibrated purge number can be wrong in either direction; the 1-color part is solid,
+   and the quantities still explain why the final price is higher. Flip the constant once ~3 real files
+   are within ±30% of their sliced versions.
+7. Slicer jargon ("slice → Export plate sliced file") is no longer the main message. The default path is
+   "bấm Gửi yêu cầu, xưởng báo giá"; the Bambu Studio how-to (5 steps) sits in a collapsed
+   "Bạn dùng Bambu Studio?" section.
+
 **Consequences.** The estimate is still an estimate (slicer reorders colors per layer); target ±30%
 vs the sliced file, to be checked against a real exported project. `COLOR_CHANGE_SECONDS` and
 `DEFAULT_FLUSH_MM3` are code constants until measured on the P2S. Multi-plate labor (15'/plate vs

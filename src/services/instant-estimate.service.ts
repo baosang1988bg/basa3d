@@ -50,7 +50,11 @@ export type InstantEstimate = {
     printMinutesRange?: { min: number; max: number };
     purgeGrams?: number;
     colorChanges?: number;
+    /** Extra machine minutes for the color changes (shown, and priced only when included). */
+    colorChangeMinutes?: number;
     colors?: string[];
+    /** 'SINGLE_COLOR': price excludes purge + change time (shown as "Từ ~X đ"); 'FULL': everything priced. */
+    priceBasis?: 'SINGLE_COLOR' | 'FULL';
   };
   /** Multi-plate jobs get the two finishing tiers (ráp sẵn / kit); single-plate jobs one price. */
   options: InstantOption[];
@@ -81,6 +85,10 @@ export const DEFAULT_FLUSH_MM3 = 300;
 export const DEFAULT_PRIME_VOLUME_MM3 = 45;
 /** Machine time per filament change on a P2S + AMS (cut → retract → load → purge). OWNER to measure. */
 export const COLOR_CHANGE_SECONDS = 40;
+/** OWNER decision 2026-10-21: until the purge estimate is calibrated against real exported projects,
+ * a multi-color unsliced price is quoted on a SINGLE-COLOR basis ("Từ ~X đ") and the purge/changes are
+ * shown as quantities only. Flip to true once the ±30% target is verified (ADR-0043). */
+export const INCLUDE_PURGE_IN_PRICE = false;
 
 export type ColorPurgeEstimate = {
   colorChanges: number;
@@ -213,16 +221,23 @@ export function estimateFromSliceInfo(ctx: PricingContext, parsed: ParsedSliceIn
 }
 
 /** MESH: volume only → a price range between a light and a dense print of the same part. */
-export function estimateFromMesh(ctx: PricingContext, mesh: MeshVolumeResult, materialType?: string | null, purge?: ColorPurgeEstimate | null): InstantEstimate | null {
+export function estimateFromMesh(
+  ctx: PricingContext, mesh: MeshVolumeResult, materialType?: string | null, purge?: ColorPurgeEstimate | null,
+  opts: { includePurgeInPrice?: boolean } = {},
+): InstantEstimate | null {
   const type = normalizeType(materialType);
   const gramsFor = (fill: number) => Math.max(1, Math.round(mesh.volumeCm3 * PLA_DENSITY * fill * 10) / 10);
+  const multiColor = Boolean(purge && purge.colorChanges > 0);
+  const priceBasis: 'SINGLE_COLOR' | 'FULL' = multiColor && !(opts.includePurgeInPrice ?? INCLUDE_PURGE_IN_PRICE) ? 'SINGLE_COLOR' : 'FULL';
   const purgeGrams = purge?.purgeGrams ?? 0;
-  const minutesFor = (grams: number) => Math.round(estimatePrintMinutes(grams)) + (purge?.extraMinutes ?? 0);
+  const pricedPurgeGrams = priceBasis === 'FULL' ? purgeGrams : 0;
+  const pricedExtraMinutes = priceBasis === 'FULL' ? purge?.extraMinutes ?? 0 : 0;
+  const minutesFor = (grams: number) => Math.round(estimatePrintMinutes(grams)) + pricedExtraMinutes;
   const priceAt = (fill: number) => {
     const grams = gramsFor(fill);
     const filaments: Filament[] = [{ name: 'Nhựa', materialType: type, netWeightGrams: grams }];
     // Purge is its own line: already a waste figure, so no extra waste % on top of it (Phase 40).
-    if (purgeGrams > 0) filaments.push({ name: 'Nhựa xả đổi màu', materialType: type, netWeightGrams: purgeGrams, extraWaste: 'NONE' });
+    if (pricedPurgeGrams > 0) filaments.push({ name: 'Nhựa xả đổi màu', materialType: type, netWeightGrams: pricedPurgeGrams, extraWaste: 'NONE' });
     return priceOptions(ctx, {
       // colorsCount 1 / no AMS: the model line keeps the 1-color 5% default — the multi-color waste is
       // the explicit purge line above, never a second % on the model weight.
@@ -239,7 +254,7 @@ export function estimateFromMesh(ctx: PricingContext, mesh: MeshVolumeResult, ma
     amsRequired: colorsCount > 1, sizeMm: mesh.sizeMm ?? purge?.sizeMm ?? undefined,
     modelGrams: { min: gramsFor(MESH_FILL_RANGE.low), max: gramsFor(MESH_FILL_RANGE.high) },
     printMinutesRange: { min: minutesFor(gramsFor(MESH_FILL_RANGE.low)), max: minutesFor(gramsFor(MESH_FILL_RANGE.high)) },
-    ...(purge && purge.colorChanges > 0 ? { purgeGrams, colorChanges: purge.colorChanges } : {}),
+    ...(multiColor && purge ? { purgeGrams, colorChanges: purge.colorChanges, colorChangeMinutes: purge.extraMinutes, priceBasis } : {}),
     ...(purge?.colors.length ? { colors: purge.colors } : {}),
   };
   // No priced active material of this type → no range (caller reports NO_MATERIAL_PRICE).

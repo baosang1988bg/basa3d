@@ -7,7 +7,7 @@ import test from 'node:test';
 import { strToU8, zipSync } from 'fflate';
 import { decodePaintStates, parseThreeMfProjectInfo } from '../src/lib/parsers/threemf-project-info.js';
 import { estimateFileBytes } from '../src/services/file-estimate.service.js';
-import { COLOR_CHANGE_SECONDS, estimateColorPurge, roundInstant, type PricingContext } from '../src/services/instant-estimate.service.js';
+import { COLOR_CHANGE_SECONDS, INCLUDE_PURGE_IN_PRICE, estimateColorPurge, estimateFromMesh, roundInstant, type PricingContext } from '../src/services/instant-estimate.service.js';
 
 const ctx: PricingContext = {
   config: { electricityVndPerKwh: 3_500, machinePriceVnd: 15_000_000, machineLifetimeHours: 10_000, printerPowerKw: 0.2, laborVndPerHour: 35_000, failureBufferPct: 10, marginPct: 40, packagingFeeVnd: 5_000 },
@@ -65,6 +65,13 @@ const fourColor = project({ parts: [
   { id: 4, extruder: 4, from: [13, 13, 0], to: [16, 16, 20] },
 ] });
 const oneColor = project({ parts: [{ id: 1, extruder: 1, from: [0, 0, 0], to: [18, 18, 20] }] });
+// Same geometry as fourColor, every part on filament 1 — isolates the effect of the colors.
+const sameShapeOneColor = project({ parts: [
+  { id: 1, extruder: 1, from: [0, 0, 0], to: [18, 18, 20] },
+  { id: 2, extruder: 1, from: [2, 2, 0], to: [6, 6, 20] },
+  { id: 3, extruder: 1, from: [8, 8, 0], to: [12, 12, 20] },
+  { id: 4, extruder: 1, from: [13, 13, 0], to: [16, 16, 20] },
+] });
 
 test('decodePaintStates: Bambu TriangleSelector nibbles (leaf states, split nodes, extended state)', () => {
   assert.deepEqual([...decodePaintStates('4')], [1]);
@@ -117,21 +124,35 @@ test('estimateColorPurge: changes × (avg flush × multiplier + prime) → grams
   assert.equal(noTower?.purgeGrams, Math.round(((10 * 200) / 1000) * 1.24 * 10) / 10);
 });
 
-test('file estimate: 4-color keycap costs clearly more than the same model in 1 color, with transparent specs', () => {
+test('file estimate (default): multi-color unsliced is priced on a 1-color basis, purge shown as quantities', () => {
+  assert.equal(INCLUDE_PURGE_IN_PRICE, false, 'OWNER decision 2026-10-21 — flip only after calibration');
   const multi = estimateFileBytes(ctx, { fileName: 'keycap.3mf', bytes: fourColor });
-  const single = estimateFileBytes(ctx, { fileName: 'keycap.3mf', bytes: oneColor });
+  const single = estimateFileBytes(ctx, { fileName: 'keycap.3mf', bytes: sameShapeOneColor });
   assert.equal(multi.status, 'OK');
   assert.equal(single.status, 'OK');
   const m = multi.estimate!; const s = single.estimate!;
-  assert.ok(m.options[0].minVnd! > s.options[0].maxVnd!, `multi ${m.options[0].minVnd} should exceed single ${s.options[0].maxVnd}`);
+  assert.deepEqual(m.options, s.options, 'same model, same 1-color price');
+  assert.equal(m.specs.priceBasis, 'SINGLE_COLOR');
   assert.equal(m.specs.colorChanges, 300);
   assert.equal(m.specs.purgeGrams, 91.1);
+  assert.equal(m.specs.colorChangeMinutes, 200);
   assert.equal(m.specs.colorsCount, 4);
   assert.deepEqual(m.specs.sizeMm, { x: 18, y: 18, z: 20 });
   assert.ok(m.specs.modelGrams && m.specs.modelGrams.min < m.specs.modelGrams.max);
-  assert.ok(m.specs.printMinutesRange!.min >= 200, 'adds ~200 min of color changes');
+  assert.deepEqual(m.specs.printMinutesRange, s.specs.printMinutesRange, 'change time is not in the priced minutes');
+  assert.equal(s.specs.priceBasis, undefined);
   assert.equal(s.specs.purgeGrams, undefined);
-  assert.equal(s.specs.colorChanges, undefined);
+});
+
+test('estimateFromMesh with includePurgeInPrice: purge line + change time make it clearly dearer', () => {
+  const info = parseThreeMfProjectInfo(fourColor)!;
+  const purge = estimateColorPurge(info);
+  const mesh = { volumeCm3: 18 * 18 * 20 / 1000, triangles: 48 };
+  const basis = estimateFromMesh(ctx, mesh, 'PLA', purge)!;
+  const full = estimateFromMesh(ctx, mesh, 'PLA', purge, { includePurgeInPrice: true })!;
+  assert.equal(full.specs.priceBasis, 'FULL');
+  assert.ok(full.options[0].minVnd! > basis.options[0].maxVnd!, `${full.options[0].minVnd} > ${basis.options[0].maxVnd}`);
+  assert.ok(full.specs.printMinutesRange!.min >= basis.specs.printMinutesRange!.min + 200);
 });
 
 test('roundInstant rounds UP to 5.000đ — never below the ADR-0010 price', () => {

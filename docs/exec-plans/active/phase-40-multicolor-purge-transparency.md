@@ -82,6 +82,13 @@ Ví dụ minh hoạ (số giả định, cần kiểm bằng file thật): keyca
   cảnh báo mẫu nhiều màu, một giá khi min = max.
 - `tests/phase-40-multicolor-purge.test.ts` (7 test) · ADR-0043 · business-rules #27 · roadmap.
 
+## Điều chỉnh sau review (OWNER, 2026-10-21)
+- Mẫu nhiều màu chưa slice: **giá tính như 1 màu**, hiển thị **"Từ ~X đ"**; ngay dưới giá ghi rõ số màu (ô màu),
+  ~số lần đổi màu, ~gram nhựa xả, ~giờ máy "chưa có trong giá trên" + "Xưởng sẽ báo giá chính xác trong 2 giờ làm việc".
+  Công tắc code: `INCLUDE_PURGE_IN_PRICE` (false) — bật khi hiệu chỉnh xong.
+- Bỏ câu "slice → Export plate sliced file" khỏi thông điệp chính (khách không hiểu); hướng dẫn 5 bước Bambu Studio
+  nằm trong mục thu gọn "Bạn dùng Bambu Studio? Xem cách lấy giá chính xác ngay" (hiện khi file `.3mf` chưa slice).
+
 ## Definition of Done
 - [ ] Mẫu nhiều màu chưa slice: sai số so với bản slice ≤ ±30% — **chờ file thật** (`gengar-keycap.3mf` + bản slice)
 - [x] Giá ước tính gồm nhựa xả + thời gian đổi màu (test 4 màu > 1 màu)

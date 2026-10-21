@@ -30,7 +30,7 @@ const OPTION_LABEL: Record<InstantOptionKey, string> = {
 };
 
 const STATUS_TEXT: Record<Exclude<PublicFileEstimate['status'], 'OK'>, string> = {
-  NOT_SLICED: 'File .3mf này chưa được slice nên chưa có thời gian in. Mở bằng Bambu Studio/Orca → Slice → "Export plate sliced file" rồi tải lên lại — hoặc gửi yêu cầu để xưởng báo giá.',
+  NOT_SLICED: `Chưa đọc được thời gian in từ file .3mf này. Bạn chỉ cần bấm "Gửi yêu cầu", BaSa3D báo giá chính xác ${RESPONSE_TIME_TEXT}.`,
   UNSUPPORTED: `Loại file/vật liệu này cần xưởng xem trực tiếp. Gửi yêu cầu, BaSa3D báo giá ${RESPONSE_TIME_TEXT}.`,
   UNREADABLE: 'Chưa đọc được hình khối trong file này. Bạn vẫn gửi yêu cầu được, xưởng sẽ kiểm tra và báo giá.',
   NO_PRICING_CONFIG: `Hiện chưa thể hiển thị giá tự động. Gửi yêu cầu, BaSa3D báo giá ${RESPONSE_TIME_TEXT}.`,
@@ -46,6 +46,25 @@ export type CustomRequestPrefill = {
   requestedColor: string;
   description: string;
 };
+
+/** Phase 40: the "slice it yourself" how-to is hidden behind a toggle — most customers don't run a
+ * slicer and shouldn't feel they must; the default path is "gửi yêu cầu, xưởng báo giá". */
+function BambuSliceHelp() {
+  return (
+    <details className="group rounded-lg border border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+      <summary className="cursor-pointer select-none font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        Bạn dùng Bambu Studio? Xem cách lấy giá chính xác ngay
+      </summary>
+      <ol className="mt-2 list-decimal space-y-1 pl-5">
+        <li>Mở file <code>.3mf</code> bằng Bambu Studio.</li>
+        <li>Góc trên bên trái: chọn máy <strong>Bambu Lab P2S</strong> và loại nhựa cho từng màu.</li>
+        <li>Bấm <strong>Slice plate</strong> (góc trên bên phải), đợi tính xong.</li>
+        <li>Vào <strong>File → Export → Export plate sliced file</strong> — phần mềm lưu ra file <code>….gcode.3mf</code>.</li>
+        <li>Tải <strong>file vừa xuất</strong> lên ô phía trên (thay file cũ) — giá sẽ tính theo đúng thời gian in và lượng nhựa.</li>
+      </ol>
+    </details>
+  );
+}
 
 /** 125 → "2,1" (Vietnamese decimal comma), used for the machine-time range. */
 function formatHours(minutes: number): string {
@@ -184,6 +203,8 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
   const isUploading = upload.status === 'uploading';
   const result = estimate.status === 'done' ? estimate.result : undefined;
   const priced = result?.status === 'OK' ? result.estimate : null;
+  // Phase 40: multi-color unsliced .3mf is priced as 1 color (purge shown separately, not priced).
+  const singleColorBasis = priced?.kind === 'MESH' && priced.specs.priceBasis === 'SINGLE_COLOR';
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -348,6 +369,7 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
         {result && result.status !== 'OK' ? (
           <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground"><AlertCircle className="mt-0.5 size-4 shrink-0" />{STATUS_TEXT[result.status]}</div>
         ) : null}
+        {result?.status === 'NOT_SLICED' ? <BambuSliceHelp /> : null}
         {priced ? (
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
@@ -369,7 +391,7 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
               <dl className="grid grid-cols-1 gap-x-6 gap-y-1.5 rounded-lg border border-border bg-muted/20 p-3 text-xs sm:grid-cols-2">
                 <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Nhựa cho mô hình</dt><dd className="font-medium text-foreground">~{priced.specs.modelGrams.min}–{priced.specs.modelGrams.max} g {priced.materialType}</dd></div>
                 {priced.specs.purgeGrams ? (
-                  <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Nhựa xả khi đổi màu</dt><dd className="font-medium text-foreground">~{priced.specs.purgeGrams} g · ~{priced.specs.colorChanges} lần đổi màu</dd></div>
+                  <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Nhựa xả khi đổi màu</dt><dd className="font-medium text-foreground">~{priced.specs.purgeGrams} g · ~{priced.specs.colorChanges} lần đổi màu{priced.specs.priceBasis === 'SINGLE_COLOR' ? ' (chưa tính vào giá)' : ''}</dd></div>
                 ) : null}
                 {priced.specs.printMinutesRange ? (
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Thời gian máy chạy</dt><dd className="font-medium text-foreground">~{formatHours(priced.specs.printMinutesRange.min)}–{formatHours(priced.specs.printMinutesRange.max)} giờ</dd></div>
@@ -394,8 +416,11 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
                       {option.priceVnd !== null
                         ? `~${formatVnd(option.priceVnd)}`
                         : option.minVnd !== undefined
-                          // One price when both ends round to the same number (was "30.000đ – 30.000đ").
-                          ? (option.maxVnd ?? option.minVnd) === option.minVnd ? `~${formatVnd(option.minVnd)}` : `${formatVnd(option.minVnd)} – ${formatVnd(option.maxVnd ?? option.minVnd)}`
+                          ? singleColorBasis
+                            // Multi-color, unsliced: a FLOOR, not a quote — say so in the number itself.
+                            ? `Từ ~${formatVnd(option.minVnd)}`
+                            // One price when both ends round to the same number (was "30.000đ – 30.000đ").
+                            : (option.maxVnd ?? option.minVnd) === option.minVnd ? `~${formatVnd(option.minVnd)}` : `${formatVnd(option.minVnd)} – ${formatVnd(option.maxVnd ?? option.minVnd)}`
                           : 'Xưởng sẽ báo giá'}
                     </span>
                     {quantity > 1 ? <span className="text-xs text-muted-foreground">Giá cho 1 sản phẩm.</span> : null}
@@ -404,21 +429,27 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
               })}
             </div>
             <p className="text-xs text-muted-foreground">
-              <span className="font-semibold text-foreground">Đã gồm:</span> nhựa{priced.specs.purgeGrams ? ' (kể cả nhựa xả đổi màu)' : ''}, điện, khấu hao máy, dự phòng in lỗi, thao tác &amp; đóng gói.{' '}
+              <span className="font-semibold text-foreground">Đã gồm:</span> nhựa{priced.specs.purgeGrams && !singleColorBasis ? ' (kể cả nhựa xả đổi màu)' : ''}, điện, khấu hao máy, dự phòng in lỗi, thao tác &amp; đóng gói.{' '}
               <span className="font-semibold text-foreground">Chưa gồm:</span> phí ship, hậu kỳ/sơn, chỉnh sửa thiết kế.
             </p>
-            {priced.kind === 'MESH' && (priced.specs.colors?.length ?? 0) > 1 ? (
-              <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-300">
-                Mẫu {priced.specs.colors!.length} màu: nhựa xả và thời gian đổi màu trên máy AMS được <strong>ước tính</strong> từ file (số lần đổi màu thật do slicer quyết định). Slice file để có giá chính xác.
+            {singleColorBasis ? (
+              <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-300">
+                Giá này tính như in <strong>1 màu</strong>. Mẫu của bạn dùng <strong>{priced.specs.colors?.length ?? 2} màu</strong>
+                {priced.specs.colors?.length ? (
+                  <span className="mx-1 inline-flex -space-x-1 align-middle" aria-hidden="true">
+                    {priced.specs.colors.map((color, index) => <span key={`${color}-${index}`} className="size-3 rounded-full border border-border" style={{ backgroundColor: color }} />)}
+                  </span>
+                ) : ' '}
+                nên máy cần đổi màu khoảng <strong>{priced.specs.colorChanges} lần</strong> (thêm khoảng <strong>{priced.specs.purgeGrams}g nhựa</strong> và <strong>{formatHours(priced.specs.colorChangeMinutes ?? 0)} giờ máy</strong>) — phần này chưa có trong giá trên.{' '}
+                <strong>Xưởng sẽ báo giá chính xác {RESPONSE_TIME_TEXT}</strong>, bạn chỉ cần bấm &quot;Gửi yêu cầu&quot;.
               </p>
             ) : null}
             <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-300">
               {priced.kind === 'SLICED'
                 ? 'Giá ước tính từ thời gian in và số gram trong file đã slice, làm tròn 5.000đ. Giá chính thức do BaSa3D xác nhận khi kiểm tra file.'
-                : result?.hint === 'SLICE_FOR_EXACT'
-                  ? 'File .3mf chưa slice nên đây là khoảng giá sơ bộ từ thể tích mô hình. Muốn giá chính xác: mở file bằng Bambu Studio/Orca → chọn máy (vd P2S) → Slice → "Export plate sliced file" rồi tải lên lại. Giá chính thức do BaSa3D xác nhận.'
-                  : 'Khoảng giá sơ bộ từ thể tích mô hình (chưa biết độ đặc/infill). Gửi file .3mf đã slice để có giá chính xác hơn; giá chính thức do BaSa3D xác nhận.'}
+                : `Giá sơ bộ tính từ kích thước mô hình (chưa biết độ đặc khi in). BaSa3D báo giá chính xác ${RESPONSE_TIME_TEXT} sau khi bạn gửi yêu cầu.`}
             </p>
+            {result?.hint === 'SLICE_FOR_EXACT' ? <BambuSliceHelp /> : null}
           </div>
         ) : null}
 
