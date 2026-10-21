@@ -34,3 +34,6 @@ test-results/
 .swarm/
 .venv-swarm/
 __pycache__/
+
+# STL bulk import (feature 003): output mặc định của scripts/stl-import
+.stl-import/

@@ -832,3 +832,25 @@ cost of keeping next-intl's routing machinery for a single locale. Removing i18n
 (dropping `[locale]`) was rejected: ~30 route files, ADR-0045 static-rendering wiring and phase-42/43 +
 e2e tests would move, and restoring EN later would be expensive. Tests: `tests/locale-routing-en-disabled.test.ts`
 (redirects, flag off), `tests/locale-alternates.test.ts`; `e2e/i18n.spec.ts` keeps covering the flag-on path.
+
+## ADR-0049 — STL bulk import creates DRAFT products (supersedes Phase 32 T3) — *Proposed*
+
+**Status.** Proposed 2026-10-21 (feature `specs/003-stl-bulk-import`); becomes Accepted when OWNER approves the plan gate.
+
+**Context.** Phase 32 (draft, never implemented) planned a separate `model_library_items` table (T3) and a public
+gallery that sends customers into the custom-request flow, explicitly *not* selling models as `products`. OWNER now wants
+the Drive STL library turned into sellable catalogue items: rendered images, size, an estimated price, reviewed in bulk and
+published on the existing product pages. A parallel table would duplicate catalogue, pricing, images and storefront.
+
+**Decision.** Imported models become ordinary `products` (`DRAFT`, `MADE_TO_ORDER`, one default variant, no inventory
+movements, `license_type = 'UNKNOWN'`). Source metadata lives only in a staging table `product_import_items` (1–1 with the
+product, RLS deny-all, never selected by public queries). An offline script (`scripts/stl-import/`, run with `tsx` on the
+OWNER's machine) renders images and writes each model in one `pg` transaction; images go to `product-images`. A DB trigger
+blocks `products.status → ACTIVE` for imported products unless the import item is `APPROVED`, license-reviewed, has an
+image, a price > 0 and a real category — on every write path, not only the new admin page. Only OWNER approves/rejects.
+
+**Trade-off.** Reuses the catalogue, pricing snapshot, images and storefront with no new public surface; costs one staging
+table, two triggers and a script-side write service (the existing `product.service` depends on Next's cache). Phase 32 is
+narrowed: T1 (offline render), T5 (service-role on the OWNER machine) and T7 (`sha1(relPath)` key) are kept; T3/T4/T6
+(separate table, `model-previews` bucket, `custom_requests.model_library_item_id`) are superseded. A browse-only gallery
+for models not worth selling can be revisited later on top of `product_import_items`.
