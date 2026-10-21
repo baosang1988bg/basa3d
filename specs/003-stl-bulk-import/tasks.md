@@ -297,3 +297,9 @@ cùng `expectedUpdatedAt` → lần hai `STALE_WRITE`.
 
 MVP = Phase 1 + 2 + US1 (nhập nháp trên fixture). Sau đó US2 (cửa duyệt — bắt buộc trước khi có gì lên web), US3/US4,
 rồi review + docs. Mỗi phase là một lát có commit riêng.
+
+---
+
+## Phase 8: Convergence
+
+- [X] T045 Apply `--timeout` to the whole per-model work (read parts + measure + render), not only the render, in `scripts/stl-import/import-stl.ts`, with a test in `tests/stl-import-cli.test.ts` per FR-015 (partial)

@@ -22,6 +22,7 @@ import { applyImport, findImportItem, planImport, PRODUCT_IMAGE_BUCKET, type Ima
 import { getBucketUsageBytes, STORAGE_BLOCK_BYTES, STORAGE_WARN_BYTES } from '../../src/services/storage-usage.service';
 import { ModelRenderer } from './render';
 import { totalsOf, writeReport, type Manifest, type ManifestItem } from './report';
+import { ModelTimeoutError, withTimeout } from './timeout';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const EXIT = { OK: 0, CONFIG: 1, USAGE: 2, STORAGE: 3 } as const;
@@ -214,23 +215,31 @@ export async function main(argv: string[]): Promise<number> {
       };
       try {
         if (plan.action === 'CREATE' || plan.action === 'RERENDER') {
-          const parts = await Promise.all(group.files.map(async (file) => ({ relPath: file.relPath, bytes: new Uint8Array(await readFile(path.join(options.in, ...file.relPath.split('/')))) })));
-          const analysis = analyzeModel(parts);
+          // FR-015: --timeout bounds the whole model (Drive read + measure + render), not just the render.
+          const prepare = async () => {
+            const parts = await Promise.all(group.files.map(async (file) => ({ relPath: file.relPath, bytes: new Uint8Array(await readFile(path.join(options.in, ...file.relPath.split('/')))) })));
+            const measured = analyzeModel(parts);
+            const rendered: Uint8Array[] = measured.ok && renderer
+              ? await renderer.render(parts.map((part) => part.bytes), { size: options.size, quality: 0.85, color: options.color, views: options.views, dims: options.dims ? measured.bboxMm : null })
+              : [];
+            return { measured, rendered };
+          };
+          const { measured: analysis, rendered: images } = await withTimeout(prepare(), options.timeoutMs, () => renderer?.close())
+            .catch((error: unknown) => {
+              if (!(error instanceof ModelTimeoutError)) throw error;
+              return { measured: { ok: false as const, error: error.message }, rendered: [] as Uint8Array[] };
+            });
           let price: ImportPrice = { priced: false, reason: 'NO_PRICING_CONFIG' };
-          let images: Uint8Array[] = [];
           if (analysis.ok) {
             Object.assign(item, { bboxMm: analysis.bboxMm, volumeCm3: analysis.volumeCm3, triangles: analysis.triangles });
             item.warnings.push(...analysis.warnings);
             price = estimateImportPrice(analysis.metrics, pricing);
             if (!price.priced) item.warnings.push('UNPRICED');
             else item.basePrice = price.basePrice;
-            if (renderer) {
-              images = await renderer.render(parts.map((part) => part.bytes), { size: options.size, quality: 0.85, color: options.color, views: options.views, dims: options.dims ? analysis.bboxMm : null });
-              for (const [n, bytes] of images.entries()) {
-                const file = `images/${plan.key}-${n}.webp`;
-                await writeFile(path.join(options.out, file), bytes);
-                item.images.push(file);
-              }
+            for (const [n, bytes] of images.entries()) {
+              const file = `images/${plan.key}-${n}.webp`;
+              await writeFile(path.join(options.out, file), bytes);
+              item.images.push(file);
             }
           } else {
             item.action = 'ERROR';

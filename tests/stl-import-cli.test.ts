@@ -11,6 +11,7 @@ import { chromium } from '@playwright/test';
 import { configureTestEnvironment } from './helpers/test-environment';
 import { buildStlFixtures } from './fixtures/stl-import/build-fixtures';
 import type { Manifest } from '../scripts/stl-import/report';
+import { ModelTimeoutError, withTimeout } from '../scripts/stl-import/timeout';
 
 configureTestEnvironment();
 const testDatabaseUrl = process.env.DATABASE_URL ?? '';
@@ -137,4 +138,14 @@ test('rendering: 4 WebP views of 1200 px per model (skipped when Playwright Chro
   assert.equal(cover.subarray(12, 16).toString(), 'VP8X');
   assert.equal(cover.readUIntLE(24, 3) + 1, 1200);
   assert.equal(cover.readUIntLE(27, 3) + 1, 1200);
+});
+
+test('per-model timeout (FR-015): a hung model fails with TIMEOUT and resets shared state; fast work passes through', async () => {
+  let reset = 0;
+  const hung = new Promise<never>(() => undefined);
+  await assert.rejects(withTimeout(hung, 30, () => { reset += 1; }), (error: unknown) => error instanceof ModelTimeoutError && /TIMEOUT_/.test(error.message));
+  assert.equal(reset, 1);
+  assert.equal(await withTimeout(Promise.resolve(42), 1_000, () => { reset += 1; }), 42);
+  await assert.rejects(withTimeout(Promise.reject(new Error('mesh broke')), 1_000, () => { reset += 1; }), /mesh broke/);
+  assert.equal(reset, 1, 'onTimeout runs only on timeout');
 });
