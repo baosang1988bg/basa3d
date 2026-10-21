@@ -44,5 +44,6 @@ Phase 40: transparent instant quote + AMS purge estimate for unsliced multi-colo
 Phase 41: admin executive business dashboard (Tab Kinh doanh & Tài chính 30 ngày cho riêng OWNER, biểu đồ highlight cuối tuần, doanh thu danh mục, tồn kho nhựa có vạch ngưỡng; ADR-0044: chỉ doanh thu đơn shop, loại CANCELLED/REFUNDED, nhựa theo sổ kho PRODUCTION_OUT) — code done 2026-10-21; chờ OWNER kiểm tra giao diện trên `npm run dev` trước khi close-phase
 
 Phase 42: storefront caching — pass-through root layout (no request read), Home ISR 60 s, policy/tools/custom-print/cart/checkout static, catalog data cache with tag invalidation after commit in services, build still works without a DB (ADR-0045) — code done + verified in sandbox 2026-10-21; OWNER smoke on Vercel Preview + DB test suite pending
+Phase 43: storefront motion (CSS-only) — scroll reveal bằng CSS scroll-driven animation, nút tactile nhấn như phím, FAQ accordion, gallery sản phẩm, menu mobile trượt (sửa bug menu bị kẹt trong header), chuyển trang mềm — code done + verified in sandbox 2026-10-21; OWNER xem thử pending
 
 Do not start a phase by coding immediately. Follow the Phase Start Protocol in the main project plan.

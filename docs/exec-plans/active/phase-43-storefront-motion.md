@@ -30,38 +30,38 @@
 
 ## Danh sách hiệu ứng
 ### Nền tảng
-- [ ] F1 `globals.css`: utility `.reveal` (mờ + trồi 16px theo view timeline) và `.reveal-stagger` (con thứ n trễ dần
+- [x] F1 `globals.css`: utility `.reveal` (mờ + trồi 16px theo view timeline) và `.reveal-stagger` (con thứ n trễ dần
       bằng `animation-range`), gate `@supports (animation-timeline: view())` + no-preference.
-- [ ] F2 `tailwind.config.ts`: keyframes `draw-line`, `badge-pop`, `soft-ping`, `page-enter`.
-- [ ] F3 Nút tactile (`storefrontButtonClasses` primary/accent): rê → nhấc 1px, bóng dày lên; nhấn → lún xuống, bóng
+- [x] F2 `tailwind.config.ts`: keyframes `draw-line`, `badge-pop`, `soft-ping`, `page-enter`.
+- [x] F3 Nút tactile (`storefrontButtonClasses` primary/accent): rê → nhấc 1px, bóng dày lên; nhấn → lún xuống, bóng
       mất ("bấm phím" — hợp brand đổ bóng cứng 3px đang dùng). Secondary giữ đổi màu.
 
 ### Trang chủ
-- [ ] H1 Hero: nét "đường in" (SVG) tự vẽ dưới tiêu đề một lần (trang trí, `aria-hidden`); icon chip giá trị nghiêng nhẹ khi rê.
-- [ ] H2 Banner: ảnh phóng rất nhẹ (1.02) khi rê, 700ms.
-- [ ] H3 Các section dưới hero: tiêu đề + lưới card hiện dần khi cuộn, card trễ dần.
-- [ ] H4 FAQ: thay `<details>` bằng accordion `grid-rows` (luật I30 của skill) — mở đóng mượt, chevron xoay,
+- [x] H1 Hero: nét "đường in" (SVG) tự vẽ dưới tiêu đề một lần (trang trí, `aria-hidden`); icon chip giá trị nghiêng nhẹ khi rê.
+- [x] H2 Banner: ảnh phóng rất nhẹ (1.02) khi rê, 700ms.
+- [x] H3 Các section dưới hero: tiêu đề + lưới card hiện dần khi cuộn, card trễ dần.
+- [x] H4 FAQ: thay `<details>` bằng accordion `grid-rows` (luật I30 của skill) — mở đóng mượt, chevron xoay,
       khối đóng `inert`. JSON-LD FAQ giữ nguyên.
 
 ### Sản phẩm
-- [ ] P1 `/products`: lưới sản phẩm hiện dần khi cuộn (card đã có zoom ảnh khi rê).
-- [ ] P2 Chi tiết: `ProductGallery` — bấm thumbnail đổi ảnh chính (cross-fade), thumbnail đang chọn có viền.
+- [x] P1 `/products`: lưới sản phẩm hiện dần khi cuộn (card đã có zoom ảnh khi rê).
+- [x] P2 Chi tiết: `ProductGallery` — bấm thumbnail đổi ảnh chính (cross-fade), thumbnail đang chọn có viền.
       Trước đây thumbnail chỉ để nhìn.
-- [ ] P3 Thêm vào giỏ: dòng "Đã thêm" trượt vào; badge giỏ trên header nảy nhẹ khi số thay đổi.
+- [x] P3 Thêm vào giỏ: dòng "Đã thêm" trượt vào; badge giỏ trên header nảy nhẹ khi số thay đổi.
 
 ### Header / Footer / chuyển trang
-- [ ] N1 Menu desktop: gạch chân chạy (active đầy, rê thì mọc từ trái).
-- [ ] N2 Menu mobile: luôn có trong DOM, lớp phủ mờ dần + panel trượt từ phải (500/350ms), `inert` khi đóng, Esc để đóng.
-- [ ] N3 Badge giỏ hàng: `badge-pop` khi `itemCount` đổi.
-- [ ] N4 `(storefront)/template.tsx`: nội dung trang mới trồi nhẹ 200ms **chỉ khi điều hướng phía client**, không
+- [x] N1 Menu desktop: gạch chân chạy (active đầy, rê thì mọc từ trái).
+- [x] N2 Menu mobile: luôn có trong DOM, lớp phủ mờ dần + panel trượt từ phải (500/350ms), `inert` khi đóng, Esc để đóng.
+- [x] N3 Badge giỏ hàng: `badge-pop` khi `itemCount` đổi.
+- [x] N4 `(storefront)/template.tsx`: nội dung trang mới trồi nhẹ 200ms **chỉ khi điều hướng phía client**, không
       chạy ở lần tải đầu (không hại LCP, không lệch hydration).
-- [ ] N5 Footer: link đổi màu + gạch chân chạy.
-- [ ] N6 Nút Zalo nổi: thay `animate-ping` (nhanh, gắt) bằng vòng sóng chậm 2.4s nhạt hơn; rê không `scale` lố.
+- [x] N5 Footer: link đổi màu + gạch chân chạy.
+- [x] N6 Nút Zalo nổi: thay `animate-ping` (nhanh, gắt) bằng vòng sóng chậm 2.4s nhạt hơn; rê không `scale` lố.
 
 ### Tools & đặt in
-- [ ] T1 `/tools`: card hiện dần khi cuộn; rê card → viền primary + ô icon đảo màu.
-- [ ] T2 `/custom-print`: 4 bước + các section dưới hiện dần; hàng bảng vật liệu đổi nền khi rê.
-- [ ] T3 Header của `(tools)`: mũi tên "← Về cửa hàng" nhích trái khi rê.
+- [x] T1 `/tools`: card hiện dần khi cuộn; rê card → viền primary + ô icon đảo màu.
+- [x] T2 `/custom-print`: 4 bước + các section dưới hiện dần; hàng bảng vật liệu đổi nền khi rê.
+- [x] T3 Header của `(tools)`: mũi tên "← Về cửa hàng" nhích trái khi rê.
 
 ## Rủi ro
 - **Firefox** chưa bật scroll-driven animation → không có hiệu ứng hiện dần (vẫn đầy đủ nội dung). Chấp nhận.
@@ -70,7 +70,20 @@
 - File Phase 41 đang dở (`contact-link.tsx`, `format.ts`, `site.ts`, dashboard) **không đụng tới**.
 
 ## Definition of Done
-- [ ] typecheck, lint, test (không DB) xanh; test hợp đồng `tests/phase-43-storefront-motion.test.ts`.
-- [ ] `next build` không DB xanh; các trang static của Phase 42 vẫn prerender (không có route nào chuyển sang `ƒ`).
-- [ ] Ảnh chụp trước/sau (desktop + mobile) cho Home, `/tools`, menu mobile.
+- [x] typecheck, lint, test (không DB) xanh; test hợp đồng `tests/phase-43-storefront-motion.test.ts`.
+- [x] `next build` không DB xanh; các trang static của Phase 42 vẫn prerender (không có route nào chuyển sang `ƒ`).
+- [x] Ảnh chụp trước/sau (desktop + mobile) cho Home, `/tools`, menu mobile.
 - [ ] OWNER xem trên `npm run build && npm run start`, thử bật "Reduce motion" của macOS.
+
+## Kết quả verify (Claude, 2026-10-21, sandbox Linux, Chromium headless)
+- `tsc` ✅ · `eslint .` ✅ · tests không DB: **402 pass / 0 fail / 159 skip** (gồm 9 test mới của Phase 43).
+- `next build` không DB: 37 trang prerender — **bằng đúng Phase 42**; build có DB: Home vẫn `●` ISR 60s.
+  Home First Load JS 130 → 139 KB (accordion FAQ là client component).
+- Đo bằng trình duyệt: phần tử `reveal` ở cuối trang có `opacity 0` trước khi cuộn tới (hiệu ứng đang chạy); với
+  `prefers-reduced-motion: reduce` thì **0** phần tử bị ẩn.
+- **Bug cũ tìm ra khi chụp ảnh "trước":** menu mobile bị kẹt trong header 64px (do `backdrop-filter` của header tạo
+  containing block cho `position: fixed`) — chữ menu tràn đè lên trang, không có nền mờ. Đã sửa ở N2.
+
+## Follow-up (ngoài phạm vi, chưa làm)
+- Tooltip "💬 Zalo tư vấn báo giá" của nút nổi luôn hiện ở màn ≥ `sm` (`hidden group-hover:block sm:inline-block`) — có vẻ
+  không chủ ý; chưa sửa để không đổi hành vi khi chưa hỏi OWNER.
