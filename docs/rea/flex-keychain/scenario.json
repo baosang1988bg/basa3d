@@ -1,0 +1,33 @@
+{
+  "browser": {
+    "mode": "launch",
+    "executable_path": "__CHROME_PATH__",
+    "headless": true
+  },
+  "start_url": { "url": "https://flex-keychain.vunguyenhoanglong06031992.workers.dev/" },
+  "environment": {
+    "viewport": { "width": 1920, "height": 851 },
+    "locale": "en-US",
+    "timezone": "Asia/Ho_Chi_Minh",
+    "service_workers": "block"
+  },
+  "actions": [
+    { "step_id": "S01-wait-ui", "action": "wait_for", "locator": { "kind": "css", "selector": ".word-input" }, "state": "visible", "timeout_ms": 30000 },
+    { "step_id": "S02-wait-default-slots", "action": "wait_for", "locator": { "kind": "css", "selector": ".slot-list .slot-row" }, "state": "visible", "timeout_ms": 30000 },
+    { "step_id": "S03-fill-name", "action": "fill", "locator": { "kind": "css", "selector": ".word-input" }, "value": { "source": "literal", "value": "BASA3D" } },
+    { "step_id": "S04-settle-name", "action": "wait_for_timeout", "duration_ms": 1500 },
+    { "step_id": "S05-slot1-cap-color", "action": "fill", "locator": { "kind": "css", "selector": ".slot-list .slot-row:nth-child(1) input[title='Cap color']" }, "value": { "source": "literal", "value": "#1e3a8a" } },
+    { "step_id": "S06-slot4-text-color", "action": "fill", "locator": { "kind": "css", "selector": ".slot-list .slot-row:nth-child(4) input[title='Text/icon color']" }, "value": { "source": "literal", "value": "#ffd700" } },
+    { "step_id": "S07-settle-colors", "action": "wait_for_timeout", "duration_ms": 1000 },
+    { "step_id": "S08-export-3mf", "action": "click", "locator": { "kind": "role", "role": "button", "name": "Export Bambu 3MF (colors)" } },
+    { "step_id": "S09-wait-3mf", "action": "wait_for_timeout", "duration_ms": 4000 },
+    { "step_id": "S10-export-stl-zip", "action": "click", "locator": { "kind": "role", "role": "button", "name": "Export STL zip" } },
+    { "step_id": "S11-wait-zip", "action": "wait_for_timeout", "duration_ms": 4000 }
+  ],
+  "capture": {
+    "after_each_step": ["url"],
+    "at_end": ["screenshot", "accessibility", "dom", "storage"],
+    "events": ["network", "console", "page-errors", "downloads"],
+    "network": { "request_body": false, "response_body": false, "header_values": false }
+  }
+}
