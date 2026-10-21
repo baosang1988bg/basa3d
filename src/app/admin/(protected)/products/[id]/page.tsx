@@ -90,6 +90,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                   <option value="CC0">CC0 / Public Domain</option>
                   <option value="COMMERCIAL_LICENSE">Đã mua Commercial License</option>
                   <option value="OTHER">Khác</option>
+                  <option value="UNKNOWN">Chưa xác định (hàng nhập kho STL)</option>
                 </select>
               </div>
               <div className="flex flex-col gap-1.5">

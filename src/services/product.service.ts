@@ -4,6 +4,7 @@ import { DomainError } from '../lib/domain-error';
 import { createSupabaseAdminClient } from '../lib/supabase/admin';
 import { writeAuditLog } from './audit.service';
 import { invalidatesStorefrontCatalog } from '../lib/cache/storefront-cache-tags';
+import { translateImportGateError } from '../lib/stl-import/publish-gate';
 
 const PRODUCT_IMAGE_BUCKET = 'product-images';
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -176,7 +177,9 @@ export async function updateProduct(productId: string, patch: { categoryId?: str
     }
     if (!sets.length) return before.rows[0];
     values.push(productId);
-    const updated = await client.query(`update products set ${sets.join(', ')} where id = $${values.length} returning id, name, slug, status`, values);
+    // Feature 003: the publish-gate trigger may refuse status → ACTIVE for an imported product.
+    const updated = await client.query(`update products set ${sets.join(', ')} where id = $${values.length} returning id, name, slug, status`, values)
+      .catch((error: unknown) => { throw translateImportGateError(error); });
     await writeAuditLog(client, { actorId, action: 'PRODUCT_UPDATED', entityType: 'product', entityId: productId, beforeData: before.rows[0], afterData: updated.rows[0] });
     return updated.rows[0];
   }));

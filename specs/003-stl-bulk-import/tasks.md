@@ -28,8 +28,8 @@ commit Conventional Commits cục bộ.
 
 ## Phase 1: Setup
 
-- [ ] T001 Thêm `.stl-import/` vào `.gitignore` (thư mục đầu ra mặc định của script, contracts/cli-import-stl.md `--out`)
-- [ ] T002 [P] Tạo fixture STL tự sinh bằng script `tests/fixtures/stl-import/build-fixtures.ts` (export hàm
+- [X] T001 Thêm `.stl-import/` vào `.gitignore` (thư mục đầu ra mặc định của script, contracts/cli-import-stl.md `--out`)
+- [X] T002 [P] Tạo fixture STL tự sinh bằng script `tests/fixtures/stl-import/build-fixtures.ts` (export hàm
   `buildStlFixtures(dir)` ghi: `Figures/Cat/cat-body.stl` + `Figures/Cat/cat-tail.stl` (binary, thư mục nhiều part),
   `Figures/Ếch_xanh_v2.stl` (ASCII, tên có dấu + hậu tố `_v2`), `Tools/12345.stl` (tên chỉ có số), `root-cube.stl` (file ở
   gốc), `Broken/empty.stl` (0 byte), `Broken/garbage.stl` (byte rác), `Tiny/coin.stl` (cạnh < 5 mm → `UNIT_TOO_SMALL`));
@@ -41,7 +41,7 @@ commit Conventional Commits cục bộ.
 
 **Lát 1 — DB**
 
-- [ ] T003 Viết migration `supabase/migrations/20261022000000_stl_bulk_import.sql` đúng data-model.md §1–§4:
+- [X] T003 Viết migration `supabase/migrations/20261022000000_stl_bulk_import.sql` đúng data-model.md §1–§4:
   - bảng `public.product_import_items` với các cột & ràng buộc nguyên văn: `product_id uuid unique references
     public.products(id) on delete set null`; `source_key varchar(40) not null unique check (source_key ~ '^[0-9a-f]{40}$')`;
     `source_rel_path text not null`; `source_dir text not null`; `group_mode varchar(8) not null check (group_mode in
@@ -73,51 +73,51 @@ commit Conventional Commits cục bộ.
   - function + trigger `public.enforce_import_item_link()` `before insert or update of product_id on
     public.product_import_items`: product đích `ACTIVE` và `new.review_status <> 'APPROVED'` → `IMPORT_LINK_BLOCKED`
   - `revoke execute on function … from public` cho cả hai function
-- [ ] T004 [P] Thêm cột `metadata jsonb` vào stub `storage.objects` trong `scripts/test-db-setup.ts` (tạo mới có cột; DB
+- [X] T004 [P] Thêm cột `metadata jsonb` vào stub `storage.objects` trong `scripts/test-db-setup.ts` (tạo mới có cột; DB
   stub đã có thì `alter table storage.objects add column if not exists metadata jsonb` khi bảng mang comment stub)
-- [ ] T005 [P] Zod trong `src/domain/schemas.ts`: thêm `'UNKNOWN'` vào `productLicenseTypeSchema` (cập nhật comment Phase
+- [X] T005 [P] Zod trong `src/domain/schemas.ts`: thêm `'UNKNOWN'` vào `productLicenseTypeSchema` (cập nhật comment Phase
   29); thêm `stlImportFilterSchema` (`status: 'PENDING'|'APPROVED'|'REJECTED'|'ERROR'` mặc định `PENDING`, `categoryId?`
   uuid, `sourceDir?` ≤ 1000, `q?` ≤ 200, `page` int ≥ 1), `stlImportQuickEditSchema` (`itemId`, `productId`,
   `expectedItemUpdatedAt`, `expectedProductUpdatedAt` dạng chuỗi µs `^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$`, `name`
   ≤ 200, `categoryId` uuid|null, `basePrice` vnd|null, `licenseType`, `licenseSourceUrl` url|null, `licenseReviewed`
   boolean; `.strict()`), `stlImportBulkDecisionSchema` (`items: [{itemId, expectedItemUpdatedAt}]` min 1 max 100);
   thêm nhãn "Chưa xác định" cho `UNKNOWN` ở nơi admin map nhãn license (grep `COMMERCIAL_LICENSE` trong `src/`)
-- [ ] T006 Test DB cho migration trong `tests/stl-import-gate.test.ts`: (a) CHECK/unique của bảng (source_key sai định
+- [X] T006 Test DB cho migration trong `tests/stl-import-gate.test.ts`: (a) CHECK/unique của bảng (source_key sai định
   dạng, cặp review_status/reviewed_at), (b) `updated_at` tự tăng, (c) danh mục `chua-phan-loai` tồn tại `is_active=false`,
   (d) gate trigger: product nhập chuyển ACTIVE bị chặn với **từng** lý do riêng và gom nhiều lý do; product **không** có
   item chuyển ACTIVE bình thường; ACTIVE→ACTIVE không chạy gate; insert thẳng ACTIVE + gắn item PENDING bị
   `IMPORT_LINK_BLOCKED`; (e) mọi đường ghi status hiện có — gọi service/action cập nhật sản phẩm hiện có (đọc
   `src/app/admin/(protected)/products/actions.ts` và `src/app/api/products/[id]/route.ts` để chọn hàm service dùng chung)
   cho sản phẩm nhập chưa duyệt → bị chặn
-- [ ] T007 [P] Cập nhật `tests/rls-public-tables.test.ts` (nếu có danh sách bảng tường minh) và/hoặc
+- [X] T007 [P] Cập nhật `tests/rls-public-tables.test.ts` (nếu có danh sách bảng tường minh) và/hoặc
   `tests/migration-contract.test.ts` để bao gồm `product_import_items` (RLS bật, anon/authenticated không có grant)
 
 **Lát 2 — logic thuần** (không import `next/*`, `server-only`, DB)
 
-- [ ] T008 [P] `src/lib/stl-import/source-key.ts`: `normalizeRelPath(rel)` (tách `\`/`/`, nối `/`, NFC, bỏ `./` đầu),
+- [X] T008 [P] `src/lib/stl-import/source-key.ts`: `normalizeRelPath(rel)` (tách `\`/`/`, nối `/`, NFC, bỏ `./` đầu),
   `sourceKey(rel) = sha1 hex 40`, `fingerprint(files)` (sắp xếp `{relPath, bytes, mtimeMs}`, so sánh ổn định) +
   `tests/stl-import-source-key.test.ts` (NFD vs NFC cùng key, `\` vs `/` cùng key, fingerprint đổi khi bytes/mtime đổi)
-- [ ] T009 [P] `src/lib/stl-import/naming.ts`: `displayName`, `slugify`, `uniqueSlug(base, taken)`, `buildSku(catCode,
+- [X] T009 [P] `src/lib/stl-import/naming.ts`: `displayName`, `slugify`, `uniqueSlug(base, taken)`, `buildSku(catCode,
   slug, taken)` theo research R7 (bỏ `_v\d+`, `final`, `(\d+)`, số thứ tự cuối; tên chỉ số → "Mẫu …"; tên ≤ 200; slug khớp
   `^[a-z0-9]+(-[a-z0-9]+)*$` ≤ 160, `đ→d`; SKU khớp `^[A-Z0-9]+(-[A-Z0-9]+)*$` ≤ 40, trùng → hậu tố `-2`, `-3`) +
   `describeModel(bbox)` ("Mẫu in 3D, kích thước X × Y × Z mm") + `tests/stl-import-naming.test.ts` (mọi edge case tên ở spec)
-- [ ] T010 [P] `src/lib/stl-import/scan.ts`: `groupModels(files, mode: 'FOLDER'|'FILE', opts {maxBytes, only?})` thuần
+- [X] T010 [P] `src/lib/stl-import/scan.ts`: `groupModels(files, mode: 'FOLDER'|'FILE', opts {maxBytes, only?})` thuần
   trên danh sách `{relPath, bytes, mtimeMs}` → `[{sourceRelPath, sourceDir, groupMode, files, oversizeSkipped[]}]`; file ở
   gốc ở chế độ FOLDER thành mẫu riêng; `walkDir(root)` (fs đệ quy, chỉ `.stl`, tuỳ chọn `.3mf`) tách riêng; glob `--only`
   dùng `path.matchesGlob` nếu Node hỗ trợ, nếu không thì so khớp `**`/`*` tự viết +
   `tests/stl-import-scan.test.ts`
-- [ ] T011 [P] `src/lib/stl-import/category-map.ts`: đọc/validate (Zod) `scripts/stl-import/category-map.json`
+- [X] T011 [P] `src/lib/stl-import/category-map.ts`: đọc/validate (Zod) `scripts/stl-import/category-map.json`
   (`{groupBy?: 'folder'|'file', rules: [{folderPattern, categorySlug, skuCode}]}`) và `resolveCategory(sourceDir)` → rule
   khớp đầu tiên theo đoạn thư mục, mặc định `{categorySlug:'chua-phan-loai', skuCode:'UNC'}` + test trong
   `tests/stl-import-naming.test.ts`
-- [ ] T012 [P] `src/lib/stl-import/metrics.ts`: `analyzeModel(buffers)` gộp `parseStlMetrics` (`src/lib/pricing/mesh-metrics.ts`)
+- [X] T012 [P] `src/lib/stl-import/metrics.ts`: `analyzeModel(buffers)` gộp `parseStlMetrics` (`src/lib/pricing/mesh-metrics.ts`)
   nhiều part → bbox tổng, thể tích tổng, tam giác tổng, `warnings` (`UNIT_TOO_SMALL` < 5 mm, `UNIT_TOO_LARGE` > 400 mm,
   `MESH_NOT_WATERTIGHT` qua `checkMeshConsistency` nếu có, `PARTS_OVERLAP` khi bbox part chồng > 80%); lỗi
   `MeshMetricsError` → `{error}` không throw ra ngoài + `tests/stl-import-metrics.test.ts` (dùng fixture T002)
-- [ ] T013 [P] `src/lib/stl-import/pricing.ts`: `estimateImportPrice(metrics, config, plaUnitCost)` → `estimateFdmPrint`
+- [X] T013 [P] `src/lib/stl-import/pricing.ts`: `estimateImportPrice(metrics, config, plaUnitCost)` → `estimateFdmPrint`
   + `priceMakerWorldLines` (R6: infill 15, PLA, scale 1000, laborMinutes 0) → `{basePrice, breakdown, configId}` hoặc
   `{unpriced: true}` + test (đọc chữ ký thật của hai hàm trước khi viết)
-- [ ] T014 Commit Lát 1+2: `feat(stl-import): schema, publish gate trigger, pure import logic` (sau lint/typecheck/test xanh;
+- [X] T014 Commit Lát 1+2: `feat(stl-import): schema, publish gate trigger, pure import logic` (sau lint/typecheck/test xanh;
   có thể tách 2 commit `feat(db)` và `feat(stl-import)`)
 
 **Checkpoint**: migration + gate + logic thuần có test → các story bắt đầu được.

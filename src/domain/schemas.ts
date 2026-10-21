@@ -127,7 +127,8 @@ export const warehouseInputSchema = z.object({
 // of it — advisory metadata for copyright/IP compliance (docs/exec-plans/active/
 // phase-29-copyright-compliance.md), not enforced by any DB constraint (varchar(50) on the
 // products table, not a Postgres enum, so new license types don't require a migration).
-export const productLicenseTypeSchema = z.enum(['OWN_DESIGN', 'CC_BY', 'CC0', 'COMMERCIAL_LICENSE', 'OTHER']);
+// Feature 003: UNKNOWN marks models imported from the STL library until an admin reviews them.
+export const productLicenseTypeSchema = z.enum(['OWN_DESIGN', 'CC_BY', 'CC0', 'COMMERCIAL_LICENSE', 'OTHER', 'UNKNOWN']);
 
 export const productInputSchema = z.object({
   categoryId: uuidSchema.nullable(),
@@ -733,3 +734,33 @@ export const customRequestItemEstimateSchema = z.object({
   estimatedAt: z.string().datetime(),
 }).strict();
 export type CustomRequestItemEstimate = z.infer<typeof customRequestItemEstimateSchema>;
+
+// Feature 003 — STL bulk import review page (specs/003-stl-bulk-import/contracts/admin-stl-import.md).
+// updated_at travels as a microsecond UTC string: a JS Date would drop the microseconds and make
+// every optimistic-lock comparison fail.
+export const microsecondTimestampSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/);
+export const stlImportStatusFilterSchema = z.enum(['PENDING', 'APPROVED', 'REJECTED', 'ERROR']);
+
+export const stlImportFilterSchema = z.object({
+  status: stlImportStatusFilterSchema.default('PENDING'),
+  categoryId: uuidSchema.optional(),
+  sourceDir: z.string().max(1_000).optional(),
+  q: z.string().trim().max(200).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+}).strict();
+
+export const stlImportQuickEditSchema = z.object({
+  itemId: uuidSchema,
+  productId: uuidSchema,
+  expectedItemUpdatedAt: microsecondTimestampSchema,
+  expectedProductUpdatedAt: microsecondTimestampSchema,
+  name: nonEmptyText.max(200),
+  categoryId: uuidSchema.nullable(),
+  basePrice: vndSchema.nullable(),
+  licenseType: productLicenseTypeSchema,
+  licenseSourceUrl: z.string().trim().url().max(2_000).nullable(),
+  licenseReviewed: z.boolean(),
+}).strict();
+
+export const stlImportItemRefSchema = z.object({ itemId: uuidSchema, expectedItemUpdatedAt: microsecondTimestampSchema }).strict();
+export const stlImportBulkDecisionSchema = z.object({ items: z.array(stlImportItemRefSchema).min(1).max(100) }).strict();

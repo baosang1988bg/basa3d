@@ -64,9 +64,13 @@ async function main() {
     if (!hasObjects.rows[0].name) {
       await client.query(`
         create schema if not exists storage;
-        create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text, created_at timestamptz not null default now());
+        create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text, metadata jsonb, created_at timestamptz not null default now());
         comment on table storage.objects is 'basa3d local test stub';`);
       console.log('Created minimal storage.objects stub (plain PostgreSQL).');
+    } else {
+      // Feature 003: bucket usage sums storage.objects.metadata->>'size'; older stubs lack the column.
+      const isStub = await client.query(`select obj_description('storage.objects'::regclass) = 'basa3d local test stub' as stub`);
+      if (isStub.rows[0].stub) await client.query('alter table storage.objects add column if not exists metadata jsonb');
     }
     await client.query(`create table if not exists public._local_test_migrations (name text primary key, applied_at timestamptz not null default now())`);
     const applied = new Set((await client.query<{ name: string }>('select name from public._local_test_migrations')).rows.map((row) => row.name));

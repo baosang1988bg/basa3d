@@ -46,6 +46,11 @@ export class MeshMetricsAccumulator {
     if (z < this.min[2]) this.min[2] = z; if (z > this.max[2]) this.max[2] = z;
   }
 
+  /** Feature 003: absolute bounds, so the STL importer can union several parts' boxes. */
+  bounds(): { min: [number, number, number]; max: [number, number, number] } {
+    return { min: [this.min[0], this.min[1], this.min[2]], max: [this.max[0], this.max[1], this.max[2]] };
+  }
+
   result(): MeshMetrics {
     if (!this.triangles) throw new MeshMetricsError('MESH_EMPTY', 'Không đọc được hình khối nào trong file.');
     return {
@@ -79,7 +84,11 @@ export function isBinaryStl(bytes: Uint8Array): boolean {
 }
 
 export function parseStlMetrics(bytes: Uint8Array): MeshMetrics {
-  const acc = new MeshMetricsAccumulator();
+  return accumulateStl(bytes, new MeshMetricsAccumulator()).result();
+}
+
+/** Feeds every triangle of a binary or ASCII STL into `acc` (returned for chaining). */
+export function accumulateStl(bytes: Uint8Array, acc: MeshMetricsAccumulator): MeshMetricsAccumulator {
   if (isBinaryStl(bytes)) {
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     const count = view.getUint32(80, true);
@@ -88,7 +97,7 @@ export function parseStlMetrics(bytes: Uint8Array): MeshMetrics {
       const f = (k: number) => view.getFloat32(o + k * 4, true);
       acc.add(f(0), f(1), f(2), f(3), f(4), f(5), f(6), f(7), f(8));
     }
-    return acc.result();
+    return acc;
   }
   const text = new TextDecoder().decode(bytes);
   const vertexRe = /vertex\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)/g;
@@ -100,7 +109,7 @@ export function parseStlMetrics(bytes: Uint8Array): MeshMetrics {
       tri.length = 0;
     }
   }
-  return acc.result();
+  return acc;
 }
 
 /** OBJ faces are triangulated as fans; negative (relative) indices are supported. */
