@@ -4,7 +4,7 @@ Owner xác nhận được chủ trang cho phép phân tích (2026-10-21). Quy t
 
 | # | Tool | URL gốc | Phase BaSa3D | Khảo sát REA | Kết quả |
 |---|---|---|---|---|---|
-| 0 | Trang tổng (hub) | https://landing.vunguyenhoanglong06031992.workers.dev/#tools | 19, 21 | Chưa | — |
+| 0 | Trang tổng (hub) → app desktop **Flex Hub** v0.2.24 | https://landing.vunguyenhoanglong06031992.workers.dev/flex-hub/ | 19, 21, 45 | **Đã khảo sát tĩnh** (REA + trích asset Tauri, 2026-10-21) | `docs/research/flex-hub-tools.md` |
 | 1 | Flex Keychain | https://flex-keychain.vunguyenhoanglong06031992.workers.dev/ | 21 | **Đã quan sát qua Chrome (C-xx)**; REA (R-xx) chờ chạy trên Mac | `docs/exec-plans/active/phase-46-keychain-rea.md` |
 | 2 | Flex Dual Text | https://flex-dual-text.vunguyenhoanglong06031992.workers.dev/ | 22 | Chưa | — |
 | 3 | Flex Organizer | https://flex-organizer.vunguyenhoanglong06031992.workers.dev/ | 19, 20 (+45 parity) | Chưa | — |

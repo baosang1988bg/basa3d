@@ -1,0 +1,2142 @@
+{
+  "_comment": "Phase 45 golden values measured on the reference Flex Organizer page via its window.__app API (scripted Chromium): default, 6 presets, 5 textures, 4 toggles, label cases, preset+all-features combos and 20 seeded random configurations. Label font: public/fonts/Inter-Regular.ttf (byte-identical to the reference label-font). Do not edit by hand; re-measure instead.",
+  "source": "https://flex-organizer.vunguyenhoanglong06031992.workers.dev/",
+  "appVersion": "0.1.0",
+  "measuredAt": "2026-10-21T09:13:56.872Z",
+  "manifold": "manifold-3d@3.5.4 (reference WASM is byte-identical)",
+  "cases": [
+    {
+      "id": "default",
+      "params": {
+        "width": 120,
+        "depth": 80,
+        "height": 40,
+        "cols": 3,
+        "rows": 2,
+        "wall": 2,
+        "floor": 2,
+        "divider": 1.6,
+        "radius": 3,
+        "stackingLip": false,
+        "labelTab": false,
+        "fingerScoops": false,
+        "floorHoles": false,
+        "wallTexture": "none",
+        "textureDepth": 1,
+        "textureCount": 40,
+        "color": "#3b82f6"
+      },
+      "label": null,
+      "expected": {
+        "volumeCm3": 65.568465,
+        "weightPlaG": 81.304897,
+        "triangles": 1900,
+        "compartments": 6,
+        "bbox": [
+          120,
+          80,
+          40
+        ],
+        "cellInner": [
+          37.6,
+          37.2
+        ],
+        "warnings": [],
+        "label": null
+      }
+    },
+    {
+      "id": "preset:smallTray",
+      "params": {
+        "width": 90,
+        "depth": 60,
+        "height": 25,
+        "cols": 2,
+        "rows": 1,
+        "wall": 1.6,
+        "floor": 1.6,
+        "divider": 1.2,
+        "radius": 2,
+        "stackingLip": false,
+        "labelTab": false,
+        "fingerScoops": false,
+        "floorHoles": false,
+        "wallTexture": "none",
+        "textureDepth": 1,
+        "textureCount": 40,
+        "color": "#3b82f6"
+      },
+      "label": null,
+      "expected": {
+        "volumeCm3": 21.302621,
+        "weightPlaG": 26.41525,
+        "triangles": 812,
+        "compartments": 2,
+        "bbox": [
+          90,
+          60,
+          25
+        ],
+        "cellInner": [
+          42.8,
+          56.8
+        ],
+        "warnings": [],
+        "label": null
+      }
+    },
+    {
+      "id": "preset:deskOrganizer",
+      "params": {
+        "width": 180,
+        "depth": 100,
+        "height": 60,
+        "cols": 4,
+        "rows": 2,
+        "wall": 2,
+        "floor": 2,
+        "divider": 1.6,
+        "radius": 4,
+        "stackingLip": false,
+        "labelTab": false,
+        "fingerScoops": false,
+        "floorHoles": false,
+        "wallTexture": "none",
+        "textureDepth": 1,
+        "textureCount": 40,
+        "color": "#3b82f6"
+      },
+      "label": null,
+      "expected": {
+        "volumeCm3": 143.419413,
+        "weightPlaG": 177.840072,
+        "triangles": 2444,
+        "compartments": 8,
+        "bbox": [
+          180,
+          100,
+          60
+        ],
+        "cellInner": [
+          42.8,
+          47.2
+        ],
+        "warnings": [],
+        "label": null
+      }
+    },
+    {
+      "id": "preset:partsBin",
+      "params": {
+        "width": 120,
+        "depth": 80,
+        "height": 50,
+        "cols": 3,
+        "rows": 3,
+        "wall": 2,
+        "floor": 2,
+        "divider": 1.6,
+        "radius": 3,
+        "stackingLip": false,
+        "labelTab": false,
+        "fingerScoops": false,
+        "floorHoles": false,
+        "wallTexture": "none",
+        "textureDepth": 1,
+        "textureCount": 40,
+        "color": "#3b82f6"
+      },
+      "label": null,
+      "expected": {
+        "volumeCm3": 86.935171,
+        "weightPlaG": 107.799612,
+        "triangles": 2716,
+        "compartments": 9,
+        "bbox": [
+          120,
+          80,
+          50
+        ],
+        "cellInner": [
+          37.6,
+          24.266667
+        ],
+        "warnings": [],
+        "label": null
+      }
+    },
+    {
+      "id": "preset:drawerInsert",
+      "params": {
+        "width": 220,
+        "depth": 160,
+        "height": 40,
+        "cols": 5,
+        "rows": 4,
+        "wall": 1.6,
+        "floor": 1.6,
+        "divider": 1.2,
+        "radius": 2,
+        "stackingLip": false,
+        "labelTab": false,
+        "fingerScoops": false,
+        "floorHoles": false,
+        "wallTexture": "none",
+        "textureDepth": 1,
+        "textureCount": 40,
+        "color": "#3b82f6"
+      },
+      "label": null,
+      "expected": {
+        "volumeCm3": 163.343811,
+        "weightPlaG": 202.546325,
+        "triangles": 5708,
+        "compartments": 20,
+        "bbox": [
+          220,
+          160,
+          40
+        ],
+        "cellInner": [
+          42.4,
+          38.3
+        ],
+        "warnings": [],
+        "label": null
+      }
+    },
+    {
+      "id": "preset:toolHolder",
+      "params": {
+        "width": 150,
+        "depth": 60,
+        "height": 80,
+        "cols": 6,
+        "rows": 1,
+        "wall": 2.4,
+        "floor": 3,
+        "divider": 2,
+        "radius": 3,
+        "stackingLip": false,
+        "labelTab": false,
+        "fingerScoops": false,
+        "floorHoles": false,
+        "wallTexture": "none",
+        "textureDepth": 1,
+        "textureCount": 40,
+        "color": "#3b82f6"
+      },
+      "label": null,
+      "expected": {
+        "volumeCm3": 146.319893,
+        "weightPlaG": 181.436667,
+        "triangles": 1900,
+        "compartments": 6,
+        "bbox": [
+          150,
+          60,
+          80
+        ],
+        "cellInner": [
+          22.533333,
+          55.2
+        ],
+        "warnings": [],
+        "label": null
+      }
+    },
+    {
+      "id": "preset:screwSorter",
+      "params": {
+        "width": 100,
+        "depth": 100,
+        "height": 30,
+        "cols": 4,
+        "rows": 4,
+        "wall": 1.2,
+        "floor": 1.2,
+        "divider": 1,
+        "radius": 2,
+        "stackingLip": false,
+        "labelTab": false,
+        "fingerScoops": false,
+        "floorHoles": false,
+        "wallTexture": "none",
+        "textureDepth": 1,
+        "textureCount": 40,
+        "color": "#3b82f6"
+      },
+      "label": null,
+      "expected": {
+        "volumeCm3": 43.752092,
+        "weightPlaG": 54.252594,
+        "triangles": 4620,
+        "compartments": 16,
+        "bbox": [
+          100,
+          100,
+          30
+        ],
+        "cellInner": [
+          23.65,
+          23.65
+        ],
+        "warnings": [],
+        "label": null
+      }
+    },
+    {
+      "id": "texture:fluted",
+      "params": {
+        "width": 120,
+        "depth": 80,
+        "height": 40,
+        "cols": 3,
+        "rows": 2,
+        "wall": 2,
+        "floor": 2,
+        "divider": 1.6,
+        "radius": 3,
+        "stackingLip": false,
+        "labelTab": false,
+        "fingerScoops": false,
+        "floorHoles": false,
+        "wallTexture": "fluted",
+        "textureDepth": 1,
+        "textureCount": 40,
+        "color": "#3b82f6"
+      },
+      "label": null,
+      "expected": {
+        "volumeCm3": 57.711166,
+        "weightPlaG": 71.561846,
+        "triangles": 3900,
+        "compartments": 6,
+        "bbox": [
+          120,
+          80,
+          40
+        ],
+        "cellInner": [
+          37.6,
+          37.2
+        ],
+        "warnings": [],
+        "label": null
+      }
+    },
+    {
+      "id": "texture:reeded",
+      "params": {
+        "width": 120,
+        "depth": 80,
+        "height": 40,
+        "cols": 3,
+        "rows": 2,
+        "wall": 2,
+        "floor": 2,
+        "divider": 1.6,
+        "radius": 3,
+        "stackingLip": false,
+        "labelTab": false,
+        "fingerScoops": false,
+        "floorHoles": false,
+        "wallTexture": "reeded",
+        "textureDepth": 1,
+        "textureCount": 40,
+        "color": "#3b82f6"
+      },
+      "label": null,
+      "expected": {
+        "volumeCm3": 73.498371,
+        "weightPlaG": 91.13798,
+        "triangles": 3888,
+        "compartments": 6,
+        "bbox": [
+          120,
+          80,
+          40
+        ],
+        "cellInner": [
+          37.6,
+          37.2
+        ],
+        "warnings": [],
+        "label": null
+      }
+    },
+    {
+      "id": "texture:ribbed",
+      "params": {
+        "width": 120,
+        "depth": 80,
+        "height": 40,
+        "cols": 3,
+        "rows": 2,
+        "wall": 2,
+        "floor": 2,
+        "divider": 1.6,
+        "radius": 3,
+        "stackingLip": false,
+        "labelTab": false,
+        "fingerScoops": false,
+        "floorHoles": false,
+        "wallTexture": "ribbed",
+        "textureDepth": 1,
+        "textureCount": 40,
+        "color": "#3b82f6"
+      },
+      "label": null,
+      "expected": {
+        "volumeCm3": 71.332497,
+        "weightPlaG": 88.452296,
+        "triangles": 3548,
+        "compartments": 6,
+        "bbox": [
+          120,
+          80,
+          40
+        ],
+        "cellInner": [
+          37.6,
+          37.2
+        ],
+        "warnings": [],
+        "label": null
+      }
+    },
+    {
+      "id": "texture:wavy",
+      "params": {
+        "width": 120,
+        "depth": 80,
+        "height": 40,
+        "cols": 3,
+        "rows": 2,
+        "wall": 2,
+        "floor": 2,
+        "divider": 1.6,
+        "radius": 3,
+        "stackingLip": false,
+        "labelTab": false,
+        "fingerScoops": false,
+        "floorHoles": false,
+        "wallTexture": "wavy",
+        "textureDepth": 1,
+        "textureCount": 40,
+        "color": "#3b82f6"
+      },
+      "label": null,
+      "expected": {
+        "volumeCm3": 65.623043,
+        "weightPlaG": 81.372573,
+        "triangles": 3882,
+        "compartments": 6,
+        "bbox": [
+          120,
+          80,
+          40
+        ],
+        "cellInner": [
+          37.6,
+          37.2
+        ],
+        "warnings": [],
+        "label": null
+      }
+    },
+    {
+      "id": "texture:faceted",
+      "params": {
+        "width": 120,
+        "depth": 80,
+        "height": 40,
+        "cols": 3,
+        "rows": 2,
+        "wall": 2,
+        "floor": 2,
+        "divider": 1.6,
+        "radius": 3,
+        "stackingLip": false,
+        "labelTab": false,
+        "fingerScoops": false,
+        "floorHoles": false,
+        "wallTexture": "faceted",
+        "textureDepth": 1,
+        "textureCount": 40,
+        "color": "#3b82f6"
+      },
+      "label": null,
+      "expected": {
+        "volumeCm3": 65.589453,
+        "weightPlaG": 81.330922,
+        "triangles": 3260,
+        "compartments": 6,
+        "bbox": [
+          120,
+          80,
+          40
+        ],
+        "cellInner": [
+          37.6,
+          37.2
+        ],
+        "warnings": [],
+        "label": null
+      }
+    },
+    {
+      "id": "toggle:stackingLip",
+      "params": {
+        "width": 120,
+        "depth": 80,
+        "height": 40,
+        "cols": 3,
+        "rows": 2,
+        "wall": 2,
+        "floor": 2,
+        "divider": 1.6,
+        "radius": 3,
+        "stackingLip": true,
+        "labelTab": false,
+        "fingerScoops": false,
+        "floorHoles": false,
+        "wallTexture": "none",
+        "textureDepth": 1,
+        "textureCount": 40,
+        "color": "#3b82f6"
+      },
+      "label": null,
+      "expected": {
+        "volumeCm3": 64.789471,
+        "weightPlaG": 80.338944,
+        "triangles": 2928,
+        "compartments": 6,
+        "bbox": [
+          120,
+          80,
+          40
+        ],
+        "cellInner": [
+          37.6,
+          37.2
+        ],
+        "warnings": [],
+        "label": null
+      }
+    },
+    {
+      "id": "toggle:labelTab",
+      "params": {
+        "width": 120,
+        "depth": 80,
+        "height": 40,
+        "cols": 3,
+        "rows": 2,
+        "wall": 2,
+        "floor": 2,
+        "divider": 1.6,
+        "radius": 3,
+        "stackingLip": false,
+        "labelTab": true,
+        "fingerScoops": false,
+        "floorHoles": false,
+        "wallTexture": "none",
+        "textureDepth": 1,
+        "textureCount": 40,
+        "color": "#3b82f6"
+      },
+      "label": null,
+      "expected": {
+        "volumeCm3": 68.668104,
+        "weightPlaG": 85.148449,
+        "triangles": 1960,
+        "compartments": 6,
+        "bbox": [
+          120,
+          80,
+          40
+        ],
+        "cellInner": [
+          37.6,
+          37.2
+        ],
+        "warnings": [],
+        "label": null
+      }
+    },
+    {
+      "id": "toggle:fingerScoops",
+      "params": {
+        "width": 120,
+        "depth": 80,
+        "height": 40,
+        "cols": 3,
+        "rows": 2,
+        "wall": 2,
+        "floor": 2,
+        "divider": 1.6,
+        "radius": 3,
+        "stackingLip": false,
+        "labelTab": false,
+        "fingerScoops": true,
+        "floorHoles": false,
+        "wallTexture": "none",
+        "textureDepth": 1,
+        "textureCount": 40,
+        "color": "#3b82f6"
+      },
+      "label": null,
+      "expected": {
+        "volumeCm3": 79.13777,
+        "weightPlaG": 98.130835,
+        "triangles": 2188,
+        "compartments": 6,
+        "bbox": [
+          120,
+          80,
+          40
+        ],
+        "cellInner": [
+          37.6,
+          37.2
+        ],
+        "warnings": [],
+        "label": null
+      }
+    },
+    {
+      "id": "toggle:floorHoles",
+      "params": {
+        "width": 120,
+        "depth": 80,
+        "height": 40,
+        "cols": 3,
+        "rows": 2,
+        "wall": 2,
+        "floor": 2,
+        "divider": 1.6,
+        "radius": 3,
+        "stackingLip": false,
+        "labelTab": false,
+        "fingerScoops": false,
+        "floorHoles": true,
+        "wallTexture": "none",
+        "textureDepth": 1,
+        "textureCount": 40,
+        "color": "#3b82f6"
+      },
+      "label": null,
+      "expected": {
+        "volumeCm3": 63.050664,
+        "weightPlaG": 78.182824,
+        "triangles": 3076,
+        "compartments": 6,
+        "bbox": [
+          120,
+          80,
+          40
+        ],
+        "cellInner": [
+          37.6,
+          37.2
+        ],
+        "warnings": [],
+        "label": null
+      }
+    },
+    {
+      "id": "toggles:all",
+      "params": {
+        "width": 120,
+        "depth": 80,
+        "height": 40,
+        "cols": 3,
+        "rows": 2,
+        "wall": 2,
+        "floor": 2,
+        "divider": 1.6,
+        "radius": 3,
+        "stackingLip": true,
+        "labelTab": true,
+        "fingerScoops": true,
+        "floorHoles": true,
+        "wallTexture": "none",
+        "textureDepth": 1,
+        "textureCount": 40,
+        "color": "#3b82f6"
+      },
+      "label": null,
+      "expected": {
+        "volumeCm3": 78.863093,
+        "weightPlaG": 97.790236,
+        "triangles": 4492,
+        "compartments": 6,
+        "bbox": [
+          120,
+          80,
+          40
+        ],
+        "cellInner": [
+          37.6,
+          37.2
+        ],
+        "warnings": [],
+        "label": null
+      }
+    },
+    {
+      "id": "label:default",
+      "params": {
+        "width": 120,
+        "depth": 80,
+        "height": 40,
+        "cols": 3,
+        "rows": 2,
+        "wall": 2,
+        "floor": 2,
+        "divider": 1.6,
+        "radius": 3,
+        "stackingLip": false,
+        "labelTab": false,
+        "fingerScoops": false,
+        "floorHoles": false,
+        "wallTexture": "none",
+        "textureDepth": 1,
+        "textureCount": 40,
+        "color": "#3b82f6"
+      },
+      "label": {
+        "enabled": true
+      },
+      "expected": {
+        "volumeCm3": 66.614919,
+        "weightPlaG": 82.602499,
+        "triangles": 1956,
+        "compartments": 6,
+        "bbox": [
+          120,
+          80,
+          40
+        ],
+        "cellInner": [
+          37.6,
+          37.2
+        ],
+        "warnings": [],
+        "label": {
+          "volumeCm3": 0.625529,
+          "triangles": 924,
+          "size": [
+            27.806818,
+            13.5,
+            2.2
+          ]
+        }
+      }
+    },
+    {
+      "id": "label:long-text",
+      "params": {
+        "width": 120,
+        "depth": 80,
+        "height": 40,
+        "cols": 3,
+        "rows": 2,
+        "wall": 2,
+        "floor": 2,
+        "divider": 1.6,
+        "radius": 3,
+        "stackingLip": false,
+        "labelTab": false,
+        "fingerScoops": false,
+        "floorHoles": false,
+        "wallTexture": "none",
+        "textureDepth": 1,
+        "textureCount": 40,
+        "color": "#3b82f6"
+      },
+      "label": {
+        "enabled": true,
+        "text": "SCREWS M3 M4",
+        "fontSize": 10,
+        "plateHeight": 16
+      },
+      "expected": {
+        "volumeCm3": 68.218522,
+        "weightPlaG": 84.590967,
+        "triangles": 1958,
+        "compartments": 6,
+        "bbox": [
+          120,
+          80,
+          40
+        ],
+        "cellInner": [
+          37.6,
+          37.2
+        ],
+        "warnings": [],
+        "label": {
+          "volumeCm3": 2.12098,
+          "triangles": 5156,
+          "size": [
+            81.431818,
+            15.5,
+            2.2
+          ]
+        }
+      }
+    },
+    {
+      "id": "clamp:texture-and-grid",
+      "params": {
+        "width": 40,
+        "depth": 80,
+        "height": 40,
+        "cols": 12,
+        "rows": 2,
+        "wall": 1,
+        "floor": 2,
+        "divider": 1.6,
+        "radius": 0,
+        "stackingLip": true,
+        "labelTab": false,
+        "fingerScoops": false,
+        "floorHoles": false,
+        "wallTexture": "wavy",
+        "textureDepth": 3,
+        "textureCount": 120,
+        "color": "#3b82f6"
+      },
+      "label": null,
+      "expected": {
+        "volumeCm3": 68.482179,
+        "weightPlaG": 84.917902,
+        "triangles": 8180,
+        "compartments": 24,
+        "bbox": [
+          40,
+          80,
+          40
+        ],
+        "cellInner": [
+          1.7,
+          38.2
+        ],
+        "warnings": [
+          "warn.textureClamped"
+        ],
+        "label": null
+      }
+    },
+    {
+      "id": "combo:smallTray",
+      "params": {
+        "width": 90,
+        "depth": 60,
+        "height": 25,
+        "cols": 2,
+        "rows": 1,
+        "wall": 1.6,
+        "floor": 1.6,
+        "divider": 1.2,
+        "radius": 2,
+        "stackingLip": true,
+        "labelTab": true,
+        "fingerScoops": true,
+        "floorHoles": true,
+        "wallTexture": "fluted",
+        "textureDepth": 1,
+        "textureCount": 40,
+        "color": "#3b82f6"
+      },
+      "label": {
+        "enabled": true,
+        "text": "BOLTS"
+      },
+      "expected": {
+        "volumeCm3": 22.392876,
+        "weightPlaG": 27.767166,
+        "triangles": 4794,
+        "compartments": 2,
+        "bbox": [
+          90,
+          60,
+          25
+        ],
+        "cellInner": [
+          42.8,
+          56.8
+        ],
+        "warnings": [],
+        "label": {
+          "volumeCm3": 0.660898,
+          "triangles": 2748,
+          "size": [
+            29.375,
+            13.5,
+            2.2
+          ]
+        }
+      }
+    },
+    {
+      "id": "combo:deskOrganizer",
+      "params": {
+        "width": 180,
+        "depth": 100,
+        "height": 60,
+        "cols": 4,
+        "rows": 2,
+        "wall": 2,
+        "floor": 2,
+        "divider": 1.6,
+        "radius": 4,
+        "stackingLip": true,
+        "labelTab": true,
+        "fingerScoops": true,
+        "floorHoles": true,
+        "wallTexture": "reeded",
+        "textureDepth": 1,
+        "textureCount": 40,
+        "color": "#3b82f6"
+      },
+      "label": {
+        "enabled": true,
+        "text": "Ốc vít M3"
+      },
+      "expected": {
+        "volumeCm3": 193.252792,
+        "weightPlaG": 239.633462,
+        "triangles": 8146,
+        "compartments": 8,
+        "bbox": [
+          180,
+          100,
+          60
+        ],
+        "cellInner": [
+          42.8,
+          47.2
+        ],
+        "warnings": [],
+        "label": {
+          "volumeCm3": 0.897478,
+          "triangles": 3186,
+          "size": [
+            39.988636,
+            13.5,
+            2.2
+          ]
+        }
+      }
+    },
+    {
+      "id": "combo:partsBin",
+      "params": {
+        "width": 120,
+        "depth": 80,
+        "height": 50,
+        "cols": 3,
+        "rows": 3,
+        "wall": 2,
+        "floor": 2,
+        "divider": 1.6,
+        "radius": 3,
+        "stackingLip": true,
+        "labelTab": true,
+        "fingerScoops": true,
+        "floorHoles": true,
+        "wallTexture": "ribbed",
+        "textureDepth": 1,
+        "textureCount": 40,
+        "color": "#3b82f6"
+      },
+      "label": {
+        "enabled": true,
+        "text": "LEGO"
+      },
+      "expected": {
+        "volumeCm3": 104.145277,
+        "weightPlaG": 129.140144,
+        "triangles": 7740,
+        "compartments": 9,
+        "bbox": [
+          120,
+          80,
+          50
+        ],
+        "cellInner": [
+          37.6,
+          24.266667
+        ],
+        "warnings": [],
+        "label": {
+          "volumeCm3": 0.55396,
+          "triangles": 1748,
+          "size": [
+            24.636364,
+            13.5,
+            2.2
+          ]
+        }
+      }
+    },
+    {
+      "id": "combo:drawerInsert",
+      "params": {
+        "width": 220,
+        "depth": 160,
+        "height": 40,
+        "cols": 5,
+        "rows": 4,
+        "wall": 1.6,
+        "floor": 1.6,
+        "divider": 1.2,
+        "radius": 2,
+        "stackingLip": true,
+        "labelTab": true,
+        "fingerScoops": true,
+        "floorHoles": true,
+        "wallTexture": "wavy",
+        "textureDepth": 1,
+        "textureCount": 40,
+        "color": "#3b82f6"
+      },
+      "label": {
+        "enabled": true,
+        "text": "Pin AA"
+      },
+      "expected": {
+        "volumeCm3": 216.932193,
+        "weightPlaG": 268.995919,
+        "triangles": 14906,
+        "compartments": 20,
+        "bbox": [
+          220,
+          160,
+          40
+        ],
+        "cellInner": [
+          42.4,
+          38.3
+        ],
+        "warnings": [],
+        "label": {
+          "volumeCm3": 0.63383,
+          "triangles": 1214,
+          "size": [
+            28.318182,
+            13.5,
+            2.2
+          ]
+        }
+      }
+    },
+    {
+      "id": "combo:toolHolder",
+      "params": {
+        "width": 150,
+        "depth": 60,
+        "height": 80,
+        "cols": 6,
+        "rows": 1,
+        "wall": 2.4,
+        "floor": 3,
+        "divider": 2,
+        "radius": 3,
+        "stackingLip": true,
+        "labelTab": true,
+        "fingerScoops": true,
+        "floorHoles": true,
+        "wallTexture": "faceted",
+        "textureDepth": 1,
+        "textureCount": 40,
+        "color": "#3b82f6"
+      },
+      "label": {
+        "enabled": true,
+        "text": "Tools"
+      },
+      "expected": {
+        "volumeCm3": 167.046487,
+        "weightPlaG": 207.137644,
+        "triangles": 6350,
+        "compartments": 6,
+        "bbox": [
+          150,
+          60,
+          80
+        ],
+        "cellInner": [
+          22.533333,
+          55.2
+        ],
+        "warnings": [],
+        "label": {
+          "volumeCm3": 0.547753,
+          "triangles": 2476,
+          "size": [
+            24.477273,
+            13.5,
+            2.2
+          ]
+        }
+      }
+    },
+    {
+      "id": "combo:screwSorter",
+      "params": {
+        "width": 100,
+        "depth": 100,
+        "height": 30,
+        "cols": 4,
+        "rows": 4,
+        "wall": 1.2,
+        "floor": 1.2,
+        "divider": 1,
+        "radius": 2,
+        "stackingLip": true,
+        "labelTab": true,
+        "fingerScoops": true,
+        "floorHoles": true,
+        "wallTexture": "fluted",
+        "textureDepth": 1,
+        "textureCount": 40,
+        "color": "#3b82f6"
+      },
+      "label": {
+        "enabled": true,
+        "text": "ABC 123"
+      },
+      "expected": {
+        "volumeCm3": 50.47632,
+        "weightPlaG": 62.590636,
+        "triangles": 12964,
+        "compartments": 16,
+        "bbox": [
+          100,
+          100,
+          30
+        ],
+        "cellInner": [
+          23.65,
+          23.65
+        ],
+        "warnings": [
+          "warn.textureClamped"
+        ],
+        "label": {
+          "volumeCm3": 0.809866,
+          "triangles": 3486,
+          "size": [
+            36.068182,
+            13.5,
+            2.2
+          ]
+        }
+      }
+    },
+    {
+      "id": "random:01",
+      "params": {
+        "width": 30,
+        "depth": 276,
+        "height": 119,
+        "cols": 5,
+        "rows": 6,
+        "wall": 3.1,
+        "floor": 0.6,
+        "divider": 4.5,
+        "radius": 8.5,
+        "stackingLip": true,
+        "labelTab": true,
+        "fingerScoops": false,
+        "floorHoles": false,
+        "wallTexture": "wavy",
+        "textureDepth": 2,
+        "textureCount": 112,
+        "color": "#3b82f6"
+      },
+      "label": null,
+      "expected": {
+        "volumeCm3": 810.626829,
+        "weightPlaG": 1005.177268,
+        "triangles": 17872,
+        "compartments": 30,
+        "bbox": [
+          30,
+          276,
+          119
+        ],
+        "cellInner": [
+          1.16,
+          41.216667
+        ],
+        "warnings": [],
+        "label": null
+      }
+    },
+    {
+      "id": "random:02",
+      "params": {
+        "width": 248,
+        "depth": 91,
+        "height": 137,
+        "cols": 5,
+        "rows": 11,
+        "wall": 5.1,
+        "floor": 6.8,
+        "divider": 2.4,
+        "radius": 4,
+        "stackingLip": true,
+        "labelTab": true,
+        "fingerScoops": false,
+        "floorHoles": true,
+        "wallTexture": "faceted",
+        "textureDepth": 0.3,
+        "textureCount": 61,
+        "color": "#3b82f6"
+      },
+      "label": {
+        "enabled": true,
+        "text": "HELLO",
+        "fontSize": 9.5,
+        "embossDepth": 0.3,
+        "plateHeight": 27
+      },
+      "expected": {
+        "volumeCm3": 1431.735369,
+        "weightPlaG": 1775.351858,
+        "triangles": 30446,
+        "compartments": 55,
+        "bbox": [
+          248,
+          91,
+          137
+        ],
+        "cellInner": [
+          45.64,
+          5.163636
+        ],
+        "warnings": [],
+        "label": {
+          "volumeCm3": 1.447654,
+          "triangles": 926,
+          "size": [
+            33.728693,
+            26.5,
+            1.9
+          ]
+        }
+      }
+    },
+    {
+      "id": "random:03",
+      "params": {
+        "width": 195,
+        "depth": 246,
+        "height": 90,
+        "cols": 3,
+        "rows": 3,
+        "wall": 3.2,
+        "floor": 6.5,
+        "divider": 3.1,
+        "radius": 12,
+        "stackingLip": true,
+        "labelTab": true,
+        "fingerScoops": false,
+        "floorHoles": false,
+        "wallTexture": "none",
+        "textureDepth": 2.4,
+        "textureCount": 49,
+        "color": "#3b82f6"
+      },
+      "label": {
+        "enabled": true,
+        "text": "Đồ nghề",
+        "fontSize": 9.5,
+        "embossDepth": 1.2,
+        "plateHeight": 20
+      },
+      "expected": {
+        "volumeCm3": 758.128091,
+        "weightPlaG": 940.078833,
+        "triangles": 3986,
+        "compartments": 9,
+        "bbox": [
+          195,
+          246,
+          90
+        ],
+        "cellInner": [
+          60.8,
+          77.8
+        ],
+        "warnings": [],
+        "label": {
+          "volumeCm3": 1.402921,
+          "triangles": 4044,
+          "size": [
+            41.90625,
+            19.5,
+            2.8
+          ]
+        }
+      }
+    },
+    {
+      "id": "random:04",
+      "params": {
+        "width": 46,
+        "depth": 223,
+        "height": 40,
+        "cols": 2,
+        "rows": 8,
+        "wall": 3.2,
+        "floor": 3.3,
+        "divider": 5.2,
+        "radius": 7,
+        "stackingLip": true,
+        "labelTab": true,
+        "fingerScoops": true,
+        "floorHoles": true,
+        "wallTexture": "reeded",
+        "textureDepth": 2,
+        "textureCount": 83,
+        "color": "#3b82f6"
+      },
+      "label": null,
+      "expected": {
+        "volumeCm3": 207.67701,
+        "weightPlaG": 257.519493,
+        "triangles": 15028,
+        "compartments": 16,
+        "bbox": [
+          46,
+          223,
+          40
+        ],
+        "cellInner": [
+          17.2,
+          22.525
+        ],
+        "warnings": [],
+        "label": null
+      }
+    },
+    {
+      "id": "random:05",
+      "params": {
+        "width": 164,
+        "depth": 135,
+        "height": 39,
+        "cols": 7,
+        "rows": 12,
+        "wall": 4,
+        "floor": 2.7,
+        "divider": 2.9,
+        "radius": 3,
+        "stackingLip": true,
+        "labelTab": true,
+        "fingerScoops": true,
+        "floorHoles": true,
+        "wallTexture": "faceted",
+        "textureDepth": 1.3,
+        "textureCount": 105,
+        "color": "#3b82f6"
+      },
+      "label": {
+        "enabled": true,
+        "text": "M2.5",
+        "fontSize": 18.5,
+        "embossDepth": 0.7,
+        "plateHeight": 18
+      },
+      "expected": {
+        "volumeCm3": 402.200246,
+        "weightPlaG": 498.728305,
+        "triangles": 51186,
+        "compartments": 84,
+        "bbox": [
+          164,
+          135,
+          39
+        ],
+        "cellInner": [
+          19.8,
+          7.925
+        ],
+        "warnings": [],
+        "label": {
+          "volumeCm3": 1.317103,
+          "triangles": 1678,
+          "size": [
+            43.203422,
+            17.5,
+            2.3
+          ]
+        }
+      }
+    },
+    {
+      "id": "random:06",
+      "params": {
+        "width": 237,
+        "depth": 83,
+        "height": 17,
+        "cols": 5,
+        "rows": 6,
+        "wall": 0.6,
+        "floor": 2.7,
+        "divider": 0.5,
+        "radius": 1.5,
+        "stackingLip": false,
+        "labelTab": true,
+        "fingerScoops": true,
+        "floorHoles": false,
+        "wallTexture": "reeded",
+        "textureDepth": 1.6,
+        "textureCount": 110,
+        "color": "#3b82f6"
+      },
+      "label": {
+        "enabled": true,
+        "text": "Đồ nghề",
+        "fontSize": 6,
+        "embossDepth": 1.6,
+        "plateHeight": 29
+      },
+      "expected": {
+        "volumeCm3": 97.028557,
+        "weightPlaG": 120.315411,
+        "triangles": 16366,
+        "compartments": 30,
+        "bbox": [
+          237,
+          83,
+          17
+        ],
+        "cellInner": [
+          46.76,
+          13.216667
+        ],
+        "warnings": [],
+        "label": {
+          "volumeCm3": 0.201414,
+          "triangles": 4042,
+          "size": [
+            15.814286,
+            7.5,
+            3.2
+          ]
+        }
+      }
+    },
+    {
+      "id": "random:07",
+      "params": {
+        "width": 287,
+        "depth": 67,
+        "height": 135,
+        "cols": 7,
+        "rows": 3,
+        "wall": 2.3,
+        "floor": 3.6,
+        "divider": 2.2,
+        "radius": 0,
+        "stackingLip": false,
+        "labelTab": false,
+        "fingerScoops": false,
+        "floorHoles": true,
+        "wallTexture": "faceted",
+        "textureDepth": 1.7,
+        "textureCount": 62,
+        "color": "#3b82f6"
+      },
+      "label": {
+        "enabled": true,
+        "text": "HELLO",
+        "fontSize": 4,
+        "embossDepth": 1.4,
+        "plateHeight": 13
+      },
+      "expected": {
+        "volumeCm3": 540.787112,
+        "weightPlaG": 670.576019,
+        "triangles": 7070,
+        "compartments": 21,
+        "bbox": [
+          287,
+          67,
+          135
+        ],
+        "cellInner": [
+          38.457143,
+          19.333333
+        ],
+        "warnings": [],
+        "label": {
+          "volumeCm3": 0.350662,
+          "triangles": 926,
+          "size": [
+            16.806818,
+            12.5,
+            3
+          ]
+        }
+      }
+    },
+    {
+      "id": "random:08",
+      "params": {
+        "width": 111,
+        "depth": 206,
+        "height": 138,
+        "cols": 10,
+        "rows": 6,
+        "wall": 2.9,
+        "floor": 2.3,
+        "divider": 4.6,
+        "radius": 5.5,
+        "stackingLip": false,
+        "labelTab": true,
+        "fingerScoops": false,
+        "floorHoles": false,
+        "wallTexture": "wavy",
+        "textureDepth": 2.5,
+        "textureCount": 120,
+        "color": "#3b82f6"
+      },
+      "label": {
+        "enabled": true,
+        "text": "HELLO",
+        "fontSize": 12,
+        "embossDepth": 0.2,
+        "plateHeight": 14
+      },
+      "expected": {
+        "volumeCm3": 1650.499372,
+        "weightPlaG": 2046.619221,
+        "triangles": 23976,
+        "compartments": 60,
+        "bbox": [
+          111,
+          206,
+          138
+        ],
+        "cellInner": [
+          6.38,
+          29.533333
+        ],
+        "warnings": [],
+        "label": {
+          "volumeCm3": 0.913358,
+          "triangles": 926,
+          "size": [
+            41.420455,
+            13.5,
+            1.8
+          ]
+        }
+      }
+    },
+    {
+      "id": "random:09",
+      "params": {
+        "width": 31,
+        "depth": 221,
+        "height": 97,
+        "cols": 4,
+        "rows": 4,
+        "wall": 3.4,
+        "floor": 3.6,
+        "divider": 3.1,
+        "radius": 1.5,
+        "stackingLip": true,
+        "labelTab": false,
+        "fingerScoops": false,
+        "floorHoles": false,
+        "wallTexture": "fluted",
+        "textureDepth": 0.9,
+        "textureCount": 7,
+        "color": "#3b82f6"
+      },
+      "label": {
+        "enabled": true,
+        "text": "x",
+        "fontSize": 10.5,
+        "embossDepth": 0.9,
+        "plateHeight": 10
+      },
+      "expected": {
+        "volumeCm3": 360.142666,
+        "weightPlaG": 446.576906,
+        "triangles": 5504,
+        "compartments": 16,
+        "bbox": [
+          31,
+          221,
+          97
+        ],
+        "cellInner": [
+          3.725,
+          51.225
+        ],
+        "warnings": [],
+        "label": {
+          "volumeCm3": 0.151647,
+          "triangles": 60,
+          "size": [
+            9.5,
+            9.5,
+            2.5
+          ]
+        }
+      }
+    },
+    {
+      "id": "random:10",
+      "params": {
+        "width": 27,
+        "depth": 286,
+        "height": 22,
+        "cols": 11,
+        "rows": 7,
+        "wall": 1.3,
+        "floor": 6.4,
+        "divider": 3.5,
+        "radius": 11,
+        "stackingLip": true,
+        "labelTab": false,
+        "fingerScoops": false,
+        "floorHoles": false,
+        "wallTexture": "none",
+        "textureDepth": 0.5,
+        "textureCount": 6,
+        "color": "#3b82f6"
+      },
+      "label": null,
+      "expected": {
+        "volumeCm3": 138.564666,
+        "weightPlaG": 171.820185,
+        "triangles": 12432,
+        "compartments": 42,
+        "bbox": [
+          27,
+          286,
+          22
+        ],
+        "cellInner": [
+          1.15,
+          37.485714
+        ],
+        "warnings": [
+          "warn.colsReduced"
+        ],
+        "label": null
+      }
+    },
+    {
+      "id": "random:11",
+      "params": {
+        "width": 167,
+        "depth": 118,
+        "height": 85,
+        "cols": 10,
+        "rows": 4,
+        "wall": 3.9,
+        "floor": 5.2,
+        "divider": 1.1,
+        "radius": 9,
+        "stackingLip": false,
+        "labelTab": false,
+        "fingerScoops": false,
+        "floorHoles": false,
+        "wallTexture": "reeded",
+        "textureDepth": 1.4,
+        "textureCount": 91,
+        "color": "#3b82f6"
+      },
+      "label": {
+        "enabled": true,
+        "text": "Đồ nghề",
+        "fontSize": 3.5,
+        "embossDepth": 1.5,
+        "plateHeight": 18
+      },
+      "expected": {
+        "volumeCm3": 440.215302,
+        "weightPlaG": 545.866975,
+        "triangles": 16244,
+        "compartments": 40,
+        "bbox": [
+          167,
+          118,
+          85
+        ],
+        "cellInner": [
+          14.93,
+          26.725
+        ],
+        "warnings": [],
+        "label": {
+          "volumeCm3": 0.528069,
+          "triangles": 4046,
+          "size": [
+            18.28125,
+            17.5,
+            3.1
+          ]
+        }
+      }
+    },
+    {
+      "id": "random:12",
+      "params": {
+        "width": 276,
+        "depth": 40,
+        "height": 20,
+        "cols": 7,
+        "rows": 1,
+        "wall": 1.7,
+        "floor": 3.9,
+        "divider": 5.9,
+        "radius": 4,
+        "stackingLip": true,
+        "labelTab": true,
+        "fingerScoops": false,
+        "floorHoles": true,
+        "wallTexture": "reeded",
+        "textureDepth": 2.5,
+        "textureCount": 47,
+        "color": "#3b82f6"
+      },
+      "label": {
+        "enabled": true,
+        "text": "x",
+        "fontSize": 12.5,
+        "embossDepth": 1,
+        "plateHeight": 30
+      },
+      "expected": {
+        "volumeCm3": 98.3264,
+        "weightPlaG": 121.924736,
+        "triangles": 7672,
+        "compartments": 7,
+        "bbox": [
+          276,
+          40,
+          20
+        ],
+        "cellInner": [
+          33.885714,
+          36.6
+        ],
+        "warnings": [],
+        "label": {
+          "volumeCm3": 0.171196,
+          "triangles": 60,
+          "size": [
+            9.5,
+            10.5,
+            2.6
+          ]
+        }
+      }
+    },
+    {
+      "id": "random:13",
+      "params": {
+        "width": 22,
+        "depth": 179,
+        "height": 99,
+        "cols": 1,
+        "rows": 12,
+        "wall": 4.6,
+        "floor": 2.1,
+        "divider": 1.6,
+        "radius": 14.5,
+        "stackingLip": false,
+        "labelTab": false,
+        "fingerScoops": false,
+        "floorHoles": true,
+        "wallTexture": "faceted",
+        "textureDepth": 0.5,
+        "textureCount": 105,
+        "color": "#3b82f6"
+      },
+      "label": null,
+      "expected": {
+        "volumeCm3": 201.018938,
+        "weightPlaG": 249.263484,
+        "triangles": 9812,
+        "compartments": 12,
+        "bbox": [
+          22,
+          179,
+          99
+        ],
+        "cellInner": [
+          12.8,
+          12.683333
+        ],
+        "warnings": [
+          "warn.radiusClamped"
+        ],
+        "label": null
+      }
+    },
+    {
+      "id": "random:14",
+      "params": {
+        "width": 110,
+        "depth": 124,
+        "height": 86,
+        "cols": 8,
+        "rows": 6,
+        "wall": 2.2,
+        "floor": 4.2,
+        "divider": 0.8,
+        "radius": 11,
+        "stackingLip": false,
+        "labelTab": true,
+        "fingerScoops": true,
+        "floorHoles": false,
+        "wallTexture": "none",
+        "textureDepth": 2.8,
+        "textureCount": 104,
+        "color": "#3b82f6"
+      },
+      "label": {
+        "enabled": true,
+        "text": "x",
+        "fontSize": 10.5,
+        "embossDepth": 1,
+        "plateHeight": 19
+      },
+      "expected": {
+        "volumeCm3": 244.72356,
+        "weightPlaG": 303.457214,
+        "triangles": 15640,
+        "compartments": 48,
+        "bbox": [
+          110,
+          124,
+          86
+        ],
+        "cellInner": [
+          12.5,
+          19.266667
+        ],
+        "warnings": [],
+        "label": {
+          "volumeCm3": 0.291766,
+          "triangles": 60,
+          "size": [
+            9.5,
+            18.5,
+            2.6
+          ]
+        }
+      }
+    },
+    {
+      "id": "random:15",
+      "params": {
+        "width": 30,
+        "depth": 45,
+        "height": 68,
+        "cols": 2,
+        "rows": 4,
+        "wall": 1,
+        "floor": 3.5,
+        "divider": 0.6,
+        "radius": 13.5,
+        "stackingLip": true,
+        "labelTab": false,
+        "fingerScoops": false,
+        "floorHoles": true,
+        "wallTexture": "none",
+        "textureDepth": 1.7,
+        "textureCount": 49,
+        "color": "#3b82f6"
+      },
+      "label": null,
+      "expected": {
+        "volumeCm3": 14.350567,
+        "weightPlaG": 17.794703,
+        "triangles": 4972,
+        "compartments": 8,
+        "bbox": [
+          30,
+          45,
+          68
+        ],
+        "cellInner": [
+          13.7,
+          10.3
+        ],
+        "warnings": [],
+        "label": null
+      }
+    },
+    {
+      "id": "random:16",
+      "params": {
+        "width": 126,
+        "depth": 287,
+        "height": 91,
+        "cols": 12,
+        "rows": 4,
+        "wall": 1.5,
+        "floor": 5,
+        "divider": 4,
+        "radius": 8.5,
+        "stackingLip": true,
+        "labelTab": false,
+        "fingerScoops": false,
+        "floorHoles": true,
+        "wallTexture": "reeded",
+        "textureDepth": 1.8,
+        "textureCount": 9,
+        "color": "#3b82f6"
+      },
+      "label": {
+        "enabled": true,
+        "text": "Đồ nghề",
+        "fontSize": 16.5,
+        "embossDepth": 0.5,
+        "plateHeight": 12
+      },
+      "expected": {
+        "volumeCm3": 1513.61569,
+        "weightPlaG": 1876.883456,
+        "triangles": 24146,
+        "compartments": 48,
+        "bbox": [
+          126,
+          287,
+          91
+        ],
+        "cellInner": [
+          6.583333,
+          68
+        ],
+        "warnings": [],
+        "label": {
+          "volumeCm3": 0.588369,
+          "triangles": 4044,
+          "size": [
+            30.9,
+            11.5,
+            2.1
+          ]
+        }
+      }
+    },
+    {
+      "id": "random:17",
+      "params": {
+        "width": 196,
+        "depth": 88,
+        "height": 108,
+        "cols": 1,
+        "rows": 12,
+        "wall": 3.1,
+        "floor": 6.8,
+        "divider": 4.9,
+        "radius": 5.5,
+        "stackingLip": true,
+        "labelTab": true,
+        "fingerScoops": false,
+        "floorHoles": true,
+        "wallTexture": "faceted",
+        "textureDepth": 2.1,
+        "textureCount": 14,
+        "color": "#3b82f6"
+      },
+      "label": {
+        "enabled": true,
+        "text": "HELLO",
+        "fontSize": 3,
+        "embossDepth": 1.8,
+        "plateHeight": 21
+      },
+      "expected": {
+        "volumeCm3": 1330.271919,
+        "weightPlaG": 1649.537179,
+        "triangles": 7528,
+        "compartments": 12,
+        "bbox": [
+          196,
+          88,
+          108
+        ],
+        "cellInner": [
+          189.8,
+          2.325
+        ],
+        "warnings": [],
+        "label": {
+          "volumeCm3": 0.460853,
+          "triangles": 924,
+          "size": [
+            13.730114,
+            20.5,
+            3.4
+          ]
+        }
+      }
+    },
+    {
+      "id": "random:18",
+      "params": {
+        "width": 103,
+        "depth": 269,
+        "height": 48,
+        "cols": 5,
+        "rows": 10,
+        "wall": 2.9,
+        "floor": 2.1,
+        "divider": 4.5,
+        "radius": 8,
+        "stackingLip": true,
+        "labelTab": false,
+        "fingerScoops": true,
+        "floorHoles": true,
+        "wallTexture": "faceted",
+        "textureDepth": 2.1,
+        "textureCount": 60,
+        "color": "#3b82f6"
+      },
+      "label": {
+        "enabled": true,
+        "text": "x",
+        "fontSize": 8,
+        "embossDepth": 1.6,
+        "plateHeight": 26
+      },
+      "expected": {
+        "volumeCm3": 539.047525,
+        "weightPlaG": 668.418931,
+        "triangles": 30496,
+        "compartments": 50,
+        "bbox": [
+          103,
+          269,
+          48
+        ],
+        "cellInner": [
+          15.84,
+          22.27
+        ],
+        "warnings": [],
+        "label": {
+          "volumeCm3": 0.397413,
+          "triangles": 60,
+          "size": [
+            9.5,
+            25.5,
+            3.2
+          ]
+        }
+      }
+    },
+    {
+      "id": "random:19",
+      "params": {
+        "width": 118,
+        "depth": 234,
+        "height": 117,
+        "cols": 9,
+        "rows": 8,
+        "wall": 6,
+        "floor": 3.1,
+        "divider": 5.3,
+        "radius": 13,
+        "stackingLip": true,
+        "labelTab": false,
+        "fingerScoops": false,
+        "floorHoles": true,
+        "wallTexture": "fluted",
+        "textureDepth": 1.5,
+        "textureCount": 79,
+        "color": "#3b82f6"
+      },
+      "label": null,
+      "expected": {
+        "volumeCm3": 1841.979183,
+        "weightPlaG": 2284.054187,
+        "triangles": 40086,
+        "compartments": 72,
+        "bbox": [
+          118,
+          234,
+          117
+        ],
+        "cellInner": [
+          7.066667,
+          23.1125
+        ],
+        "warnings": [],
+        "label": null
+      }
+    },
+    {
+      "id": "random:20",
+      "params": {
+        "width": 280,
+        "depth": 66,
+        "height": 117,
+        "cols": 2,
+        "rows": 9,
+        "wall": 3.8,
+        "floor": 6.5,
+        "divider": 5.1,
+        "radius": 6,
+        "stackingLip": true,
+        "labelTab": true,
+        "fingerScoops": true,
+        "floorHoles": true,
+        "wallTexture": "ribbed",
+        "textureDepth": 0.8,
+        "textureCount": 107,
+        "color": "#3b82f6"
+      },
+      "label": {
+        "enabled": true,
+        "text": "M2.5",
+        "fontSize": 13,
+        "embossDepth": 1.8,
+        "plateHeight": 16
+      },
+      "expected": {
+        "volumeCm3": 1670.142842,
+        "weightPlaG": 2070.977124,
+        "triangles": 15892,
+        "compartments": 18,
+        "bbox": [
+          280,
+          66,
+          117
+        ],
+        "cellInner": [
+          133.65,
+          1.955556
+        ],
+        "warnings": [],
+        "label": {
+          "volumeCm3": 0.982939,
+          "triangles": 1676,
+          "size": [
+            33.417614,
+            15.5,
+            3.4
+          ]
+        }
+      }
+    }
+  ]
+}

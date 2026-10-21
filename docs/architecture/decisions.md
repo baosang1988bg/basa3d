@@ -797,3 +797,14 @@ gains `'wasm-unsafe-eval'` and `worker-src 'self' blob:`.
 **Trade-off.** ~540 KB WASM + JS loaded only on `/tools/organizer` (inside the worker chunk). Old
 `organizer-engine.ts` is kept until the new page is verified, then removed. Same library can later serve
 Lamp "Mô hình" mode and Jigsaw.
+
+**Update (2026-10-21, parity verified).** The reference's `manifold.wasm` is byte-identical to
+`manifold-3d@3.5.4`, and its label font is Inter Regular v3.019 (OFL) — shipped as
+`public/fonts/Inter-Regular.ttf` + `OFL-Inter.txt`. Golden values for 46 configurations, measured on the
+reference page through its `window.__app` API, live in `tests/fixtures/organizer-parity.json`; our engine
+matches them exactly (volume Δ 0.0000 %, identical triangle counts). Uploaded label fonts persist in
+IndexedDB under the reference's database/store/key names. The Phase 20 engine is removed.
+The UI is a 1:1 port of the reference's stylesheet (`organizer.module.css`, scoped to the tool) and its
+r3f/drei viewer rebuilt in plain three.js (no new dependency). Licence files ship with the app:
+`public/fonts/OFL-Inter.txt` and `public/licenses/manifold-3d-LICENSE.txt` (Apache-2.0 §4a; manifold-3d has
+no NOTICE file). Future third-party code licences go in `public/licenses/<package>-LICENSE.txt`.

@@ -9,4 +9,5 @@ export type OrganizerWorkerRequest =
 export type OrganizerBuildSuccess = { id: number; ok: true; params: OrganizerParams; warnings: WarningKey[] } & BuildResult;
 export type OrganizerWorkerResponse = OrganizerBuildSuccess | { id: number; ok: false; error: string };
 
-export const DEFAULT_LABEL_FONT_URL = '/fonts/BeVietnamPro-Bold.ttf';
+/** Inter Regular v3.019 (OFL, public/fonts/OFL-Inter.txt) — byte-identical to the reference's label font. */
+export const DEFAULT_LABEL_FONT_URL = '/fonts/Inter-Regular.ttf';

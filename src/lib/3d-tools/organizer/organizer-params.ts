@@ -1,6 +1,6 @@
 /**
  * Phase 45 — Organizer parity. Parameters, presets, printers and normalization ported 1:1 from the
- * reference "Bin & Sorting Tray Generator" (see docs/exec-plans/active/phase-45-organizer-parity.md §1).
+ * reference "Bin & Sorting Tray Generator" (see docs/exec-plans/completed/phase-45-organizer-parity.md §1).
  * Pure TypeScript: no three.js, no manifold — safe to import from the worker, the UI and Node tests.
  */
 
@@ -54,11 +54,18 @@ export const PARAM_RANGES: Record<NumericKey, { min: number; max: number; step: 
   textureDepth: { min: 0.2, max: 3, step: 0.1, unit: 'mm' },
   textureCount: { min: 4, max: 120, step: 1, unit: '' },
 };
+/** Label clamping in the worker (reference `bd`). Wider than the sliders so shared/API values survive. */
 export const LABEL_RANGES = {
   fontSize: { min: 3, max: 40, step: 0.5 },
   embossDepth: { min: 0.2, max: 3, step: 0.1 },
   plateHeight: { min: 6, max: 40, step: 1 },
   maxTextLength: 24,
+} as const;
+/** Label slider ranges shown in the reference UI. */
+export const LABEL_SLIDER_RANGES = {
+  fontSize: { min: 3, max: 20, step: 0.5 },
+  embossDepth: { min: 0.2, max: 2, step: 0.1 },
+  plateHeight: { min: 8, max: 30, step: 1 },
 } as const;
 
 export type PresetId = 'smallTray' | 'deskOrganizer' | 'partsBin' | 'drawerInsert' | 'toolHolder' | 'screwSorter';
@@ -113,6 +120,17 @@ export function textureDef(id: WallTexture | string): TextureDef | null {
 export const MAX_TEXTURE_PERIODS = 150;
 export const MAX_TEXTURE_POINTS = 2400;
 export const MIN_TEXTURE_POINTS = 120;
+
+/** Which panel section shows which warning, as in the reference (BaSa3D-only keys added where they belong). */
+export const SECTION_WARNINGS = {
+  dimensions: ['warn.widthRaised', 'warn.depthRaised', 'warn.heightRaised'],
+  grid: ['warn.colsReduced', 'warn.rowsReduced', 'warn.customAutoFit', 'warn.customReset'],
+  walls: ['warn.thinWalls'],
+  radius: ['warn.radiusClamped'],
+  texture: ['warn.textureClamped'],
+  toggles: ['warn.lipWallThin'],
+  label: ['warn.labelNoFit'],
+} as const satisfies Record<string, readonly WarningKey[]>;
 
 export type WarningKey =
   | 'warn.heightRaised' | 'warn.widthRaised' | 'warn.depthRaised' | 'warn.colsReduced' | 'warn.rowsReduced'
@@ -275,18 +293,22 @@ export type CellLayout = {
 export function cellLayout(p: OrganizerParams): CellLayout {
   const usableW = usableSpan(p.width, p.wall, p.divider, p.cols);
   const usableD = usableSpan(p.depth, p.wall, p.divider, p.rows);
-  const cellWidths = p.columnWidths && p.columnWidths.length === p.cols ? p.columnWidths : Array<number>(p.cols).fill(usableW / p.cols);
-  const cellDepths = p.rowDepths && p.rowDepths.length === p.rows ? p.rowDepths : Array<number>(p.rows).fill(usableD / p.rows);
-  const centres = (start: number, sizes: number[]) => {
+  const customW = p.columnWidths && p.columnWidths.length === p.cols ? p.columnWidths : null;
+  const customD = p.rowDepths && p.rowDepths.length === p.rows ? p.rowDepths : null;
+  // Equal grid: same float expression as the reference (`x0 + i·(cell + divider)`). Accumulating instead
+  // shifts the last bits, which changes manifold's triangulation (same volume, different triangle count).
+  const centres = (start: number, count: number, custom: readonly number[] | null, cell: number) => {
+    if (!custom) return Array.from({ length: count }, (_, i) => start + cell / 2 + i * (cell + p.divider));
     const out: number[] = [];
     let cursor = start;
-    for (const size of sizes) { out.push(cursor + size / 2); cursor += size + p.divider; }
+    for (const size of custom) { out.push(cursor + size / 2); cursor += size + p.divider; }
     return out;
   };
   return {
-    cellWidths, cellDepths,
-    xs: centres(-p.width / 2 + p.wall, cellWidths),
-    ys: centres(-p.depth / 2 + p.wall, cellDepths),
+    cellWidths: customW ?? Array<number>(p.cols).fill(usableW / p.cols),
+    cellDepths: customD ?? Array<number>(p.rows).fill(usableD / p.rows),
+    xs: centres(-p.width / 2 + p.wall, p.cols, customW, usableW / p.cols),
+    ys: centres(-p.depth / 2 + p.wall, p.rows, customD, usableD / p.rows),
     cavityHeight: p.height - p.floor,
   };
 }

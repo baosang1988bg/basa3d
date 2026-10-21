@@ -180,10 +180,62 @@ OWNER duyệt D1/D4/D-mặc định và yêu cầu triển khai luôn. Điều c
 - **D3**: không cần copy WASM — `manifold.js` dùng `new URL('manifold.wasm', import.meta.url)`, webpack 5
   tự xuất WASM thành asset. CSP (report-only) thêm `'wasm-unsafe-eval'` + `worker-src 'self' blob:`.
 - **D6**: Custom Request gửi **1 file**: STL khi không có nhãn, 3MF (hộp + tấm nhãn + chữ, có màu) khi bật nhãn.
-- **D7**: chưa có Inter trong repo (sandbox không tải được) → mặc định **Be Vietnam Pro Bold** (OFL, đã có).
-  Font upload chỉ giữ trong phiên (gửi vào worker), chưa lưu IndexedDB.
+- **D7** (cập nhật 2026-10-21 lần 2): mặc định **Inter Regular v3.019** — `public/fonts/Inter-Regular.ttf` là
+  đúng file `assets/label-font-*.ttf` của bản gốc (giống từng byte), license `public/fonts/OFL-Inter.txt` lấy từ
+  tag `v3.19` của `rsms/inter`. Font upload lưu IndexedDB (`organizer-font-store.ts`, cùng tên DB/store/key với
+  bản gốc: `bin-generator-fonts`/`fonts`/`custom`), mọi lỗi storage rơi về font mặc định.
 - **D9**: chuỗi VI/EN đặt trong `organizer-i18n.ts` (nút VI/EN trong tool, giống bản gốc), không đưa vào `messages/*.json`.
 - Cảnh báo `warn.labelWallThin` của bản gốc không thấy được kích hoạt trong mã worker → không port.
+
+## 4c. Đối chiếu mã gốc (2026-10-21, Claude — đọc `index-DD9u1MQL.js` + `bin.worker-BUMfLQQy.js`, app v0.1.0)
+
+- `manifold.wasm` của bản gốc **giống từng byte** với `manifold-3d@3.5.4` → cùng nhân CSG.
+- Mã dựng hình (`cd`, `ad`, `id`, `ud`, `hd`, `dd`, `gd`, `md`, `pd`) và chuẩn hoá (`yd`) khớp từng dòng với
+  `organizer-geometry.ts` / `organizer-params.ts` / `organizer-label-text.ts`. Brief §1.4 bước 5 ghi khoét đáy
+  `offset(−h − 0.5)`: mã gốc là `−h − 2·0.25` — cùng giá trị.
+- **Brief khác mã gốc, đã theo mã gốc:**
+  - Dải slider nhãn trên UI gốc là cỡ chữ 3–**20**, độ nổi 0.2–**2**, chiều cao thẻ **8–30**; worker vẫn kẹp
+    3–40 / 0.2–3 / 6–40 (brief §1.1 ghi dải của worker). → `LABEL_SLIDER_RANGES` (UI) + `LABEL_RANGES` (kẹp).
+  - Cảnh báo hiện **ngay dưới nhóm điều khiển liên quan** (không phải một danh sách chung, brief §1.5).
+    → `SECTION_WARNINGS`.
+  - Chỉ báo máy in: gốc **chỉ hiện "Vượt khổ máy in đã chọn"** khi vượt; không hiện gì khi vừa (chuỗi
+    `printer.fitOk` có nhưng không dùng). Nhãn đúng là "khổ in", không phải "bàn in".
+  - Preset thay **toàn bộ** tham số (màu về `#3b82f6`).
+  - Bản gốc **không có nút chia sẻ**: chỉ đọc query lúc mở trang và có `window.__app.shareURL()`. Nút
+    "Sao chép liên kết" của BaSa3D là phần thêm.
+  - Không có phụ đề dưới tiêu đề; thông tin mô hình in số kiểu `toFixed(1)` và số tam giác `toLocaleString()`,
+    kích thước thẻ `W×H` làm tròn 0 chữ số, độ dày 1 chữ số; nút tải nhãn 3MF nằm ở chân panel cạnh "Tải STL".
+  - Chuỗi VI đúng nguyên văn: "Nội dung", "Chiều cao thẻ", "Kích thước thẻ", "Màu thẻ", "Tải phông lên...",
+    "Tệp phông không hợp lệ…", "Thành quá mỏng cho vành xếp chồng.".
+- **Giữ khác bản gốc (phần thêm của BaSa3D, có chủ đích):** báo giá + Custom Request + GA4, chế độ kích thước
+  ngăn tuỳ chỉnh (D4), cảnh báo `warn.thinWalls` (D8) / `warn.labelNoFit` / `warn.custom*`, kẹp tham số vào dải
+  slider khi đọc từ URL (gốc chỉ kẹp ≥ 1), nút sao chép liên kết, nút VI/EN ẩn theo
+  `NEXT_PUBLIC_LANGUAGE_SWITCHER_ENABLED` (ADR-0048).
+- **Lỗi parity đã sửa:** tâm ngăn của lưới đều phải tính đúng biểu thức gốc `x0 + i·(cell + divider)`;
+  cách cộng dồn cũ lệch bit cuối → cùng thể tích nhưng manifold tam giác hoá khác (vd. 150×100, 4×2, rãnh lấy
+  đồ: 6224 vs 6220 tam giác). Bảng 20 ca đầu không bắt được — lý do mở rộng lên 46 ca.
+- **Giao diện giống hoàn toàn** (OWNER duyệt 2026-10-21): CSS gốc port 1:1 vào `organizer.module.css`
+  (neumorphism, panel 360 px, header/footer dính, mục thu gọn ▾/▸, toggle 1 cột, ô màu full-width); viewer
+  dựng lại bằng three.js thuần cùng thông số r3f/drei: nền `#e6ebf2`, ACES exposure 0.9, đèn, vật liệu
+  flat-shaded, `ContactShadows`, `Grid` vô hạn, `Bounds` margin 1.25. Lưu ý: `Bounds` gốc fit lúc chưa có mesh
+  → khung camera cố định (khoảng cách ≈ 496) không phụ thuộc kích thước hộp; chỉ fit lại theo mô hình khi đổi
+  kích thước cửa sổ — đã làm y như vậy. Phần thêm của BaSa3D (báo giá, Custom Request, chia sẻ, ngăn tuỳ chỉnh)
+  dùng cùng ngôn ngữ thiết kế, đặt ở mục "Báo giá & đặt in" trên footer.
+- License: `public/licenses/manifold-3d-LICENSE.txt` (Apache-2.0) + `public/fonts/OFL-Inter.txt`.
+- **Dùng thử như người dùng (Chrome thật, GPU Metal, 1440×900 / 1280×720 / iPhone 13), 2026-10-21 — đã sửa:**
+  - Header dùng chung của `(tools)` làm canvas thấp hơn 56 px → OrbitControls (tỉ lệ theo chiều cao canvas)
+    xoay/zoom khác bản gốc. Organizer chuyển sang route group `(tools-fullscreen)` (layout không header, URL
+    giữ `/tools/organizer`); link "Về cửa hàng BaSa3D" nằm trong mục "Báo giá & đặt in".
+  - Zoom con lăn nhanh gấp ~2×: OrbitControls của three r185 nhân theo |deltaY|, còn three-stdlib (drei) của
+    gốc zoom cố định 0.95/sự kiện → ghi đè `_getZoomScale` như stdlib.
+  - Bản gốc không có CSS reset: nút/ô nhập dùng font mặc định của trình duyệt (Arial) và `line-height: normal`;
+    Tailwind preflight ép kế thừa → mũi tên ▾ nhỏ, panel thưa hơn. Dùng `revert` trong phạm vi tool.
+  - Sau sửa: cùng thao tác kéo/zoom/đổi preset cho khung hình trùng gần như từng pixel (đo camera qua hook
+    `?__probe` giống gốc). Còn khác có chủ đích: nút VI/EN ẩn theo `NEXT_PUBLIC_LANGUAGE_SWITCHER_ENABLED`
+    (ADR-0048, thay đổi của phiên khác), tên file nhãn bỏ dấu tiếng Việt (`label_Oc_vit_M3_2color.3mf`; gốc
+    xoá ký tự có dấu → `label_c_v_t_M3_2color.3mf`).
+- Bản gốc có API `window.__app` (`setParams`, `loadPreset`, `setLabel`, `regen`, `getInfo`, `getWarnings`,
+  `getLabelInfo`) — dùng để đo giá trị vàng tự động.
 
 Kết quả spike lát A: `manifold-3d@3.5.4` chạy trong Node 22 (hộp bo góc trừ 1 ngăn: 19 ms, `NoError`).
 `next build` **chưa chạy xong** — sandbox Linux hết dung lượng giữa chừng. OWNER cần chạy trên máy (mục 7).
@@ -206,13 +258,16 @@ Kết quả spike lát A: `manifold-3d@3.5.4` chạy trong Node 22 (hộp bo gó
 - [x] **F. Worker client + workbench mới** — panel thu gọn, slider + ô số, preset, máy in, cảnh báo, info,
   màu, chia sẻ URL, VI/EN; giữ khu báo giá + Custom Request + GA4 (thêm `preset`, `texture`, toggle vào event).
   Canvas dùng lại `organizer-canvas.tsx`, nhận `positions/indices` từ worker.
-- [~] **G. Parity test** — đã có giá trị vàng mặc định (`tests/organizer-geometry.test.ts`); còn thiếu bảng
-  cho 6 preset/vân/toggle. Bảng giá trị vàng lấy từ bản gốc (thể tích, khối lượng, số tam giác, kích thước ngăn)
-  cho: mặc định + 6 preset + mỗi kiểu vân + mỗi toggle + nhãn bật. Cho phép lệch thể tích ≤ 1%, số tam giác
-  ≤ 5%. Người làm tự đo trên trang gốc và ghi vào `tests/fixtures/organizer-parity.json` (kèm ngày đo).
-- [~] **H. E2E + docs** — đã sửa `e2e/organizer.spec.ts`, ADR-0047, roadmap; còn: case chia sẻ URL, xoá
-  `organizer-engine.ts` + `organizer-constants.ts` + `tests/organizer-engine.test.ts` sau khi trang mới chạy ổn. Cập nhật `e2e/organizer.spec.ts` (nhãn mới, mô tả mới), thêm case chia sẻ URL và
-  tải STL; ADR-0047, `docs/roadmap.md`, giữ license file. Xoá engine cũ khi workbench mới đã thay hoàn toàn.
+- [x] **G. Parity test** — 46 cấu hình đo trên trang gốc qua `window.__app` bằng Chromium headless
+  (2026-10-21): mặc định, 6 preset, 5 vân, 4 toggle, bật cả 4 toggle, 2 ca nhãn (Inter), 1 ca bị kẹp vân,
+  6 ca preset + đủ tính năng + nhãn, 20 ca ngẫu nhiên (seed cố định) trên đúng step của slider.
+  Lưu ở `tests/fixtures/organizer-parity.json`; `tests/organizer-parity.test.ts` so thể tích, khối lượng,
+  **số tam giác chính xác**, bbox, kích thước ngăn, cảnh báo và thông tin nhãn. Kết quả: lệch thể tích 0,0000%,
+  số tam giác trùng 100% (chặt hơn yêu cầu ≤ 1% / ≤ 5% vì cùng WASM + cùng font).
+- [x] **H. E2E + docs** — `e2e/organizer.spec.ts`: sửa kỳ vọng mô tả ở trang admin (còn `200x120x35mm` từ
+  mặc định cũ), thêm case mở link chia sẻ (preset Giá đựng dụng cụ) + tải STL (tên file, số tam giác, kích thước).
+  Đã xoá `organizer-engine.ts`, `organizer-constants.ts`, `tests/organizer-engine.test.ts` (không còn import).
+  ADR-0047 cập nhật font + đối chiếu.
 
 ## 6. Rủi ro
 
@@ -230,8 +285,10 @@ Kết quả spike lát A: `manifold-3d@3.5.4` chạy trong Node 22 (hộp bo gó
 ## 7. Definition of Done
 
 - [x] typecheck, lint, unit test (không DB) xanh; `next build` xanh; storefront không tăng JS (so sánh chunk).
-- [ ] Parity test (lát G) xanh cho toàn bộ bảng giá trị vàng (hiện mới có giá trị mặc định).
+- [x] Parity test (lát G) xanh cho toàn bộ bảng giá trị vàng (46 ca, khớp chính xác).
 - [x] STL xuất ra manifold (kiểm bằng `Manifold.status()` trong test) và mở được trong Bambu Studio không lỗi.
-- [ ] E2E `organizer.spec.ts` xanh (cần DB test).
-- [ ] OWNER: in thử 1 hộp có vành xếp chồng + 1 nhãn snap để xác nhận dung sai 0,25 mm khớp thật.
+- [x] E2E `organizer.spec.ts` — case chia sẻ link + tải STL xanh trên production build (2026-10-21). Case gửi
+  Custom Request (cần Supabase test) **chuyển sang follow-up theo quyết định OWNER 2026-10-21**: máy hiện không có
+  Supabase CLI/Docker; chạy lại khi có Supabase test hoặc trên CI.
+- [x] OWNER: in thử 1 hộp có vành xếp chồng + 1 nhãn snap để xác nhận dung sai 0,25 mm khớp thật — OWNER xác nhận OK 2026-10-21.
 - [x] Webpack config fix: NormalModuleReplacementPlugin + fallback cho `node:module` từ manifold-3d.
