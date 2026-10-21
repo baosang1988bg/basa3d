@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
+import { connection } from 'next/server';
 import { getTranslations } from 'next-intl/server';
 import { Zap, ShieldCheck, Timer } from 'lucide-react';
-import { listStorefrontProducts } from '@/services/storefront-catalog.service';
-import { listCategories } from '@/services/product.service';
+import { getCachedCategories, getCachedStorefrontProducts } from '@/lib/cache/storefront-cache';
+import { applyRequestLocale, type LocaleParams } from '@/i18n/request-locale';
 import { ProductCard } from '@/components/storefront/product-card';
 import { SectionHeader } from '@/components/storefront/section-header';
 import { storefrontButtonClasses } from '@/components/storefront/button';
@@ -60,20 +61,37 @@ const LOCAL_BUSINESS_JSON_LD = {
 
 const HERO_VALUE_PROP_ICONS = [Zap, ShieldCheck, Timer];
 
-// Forces on-demand rendering instead of build-time static generation: this page reads live
-// catalog/stock data (product status and inventory availability change frequently), and without
-// this, Next.js would try to statically prerender it at `next build` time using whatever
-// DATABASE_URL happens to be set in the build environment — stale forever until the next deploy.
-export const dynamic = 'force-dynamic';
+// Phase 42 (ADR-0045): ISR instead of force-dynamic. Prerendered at `next build` for both locales and
+// then served from cache; catalog writes call invalidateStorefrontCatalog() after commit, which purges
+// this page through the `storefront-catalog` tag on its data, and 60s is only the safety net (the old
+// "stale forever until the next deploy" problem no longer applies). Keep in sync with
+// STOREFRONT_CATALOG_TTL_SECONDS (route segment config must be a literal).
+export const revalidate = 60;
+
+// A build must not depend on a reachable database (local builds, CI without DATABASE_URL). If the
+// catalog cannot be read while prerendering, connection() opts this route into per-request rendering
+// for that build only — the pre-Phase-42 behaviour — instead of failing the build. At runtime the
+// error is rethrown as usual.
+async function loadHomeCatalog() {
+  try {
+    return await Promise.all([
+      getCachedStorefrontProducts({ limit: 8, featuredOnly: true }),
+      getCachedCategories(100),
+    ]);
+  } catch (error) {
+    if (process.env.NEXT_PHASE === 'phase-production-build') await connection();
+    throw error;
+  }
+}
 
 export const metadata: Metadata = {
   alternates: { canonical: '/', languages: { vi: '/', en: '/en' } },
 };
 
-export default async function HomePage() {
-  const [{ items: featuredProducts }, { items: dbCategoriesRaw }, t] = await Promise.all([
-    listStorefrontProducts({ limit: 8, featuredOnly: true }),
-    listCategories({ limit: 100 }),
+export default async function HomePage({ params }: { params: LocaleParams }) {
+  await applyRequestLocale(params);
+  const [[{ items: featuredProducts }, { items: dbCategoriesRaw }], t] = await Promise.all([
+    loadHomeCatalog(),
     getTranslations('home'),
   ]);
   const dbCategories = dbCategoriesRaw as unknown as DbCategoryItem[];

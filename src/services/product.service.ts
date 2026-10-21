@@ -3,6 +3,7 @@ import { query, withTransaction } from '../lib/db';
 import { DomainError } from '../lib/domain-error';
 import { createSupabaseAdminClient } from '../lib/supabase/admin';
 import { writeAuditLog } from './audit.service';
+import { invalidatesStorefrontCatalog } from '../lib/cache/storefront-cache-tags';
 
 const PRODUCT_IMAGE_BUCKET = 'product-images';
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -32,11 +33,11 @@ export async function listCategories(input: { page?: number; limit?: number } = 
 }
 
 export async function createCategory(input: Record<string, unknown>, actorId: string) {
-  return withTransaction(async (client) => {
+  return invalidatesStorefrontCatalog(withTransaction(async (client) => {
     const result = await client.query<{ id: string }>('insert into categories (parent_id, name, slug, description, sort_order) values ($1,$2,$3,$4,$5) returning id', [input.parentId ?? null, input.name, input.slug, input.description ?? null, input.sortOrder ?? 0]);
     await writeAuditLog(client, { actorId, action: 'CATEGORY_CREATED', entityType: 'category', entityId: result.rows[0].id, afterData: input });
     return result.rows[0];
-  });
+  }));
 }
 
 export async function listProducts(input: { page?: number; limit?: number; status?: string } = {}) {
@@ -96,7 +97,7 @@ export async function getProductById(productId: string) {
 // reprice a live Product via updateProduct below (ADR-0022) — Products are a catalog listing, not
 // a transaction record, and order_items already owns the real point-in-time price guarantee.
 export async function createProduct(input: Record<string, unknown>, actorId: string) {
-  return withTransaction(async (client) => {
+  return invalidatesStorefrontCatalog(withTransaction(async (client) => {
     const result = await client.query<{ id: string }>(`
       insert into products (category_id, name, slug, short_description, description, product_type, status, base_price, cost_price, is_featured, is_customizable, seo_title, seo_description, pricing_breakdown, pricing_config_id, license_type, license_source_url, license_proof_url)
       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) returning id`, [
@@ -106,7 +107,7 @@ export async function createProduct(input: Record<string, unknown>, actorId: str
     ]);
     await writeAuditLog(client, { actorId, action: 'PRODUCT_CREATED', entityType: 'product', entityId: result.rows[0].id, afterData: input });
     return result.rows[0];
-  });
+  }));
 }
 
 function isForeignKeyViolation(error: unknown): boolean {
@@ -114,7 +115,7 @@ function isForeignKeyViolation(error: unknown): boolean {
 }
 
 export async function createVariant(input: { productId: string; sku: string; name: string; attributes?: Record<string, string>; price: number; costPrice?: number | null; weightGrams?: number | null; isActive?: boolean }, actorId: string) {
-  return withTransaction(async (client) => {
+  return invalidatesStorefrontCatalog(withTransaction(async (client) => {
     const result = await client.query<{ id: string }>(`
       insert into product_variants (product_id, sku, name, attributes, price, cost_price, weight_grams, is_active)
       values ($1,$2,$3,$4,$5,$6,$7,$8) returning id`, [
@@ -122,11 +123,11 @@ export async function createVariant(input: { productId: string; sku: string; nam
     ]);
     await writeAuditLog(client, { actorId, action: 'VARIANT_CREATED', entityType: 'product_variant', entityId: result.rows[0].id, afterData: input });
     return result.rows[0];
-  });
+  }));
 }
 
 export async function updateVariant(variantId: string, patch: { name?: string; attributes?: Record<string, string>; price?: number; costPrice?: number | null; weightGrams?: number | null; isActive?: boolean }, actorId: string) {
-  return withTransaction(async (client) => {
+  return invalidatesStorefrontCatalog(withTransaction(async (client) => {
     const before = await client.query('select name, attributes, price, cost_price, weight_grams, is_active from product_variants where id = $1 for update', [variantId]);
     if (!before.rowCount) throw new DomainError('VARIANT_NOT_FOUND', 'Product variant was not found.', 404);
     const fields = { name: 'name', attributes: 'attributes', price: 'price', costPrice: 'cost_price', weightGrams: 'weight_grams', isActive: 'is_active' } as const;
@@ -142,13 +143,13 @@ export async function updateVariant(variantId: string, patch: { name?: string; a
     const updated = await client.query(`update product_variants set ${sets.join(', ')} where id = $${values.length} returning id, name, attributes, price, cost_price, weight_grams, is_active`, values);
     await writeAuditLog(client, { actorId, action: 'VARIANT_UPDATED', entityType: 'product_variant', entityId: variantId, beforeData: before.rows[0], afterData: updated.rows[0] });
     return updated.rows[0];
-  });
+  }));
 }
 
 // Hard delete — OWNER only (enforced by the route handler, ADR-0011 boundary #3). STAFF instead
 // calls updateProduct/updateVariant with isActive/status = ARCHIVED (soft archive).
 export async function deleteVariant(variantId: string, actorId: string) {
-  return withTransaction(async (client) => {
+  return invalidatesStorefrontCatalog(withTransaction(async (client) => {
     try {
       const result = await client.query('delete from product_variants where id = $1 returning id', [variantId]);
       if (!result.rowCount) throw new DomainError('VARIANT_NOT_FOUND', 'Product variant was not found.', 404);
@@ -158,11 +159,11 @@ export async function deleteVariant(variantId: string, actorId: string) {
       if (isForeignKeyViolation(error)) throw new DomainError('VARIANT_HAS_REFERENCES', 'Variant has existing cart items or order history and cannot be hard-deleted.', 409);
       throw error;
     }
-  });
+  }));
 }
 
 export async function updateProduct(productId: string, patch: { categoryId?: string | null; name?: string; slug?: string; shortDescription?: string | null; description?: string | null; status?: string; basePrice?: number | null; costPrice?: number | null; isFeatured?: boolean; isCustomizable?: boolean; seoTitle?: string | null; seoDescription?: string | null; pricingBreakdown?: unknown | null; pricingConfigId?: string | null; licenseType?: string; licenseSourceUrl?: string | null; licenseProofUrl?: string | null }, actorId: string) {
-  return withTransaction(async (client) => {
+  return invalidatesStorefrontCatalog(withTransaction(async (client) => {
     const before = await client.query('select category_id, name, slug, short_description, description, status, base_price, cost_price, is_featured, is_customizable, seo_title, seo_description, license_type, license_source_url, license_proof_url from products where id = $1 for update', [productId]);
     if (!before.rowCount) throw new DomainError('PRODUCT_NOT_FOUND', 'Product was not found.', 404);
     const fields = { categoryId: 'category_id', name: 'name', slug: 'slug', shortDescription: 'short_description', description: 'description', status: 'status', basePrice: 'base_price', costPrice: 'cost_price', isFeatured: 'is_featured', isCustomizable: 'is_customizable', seoTitle: 'seo_title', seoDescription: 'seo_description', pricingBreakdown: 'pricing_breakdown', pricingConfigId: 'pricing_config_id', licenseType: 'license_type', licenseSourceUrl: 'license_source_url', licenseProofUrl: 'license_proof_url' } as const;
@@ -178,7 +179,7 @@ export async function updateProduct(productId: string, patch: { categoryId?: str
     const updated = await client.query(`update products set ${sets.join(', ')} where id = $${values.length} returning id, name, slug, status`, values);
     await writeAuditLog(client, { actorId, action: 'PRODUCT_UPDATED', entityType: 'product', entityId: productId, beforeData: before.rows[0], afterData: updated.rows[0] });
     return updated.rows[0];
-  });
+  }));
 }
 
 export async function listProductImages(productId: string, options: { activeProductsOnly?: boolean } = {}) {
@@ -205,7 +206,7 @@ export async function uploadProductImage(input: { productId: string; variantId?:
   if (uploadError) throw new DomainError('IMAGE_UPLOAD_FAILED', uploadError.message, 502);
 
   try {
-    return await withTransaction(async (client) => {
+    return await invalidatesStorefrontCatalog(withTransaction(async (client) => {
       const productExists = await client.query('select id from products where id = $1', [input.productId]);
       if (!productExists.rowCount) throw new DomainError('PRODUCT_NOT_FOUND', 'Product was not found.', 404);
       const result = await client.query<{ id: string }>(`
@@ -214,7 +215,7 @@ export async function uploadProductImage(input: { productId: string; variantId?:
       await writeAuditLog(client, { actorId, action: 'PRODUCT_IMAGE_UPLOADED', entityType: 'product_image', entityId: result.rows[0].id, afterData: { productId: input.productId, storagePath } });
       const { data: publicUrl } = supabase.storage.from(PRODUCT_IMAGE_BUCKET).getPublicUrl(storagePath);
       return { id: result.rows[0].id, url: publicUrl.publicUrl };
-    });
+    }));
   } catch (dbError) {
     // The Storage upload already succeeded — if the DB insert fails, remove the now-orphaned
     // file instead of leaking it in the bucket forever.
@@ -224,18 +225,18 @@ export async function uploadProductImage(input: { productId: string; variantId?:
 }
 
 export async function deleteProductImage(imageId: string, actorId: string) {
-  return withTransaction(async (client) => {
+  return invalidatesStorefrontCatalog(withTransaction(async (client) => {
     const result = await client.query<{ storage_path: string }>('delete from product_images where id = $1 returning storage_path', [imageId]);
     if (!result.rowCount) throw new DomainError('PRODUCT_IMAGE_NOT_FOUND', 'Product image was not found.', 404);
     await createSupabaseAdminClient().storage.from(PRODUCT_IMAGE_BUCKET).remove([result.rows[0].storage_path]);
     await writeAuditLog(client, { actorId, action: 'PRODUCT_IMAGE_DELETED', entityType: 'product_image', entityId: imageId });
     return { id: imageId };
-  });
+  }));
 }
 
 // Hard delete — OWNER only (enforced by the route handler, ADR-0011 boundary #3).
 export async function deleteProduct(productId: string, actorId: string) {
-  return withTransaction(async (client) => {
+  return invalidatesStorefrontCatalog(withTransaction(async (client) => {
     try {
       const result = await client.query('delete from products where id = $1 returning id', [productId]);
       if (!result.rowCount) throw new DomainError('PRODUCT_NOT_FOUND', 'Product was not found.', 404);
@@ -245,7 +246,7 @@ export async function deleteProduct(productId: string, actorId: string) {
       if (isForeignKeyViolation(error)) throw new DomainError('PRODUCT_HAS_VARIANTS', 'Product has existing variants and cannot be hard-deleted — archive it or delete the variants first.', 409);
       throw error;
     }
-  });
+  }));
 }
 
 export type ProductInventoryVariant = {

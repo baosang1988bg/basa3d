@@ -3,7 +3,13 @@ import { notFound } from 'next/navigation';
 import { NextIntlClientProvider, hasLocale } from 'next-intl';
 import { setRequestLocale } from 'next-intl/server';
 import { routing } from '@/i18n/routing';
+import { HtmlShell } from '@/components/layout/html-shell';
 
+// Phase 42 (ADR-0045): static pages under [locale] are prerendered for both locales at `next build`.
+// This must stay a full list, not `[]`: VI URLs reach these routes through a middleware rewrite
+// (`/privacy-policy` → `/vi/privacy-policy`) and `next start` only serves rewritten URLs from the
+// cache when the path was prerendered — on-demand-only ISR is silently rendered per request there.
+// The home page tolerates a build without a reachable DB (see loadHomeCatalog in its page.tsx).
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
@@ -17,8 +23,10 @@ export default async function LocaleLayout({ children, params }: { children: Rea
   setRequestLocale(locale);
 
   return (
-    <NextIntlClientProvider>
-      {children}
-    </NextIntlClientProvider>
+    <HtmlShell lang={locale}>
+      <NextIntlClientProvider>
+        {children}
+      </NextIntlClientProvider>
+    </HtmlShell>
   );
 }

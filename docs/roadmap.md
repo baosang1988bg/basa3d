@@ -42,5 +42,6 @@ Phase 38: hotfix — every public upload (/custom-print, /bao-gia) returned 500 
 Phase 39: storefront 404 hotline — added "Call hotline" button to the 404 page using `SITE_CONFIG.hotline` and i18n messages; code done 2026-10-20
 Phase 40: transparent instant quote + AMS purge estimate for unsliced multi-color .3mf (ADR-0043; server-side slicing rejected) — code done 2026-10-21; needs a real exported project to calibrate (±30% target)
 
+Phase 42: storefront caching — pass-through root layout (no request read), Home ISR 60 s, policy/tools/custom-print/cart/checkout static, catalog data cache with tag invalidation after commit in services, build still works without a DB (ADR-0045) — code done + verified in sandbox 2026-10-21; OWNER smoke on Vercel Preview + DB test suite pending
 
 Do not start a phase by coding immediately. Follow the Phase Start Protocol in the main project plan.

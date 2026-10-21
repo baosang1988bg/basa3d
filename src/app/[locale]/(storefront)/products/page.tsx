@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
-import { listStorefrontProducts } from '@/services/storefront-catalog.service';
-import { listCategories } from '@/services/product.service';
+import { getCachedCategories, getCachedStorefrontProducts } from '@/lib/cache/storefront-cache';
 import { ProductCard } from '@/components/storefront/product-card';
 import { StorefrontButton, storefrontButtonClasses } from '@/components/storefront/button';
 import { Breadcrumb } from '@/components/storefront/breadcrumb';
@@ -19,11 +18,11 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
   const params = await searchParams;
   const sortBy = params.sort === 'price_asc' || params.sort === 'price_desc' ? params.sort : 'newest';
   const [{ items, page, limit }, { items: categories }, t] = await Promise.all([
-    listStorefrontProducts({
+    getCachedStorefrontProducts({
       search: params.q, productType: params.type, sortBy, categoryId: params.categoryId,
       page: params.page ? Number(params.page) : 1,
     }),
-    listCategories({ limit: 100 }),
+    getCachedCategories(100),
     getTranslations('products'),
   ]);
 

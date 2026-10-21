@@ -2,8 +2,7 @@ import Image from 'next/image';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
-import { getStorefrontProductBySlug } from '@/services/storefront-catalog.service';
-import { listCategories } from '@/services/product.service';
+import { getCachedCategories, getCachedStorefrontProductBySlug } from '@/lib/cache/storefront-cache';
 import { SpecTable } from '@/components/storefront/spec-table';
 import { formatVnd } from '@/components/storefront/format';
 import { Breadcrumb, type BreadcrumbItem } from '@/components/storefront/breadcrumb';
@@ -13,7 +12,7 @@ import { serializeJsonLd } from '@/lib/json-ld';
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const product = await getStorefrontProductBySlug(slug);
+  const product = await getCachedStorefrontProductBySlug(slug);
   if (!product) return {};
   const title = product.seoTitle ?? product.name;
   const description = product.seoDescription ?? product.shortDescription ?? undefined;
@@ -30,9 +29,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const [product, t, categories] = await Promise.all([
-    getStorefrontProductBySlug(slug),
+    getCachedStorefrontProductBySlug(slug),
     getTranslations('products'),
-    listCategories({ limit: 100 }),
+    getCachedCategories(100),
   ]);
   if (!product) notFound();
 

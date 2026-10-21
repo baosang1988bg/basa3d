@@ -1,14 +1,5 @@
-import './globals.css';
+import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
-import { Space_Grotesk, Inter } from 'next/font/google';
-import { getLocale } from 'next-intl/server';
-import { cn } from '@/lib/utils';
-import { themeBootstrapScript } from '@/lib/theme-script';
-import { GoogleAnalytics } from '@/components/analytics/google-analytics';
-import { VisualAiInspector } from '@/components/dev/visual-ai-inspector';
-
-const headingFont = Space_Grotesk({ subsets: ['latin', 'vietnamese'], weight: ['500', '600', '700'], variable: '--font-heading' });
-const bodyFont = Inter({ subsets: ['latin', 'vietnamese'], weight: ['400', '500', '600'], variable: '--font-sans' });
 
 // metadataBase turns every relative `alternates.canonical`/`openGraph.images` in child routes'
 // generateMetadata into an absolute URL (Next.js requires this for correct <link rel="canonical">
@@ -19,23 +10,11 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
 };
 
-export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  // `/admin/**` and `/api/**` never go through the locale middleware (middleware.ts branches
-  // them away from next-intl entirely), so getLocale() falls back to the default 'vi' there —
-  // exactly the "admin stays Vietnamese-only" behavior phase-18.md requires.
-  const locale = await getLocale();
-
-  return (
-    <html lang={locale} className={cn('font-sans', headingFont.variable, bodyFont.variable)} suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
-      </head>
-      <body className="[font-feature-settings:'tnum']" suppressHydrationWarning>
-        {children}
-        <GoogleAnalytics />
-        {process.env.NODE_ENV === 'development' ? <VisualAiInspector /> : null}
-      </body>
-    </html>
-  );
+// Phase 42 (ADR-0045): pass-through root layout (next-intl's documented pattern). It must NOT read
+// the request (getLocale/headers/cookies) — doing so made every route dynamic and defeated all
+// page caching. <html>/<body> are rendered by HtmlShell in `[locale]/layout.tsx`,
+// `admin/layout.tsx` and `not-found.tsx`. A root layout file is still required because
+// `app/not-found.tsx` lives at this level.
+export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
+  return children;
 }
-

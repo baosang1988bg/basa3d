@@ -14,7 +14,6 @@ export async function updateVariantPriceAction(variantId: string, price: number)
 
   revalidatePath('/admin/product-inventory');
   revalidatePath('/admin/products');
-  revalidatePath('/products');
   return { success: true };
 }
 
@@ -27,7 +26,6 @@ export async function updateProductBasePriceAction(productId: string, basePrice:
 
   revalidatePath('/admin/product-inventory');
   revalidatePath('/admin/products');
-  revalidatePath('/products');
   return { success: true };
 }
 
@@ -62,6 +60,5 @@ export async function applyPricingCalculationAction(payload: {
 
   revalidatePath('/admin/product-inventory');
   revalidatePath('/admin/products');
-  revalidatePath('/products');
   return { success: true };
 }

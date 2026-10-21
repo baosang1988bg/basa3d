@@ -2,8 +2,10 @@ import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
 import { LegalPage } from '@/components/storefront/legal-page';
 import { SITE_CONFIG } from '@/config/site';
+import { applyRequestLocale, type LocaleParams } from '@/i18n/request-locale';
 
-export async function generateMetadata(): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: LocaleParams }): Promise<Metadata> {
+  await applyRequestLocale(params);
   const t = await getTranslations('policies.returns');
   return {
     title: t('metaTitle'),
@@ -12,7 +14,8 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function ReturnPolicyPage() {
+export default async function ReturnPolicyPage({ params }: { params: LocaleParams }) {
+  await applyRequestLocale(params);
   const t = await getTranslations('policies.returns');
   return (
     <LegalPage title={t('title')} updatedAt="2026-08-31">

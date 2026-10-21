@@ -691,3 +691,41 @@ change, so they were badly under-quoted. Sliced files were already right (`slice
 vs the sliced file, to be checked against a real exported project. `COLOR_CHANGE_SECONDS` and
 `DEFAULT_FLUSH_MM3` are code constants until measured on the P2S. Multi-plate labor (15'/plate vs
 tier minutes) is unchanged and tracked separately.
+
+## ADR-0045 — Phase 42: Storefront page + catalog data caching (ISR, build without DB)
+
+**Context.** OWNER asked that static storefront pages (Home first) stop re-rendering on every visit.
+Reading the code (2026-10-21) showed the root layout called `getLocale()` (reads the middleware
+header), which made **every** route dynamic, and Home was `force-dynamic` (2 Postgres queries per
+request). Builds must keep working without a reachable database (see `sitemap.ts`).
+Plan + verification log: `docs/exec-plans/active/phase-42-storefront-caching.md`.
+
+**Decision.**
+1. `src/app/layout.tsx` is a pass-through (next-intl pattern). `<html>/<body>` live in
+   `components/layout/html-shell.tsx`, rendered by `[locale]/layout.tsx` (`lang` from params),
+   `admin/layout.tsx` (`lang="vi"`) and `not-found.tsx` (`lang="vi"`).
+2. `[locale]/layout.tsx` keeps prerendering both locales. On-demand-only ISR (`generateStaticParams → []`)
+   was rejected after measuring: `next start` does not cache middleware-rewritten VI URLs unless the
+   path was prerendered.
+3. Home: `export const revalidate = 60` (literal in `page.tsx` and `home/page.tsx`). If the catalog
+   cannot be read during `next build`, `connection()` makes Home per-request for that build instead of
+   failing it.
+4. Every static page/layout/generateMetadata calls `applyRequestLocale(params)` (next-intl
+   `setRequestLocale`) because Next renders layouts and pages in parallel.
+5. The root not-found boundary is rendered into every page, so it must not read the request: it
+   passes both `notFound` message sets to a client component that picks the language from the URL
+   after mount.
+6. Catalog reads used by pages go through `lib/cache/storefront-cache.ts` (`unstable_cache`, tag
+   `storefront-catalog`, TTL 60 s). Services stay framework-free. Free-text search, pages > 5 and
+   unknown product slugs bypass the cache (bounded key space).
+7. Invalidation lives in the services, **after commit** (`lib/cache/storefront-cache-tags.ts`): every
+   product/variant/image/category write, `recordInventoryMovement`, `updateOrderStatus` and non-replay
+   `createOrder`. One choke point covers server actions and API routes; best-effort, never throws.
+   The locale-less `revalidatePath('/products')` calls were removed (they never matched).
+8. `experimental.staleTimes.dynamic` is **not** enabled: it would show stale stock/order numbers in
+   admin after navigation. Static Home already benefits from the default 5-minute static Router Cache.
+
+**Trade-off.** Storefront stock badges may lag a missed write path by ≤ 60 s — display only; checkout
+still locks the variant and re-checks stock (`createOrder`). An `/en/...` 404 is server-rendered in
+Vietnamese and switches to English after hydration. Not using `'use cache'`/`dynamicIO` (experimental
+in Next 15.5). Blog stays `force-dynamic` (follow-up).

@@ -2,6 +2,7 @@ import type { PoolClient } from 'pg';
 import { query, withTransaction } from '../lib/db';
 import { DomainError } from '../lib/domain-error';
 import { writeAuditLog } from './audit.service';
+import { invalidatesStorefrontCatalog } from '../lib/cache/storefront-cache-tags';
 
 export type StockLevel = { onHand: number; reserved: number; available: number };
 export function availableStock(onHand: number, reserved: number): number { return onHand - reserved; }
@@ -72,7 +73,7 @@ export async function lockVariantForInventoryWrite(client: PoolClient, variantId
 }
 
 export async function recordInventoryMovement(input: { warehouseId: string; productVariantId: string; movementType: string; quantity: number; unitCost?: number | null; referenceType?: string | null; referenceId?: string | null; note?: string | null }, actorId: string) {
-  return withTransaction(async (client) => {
+  return invalidatesStorefrontCatalog(withTransaction(async (client) => {
     await lockVariantForInventoryWrite(client, input.productVariantId);
     if (input.quantity < 0) await assertOutboundInventoryMovementAllowed(client, input);
     const result = await client.query<{ id: string }>(`
@@ -80,7 +81,7 @@ export async function recordInventoryMovement(input: { warehouseId: string; prod
       values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning id`, [input.warehouseId, input.productVariantId, input.movementType, input.quantity, input.unitCost ?? null, input.referenceType ?? null, input.referenceId ?? null, input.note ?? null, actorId]);
     if (input.movementType.startsWith('ADJUSTMENT')) await writeAuditLog(client, { actorId, action: 'INVENTORY_ADJUSTED', entityType: 'inventory_movement', entityId: result.rows[0].id, afterData: input });
     return result.rows[0];
-  });
+  }));
 }
 
 // Phase 36 S1 (business-rules.md #23): a manual stock-out can never take a warehouse below zero on

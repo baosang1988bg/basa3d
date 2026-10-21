@@ -4,12 +4,14 @@ import { Box, Car, CircleUserRound, Cuboid, Grid2X2, Image, KeyRound, Lamp, Laye
 import { Breadcrumb } from '@/components/storefront/breadcrumb';
 import { Link } from '@/i18n/navigation';
 import { storefrontButtonClasses } from '@/components/storefront/button';
+import { applyRequestLocale, type LocaleParams } from '@/i18n/request-locale';
 
 const ICONS = [Tag, Type, Grid2X2, Waves, Puzzle, Box, Image, Shapes, Palette, ScanLine, Scaling, Cuboid, Layers3, CircleUserRound, KeyRound, Car, Lamp];
 
 export const metadata: Metadata = { title: 'Công cụ thiết kế 3D — BaSa3D' };
 
-export default async function ToolsPage() {
+export default async function ToolsPage({ params }: { params: LocaleParams }) {
+  await applyRequestLocale(params);
   const t = await getTranslations('tools');
   const tools = t.raw('items') as { name: string; description: string; status: 'available' | 'planned'; slug: string | null }[];
   const sorted = tools

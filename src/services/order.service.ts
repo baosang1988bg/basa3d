@@ -3,6 +3,7 @@ import { query, withTransaction } from '../lib/db';
 import { DomainError } from '../lib/domain-error';
 import { assertAvailableStock, lockVariantForInventoryWrite, recordSaleOut } from './inventory.service';
 import { writeAuditLog } from './audit.service';
+import { invalidateStorefrontCatalog, invalidatesStorefrontCatalog } from '../lib/cache/storefront-cache-tags';
 import { pagination } from './product.service';
 import { verifyOrderConfirmationToken } from '../lib/order-confirmation-token';
 import { sendStaffNotification } from '../lib/notify/send-staff-notification';
@@ -121,6 +122,9 @@ export async function createOrder(input: CreateOrderInput, actorId: string | nul
     }
     created = { id: existing.rows[0].id, orderNumber: existing.rows[0].order_number, total: Number(existing.rows[0].total), isReplay: true };
   }
+  // Phase 42: a new order reserves stock, so the storefront's cached "in stock" badges are refreshed —
+  // after commit, like the notification below. A replay changed nothing.
+  if (!created.isReplay) invalidateStorefrontCatalog();
   // Notified only after the transaction has committed (phase-15.md decision #1) — never inside
   // the callback above, so a rolled-back insert can never trigger a staff notification.
   if (!created.isReplay) await (options.notify ?? sendStaffNotification)({ type: 'ORDER', id: created.id, code: created.orderNumber });
@@ -161,7 +165,7 @@ export function nextPaymentStatuses(status: string) { return PAYMENT_STATUS_TRAN
 export function nextShippingStatuses(status: string) { return SHIPPING_STATUS_TRANSITIONS[status] ?? []; }
 
 export async function updateOrderStatus(orderId: string, nextStatus: string, actorId: string) {
-  return withTransaction(async (client) => {
+  return invalidatesStorefrontCatalog(withTransaction(async (client) => {
     const current = await client.query<{ status: string }>('select status from orders where id = $1 for update', [orderId]);
     if (!current.rowCount) throw new DomainError('ORDER_NOT_FOUND', 'Order was not found.', 404);
     const previousStatus = current.rows[0].status;
@@ -238,7 +242,7 @@ export async function updateOrderStatus(orderId: string, nextStatus: string, act
     const updated = await client.query<{ id: string; status: string }>('update orders set status = $2 where id = $1 returning id, status', [orderId, nextStatus]);
     await writeAuditLog(client, { actorId, action: 'ORDER_STATUS_CHANGED', entityType: 'order', entityId: orderId, beforeData: { status: previousStatus }, afterData: { status: nextStatus } });
     return updated.rows[0];
-  });
+  }));
 }
 
 export type OrderListRow = {
