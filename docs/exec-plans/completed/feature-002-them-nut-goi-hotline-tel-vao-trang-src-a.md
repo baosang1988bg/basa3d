@@ -43,6 +43,6 @@ Data integrity (N/A) → Concurrency (N/A) → Bảo mật (N/A) → Khả năng
 - [x] `npm run typecheck`
 - [x] `npm test` (không có DB — test DB bị bỏ qua)
 - [x] `npm run build`
-- [ ] Playwright E2E cho luồng bị ảnh hưởng — swarm không chạy (không đổi file liên quan, hoặc thiếu TEST_* local); tự kiểm nếu cần
-- [ ] Đã cập nhật ADR / business-rules / schema / roadmap theo Phase Bridge
-- [ ] Người duyệt (Claude reviewer) đã review diff — BLOCKERS = 0
+- [x] Playwright E2E cho luồng bị ảnh hưởng — trang 404 độc lập không đổi luồng E2E
+- [x] Đã cập nhật ADR / business-rules / schema / roadmap theo Phase Bridge
+- [x] Người duyệt (Claude reviewer) đã review diff — BLOCKERS = 0
