@@ -28,3 +28,15 @@
    phẩm/đơn liên quan, kết luận.
 5. Nếu khiếu nại không có căn cứ rõ ràng hoặc có tranh chấp, không tự ý gỡ —
    báo Owner quyết định, tham vấn pháp lý nếu cần.
+
+## Nhập kho STL thành sản phẩm nháp (Feature 003)
+Chi tiết cờ: `scripts/stl-import/README.md`. Chạy trên máy OWNER, không chạy trên Vercel.
+1. Một lần: apply migration `20261022000000_stl_bulk_import.sql` lên Supabase (sau khi review), sửa
+   `scripts/stl-import/category-map.json` cho khớp thư mục Drive.
+2. Chạy thử: `npx tsx --env-file=.env.local scripts/stl-import/import-stl.ts --in "<thư mục Drive>" --limit 100` → mở
+   `.stl-import/report.html`: tỉ lệ lỗi, thời gian/mẫu, ảnh, cảnh báo "nghi sai đơn vị"/"gộp sai".
+3. Ghi thật: thêm `--apply`. Mã thoát `3` = bucket ảnh ước tính > 950 MB → dùng `--views 2` hoặc dọn ảnh.
+4. Duyệt ở `/admin/stl-import`: tick "đã kiểm tra bản quyền", sửa tên/danh mục/giá, chọn nhiều → **Duyệt** (chỉ OWNER).
+   Mẫu bị chặn hiện lý do. Từ chối = lưu trữ, lần nhập sau không tạo lại.
+5. Gỡ một mẫu đã lên web: "Ẩn" ở trang sản phẩm (ARCHIVED); muốn lên lại vẫn phải qua điều kiện duyệt.
+6. Lỗi giữa chừng: chạy lại lệnh y hệt (an toàn); `--retry-errors` để thử lại mẫu lỗi.

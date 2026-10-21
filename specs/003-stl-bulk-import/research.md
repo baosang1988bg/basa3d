@@ -221,3 +221,30 @@ Phạm vi: schema trong brief (`docs/prompts/stl-drive-to-draft-products.md` §4
     chấp nhận, ghi rõ trong business-rules.
 
 Kết luận review: thiết kế trong `data-model.md` đã sửa toàn bộ BLOCKERS và IMPORTANT; còn SUGGESTIONS 12–15 để OWNER chọn.
+
+---
+
+## Database review — implementation (2026-10-21, reviewer độc lập, skill `database-review`)
+
+- **BLOCKERS**: không có (mọi đường lên ACTIVE đi qua trigger; INSERT + UPDATE đều bị chặn; không đụng tồn kho/đơn).
+- **IMPORTANT** — đã sửa:
+  1. Lỗi bất ngờ giữa lô duyệt làm mất kết quả các mẫu đã commit và bỏ qua làm mới cache → bắt lỗi theo từng mẫu
+     (`ERROR`), `finally` luôn invalidate (`stl-import.service.ts` `decide`) + test.
+  2. Duyệt không kiểm phiên bản product → thêm `expectedProductUpdatedAt` vào lệnh duyệt, lệch → `STALE` + test.
+- **NICE TO HAVE**: sửa N1 (`deleteProduct` khoá item trước product), N3 (gate coi danh mục `is_active = false` là chưa
+  phân loại), N5 (CHECK `license_reviewed = (license_reviewed_at is not null)`). Chấp nhận/để sau: N2 write-skew ảnh/variant
+  khi duyệt đồng thời, N4 quét ảnh mồ côi định kỳ, N6 trùng logic kiểm trước ở service (trigger là nguồn sự thật) — ghi ở
+  business-rules #28.
+
+## Security review — implementation (2026-10-21, reviewer độc lập, skill `security-review`)
+
+- **BLOCKERS**: không có.
+- **IMPORTANT** — đã sửa:
+  1. Gate chỉ kiểm lúc chuyển ACTIVE → trigger chạy cả khi sửa `base_price`/`category_id` của sản phẩm nhập đang ACTIVE
+     (+ test). Xoá ảnh / variant sau khi lên web: chấp nhận, ghi business-rules #28.
+  2. Guard môi trường test của CLI chỉ kiểm DB → kiểm cả `NEXT_PUBLIC_SUPABASE_URL` (+ test).
+- **NICE TO HAVE**: sửa N1 (link giấy phép chỉ `http(s)` ở schema trang nhập). Để sau: N2 `UNKNOWN` dùng được cho mọi
+  sản phẩm (schema chung), N3 dọn ảnh khi từ chối, N4 map lỗi FK 23503 thành lỗi validation.
+- Đã xác nhận không có vấn đề: phân quyền action + service, IDOR, Zod `.strict()`, SQL tham số hoá, XSS report/grid,
+  `publishBlocked` chỉ nhận mã đã biết, không open redirect, route Playwright không traversal, không upload STL, key không log.
+

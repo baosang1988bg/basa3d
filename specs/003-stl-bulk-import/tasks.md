@@ -262,18 +262,18 @@ cùng `expectedUpdatedAt` → lần hai `STALE_WRITE`.
 
 ## Phase 7: Polish, review & docs
 
-- [ ] T040 [P] `e2e/stl-import.spec.ts`: OWNER đăng nhập → `/admin/stl-import` → tick bản quyền + duyệt 1 item seed → thấy
+- [X] T040 [P] (viết xong, **chưa chạy**: máy không có Supabase test) `e2e/stl-import.spec.ts`: OWNER đăng nhập → `/admin/stl-import` → tick bản quyền + duyệt 1 item seed → thấy
   ở `/products` (theo mẫu `e2e/copyright-compliance.spec.ts`; chỉ chạy khi có Supabase test — ghi rõ skip)
-- [ ] T041 Chạy skill `database-review` trên migration + trigger + `stl-import-write.service.ts` + `stl-import.service.ts`;
+- [X] T041 Chạy skill `database-review` trên migration + trigger + `stl-import-write.service.ts` + `stl-import.service.ts`;
   sửa mọi BLOCKER; ghi kết quả vào `specs/003-stl-bulk-import/research.md` (mục "Database review — implementation")
-- [ ] T042 Chạy skill `security-review` (quyền action/service, RLS, không lộ nguồn, service-role chỉ ở script, XSS trong
+- [X] T042 Chạy skill `security-review` (quyền action/service, RLS, không lộ nguồn, service-role chỉ ở script, XSS trong
   report.html, path traversal khi đọc `--in`, Zod biên); sửa BLOCKER; ghi kết quả vào research.md
-- [ ] T043 [P] Docs: ADR-0049 → *Accepted* trong `docs/architecture/decisions.md`; `docs/database/business-rules.md` (gate
+- [X] T043 [P] Docs: ADR-0049 → *Accepted* trong `docs/architecture/decisions.md`; `docs/database/business-rules.md` (gate
   lên web hàng nhập, idempotent/đổi nguồn, REJECTED không tạo lại, UNKNOWN, OWNER-only duyệt, gate chỉ tại thời điểm
   publish — SUGGESTION 15); `docs/database/schema.md`, `docs/database/migrations.md`; `docs/operations/runbook.md` (chạy
   batch, dry-run trước, apply migration); `docs/roadmap.md`; exec-plan `docs/exec-plans/active/feature-003-stl-bulk-import.md`
   (tick DoD đã đạt)
-- [ ] T044 Cổng cuối: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`; E2E `e2e/stl-import.spec.ts`,
+- [X] T044 Cổng cuối: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`; E2E `e2e/stl-import.spec.ts`,
   `e2e/admin.spec.ts`, `e2e/copyright-compliance.spec.ts` nếu môi trường có Supabase test (nếu không: ghi rõ chưa chạy); commit `docs(stl-import): ADR-0049,
   business rules, runbook`
 

@@ -9,7 +9,7 @@
 Trạng thái: **draft** — Claude viết 2026-10-08 sau feasibility review (trong hội thoại). Spike bước 0
 đã có code và đã chạy thử trên file mẫu: `scripts/model-library-spike/`.
 
-> **Cập nhật 2026-10-21 — thu hẹp phạm vi (ADR-0049, *Proposed*):** feature `specs/003-stl-bulk-import` thay quyết định
+> **Cập nhật 2026-10-21 — thu hẹp phạm vi (ADR-0049):** feature `specs/003-stl-bulk-import` thay quyết định
 > **T3** — mẫu nhập từ kho trở thành `products` DRAFT (bảng staging `product_import_items`), không làm bảng
 > `model_library_items`. Theo đó **T4** (bucket `model-previews`) và **T6** (`custom_requests.model_library_item_id`) cũng
 > bị thay; **T1, T5, T7** và spike Slice 0 được dùng lại. Các slice 1–4 dưới đây **không triển khai** nữa trừ khi OWNER

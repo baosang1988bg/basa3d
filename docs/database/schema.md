@@ -174,3 +174,22 @@ Workshop expense tracking, 100% OWNER-only:
   `material_movements.created_by`/`pricing_configs.created_by`; `audit_logs` is the authoritative
   actor trail), `created_at`, `updated_at`.
 - `deleteExpense` is a soft-cancel (`status = 'CANCELLED'`), never a real `DELETE` (business-rules.md #7/#17).
+
+### `product_import_items` (Feature 003 — see ADR-0049)
+Staging metadata for products imported from the Drive STL library, 1–1 with `products` (`product_id unique`, FK
+`on delete set null`). Server-only: RLS enabled with no policy, no grant to `anon`/`authenticated`; public queries never
+select it.
+- Source: `source_key varchar(40) unique` (sha1 hex of the NFC path, CHECK `^[0-9a-f]{40}$`), `source_rel_path`
+  (admin-only), `source_dir` (parent folder, filter), `group_mode` (`FILE`|`FOLDER`), `source_files jsonb` (array of
+  `{relPath, bytes, mtimeMs}`), `source_bytes`, `source_mtime`.
+- Measurements: `bbox_mm jsonb` (`{x,y,z}`), `volume_cm3 numeric(12,3)`, `triangle_count`, `warnings jsonb` (array).
+- Processing: `render_status` (`PENDING`|`RENDERED`|`ERROR`), `process_error` (≤ 2,000 chars), `needs_rerender`,
+  `needs_price_review`, `source_changed_at`.
+- Review: `license_reviewed` (+ `_by`/`_at`), `review_status` (`PENDING`|`APPROVED`|`REJECTED`), `reviewed_by`
+  (FK `staff_profiles`, `on delete set null`), `reviewed_at`; CHECK `(review_status = 'PENDING') = (reviewed_at is null)`.
+- `updated_at` maintained by `set_updated_at()` (the admin page's optimistic lock relies on it).
+- Triggers: `products_import_publish_gate` (`before insert or update of status on products … when new.status = 'ACTIVE'`)
+  raises `IMPORT_PUBLISH_BLOCKED:<reasons>`; `product_import_items_link_gate` refuses linking/un-approving/un-reviewing an
+  item whose product is `ACTIVE` (`IMPORT_LINK_BLOCKED`). Both functions `security invoker`, `search_path = ''`.
+- Category `chua-phan-loai` ("Chưa phân loại", `is_active = false`) is seeded by the migration.
+- `products.license_type` gains the documented value `UNKNOWN` (still no CHECK — Phase 29 decision; Zod validates).

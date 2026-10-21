@@ -833,9 +833,11 @@ cost of keeping next-intl's routing machinery for a single locale. Removing i18n
 e2e tests would move, and restoring EN later would be expensive. Tests: `tests/locale-routing-en-disabled.test.ts`
 (redirects, flag off), `tests/locale-alternates.test.ts`; `e2e/i18n.spec.ts` keeps covering the flag-on path.
 
-## ADR-0049 — STL bulk import creates DRAFT products (supersedes Phase 32 T3) — *Proposed*
+## ADR-0049 — STL bulk import creates DRAFT products (supersedes Phase 32 T3)
 
-**Status.** Proposed 2026-10-21 (feature `specs/003-stl-bulk-import`); becomes Accepted when OWNER approves the plan gate.
+**Status.** Accepted 2026-10-21 (OWNER approved the plan gate of feature `specs/003-stl-bulk-import`). License stays a
+free `varchar` with `UNKNOWN` documented (no CHECK — Phase 29 kept). After review the trigger also re-checks price/category
+edits of a live imported product; deleting its images/variants after publishing is an accepted gap (business-rules #28).
 
 **Context.** Phase 32 (draft, never implemented) planned a separate `model_library_items` table (T3) and a public
 gallery that sends customers into the custom-request flow, explicitly *not* selling models as `products`. OWNER now wants

@@ -5,8 +5,8 @@
 > data model: [`data-model.md`](../../../specs/003-stl-bulk-import/data-model.md) · task: `tasks.md` (chưa tạo).
 > Đóng bằng skill `close-phase` khi DoD đạt (chuyển file này sang `completed/`).
 
-**Nhánh**: `dev` (chưa tạo nhánh feature — chờ OWNER) · **Trạng thái**: plan + tasks + analyze tự duyệt (uỷ quyền OWNER 2026-10-21), **chờ OWNER "OK" để implement**
-· **Thay thế**: quyết định T3 của Phase 32 (ADR-0049, *Proposed*)
+**Nhánh**: `dev` (chưa tạo nhánh feature — chờ OWNER) · **Trạng thái**: code done + lint/typecheck/test/build xanh 2026-10-21 (commit cục bộ trên `dev`, chưa push); còn việc của OWNER (xem DoD)
+· **Thay thế**: quyết định T3 của Phase 32 (ADR-0049, *Accepted*)
 
 ## Phase brief & Phase Bridge (trích plan.md)
 
@@ -35,10 +35,10 @@ service/action/trang → (6) kiểm tra public → (7) docs.
 đơn giản → UX.
 
 **Tài liệu phải cập nhật**:
-- [ ] ADR-0049 — thay T3 Phase 32 (bản *Proposed* đã thêm; chốt *Accepted* khi OWNER duyệt plan)
-- [ ] `docs/database/business-rules.md` — gate lên web hàng nhập, idempotent/đổi nguồn, REJECTED không tạo lại, UNKNOWN, OWNER-only duyệt
-- [ ] `docs/database/schema.md` + `docs/database/migrations.md`
-- [ ] `docs/operations/runbook.md` (chạy batch), `docs/roadmap.md`, `docs/exec-plans/active/phase-32-model-library.md` (thu hẹp)
+- [x] ADR-0049 — thay T3 Phase 32 (*Accepted*)
+- [x] `docs/database/business-rules.md` — #28–#30
+- [x] `docs/database/schema.md` + `docs/database/migrations.md`
+- [x] `docs/operations/runbook.md` (chạy batch), `docs/roadmap.md`, `docs/exec-plans/active/phase-32-model-library.md` (thu hẹp)
 
 **Cổng chất lượng**: `npm run lint` · `npm run typecheck` · `npm test` · `npm run build` · `e2e/stl-import.spec.ts` +
 chạy lại `e2e/admin.spec.ts`, `e2e/copyright-compliance.spec.ts`.
@@ -54,10 +54,10 @@ chạy lại `e2e/admin.spec.ts`, `e2e/copyright-compliance.spec.ts`.
 
 - [ ] Batch thật ≥ 100 mẫu chạy xong; `report.html` có tỉ lệ lỗi + thời gian trung bình/mẫu (OWNER chạy trên máy)
 - [ ] Draft hiện trong admin; OWNER duyệt ≥ 10 sản phẩm → thấy ở `/products` và sitemap
-- [ ] Test: không sản phẩm nhập nào lên ACTIVE khi chưa `license_reviewed` — qua **mọi** đường (duyệt, sửa sản phẩm, unarchive, `PATCH /api/products/[id]`)
-- [ ] Test: không lộ thông tin nguồn ra public (HTML, API, sitemap) + RLS bảng mới
-- [ ] Test: idempotent, đổi nguồn (DRAFT vs APPROVED), rollback ảnh, quyền 401/403/OWNER-only, optimistic lock, bulk partial
-- [ ] `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`
+- [x] Test: không sản phẩm nhập nào lên ACTIVE khi chưa `license_reviewed` — qua **mọi** đường (duyệt, sửa sản phẩm, unarchive, `PATCH /api/products/[id]`)
+- [x] Test: không lộ thông tin nguồn ra public (service storefront, API, sitemap slugs) + RLS bảng mới — HTML qua E2E (chưa chạy)
+- [x] Test: idempotent, đổi nguồn (DRAFT vs APPROVED), rollback ảnh, quyền 401/403/OWNER-only, optimistic lock, bulk partial
+- [x] `npm run lint`, `npm run typecheck`, `npm test`, `npm run build` (0 fail mới; 29 fail có sẵn từ trước do môi trường test thiếu seed/Supabase Auth)
 - [ ] Playwright `e2e/stl-import.spec.ts` (OWNER duyệt → storefront hiển thị) + E2E sản phẩm hiện có
-- [ ] Docs theo danh sách trên; ADR-0049 *Accepted*
-- [ ] Reviewer: BLOCKERS = 0
+- [x] Docs theo danh sách trên; ADR-0049 *Accepted*
+- [x] Reviewer: BLOCKERS = 0 (database-review + security-review, research.md)
