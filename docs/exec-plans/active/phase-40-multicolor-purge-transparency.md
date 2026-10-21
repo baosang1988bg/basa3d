@@ -4,7 +4,8 @@
 > (2) mẫu nhiều màu trên cùng plate (vd `gengar-keycap.3mf`, P2S + AMS) đang chỉ tính giá cơ bản,
 > **nhựa thải khi đổi màu chưa được tính** dù là chi phí thật.
 > (Đánh số 40 vì nhánh `feature/002` chưa merge đã dùng "Phase 39" trong roadmap.)
-> Đầu vào cho `/speckit-auto --from-file` sau khi OWNER chốt mục "Cần chốt".
+> **Trạng thái 2026-10-21**: OWNER chọn phương án A (ước lượng) + C (xưởng slice khi chốt giá); D (slice trên server) bị loại — ADR-0043.
+> Code xong (Claude làm tay; swarm không gọi được Gemini từ sandbox). Còn chờ file thật để hiệu chỉnh.
 
 ## Hiện trạng (đọc code 2026-10-21)
 | Đường | Nguồn số liệu | Nhựa xả đổi màu | Thời gian đổi màu | UI hiện |
@@ -70,8 +71,22 @@ Ví dụ minh hoạ (số giả định, cần kiểm bằng file thật): keyca
 - [ ] `T_change` thực tế trên P2S (đồng hồ: từ lúc cắt sợi tới lúc in tiếp) — mặc định 40 s.
 - [ ] Có tính thêm hao mòn AMS/cutter theo số lần đổi màu không, hay để trong % khấu hao.
 
+## Đã làm (2026-10-21)
+- `src/lib/parsers/threemf-project-info.ts` — đọc màu/loại nhựa, flush matrix, layer height, prime tower, extruder theo
+  part, object → plate, `paint_color` (decoder TriangleSelector); đếm đổi màu theo layer. Không bao giờ throw.
+- `instant-estimate.service.ts` — `estimateColorPurge` (hằng số `DEFAULT_FLUSH_MM3=300`, `DEFAULT_PRIME_VOLUME_MM3=45`,
+  `COLOR_CHANGE_SECONDS=40`), dòng vật liệu "Nhựa xả đổi màu" riêng, thời gian máy + đổi màu, specs minh bạch;
+  `roundInstant` làm tròn LÊN 5.000đ.
+- `file-estimate.service.ts` — gắn project info cho `.3mf` chưa slice; dùng loại nhựa của project khi khách chưa chọn.
+- `custom-request-form.tsx` — chip màu, bảng "nhựa mô hình / nhựa xả / thời gian máy / độ đặc", "Đã gồm / Chưa gồm",
+  cảnh báo mẫu nhiều màu, một giá khi min = max.
+- `tests/phase-40-multicolor-purge.test.ts` (7 test) · ADR-0043 · business-rules #27 · roadmap.
+
 ## Definition of Done
-- [ ] Mẫu nhiều màu chưa slice: giá ước tính gồm nhựa xả + thời gian đổi màu, sai số so với bản slice ≤ ±30%
-- [ ] UI hiện chip màu, nhựa xả, thời gian, "đã gồm/chưa gồm", một giá khi min = max (375px + 1280px)
-- [ ] lint · typecheck · npm test · build xanh; test parser + estimate mới
-- [ ] ADR + business-rules cập nhật; đóng bằng `close-phase`
+- [ ] Mẫu nhiều màu chưa slice: sai số so với bản slice ≤ ±30% — **chờ file thật** (`gengar-keycap.3mf` + bản slice)
+- [x] Giá ước tính gồm nhựa xả + thời gian đổi màu (test 4 màu > 1 màu)
+- [x] UI hiện chip màu, nhựa xả, thời gian, "đã gồm/chưa gồm", một giá khi min = max
+- [ ] Kiểm tra giao diện 375px + 1280px trên Preview/Production
+- [x] lint · typecheck · test liên quan xanh — [ ] `npm run build` trên Vercel
+- [x] ADR-0043 + business-rules #27 cập nhật — [ ] đóng bằng `close-phase`
+- [ ] Còn treo (cần OWNER): đo `COLOR_CHANGE_SECONDS` thật trên P2S; nhân công nhiều plate; keo cho gói ráp sẵn

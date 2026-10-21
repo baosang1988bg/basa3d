@@ -6,6 +6,7 @@
 import { DomainError } from '../lib/domain-error';
 import { parseThreeMfSliceInfo } from '../lib/parsers/threemf-slice-info';
 import { parseObjVolume, parseStlVolume, parseThreeMfMeshVolume } from '../lib/parsers/mesh-volume';
+import { parseThreeMfProjectInfo } from '../lib/parsers/threemf-project-info';
 import {
   downloadCustomRequestAttachment,
   getCustomRequestAttachmentSize,
@@ -13,6 +14,7 @@ import {
   MAX_ATTACHMENT_PARSE_BYTES,
 } from './custom-request.service';
 import {
+  estimateColorPurge,
   estimateFromMesh,
   estimateFromSliceInfo,
   loadPricingContext,
@@ -44,7 +46,14 @@ export function estimateFileBytes(ctx: PricingContext, input: { fileName: string
         // Unsliced project (typical MakerWorld download): price the geometry as a range instead of
         // giving up; fall back to NOT_SLICED only if the geometry can't be read either.
         try {
-          estimate = estimateFromMesh(ctx, parseThreeMfMeshVolume(input.bytes), requested);
+          // Phase 40: multi-color project → add estimated AMS purge + color-change time. The parser
+          // never throws; null (not a Bambu/Orca project, odd file) prices exactly as before.
+          const project = parseThreeMfProjectInfo(input.bytes);
+          const purge = project ? estimateColorPurge(project) : null;
+          // Customer didn't pick a material: use the project's own filament type when it has exactly one.
+          const projectType = !requested && purge?.filamentTypes.length === 1 ? purge.filamentTypes[0] : null;
+          const type = requested ?? (projectType && FDM_TYPES.has(projectType) ? projectType : null);
+          estimate = estimateFromMesh(ctx, parseThreeMfMeshVolume(input.bytes), type, purge);
         } catch (meshError) {
           if (meshError instanceof DomainError) return { status: 'NOT_SLICED', estimate: null };
           throw meshError;

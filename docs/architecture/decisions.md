@@ -646,3 +646,36 @@ setting.
 - Server-action positional args are parsed with `src/lib/action-args.ts`; a static test enforces it
   for every `actions.ts`, and another walks the import graph so no `'use client'` module can reach
   `db`, secrets or `services/*` (instead of adding the `server-only` package).
+
+## ADR-0043 — Phase 40: AMS purge estimate for unsliced multi-color .3mf; no server-side slicing
+
+**Context.** The /custom-print instant estimate priced an unsliced Bambu/Orca project from mesh volume
+only, as ONE color with 5% waste. Small multi-color models on the P2S + AMS (e.g. a 4-color keycap)
+spend far more filament on purge than on the model itself, plus ~40 s of machine time per filament
+change, so they were badly under-quoted. Sliced files were already right (`slice_info.config`
+`used_g` includes flush + prime tower, `prediction` includes change time).
+
+**Decision.**
+1. Read the project's own data (`Metadata/project_settings.config`: colors, types, `flush_volumes_matrix`,
+   `flush_multiplier`, `layer_height`, prime tower; `Metadata/model_settings.config`: part extruders,
+   object → plate; per-triangle `paint_color`) and estimate per plate
+   `color_changes = Σ_layers (filaments in layer − 1)`;
+   `purge_g = color_changes × (avg flush of the used pairs × multiplier + prime_volume) / 1000 × 1.24`;
+   `extra_minutes = color_changes × 40 s`. Defaults when a field is missing: flush 300 mm³, prime 45 mm³,
+   layer 0.2 mm. Purge is its own material line with no extra waste %; the model line keeps the 1-color
+   5% default (no double counting).
+2. The parser never throws — an unknown layout prices exactly as before. A sliced file always wins.
+3. The storefront shows quantities only (model grams range, purge grams + change count, machine-time
+   range, colors, "đã gồm / chưa gồm") — never internal costs or margin (B1).
+4. `roundInstant` rounds UP to 5.000đ (was nearest), so the instant price is never below the ADR-0010
+   price staff would quote from the same inputs.
+5. **Rejected: server-side slicing** (Bambu Studio / OrcaSlicer CLI on a worker VPS). Exact numbers, but a
+   new always-on service, untrusted files fed to a native binary (sandboxing), AGPL-3.0 obligations if
+   modified, and ~$5–10/month + a medium phase of work. OWNER decision 2026-10-21: not worth the cost and
+   risk at current volume. Exact prices keep coming from (a) customers uploading a sliced file, or
+   (b) staff slicing for the official quote.
+
+**Consequences.** The estimate is still an estimate (slicer reorders colors per layer); target ±30%
+vs the sliced file, to be checked against a real exported project. `COLOR_CHANGE_SECONDS` and
+`DEFAULT_FLUSH_MM3` are code constants until measured on the P2S. Multi-plate labor (15'/plate vs
+tier minutes) is unchanged and tracked separately.

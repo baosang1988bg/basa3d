@@ -40,6 +40,7 @@ Phase 36: post-audit data integrity — order/inventory/print-job/quote state gu
 Phase 37: brand identity on storefront (logo header/footer, favicon/app icons, default OG image, home banner, footer contact card) — first feature via Spec Kit (`specs/001-brand-assets/`), code done 2026-10-20; build + E2E smoke pending on Vercel/Mac
 Phase 38: hotfix — every public upload (/custom-print, /bao-gia) returned 500 because Production lacked `UPLOAD_CLAIM_SECRET` (never synced by the release script); script + guard test fixed 2026-10-20, OWNER must set the Vercel env var and redeploy
 Phase 39: storefront 404 hotline — added "Call hotline" button to the 404 page using `SITE_CONFIG.hotline` and i18n messages; code done 2026-10-20
+Phase 40: transparent instant quote + AMS purge estimate for unsliced multi-color .3mf (ADR-0043; server-side slicing rejected) — code done 2026-10-21; needs a real exported project to calibrate (±30% target)
 
 
 Do not start a phase by coding immediately. Follow the Phase Start Protocol in the main project plan.

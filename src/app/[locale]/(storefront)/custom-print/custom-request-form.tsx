@@ -47,6 +47,11 @@ export type CustomRequestPrefill = {
   description: string;
 };
 
+/** 125 → "2,1" (Vietnamese decimal comma), used for the machine-time range. */
+function formatHours(minutes: number): string {
+  return (Math.round((minutes / 60) * 10) / 10).toLocaleString('vi-VN');
+}
+
 const inputClass = 'h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50';
 
 /**
@@ -350,7 +355,28 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
               {priced.specs.netWeightGrams !== null ? <span className="rounded-md bg-muted px-2.5 py-1 font-medium">~{priced.specs.netWeightGrams}g {priced.materialType}</span> : null}
               {priced.specs.platesCount ? <span className="rounded-md bg-muted px-2.5 py-1 font-medium">{priced.specs.platesCount} plate</span> : null}
               {priced.specs.sizeMm ? <span className="rounded-md bg-muted px-2.5 py-1 font-medium">{priced.specs.sizeMm.x}×{priced.specs.sizeMm.y}×{priced.specs.sizeMm.z} mm</span> : null}
+              {priced.specs.colors?.length ? (
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1 font-medium">
+                  <span className="flex -space-x-1" aria-hidden="true">
+                    {priced.specs.colors.map((color, index) => <span key={`${color}-${index}`} className="size-3 rounded-full border border-border" style={{ backgroundColor: color }} />)}
+                  </span>
+                  {priced.specs.colors.length} màu
+                </span>
+              ) : null}
             </div>
+            {/* Phase 40: what the estimate is made of — quantities only, never internal costs/margin (B1). */}
+            {priced.kind === 'MESH' && priced.specs.modelGrams ? (
+              <dl className="grid grid-cols-1 gap-x-6 gap-y-1.5 rounded-lg border border-border bg-muted/20 p-3 text-xs sm:grid-cols-2">
+                <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Nhựa cho mô hình</dt><dd className="font-medium text-foreground">~{priced.specs.modelGrams.min}–{priced.specs.modelGrams.max} g {priced.materialType}</dd></div>
+                {priced.specs.purgeGrams ? (
+                  <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Nhựa xả khi đổi màu</dt><dd className="font-medium text-foreground">~{priced.specs.purgeGrams} g · ~{priced.specs.colorChanges} lần đổi màu</dd></div>
+                ) : null}
+                {priced.specs.printMinutesRange ? (
+                  <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Thời gian máy chạy</dt><dd className="font-medium text-foreground">~{formatHours(priced.specs.printMinutesRange.min)}–{formatHours(priced.specs.printMinutesRange.max)} giờ</dd></div>
+                ) : null}
+                <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Độ đặc giả định</dt><dd className="font-medium text-foreground">in thưa → in đặc</dd></div>
+              </dl>
+            ) : null}
             <div className={`grid grid-cols-1 gap-3 ${priced.options.length > 1 ? 'sm:grid-cols-2' : ''}`}>
               {priced.options.map((option) => {
                 const isSelected = selectedOption === option.key;
@@ -367,13 +393,25 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
                     <span className="font-heading text-2xl font-extrabold text-foreground">
                       {option.priceVnd !== null
                         ? `~${formatVnd(option.priceVnd)}`
-                        : option.minVnd !== undefined ? `${formatVnd(option.minVnd)} – ${formatVnd(option.maxVnd ?? option.minVnd)}` : 'Xưởng sẽ báo giá'}
+                        : option.minVnd !== undefined
+                          // One price when both ends round to the same number (was "30.000đ – 30.000đ").
+                          ? (option.maxVnd ?? option.minVnd) === option.minVnd ? `~${formatVnd(option.minVnd)}` : `${formatVnd(option.minVnd)} – ${formatVnd(option.maxVnd ?? option.minVnd)}`
+                          : 'Xưởng sẽ báo giá'}
                     </span>
                     {quantity > 1 ? <span className="text-xs text-muted-foreground">Giá cho 1 sản phẩm.</span> : null}
                   </button>
                 );
               })}
             </div>
+            <p className="text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground">Đã gồm:</span> nhựa{priced.specs.purgeGrams ? ' (kể cả nhựa xả đổi màu)' : ''}, điện, khấu hao máy, dự phòng in lỗi, thao tác &amp; đóng gói.{' '}
+              <span className="font-semibold text-foreground">Chưa gồm:</span> phí ship, hậu kỳ/sơn, chỉnh sửa thiết kế.
+            </p>
+            {priced.kind === 'MESH' && (priced.specs.colors?.length ?? 0) > 1 ? (
+              <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-300">
+                Mẫu {priced.specs.colors!.length} màu: nhựa xả và thời gian đổi màu trên máy AMS được <strong>ước tính</strong> từ file (số lần đổi màu thật do slicer quyết định). Slice file để có giá chính xác.
+              </p>
+            ) : null}
             <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-300">
               {priced.kind === 'SLICED'
                 ? 'Giá ước tính từ thời gian in và số gram trong file đã slice, làm tròn 5.000đ. Giá chính thức do BaSa3D xác nhận khi kiểm tra file.'

@@ -57,7 +57,7 @@ export const MESH_MAX_VERTICES = MESH_MAX_TRIANGLES;
 type ModelObject = { volumeMm3?: number; components?: { path: string; objectId: string; det: number }[] };
 
 const attrRegexCache = new Map<string, RegExp>();
-function attr(attrs: string, name: string): string | undefined {
+export function attr(attrs: string, name: string): string | undefined {
   let pattern = attrRegexCache.get(name);
   if (!pattern) {
     pattern = new RegExp(`(?:^|\\s)${name}="([^"]*)"`);
@@ -91,7 +91,7 @@ function findTagStart(xml: string, tag: string, from: number, end: number): numb
   }
 }
 
-function* scanElements(xml: string, tag: string, from: number, end: number, withBody: boolean): Generator<ScannedElement> {
+export function* scanElements(xml: string, tag: string, from: number, end: number, withBody: boolean): Generator<ScannedElement> {
   let index = from;
   for (;;) {
     const start = findTagStart(xml, tag, index, end);
@@ -112,7 +112,7 @@ function* scanElements(xml: string, tag: string, from: number, end: number, with
   }
 }
 
-function firstElement(xml: string, tag: string, from: number, end: number, withBody: boolean): ScannedElement | undefined {
+export function firstElement(xml: string, tag: string, from: number, end: number, withBody: boolean): ScannedElement | undefined {
   for (const element of scanElements(xml, tag, from, end, withBody)) return element;
   return undefined;
 }
