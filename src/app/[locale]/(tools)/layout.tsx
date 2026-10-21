@@ -7,7 +7,7 @@ export default async function ToolsLayout({ children, params }: { children: Reac
   await applyRequestLocale(params);
   return <div className="min-h-dvh bg-background text-foreground">
     <header className="flex h-14 items-center justify-between border-b px-4">
-      <Link href="/">← Về cửa hàng</Link>
+      <Link href="/" className="group inline-flex items-center gap-1"><span aria-hidden className="transition-transform duration-200 ease-out group-hover:-translate-x-1 motion-reduce:transition-none">←</span> Về cửa hàng</Link>
       <a href="#tool-quote" className="font-semibold text-primary">Gửi báo giá</a>
     </header>
     <main>{children}</main>

@@ -91,3 +91,39 @@
     }
   }
 }
+
+/*
+ * Phase 43 — reveal on scroll, pure CSS (docs/exec-plans/active/phase-43-storefront-motion.md).
+ *
+ * Scroll-driven animations (`animation-timeline: view()`) need no JavaScript: content is always in
+ * the static HTML and always visible; a browser without support (Firefox today) simply shows it
+ * without the effect. Never apply these to above-the-fold content (hero, banner, first product
+ * image) — an element already on screen at load is at the end of its range and shows normally,
+ * but one straddling the fold would load half-faded.
+ *
+ * The keyframes animate the individual `translate` property, not `transform`: `fill-mode: both`
+ * keeps the final keyframe applied forever, and a `transform` there would override every
+ * `hover:-translate-y-*` (Tailwind v3 writes those to `transform`) on the same card.
+ */
+@keyframes reveal-up {
+  from { opacity: 0; translate: 0 16px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+@layer utilities {
+  @media (prefers-reduced-motion: no-preference) {
+    @supports (animation-timeline: view()) {
+      .reveal,
+      .reveal-stagger > * {
+        animation: reveal-up cubic-bezier(0.2, 0.7, 0.3, 1) both;
+        animation-timeline: view();
+        animation-range: entry 0% entry 75%;
+      }
+      /* Items of one row enter the viewport together; shifting each column's range makes them
+         land left-to-right instead of all at once (4-column grids; 2-column ones just get 2 steps). */
+      .reveal-stagger > *:nth-child(4n + 2) { animation-range: entry 6% entry 81%; }
+      .reveal-stagger > *:nth-child(4n + 3) { animation-range: entry 12% entry 87%; }
+      .reveal-stagger > *:nth-child(4n + 4) { animation-range: entry 18% entry 93%; }
+    }
+  }
+}

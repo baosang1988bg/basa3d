@@ -9,6 +9,8 @@ type CartContextValue = {
   items: CartItem[];
   itemCount: number;
   subtotal: number;
+  /** False until the stored cart has been read after mount (Phase 43: no "item added" pop on load). */
+  isReady: boolean;
   addItem: (item: Omit<CartItem, 'quantity'>, quantity: number) => void;
   updateQuantity: (variantId: string, quantity: number) => void;
   removeItem: (variantId: string) => void;
@@ -77,8 +79,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const subtotal = useMemo(() => items.reduce((sum, row) => sum + row.price * row.quantity, 0), [items]);
 
   const value = useMemo(
-    () => ({ items, itemCount, subtotal, addItem, updateQuantity, removeItem, clearCart }),
-    [items, itemCount, subtotal, addItem, updateQuantity, removeItem, clearCart],
+    () => ({ items, itemCount, subtotal, isReady: isInitialized, addItem, updateQuantity, removeItem, clearCart }),
+    [items, itemCount, subtotal, isInitialized, addItem, updateQuantity, removeItem, clearCart],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

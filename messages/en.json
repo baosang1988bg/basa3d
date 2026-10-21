@@ -173,6 +173,7 @@
     "previousPage": "Previous",
     "nextPage": "Next",
     "noImage": "No image yet",
+    "galleryThumbnail": "View image {index}",
     "inStock": "In stock",
     "outOfStock": "Out of stock",
     "printOnDemand24h": "24h custom print",

@@ -38,10 +38,10 @@ export default function CustomPrintPage() {
         </div>
       </section>
 
-      <section className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-4">
+      <section className="reveal-stagger mt-12 grid grid-cols-1 gap-4 md:grid-cols-4">
         {STEPS.map((item) => (
-          <div key={item.step} className="rounded-xl border border-border bg-card p-4">
-            <span className="font-heading inline-flex size-8 items-center justify-center rounded-full bg-accent text-sm font-bold text-accent-foreground">{item.step}</span>
+          <div key={item.step} className="group rounded-xl border border-border bg-card p-4 transition-colors duration-200 hover:border-accent/50">
+            <span className="font-heading inline-flex size-8 items-center justify-center rounded-full bg-accent text-sm font-bold text-accent-foreground transition-transform duration-200 ease-out group-hover:scale-110 motion-reduce:transition-none">{item.step}</span>
             <h3 className="font-heading mt-3 text-base font-semibold text-foreground">{item.title}</h3>
             <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>
           </div>
@@ -50,12 +50,12 @@ export default function CustomPrintPage() {
 
       <MakerWorldIntakeCard />
 
-      <section className="mt-12 rounded-xl border border-primary/20 bg-primary/5 p-6 md:flex md:items-center md:justify-between">
+      <section className="reveal mt-12 rounded-xl border border-primary/20 bg-primary/5 p-6 md:flex md:items-center md:justify-between">
         <div><p className="text-sm font-semibold uppercase tracking-wide text-primary">Chưa có file 3D?</p><h2 className="font-heading mt-1 text-2xl font-bold">Tự tạo móc khoá khắc tên</h2><p className="mt-2 text-sm text-muted-foreground">Nhập tên, xem trước 3D và gửi file STL thẳng tới xưởng.</p></div>
         <Link href="/tools/keychain-generator" className={storefrontButtonClasses('accent', 'mt-4 md:mt-0')}>Mở công cụ tạo mẫu</Link>
       </section>
 
-      <section className="mt-12">
+      <section className="reveal mt-12">
         <h2 className="font-heading text-2xl font-bold text-foreground">Bảng tra cứu vật liệu</h2>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[640px] border-collapse text-left text-sm">
@@ -70,7 +70,7 @@ export default function CustomPrintPage() {
             </thead>
             <tbody>
               {MATERIALS.map((row) => (
-                <tr key={row.material} className="border-b border-border/60">
+                <tr key={row.material} className="border-b border-border/60 transition-colors duration-150 hover:bg-muted/40">
                   <td className="py-2 pr-4"><MaterialBadge material={row.material} /></td>
                   <td className="py-2 pr-4 text-foreground">{row.durability}</td>
                   <td className="py-2 pr-4 text-foreground">{row.heat}</td>

@@ -4,6 +4,9 @@ import { Link } from '@/i18n/navigation';
 import { SITE_CONFIG } from '@/config/site';
 import { ContactLink } from './contact-link';
 
+// Phase 43: the underline fades in with the colour (text-decoration-color only — no layout shift).
+const FOOTER_LINK_CLASS = 'cursor-pointer text-muted-foreground underline decoration-transparent underline-offset-4 transition-[color,text-decoration-color] duration-200 hover:text-foreground hover:decoration-current';
+
 export function Footer() {
   const t = useTranslations('footer');
   const tNav = useTranslations('nav');
@@ -34,20 +37,20 @@ export function Footer() {
         <div>
           <p className="text-sm font-semibold text-foreground">{t('linksTitle')}</p>
           <ul className="mt-2 space-y-1 text-sm">
-            <li><Link href="/products" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">{tNav('products')}</Link></li>
-            <li><Link href="/custom-print" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">{t('customPrint')}</Link></li>
+            <li><Link href="/products" className={FOOTER_LINK_CLASS}>{tNav('products')}</Link></li>
+            <li><Link href="/custom-print" className={FOOTER_LINK_CLASS}>{t('customPrint')}</Link></li>
             {SITE_CONFIG.blogEnabled && (
-              <li><Link href="/blog" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">{tNav('blog')}</Link></li>
+              <li><Link href="/blog" className={FOOTER_LINK_CLASS}>{tNav('blog')}</Link></li>
             )}
           </ul>
         </div>
         <div>
           <p className="text-sm font-semibold text-foreground">{t('policiesTitle')}</p>
           <ul className="mt-2 space-y-1 text-sm">
-            <li><Link href="/privacy-policy" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">{t('privacyPolicy')}</Link></li>
-            <li><Link href="/shipping-policy" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">{t('shippingPolicy')}</Link></li>
-            <li><Link href="/return-policy" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">{t('returnPolicy')}</Link></li>
-            <li><Link href="/file-confidentiality-policy" className="cursor-pointer text-muted-foreground transition-colors duration-150 hover:text-foreground">{t('fileConfidentialityPolicy')}</Link></li>
+            <li><Link href="/privacy-policy" className={FOOTER_LINK_CLASS}>{t('privacyPolicy')}</Link></li>
+            <li><Link href="/shipping-policy" className={FOOTER_LINK_CLASS}>{t('shippingPolicy')}</Link></li>
+            <li><Link href="/return-policy" className={FOOTER_LINK_CLASS}>{t('returnPolicy')}</Link></li>
+            <li><Link href="/file-confidentiality-policy" className={FOOTER_LINK_CLASS}>{t('fileConfidentialityPolicy')}</Link></li>
           </ul>
         </div>
       </div>

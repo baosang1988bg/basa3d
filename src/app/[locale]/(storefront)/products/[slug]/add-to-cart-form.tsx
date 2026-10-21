@@ -108,7 +108,7 @@ export function AddToCartForm({ productSlug, productName, productType, imageUrl,
       </StorefrontButton>
 
       {justAdded && (
-        <p className="flex items-center gap-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+        <p role="status" className="flex items-center gap-1.5 text-sm font-medium text-emerald-600 duration-200 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 dark:text-emerald-400">
           <Check className="size-4" /> {t('addedToCart')}{' '}
           <Link href="/cart" className="cursor-pointer underline underline-offset-2 hover:text-emerald-700 dark:hover:text-emerald-300">{t('viewCart')}</Link>
         </p>

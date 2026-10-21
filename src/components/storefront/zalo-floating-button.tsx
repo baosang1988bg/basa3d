@@ -13,10 +13,12 @@ export function ZaloFloatingButton() {
         rel="noreferrer"
         aria-label="Chat Zalo tư vấn 24/7"
         onClick={() => trackContactClick('zalo', 'floating_button')}
-        className="group relative flex size-14 items-center justify-center rounded-full bg-[#0068FF] text-white shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0068FF] focus-visible:ring-offset-2"
+        className="group relative flex size-14 items-center justify-center rounded-full bg-[#0068FF] text-white shadow-lg transition-[box-shadow,transform] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0068FF] focus-visible:ring-offset-2 motion-reduce:hover:translate-y-0"
       >
-        {/* Animated pulse ring */}
-        <span className="absolute -inset-1 animate-ping rounded-full bg-[#0068FF]/40 opacity-75 duration-1000" />
+        {/* Phase 43: slow, faint ripple (2.4s) instead of Tailwind's animate-ping (1s, harsh — and the old
+            `duration-1000` never changed it: it sets transition-duration, not the animation's). Hidden
+            entirely for reduced motion. */}
+        <span aria-hidden className="absolute inset-0 hidden rounded-full bg-[#0068FF] motion-safe:block motion-safe:animate-soft-ping" />
         
         {/* Zalo Icon / Message Icon */}
         <MessageCircle className="relative size-7 fill-white/10 stroke-[2.25]" />

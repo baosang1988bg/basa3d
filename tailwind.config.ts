@@ -43,12 +43,33 @@ export default {
       boxShadow: {
         tactile: '3px 3px 0px 0px var(--shadow-tactile-color)',
         'tactile-accent': '3px 3px 0px 0px var(--shadow-tactile-accent-color)',
+        // Phase 43: "keycap" press for tactile buttons — lifted on hover, pressed flat on click.
+        'tactile-lift': '4px 4px 0px 0px var(--shadow-tactile-color)',
+        'tactile-press': '1px 1px 0px 0px var(--shadow-tactile-color)',
+        'tactile-accent-lift': '4px 4px 0px 0px var(--shadow-tactile-accent-color)',
+        'tactile-accent-press': '1px 1px 0px 0px var(--shadow-tactile-accent-color)',
       },
+      // Phase 43 (docs/exec-plans/active/phase-43-storefront-motion.md). Every use is gated with
+      // `motion-safe:`; globals.css also shortens all animations under prefers-reduced-motion.
       keyframes: {
         shimmer: { '100%': { transform: 'translateX(100%)' } },
+        // SVG path with pathLength="1" + stroke-dasharray 1: 1 = hidden, 0 = fully drawn.
+        'draw-line': { from: { strokeDashoffset: '1' }, to: { strokeDashoffset: '0' } },
+        'badge-pop': { '0%': { transform: 'scale(1)' }, '40%': { transform: 'scale(1.25)' }, '100%': { transform: 'scale(1)' } },
+        'soft-ping': { '0%': { transform: 'scale(1)', opacity: '0.45' }, '70%, 100%': { transform: 'scale(1.45)', opacity: '0' } },
+        // Ends on `transform: none` so a finished page never keeps a containing block for fixed children.
+        'page-enter': { from: { opacity: '0', transform: 'translateY(8px)' }, to: { opacity: '1', transform: 'none' } },
       },
       animation: {
         shimmer: 'shimmer 1.6s ease-in-out infinite',
+        'draw-line': 'draw-line 1.1s cubic-bezier(0.65, 0, 0.35, 1) 0.2s both',
+        'badge-pop': 'badge-pop 320ms ease-out',
+        'soft-ping': 'soft-ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite',
+        'page-enter': 'page-enter 220ms ease-out both',
+      },
+      transitionTimingFunction: {
+        // iOS sheet curve — the panel/drawer curve fixed by the ui-ux skill (500ms in, 350ms out).
+        sheet: 'cubic-bezier(0.32, 0.72, 0, 1)',
       },
     },
   },

@@ -1,4 +1,3 @@
-import Image from 'next/image';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
@@ -7,6 +6,7 @@ import { SpecTable } from '@/components/storefront/spec-table';
 import { formatVnd } from '@/components/storefront/format';
 import { Breadcrumb, type BreadcrumbItem } from '@/components/storefront/breadcrumb';
 import { AddToCartForm } from './add-to-cart-form';
+import { ProductGallery } from './product-gallery';
 import { ViewItemTracker } from '@/components/analytics/storefront-trackers';
 import { serializeJsonLd } from '@/lib/json-ld';
 
@@ -74,24 +74,12 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
       <Breadcrumb items={breadcrumbItems} />
 
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-        <div>
-          <div className="aspect-square overflow-hidden rounded-xl bg-muted/50">
-            {product.images[0] ? (
-              <Image src={product.images[0].url} alt={product.images[0].altText ?? product.name} width={600} height={600} className="size-full object-cover" />
-            ) : (
-              <div className="flex size-full items-center justify-center text-sm text-muted-foreground">{t('noImage')}</div>
-            )}
-          </div>
-          {product.images.length > 1 && (
-            <div className="mt-3 flex gap-2">
-              {product.images.map((image) => (
-                <div key={image.url} className="size-16 overflow-hidden rounded-lg bg-muted/50">
-                  <Image src={image.url} alt={image.altText ?? product.name} width={64} height={64} className="size-full object-cover" />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <ProductGallery
+          images={product.images.map((image) => ({ url: image.url, altText: image.altText }))}
+          productName={product.name}
+          noImageLabel={t('noImage')}
+          thumbnailLabels={product.images.map((_, index) => t('galleryThumbnail', { index: index + 1 }))}
+        />
 
         <div>
           <h1 className="font-heading text-2xl font-bold text-foreground md:text-[2rem]">{product.name}</h1>

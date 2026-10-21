@@ -85,7 +85,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
           <Link href="/custom-print" className={storefrontButtonClasses('accent')}>{t('ctaCustomRequest')}</Link>
         </div>
       ) : (
-        <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+        <div className="reveal-stagger mt-8 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
           {items.map((product) => <ProductCard key={product.id} product={product} />)}
         </div>
       )}
