@@ -14,6 +14,7 @@
 Theo SemVer, `1.1.0-preview.x` **xếp trước** `1.1.0`: đúng nghĩa "bản thử của 1.1.0 chưa phát hành".
 
 ## Xem bản nào đang chạy
+- Storefront: cuối footer, cạnh dòng bản quyền — `v1.1.0` (Preview: `v1.1.0-preview.a1b2c3d`), chữ mờ.
 - Admin: dòng cuối sidebar — `v1.1.0 · Production · a1b2c3d` (rê chuột thấy thời điểm build).
 - `GET /api/version` → `{ version, channel, commit, builtAt, label }`.
 - View source bất kỳ trang: `<meta name="app-version" content="…">`.

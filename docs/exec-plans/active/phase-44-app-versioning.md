@@ -26,7 +26,9 @@
    client, không đọc `package.json` lúc chạy (không bundle cả file vào client), không ảnh hưởng trang static.
 6. **Nơi hiển thị:** footer sidebar admin (`v1.0.0 · Production · a1b2c3d`); `GET /api/version` (JSON, static
    theo bản build); `<meta name="app-version">` trên mọi trang; badge nhỏ góc trái dưới **chỉ ở preview/development**
-   để không nhầm bản thử với production. Storefront production không hiện gì thêm cho khách.
+   để không nhầm bản thử với production. ~~Storefront production không hiện gì thêm cho khách.~~
+   **Cập nhật 2026-10-21 (OWNER):** storefront hiện `v<label>` chữ mờ cạnh dòng bản quyền ở footer (mọi kênh) —
+   khách chụp màn hình báo lỗi là thấy version; cố định theo bản build nên trang static/ISR không đổi.
 7. **Production release = deploy script:** truyền commit; sau deploy gọi `/api/version` và **so commit** với HEAD
    (bắt được trường hợp alias production chưa trỏ sang bản mới); smoke xanh thì hỏi tạo **annotated tag `v<version>`**
    tại HEAD (không tự push). Version đã có tag ở commit khác → cảnh báo "chưa bump version".
@@ -47,6 +49,8 @@
 - [x] D. `qc-deploy-vercel.mjs`: `--build-env APP_COMMIT_SHA`, smoke `/api/version`, cảnh báo version/tag, tạo tag.
 - [x] E. `package.json` → `1.0.0`; `CHANGELOG.md`; `docs/operations/versioning.md`; ADR-0046; roadmap.
 - [x] F. Tests `tests/phase-44-app-versioning.test.ts`.
+- [x] G. (OWNER bổ sung) Version ở footer storefront: `src/components/storefront/footer.tsx` + 1 test + runbook.
+      Đã chạy typecheck, lint, test và build xanh hoàn toàn (2026-10-21).
 
 ## Definition of Done
 - [x] typecheck, lint, test (không DB) xanh; build không DB xanh, số trang static không đổi.

@@ -770,7 +770,8 @@ in Next 15.5). Blog stays `force-dynamic` (follow-up).
 **Decision.** SemVer, one line. `package.json.version` is the version being prepared (starts at
 `1.0.0`). Each build resolves `{version, channel, commit, builtAt}` once in `next.config.mjs`
 (`src/config/resolve-build-info.mjs`) and inlines it via `env`; production shows `1.0.0`, other channels
-a pre-release `1.0.0-<channel>.<sha7>`. Shown in the admin sidebar footer, `GET /api/version` (static),
+a pre-release `1.0.0-<channel>.<sha7>`. Shown in the storefront footer (dimmed, next to the copyright —
+added at OWNER request), the admin sidebar footer, `GET /api/version` (static),
 `<meta name="app-version">`, and a PREVIEW/DEV corner badge on non-production builds only. The release
 script passes `APP_COMMIT_SHA`, verifies `/api/version` serves the deployed commit, and offers an
 annotated `v<version>` tag (never pushed automatically). Runbook: `docs/operations/versioning.md`.
@@ -778,3 +779,21 @@ annotated `v<version>` tag (never pushed automatically). Runbook: `docs/operatio
 **Trade-off.** Manual bump + CHANGELOG (no semantic-release/changesets dependency). `/api/version`
 publicly exposes version and commit SHA (not secrets). Not CalVer: SemVer matches the owner's mobile
 background and the existing `package.json`.
+
+## ADR-0047 — Phase 45: Organizer geometry on manifold-3d in a Web Worker
+
+**Context.** OWNER asked for parity with the reference Organizer tool (OWNER accepted the licensing of
+copying it). The Phase 20 engine merged overlapping `BoxGeometry` shells (non-manifold STL, slicer had
+to union them) and could not express rounded offsets, wall textures, stacking lips or snap-on labels.
+The reference builds everything with `manifold-3d` (Apache-2.0) in a Web Worker.
+
+**Decision.** Add `manifold-3d@3.5.4` (pinned). Geometry lives in `src/lib/3d-tools/organizer/`:
+pure params/normalization (`organizer-params.ts`), manifold builder with the module injected
+(`organizer-geometry.ts`, runs in the worker and in Node tests), worker + typed protocol + client
+(latest-request-wins, 150 ms debounce). Every WASM object is tracked and `delete()`d. STL is written
+straight from the typed arrays; the label/assembly 3MF reuses `common/3mf-writer.ts`. CSP (report-only)
+gains `'wasm-unsafe-eval'` and `worker-src 'self' blob:`.
+
+**Trade-off.** ~540 KB WASM + JS loaded only on `/tools/organizer` (inside the worker chunk). Old
+`organizer-engine.ts` is kept until the new page is verified, then removed. Same library can later serve
+Lamp "Mô hình" mode and Jigsaw.

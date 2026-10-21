@@ -62,3 +62,9 @@ test('/api/version is static and the release script verifies it and passes the c
 test('the environment badge never renders in production', () => {
   assert.match(read('src/components/layout/environment-badge.tsx'), /if \(BUILD_INFO\.channel === 'production'\) return null;/);
 });
+
+test('the storefront footer shows the build version next to the copyright', () => {
+  const footer = read('src/components/storefront/footer.tsx');
+  assert.match(footer, /import \{ VERSION_LABEL \} from '@\/config\/build-info';/);
+  assert.match(footer, /v\{VERSION_LABEL\}/);
+});

@@ -3,6 +3,7 @@ import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { SITE_CONFIG } from '@/config/site';
 import { ContactLink } from './contact-link';
+import { VERSION_LABEL } from '@/config/build-info';
 
 // Phase 43: the underline fades in with the colour (text-decoration-color only — no layout shift).
 const FOOTER_LINK_CLASS = 'cursor-pointer text-muted-foreground underline decoration-transparent underline-offset-4 transition-[color,text-decoration-color] duration-200 hover:text-foreground hover:decoration-current';
@@ -54,7 +55,12 @@ export function Footer() {
           </ul>
         </div>
       </div>
-      <div className="border-t border-border px-4 py-4 text-center text-xs text-muted-foreground">{t('copyright', { year: new Date().getFullYear() })}</div>
+      <div className="border-t border-border px-4 py-4 text-center text-xs text-muted-foreground">
+        {t('copyright', { year: new Date().getFullYear() })}
+        {/* Phase 44: build version (production "v1.0.0", preview "v1.0.0-preview.a1b2c3d") — fixed per build,
+            so static/ISR pages stay static. Dimmed: for support, not for shoppers. */}
+        <span className="ml-2 tabular-nums text-muted-foreground/70" title="Phiên bản website">v{VERSION_LABEL}</span>
+      </div>
     </footer>
   );
 }

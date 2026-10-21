@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Space_Grotesk, Inter } from 'next/font/google';
 import { cn } from '@/lib/utils';
 import { themeBootstrapScript } from '@/lib/theme-script';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import { GoogleAnalytics } from '@/components/analytics/google-analytics';
 import { VisualAiInspector } from '@/components/dev/visual-ai-inspector';
 import { EnvironmentBadge } from './environment-badge';
@@ -24,6 +25,9 @@ export function HtmlShell({ lang, children }: { lang: string; children: ReactNod
       <body className="[font-feature-settings:'tnum']" suppressHydrationWarning>
         {children}
         <GoogleAnalytics />
+        {/* Vercel Speed Insights (Core Web Vitals). On Vercel it loads /_vercel/speed-insights/script.js
+            (same-origin, already allowed by CSP 'self'); off Vercel the script 404s harmlessly. */}
+        <SpeedInsights />
         {/* Phase 44: PREVIEW/DEV tag on non-production builds; renders nothing in production. */}
         <EnvironmentBadge />
         {process.env.NODE_ENV === 'development' ? <VisualAiInspector /> : null}

@@ -12,7 +12,8 @@ Quy trình đánh version và release: `docs/operations/versioning.md` (ADR-0046
 Bản production đầu tiên có version.
 
 ### Thêm
-- Đánh version cho web: nhãn version ở footer admin, `GET /api/version`, thẻ `<meta name="app-version">`,
+- Đánh version cho web: version ở footer storefront (chữ mờ cạnh bản quyền) và cuối sidebar admin,
+  `GET /api/version`, thẻ `<meta name="app-version">`,
   badge PREVIEW/DEV trên bản không phải production; script release kiểm tra đúng commit đã lên và tạo git tag (Phase 44).
 - Animation tinh tế cho storefront: hiện dần khi cuộn, nút nhấn kiểu phím, FAQ mở/đóng mượt, gallery ảnh sản phẩm
   bấm đổi ảnh, menu mobile trượt, chuyển trang mềm (Phase 43).
