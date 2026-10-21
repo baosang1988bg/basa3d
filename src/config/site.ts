@@ -1,6 +1,8 @@
+import { formatPhoneNumber } from '@/lib/format';
+ 
 function sanitizePhoneNumber(val?: string): string {
-  if (!val || val === '0333638698') return '0333698638';
-  return val;
+  if (!val || val === '0333638698' || val === '0333698638') return '0333 698 638';
+  return formatPhoneNumber(val);
 }
 
 function sanitizeZaloUrl(val?: string): string {
