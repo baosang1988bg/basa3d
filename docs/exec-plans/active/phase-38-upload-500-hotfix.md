@@ -1,7 +1,7 @@
 # Phase 38 — Hotfix: upload file ở /custom-print và /bao-gia lỗi 500
 
 > Báo lỗi (OWNER, 2026-10-20): "trong custom-print khi bỏ 3mf vào toàn bị lỗi".
-> Trạng thái: **code đã sửa (dev)** · **chờ OWNER đặt secret trên Vercel + redeploy** · chờ xác minh live.
+> Trạng thái: **đã khắc phục trên Production (2026-10-21)** — OWNER đặt secret + redeploy, Claude xác minh live.
 
 ## Phase brief
 - **Goal**: khách upload được file (.3mf/.stl/.obj/.step/ảnh) ở `/custom-print` và `/bao-gia` trên Production.
@@ -48,10 +48,18 @@ và `CRON_SECRET` → chưa bao giờ được đặt trên Vercel → `createUp
 - [ ] Health check `/api/health` (chỉ báo "thiếu cấu hình X", không lộ giá trị) để phát hiện sớm sau deploy.
 - [ ] E2E Playwright `custom-print` upload chạy trên Preview deployment trước khi promote Production.
 
+## Ghi chú xác minh
+- 3 file mẫu vài KB đã được upload lên bucket Production khi test, không gửi yêu cầu → cron
+  `cleanup-orphan-uploads` (hằng ngày) sẽ tự xoá.
+- UX nhỏ: model rất nhỏ cho khoảng giá "35.000đ – 35.000đ" (min = max do giá sàn) → nên hiển thị một giá
+  khi min = max (follow-up).
+
 ## Definition of Done
 - [x] Tìm được nguyên nhân gốc, tái hiện trên Production
 - [x] Script release sinh secret + test chặn tái phát (lint/typecheck/test xanh)
-- [ ] OWNER đặt `UPLOAD_CLAIM_SECRET` (Production + Preview) và redeploy
-- [ ] Xác minh live: upload `.3mf` (sliced → giá chính xác, chưa slice → khoảng giá), `.stl`, ảnh ở `/custom-print`;
-      upload nhiều file ở `/bao-gia`
+- [x] OWNER đặt `UPLOAD_CLAIM_SECRET` và redeploy (2026-10-21)
+- [x] Xác minh live trên basa3d.vercel.app/custom-print (2026-10-21):
+      `upload-urls` 201, `file-estimate` 200; `.3mf` đã slice → ~1 giờ in, ~12.3 g PLA, ~40.000đ;
+      `.3mf` chưa slice (Bambu project, `3D/Objects/*.model`) → khoảng giá + hướng dẫn slice; claim giả → 403 (đúng)
+- [ ] `/bao-gia` nhiều file — chưa thử (cùng route upload-urls nên kỳ vọng đã hết lỗi)
 - [ ] Đóng bằng `close-phase`
