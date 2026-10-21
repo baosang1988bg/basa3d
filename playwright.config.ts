@@ -10,7 +10,8 @@ if (!process.env.DATABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_URL || !proce
 process.env.NEXT_PUBLIC_CART_ENABLED = 'true';
 // Phase 33: /bao-gia stays off in Production until the estimate model is calibrated; E2E always covers it.
 process.env.NEXT_PUBLIC_BAO_GIA_ENABLED = 'true';
-// Language switcher is covered in E2E even while temporarily hidden on storefront.
+// EN routing + language switcher are covered in E2E even while EN is off in Production (ADR-0048).
+// The EN-off path (308 redirects) is covered by tests/locale-routing-en-disabled.test.ts.
 process.env.NEXT_PUBLIC_LANGUAGE_SWITCHER_ENABLED = 'true';
 
 export default defineConfig({

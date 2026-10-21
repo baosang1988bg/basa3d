@@ -1,5 +1,11 @@
 # Phase 18 — Storefront i18n (VI/EN, VI mặc định)
 
+> **Cập nhật 2026-10-21 (ADR-0048):** EN đang **tắt** sau flag `NEXT_PUBLIC_LANGUAGE_SWITCHER_ENABLED`
+> (mặc định `false`): routing chỉ còn `vi`, `/en/*` chuyển hướng 308 về URL tiếng Việt, sitemap/hreflang
+> không còn bản EN, nút VI/EN ở Header và Organizer bị ẩn. Hạ tầng của phase này (next-intl, `[locale]`,
+> `messages/en.json`, `e2e/i18n.spec.ts`) giữ nguyên — bật flag + build lại là có EN trở lại.
+> Chi tiết: `docs/exec-plans/completed/change-en-locale-off.md`.
+
 > **Mục đích**: Khách quốc tế hiện không đọc được storefront (100% tiếng Việt, không có bản dịch).
 > Phase 18 thêm hạ tầng đa ngôn ngữ cho **storefront public** (không đụng admin), tiếng Việt vẫn là
 > ngôn ngữ mặc định (URL không prefix), tiếng Anh là lựa chọn phụ (`/en/...`). Đây là phase hạ tầng

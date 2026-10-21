@@ -2,6 +2,8 @@ import type { MetadataRoute } from 'next';
 import { listAllActiveProductSlugs } from '@/services/storefront-catalog.service';
 import { listAllPublishedPostSlugs } from '@/services/blog.service';
 import { isBaoGiaEnabled } from '@/config/bao-gia';
+import { isEnglishEnabled } from '@/i18n/routing';
+import { englishPath } from '@/i18n/seo';
 
 // Render on request, not at `next build`: the sitemap lists live product/blog slugs from the DB.
 // Prerendering it made every build require a reachable DATABASE_URL and froze the slug list until
@@ -45,8 +47,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
   ];
 
+  // EN entries only while EN is routable — otherwise `/en/*` 308-redirects to VI (middleware.ts).
   return routes.flatMap((route) => ([
     { url: `${siteUrl}${route.path}`, changeFrequency: route.changeFrequency, priority: route.priority, ...(route.lastModified ? { lastModified: route.lastModified } : {}) },
-    { url: `${siteUrl}/en${route.path === '/' ? '' : route.path}`, changeFrequency: route.changeFrequency, priority: route.priority * 0.9, ...(route.lastModified ? { lastModified: route.lastModified } : {}) },
+    ...(isEnglishEnabled
+      ? [{ url: `${siteUrl}${englishPath(route.path)}`, changeFrequency: route.changeFrequency, priority: route.priority * 0.9, ...(route.lastModified ? { lastModified: route.lastModified } : {}) }]
+      : []),
   ]));
 }

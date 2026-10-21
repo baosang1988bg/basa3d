@@ -9,6 +9,7 @@ import { AddToCartForm } from './add-to-cart-form';
 import { ProductGallery } from './product-gallery';
 import { ViewItemTracker } from '@/components/analytics/storefront-trackers';
 import { serializeJsonLd } from '@/lib/json-ld';
+import { localeAlternates } from '@/i18n/seo';
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -18,10 +19,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const description = product.seoDescription ?? product.shortDescription ?? undefined;
   return {
     title, description,
-    alternates: {
-      canonical: `/products/${product.slug}`,
-      languages: { vi: `/products/${product.slug}`, en: `/en/products/${product.slug}` },
-    },
+    alternates: localeAlternates(`/products/${product.slug}`),
     openGraph: { title, description, type: 'website', ...(product.images[0] ? { images: [product.images[0].url] } : {}) },
   };
 }

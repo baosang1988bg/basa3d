@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server';
 import { LegalPage } from '@/components/storefront/legal-page';
 import { SITE_CONFIG } from '@/config/site';
 import { applyRequestLocale, type LocaleParams } from '@/i18n/request-locale';
+import { localeAlternates } from '@/i18n/seo';
 
 export async function generateMetadata({ params }: { params: LocaleParams }): Promise<Metadata> {
   await applyRequestLocale(params);
@@ -10,7 +11,7 @@ export async function generateMetadata({ params }: { params: LocaleParams }): Pr
   return {
     title: t('metaTitle'),
     description: t('metaDescription'),
-    alternates: { canonical: '/shipping-policy', languages: { vi: '/shipping-policy', en: '/en/shipping-policy' } },
+    alternates: localeAlternates('/shipping-policy'),
   };
 }
 

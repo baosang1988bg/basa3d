@@ -4,6 +4,7 @@ import { LegalPage } from '@/components/storefront/legal-page';
 import { SITE_CONFIG } from '@/config/site';
 import { CURRENT_TOS_VERSION } from '@/lib/copyright/tos-version';
 import { applyRequestLocale, type LocaleParams } from '@/i18n/request-locale';
+import { localeAlternates } from '@/i18n/seo';
 
 export async function generateMetadata({ params }: { params: LocaleParams }): Promise<Metadata> {
   await applyRequestLocale(params);
@@ -11,10 +12,7 @@ export async function generateMetadata({ params }: { params: LocaleParams }): Pr
   return {
     title: t('metaTitle'),
     description: t('metaDescription'),
-    alternates: {
-      canonical: '/file-confidentiality-policy',
-      languages: { vi: '/file-confidentiality-policy', en: '/en/file-confidentiality-policy' },
-    },
+    alternates: localeAlternates('/file-confidentiality-policy'),
   };
 }
 

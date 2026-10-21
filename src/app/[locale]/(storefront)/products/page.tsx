@@ -7,11 +7,12 @@ import { Breadcrumb } from '@/components/storefront/breadcrumb';
 import { cn } from '@/lib/utils';
 import { ViewItemListTracker } from '@/components/analytics/storefront-trackers';
 import { Link } from '@/i18n/navigation';
+import { localeAlternates } from '@/i18n/seo';
 
 type SearchParams = { q?: string; type?: string; sort?: string; page?: string; categoryId?: string };
 
 export const metadata: Metadata = {
-  alternates: { canonical: '/products', languages: { vi: '/products', en: '/en/products' } },
+  alternates: localeAlternates('/products'),
 };
 
 export default async function ProductsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {

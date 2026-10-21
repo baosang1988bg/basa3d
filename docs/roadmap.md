@@ -18,7 +18,7 @@ Phase 14: RBAC & route-auth coverage hardening (no new feature — closes an exi
 Phase 15: staff operational notifications (Resend email on new custom request/order) — code done; Gemini challenge + Owner domain/volume follow-up tracked in Phase 22
 Phase 16: deposit/payment reconciliation (bank transfer webhook matching) — not started, blocked on Owner picking a webhook provider
 Phase 17: public 3D text/keychain generator (browser-side) → custom request with advisory server-side price range — code done; ADR + Owner physical print follow-up tracked in Phase 22
-Phase 18: storefront i18n (VI/EN, VI default) — nav/footer/home/products list & detail/4 policy pages translated; cart/checkout/custom-print/blog/quotes deferred to a later phase
+Phase 18: storefront i18n (VI/EN, VI default) — nav/footer/home/products list & detail/4 policy pages translated; cart/checkout/custom-print/blog/quotes deferred to a later phase. EN switched off since 2026-10-21 behind `NEXT_PUBLIC_LANGUAGE_SWITCHER_ENABLED` (ADR-0048) — infra kept, `/en/*` redirects to VI
 
 Phase 19: 3D tools roadmap and shared `(tools)` architecture — closed
 Phase 20: Flex Organizer tray generator, shared tool price estimate, STL → custom request — closed; Owner accepted risk on skipping physical print validation
@@ -47,5 +47,6 @@ Phase 42: storefront caching — pass-through root layout (no request read), Hom
 Phase 43: storefront motion (CSS-only) — scroll reveal bằng CSS scroll-driven animation, nút tactile nhấn như phím, FAQ accordion, gallery sản phẩm, menu mobile trượt (sửa bug menu bị kẹt trong header), chuyển trang mềm — code done + verified in sandbox 2026-10-21; OWNER xem thử pending
 Phase 44: web versioning — SemVer một dãy (package.json 1.0.0), nhãn kênh development/preview/production, /api/version, footer admin, badge PREVIEW/DEV, script release kiểm commit + tạo tag, CHANGELOG (ADR-0046) — code done 2026-10-21; tag v1.0.0 ở lần deploy production kế tiếp
 Phase 45: Organizer parity — `/tools/organizer` viết lại theo bản gốc "Bin & Sorting Tray Generator": manifold-3d (WASM) trong Web Worker, 6 mẫu nhanh, kiểm tra bàn in, bo góc, 5 vân tường, vành xếp chồng, nhãn dán, rãnh lấy đồ, lỗ đáy, nhãn snap 2 màu (3MF), chia sẻ URL, VI/EN; giữ báo giá + Custom Request (ADR-0047) — code done + typecheck/lint/test/build verified 2026-10-21; in thử dung sai pending
+Change 2026-10-21 (không phải phase): tắt hẳn EN trên storefront sau một flag — routing chỉ `vi`, `/en/*` → 308 về VI, sitemap/hreflang chỉ VI, ẩn nút VI/EN ở Header và Organizer (ADR-0048, `docs/exec-plans/completed/change-en-locale-off.md`) — code done; typecheck/test chưa chạy (sandbox lỗi), OWNER chạy lại trên máy
 
 Do not start a phase by coding immediately. Follow the Phase Start Protocol in the main project plan.

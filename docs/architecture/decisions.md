@@ -383,7 +383,7 @@ pricing config or cost breakdown crosses the public boundary, and no Quote row i
 
 ## ADR-0029 — Phase 18 storefront i18n: next-intl, Path Branching middleware, VI-forced default
 
-Status: accepted (Phase 18, 2026-09-04)
+Status: accepted (Phase 18, 2026-09-04); EN routing now behind a flag — see ADR-0048.
 
 `next-intl` handles storefront routing/messages: VI is unprefixed default, EN lives under `/en`
 (`localePrefix: 'as-needed'`). The pre-existing admin-auth `middleware.ts` (Supabase session
@@ -735,7 +735,7 @@ Plan + verification log: `docs/exec-plans/active/phase-42-storefront-caching.md`
 1. `src/app/layout.tsx` is a pass-through (next-intl pattern). `<html>/<body>` live in
    `components/layout/html-shell.tsx`, rendered by `[locale]/layout.tsx` (`lang` from params),
    `admin/layout.tsx` (`lang="vi"`) and `not-found.tsx` (`lang="vi"`).
-2. `[locale]/layout.tsx` keeps prerendering both locales. On-demand-only ISR (`generateStaticParams → []`)
+2. `[locale]/layout.tsx` keeps prerendering every *routable* locale (only `vi` while EN is off — ADR-0048). On-demand-only ISR (`generateStaticParams → []`)
    was rejected after measuring: `next start` does not cache middleware-rewritten VI URLs unless the
    path was prerendered.
 3. Home: `export const revalidate = 60` (literal in `page.tsx` and `home/page.tsx`). If the catalog
@@ -808,3 +808,27 @@ The UI is a 1:1 port of the reference's stylesheet (`organizer.module.css`, scop
 r3f/drei viewer rebuilt in plain three.js (no new dependency). Licence files ship with the app:
 `public/fonts/OFL-Inter.txt` and `public/licenses/manifold-3d-LICENSE.txt` (Apache-2.0 §4a; manifold-3d has
 no NOTICE file). Future third-party code licences go in `public/licenses/<package>-LICENSE.txt`.
+
+## ADR-0048 — EN locale switched off behind one flag (amends ADR-0029)
+
+Status: accepted (2026-10-21)
+
+**Context.** OWNER hid the Header VI/EN switcher (`NEXT_PUBLIC_LANGUAGE_SWITCHER_ENABLED`), but that
+flag only gated the UI: `/en/*` stayed routable and prerendered, the sitemap and hreflang still
+advertised EN URLs to search engines, and the Organizer tool kept its own VI/EN toggle. OWNER does
+not expect EN to come back soon.
+
+**Decision.** The same flag now gates EN as a whole. `src/i18n/routing.ts` exports `isEnglishEnabled`
+and builds `routing.locales` from it (`['vi']` when off; `ALL_LOCALES`/`AppLocale` keep the message
+catalogs typed for both). When off, `src/middleware.ts` 308-redirects `/en` → `/home` and `/en/<path>` →
+`/<path>` (query kept) before next-intl runs, so bookmarked/indexed EN links land on VI instead of 404.
+`src/i18n/seo.ts` (`localeAlternates`, `englishPath`) emits hreflang only while EN is on; `sitemap.ts`
+does the same. The Organizer toggle reads `SITE_CONFIG.languageSwitcherEnabled`. The `[locale]`
+segment, next-intl and the EN catalog stay in place; internally VI requests are still rewritten to
+`/vi/...` (invisible to visitors).
+
+**Trade-off.** Reversible with one env flip + rebuild (`NEXT_PUBLIC_*` is inlined at build time), at the
+cost of keeping next-intl's routing machinery for a single locale. Removing i18n routing entirely
+(dropping `[locale]`) was rejected: ~30 route files, ADR-0045 static-rendering wiring and phase-42/43 +
+e2e tests would move, and restoring EN later would be expensive. Tests: `tests/locale-routing-en-disabled.test.ts`
+(redirects, flag off), `tests/locale-alternates.test.ts`; `e2e/i18n.spec.ts` keeps covering the flag-on path.

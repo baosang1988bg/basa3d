@@ -5,6 +5,7 @@ import { getTranslations } from 'next-intl/server';
 import { Zap, ShieldCheck, Timer } from 'lucide-react';
 import { getCachedCategories, getCachedStorefrontProducts } from '@/lib/cache/storefront-cache';
 import { applyRequestLocale, type LocaleParams } from '@/i18n/request-locale';
+import { localeAlternates } from '@/i18n/seo';
 import { ProductCard } from '@/components/storefront/product-card';
 import { SectionHeader } from '@/components/storefront/section-header';
 import { FaqAccordion } from '@/components/storefront/faq-accordion';
@@ -86,7 +87,7 @@ async function loadHomeCatalog() {
 }
 
 export const metadata: Metadata = {
-  alternates: { canonical: '/', languages: { vi: '/', en: '/en' } },
+  alternates: localeAlternates('/'),
 };
 
 export default async function HomePage({ params }: { params: LocaleParams }) {

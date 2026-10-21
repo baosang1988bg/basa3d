@@ -19,6 +19,9 @@ Bản production đầu tiên có version.
   bấm đổi ảnh, menu mobile trượt, chuyển trang mềm (Phase 43).
 
 ### Thay đổi
+- Tạm tắt hẳn tiếng Anh trên storefront (không chỉ ẩn nút VI/EN): `/en/*` chuyển hướng 308 về trang tiếng Việt,
+  sitemap và thẻ hreflang không còn bản EN, nút VI/EN trong công cụ Organizer cũng ẩn. Bật lại bằng
+  `NEXT_PUBLIC_LANGUAGE_SWITCHER_ENABLED=true` rồi build lại (ADR-0048).
 - Trang chủ và các trang tĩnh (chính sách, công cụ, đặt in, giỏ hàng) được cache thay vì render lại mỗi lần;
   dữ liệu catalog cache 60 giây và tự làm mới ngay khi admin sửa sản phẩm, tồn kho hoặc đơn hàng (Phase 42).
 
