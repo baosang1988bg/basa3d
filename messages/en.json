@@ -1,4 +1,10 @@
 {
+  "notFound": {
+    "title": "Page not found",
+    "description": "The page you are looking for doesn't exist or has been moved.",
+    "backHome": "Back to home",
+    "callHotline": "Call hotline: {hotline}"
+  },
   "nav": {
     "home": "Home",
     "products": "Products",
