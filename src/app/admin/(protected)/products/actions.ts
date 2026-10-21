@@ -2,6 +2,8 @@
 
 import { parseActionId } from '@/lib/action-args';
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+import { PublishBlockedError } from '@/lib/stl-import/publish-gate';
 import { requireAdmin, requireOwner } from '@/lib/auth/require-admin';
 import {
   categoryInputSchema,
@@ -21,6 +23,17 @@ import {
   updateVariant,
   uploadProductImage,
 } from '@/services/product.service';
+
+// Feature 003: the import publish gate refuses status → ACTIVE with reasons; send the admin back to
+// the page with those reasons instead of the generic error boundary.
+async function updateOrExplain(productId: string, patch: Parameters<typeof updateProduct>[1], actorId: string, backTo: string) {
+  try {
+    await updateProduct(productId, patch, actorId);
+  } catch (error) {
+    if (error instanceof PublishBlockedError) redirect(`${backTo}?publishBlocked=${error.reasons.join(',')}`);
+    throw error;
+  }
+}
 
 function readFormValue(formData: FormData, key: string): string | undefined {
   const value = formData.get(key);
@@ -86,7 +99,7 @@ export async function updateProductAction(productId: string, formData: FormData)
     licenseSourceUrl: readFormValue(formData, 'licenseSourceUrl') ?? null,
     licenseProofUrl: readFormValue(formData, 'licenseProofUrl') ?? null,
   });
-  await updateProduct(productId, patch, actorId);
+  await updateOrExplain(productId, patch, actorId, `/admin/products/${productId}`);
   revalidatePath(`/admin/products/${productId}`);
   revalidatePath('/admin/products');
 }
@@ -102,7 +115,7 @@ export async function archiveProductAction(productId: string) {
 export async function unarchiveProductAction(productId: string) {
   const { actorId } = await requireAdmin();
   productId = parseActionId(productId, 'productId');
-  await updateProduct(productId, { status: 'ACTIVE' }, actorId);
+  await updateOrExplain(productId, { status: 'ACTIVE' }, actorId, '/admin/products');
   revalidatePath('/admin/products');
 }
 

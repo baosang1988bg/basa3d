@@ -13,8 +13,9 @@ import { getCurrentPricingConfig } from '@/services/pricing-config.service';
 import { listCategories, listProducts } from '@/services/product.service';
 import { archiveProductAction, createCategoryAction, createProductAction, unarchiveProductAction } from './actions';
 import { requireAdmin } from '@/lib/auth/require-admin';
+import { PublishBlockedNotice } from '@/components/admin/publish-blocked-notice';
 
-export default async function ProductsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+export default async function ProductsPage({ searchParams }: { searchParams: Promise<{ page?: string; publishBlocked?: string }> }) {
   // Phase 35 D1: never rely on the layout alone — RSC segment requests can render this page
   // without re-running the layout. requireAdmin() is cache()-memoized, so this is free.
   await requireAdmin();
@@ -28,6 +29,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="flex flex-col gap-6">
+      <PublishBlockedNotice value={params.publishBlocked} />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Sản phẩm</h1>
         <Link href="/admin/product-inventory" className={buttonVariants({ variant: 'outline', size: 'sm' })}>

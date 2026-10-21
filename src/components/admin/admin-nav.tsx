@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import {
   BookOpen, Boxes, Calculator, ChevronDown, FileEdit, LayoutDashboard, Layers, Package, Printer,
   Receipt, ShieldAlert, ShoppingBag, Users,
-  Tags, Loader2, Warehouse,
+  Tags, Loader2, Warehouse, FileBox,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
@@ -51,6 +51,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/admin/products', label: 'Sản phẩm', icon: Package },
       { href: '/admin/product-inventory', label: 'Kho sản phẩm', icon: Warehouse },
+      { href: '/admin/stl-import', label: 'Kho nhập STL', icon: FileBox },
       { href: '/admin/inventory', label: 'Tồn kho', icon: Boxes },
       { href: '/admin/materials', label: 'Kho nhựa', icon: Layers },
     ],

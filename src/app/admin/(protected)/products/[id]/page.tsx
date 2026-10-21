@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PricingCalculatorPanel } from '@/components/admin/pricing-calculator-panel';
 import { requireAdmin } from '@/lib/auth/require-admin';
+import { PublishBlockedNotice } from '@/components/admin/publish-blocked-notice';
 import { listMaterials } from '@/services/inventory.service';
 import { getCurrentPricingConfig } from '@/services/pricing-config.service';
 import { getProductById, listProductImages } from '@/services/product.service';
@@ -19,8 +20,9 @@ import {
   uploadProductImageAction,
 } from '../actions';
 
-export default async function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ProductDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ publishBlocked?: string }> }) {
   const { id } = await params;
+  const { publishBlocked } = await searchParams;
   const [{ role }, product, images, materials, pricingConfig] = await Promise.all([
     requireAdmin(), getProductById(id), listProductImages(id), listMaterials(), getCurrentPricingConfig(),
   ]);
@@ -28,6 +30,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div className="flex flex-col gap-6">
+      <PublishBlockedNotice value={publishBlocked} />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">{product.name}</h1>
         {role === 'OWNER' ? (

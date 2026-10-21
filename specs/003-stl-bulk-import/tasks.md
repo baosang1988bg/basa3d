@@ -195,7 +195,7 @@ cùng `expectedUpdatedAt` → lần hai `STALE_WRITE`.
 
 **Lát 5 — admin**
 
-- [ ] T025 [US2] `src/services/stl-import.service.ts`: `listImportItems(session, filter)` (contract §Đọc; `updated_at` trả
+- [X] T025 [US2] `src/services/stl-import.service.ts`: `listImportItems(session, filter)` (contract §Đọc; `updated_at` trả
   dạng chuỗi µs `to_char(… at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`, 24/trang, cover = ảnh sort nhỏ nhất,
   `bucketUsageBytes`); `quickEditImportItem(session, input)` (yêu cầu role OWNER|STAFF; `for update` item rồi product;
   so khớp chuỗi µs → `DomainError('STALE_WRITE', …, 409)`; đổi giá → `base_price` + `pricing_breakdown=null` +
@@ -208,42 +208,42 @@ cùng `expectedUpdatedAt` → lần hai `STALE_WRITE`.
   `P0001 IMPORT_PUBLISH_BLOCKED:` → đưa vào `blocked`; audit `STL_IMPORT_APPROVED`); `rejectImportItems` (OWNER; **chỉ item PENDING** —
   APPROVED → `NOT_PENDING` theo contract; item REJECTED + product ARCHIVED; audit `STL_IMPORT_REJECTED`). Map lỗi trigger dùng chung: `parsePublishBlocked(error)` export
   từ service này
-- [ ] T026 [US2] `src/app/admin/(protected)/stl-import/actions.ts` (`'use server'`): `quickEditImportItemAction`,
+- [X] T026 [US2] `src/app/admin/(protected)/stl-import/actions.ts` (`'use server'`): `quickEditImportItemAction`,
   `approveImportItemsAction`, `rejectImportItemsAction` — `requireAdmin()`/`requireOwner()` trước, Zod parse, gọi service,
   trả kết quả theo contract. Làm mới cache: service gọi `invalidateStorefrontCatalog()`
   (`src/lib/cache/storefront-cache-tags.ts`) **sau commit** khi có item duyệt/từ chối (mẫu ADR-0045), không gọi
   `revalidateTag` ở action
-- [ ] T027 [US2] `src/app/admin/(protected)/stl-import/page.tsx` (server, `requireAdmin()`) + `import-grid.tsx` (client,
+- [X] T027 [US2] `src/app/admin/(protected)/stl-import/page.tsx` (server, `requireAdmin()`) + `import-grid.tsx` (client,
   shadcn/ui có sẵn): lưới 1 cột mobile / 2 sm / 3–4 lg, thẻ có cover `next/image`, tên, danh mục, kích thước, giá, badge cờ
   (lỗi, cần xem giá, chưa kiểm bản quyền, nguồn đã đổi, nghi sai đơn vị, license NC/UNKNOWN nổi bật), sửa nhanh inline,
   chọn nhiều + nút Duyệt/Từ chối (ẩn với STAFF nhưng server vẫn kiểm), hiển thị danh sách bị chặn + lý do tiếng Việt,
   thông báo "dữ liệu đã thay đổi" khi `STALE_WRITE`, banner > 800 MB, `source_rel_path` hiển thị cho admin; nút ≥ 44 px
-- [ ] T028 [P] [US2] Thêm mục "Kho nhập STL" vào `src/components/admin/admin-nav.tsx`
-- [ ] T029 [P] [US2] `src/app/admin/(protected)/products/*`: khi lưu/unarchive sản phẩm bị trigger chặn, hiển thị lỗi
+- [X] T028 [P] [US2] Thêm mục "Kho nhập STL" vào `src/components/admin/admin-nav.tsx`
+- [X] T029 [P] [US2] `src/app/admin/(protected)/products/*`: khi lưu/unarchive sản phẩm bị trigger chặn, hiển thị lỗi
   dễ hiểu (dùng `parsePublishBlocked`) thay vì lỗi 500 — sửa ở service/route dùng chung để `PATCH /api/products/[id]` trả
   409 `IMPORT_PUBLISH_BLOCKED` kèm `reasons`
-- [ ] T030 [US2] `tests/stl-import-admin.test.ts` (DB): STAFF approve/reject → `FORBIDDEN` 403, STAFF quick-edit OK; action
+- [X] T030 [US2] `tests/stl-import-admin.test.ts` (DB): STAFF approve/reject → `FORBIDDEN` 403, STAFF quick-edit OK; action
   khi chưa đăng nhập → 401 (theo mẫu `tests/phase-3-route-auth.test.ts`/`phase-28-admin-actions.test.ts`); bulk 5 item (2
   chưa tick) → 3 approved, 2 blocked `LICENSE_NOT_REVIEWED`; 10 item với 3 lỗi khác loại → 7/3; optimistic lock: hai
   quickEdit cùng `expectedItemUpdatedAt` → lần 2 `STALE_WRITE` và dữ liệu lần 1 giữ nguyên; reject → product ARCHIVED +
   lần import sau SKIP; audit có đủ action; unarchive sản phẩm nhập ARCHIVED chưa APPROVED bị chặn
-- [ ] T031 [US2] `tests/stl-import-public-exposure.test.ts`: với item APPROVED có `source_rel_path` đặc trưng, gọi
+- [X] T031 [US2] `tests/stl-import-public-exposure.test.ts`: với item APPROVED có `source_rel_path` đặc trưng, gọi
   service/route public (storefront catalog, product detail, sitemap, `GET /api/products*` — kiểm thực tế route nào public)
   → không chứa `source_rel_path`, `source_dir`, `review_status`; anon role không `select` được `product_import_items` (SC-004);
   sản phẩm APPROVED xuất hiện trong sitemap/danh sách (FR-026)
-- [ ] T032 [US2] Commit Lát 5: `feat(admin): STL import review page with owner-only approval`
+- [X] T032 [US2] Commit Lát 5: `feat(admin): STL import review page with owner-only approval`
 
 ---
 
 ## Phase 5: User Story 3 — Lọc, tìm và xử lý mẫu có vấn đề (P2)
 
-- [ ] T033 [US3] Trong `src/services/stl-import.service.ts`: `requestRerender(session, {itemId, expectedItemUpdatedAt})`
+- [X] T033 [US3] Trong `src/services/stl-import.service.ts`: `requestRerender(session, {itemId, expectedItemUpdatedAt})`
   (OWNER|STAFF, optimistic lock, `needs_rerender = true`, audit `STL_IMPORT_RERENDER_REQUESTED`) + action
   `requestRerenderAction` trong `actions.ts` + nút "Làm lại ảnh" trong `import-grid.tsx`
-- [ ] T034 [US3] Bộ lọc trạng thái (ERROR = `render_status 'ERROR'`), danh mục, thư mục nguồn, tìm tên `ilike`, phân trang
+- [X] T034 [US3] Bộ lọc trạng thái (ERROR = `render_status 'ERROR'`), danh mục, thư mục nguồn, tìm tên `ilike`, phân trang
   (`src/components/admin/admin-pagination.tsx`, `status-filter-tabs.tsx`) trong `page.tsx`; filter qua `searchParams` +
   `stlImportFilterSchema`
-- [ ] T035 [US3] Test trong `tests/stl-import-admin.test.ts`: lọc ERROR/danh mục/sourceDir/q trả đúng tập + phân trang;
+- [X] T035 [US3] Test trong `tests/stl-import-admin.test.ts`: lọc ERROR/danh mục/sourceDir/q trả đúng tập + phân trang;
   `needs_rerender` → `planModel` trả RERENDER, sau `applyModel` ảnh/metrics mới, tên/giá/license admin giữ nguyên, cờ về false
 - [ ] T036 [US3] Commit: `feat(stl-import): filters and rerender request`
 
