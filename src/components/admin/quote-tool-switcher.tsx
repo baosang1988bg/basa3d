@@ -81,7 +81,7 @@ export function QuoteToolSwitcher({
           initialModelTitle={initialMakerWorld?.modelTitle ?? null}
         />
       ) : null}
-      {tool === 'CALCULATOR' ? <PricingCalculatorPanel materials={materials} config={config} priceInputIds={priceInputIds} /> : null}
+      {tool === 'CALCULATOR' ? <PricingCalculatorPanel materials={materials} config={config} priceInputIds={priceInputIds} defaultPrinterProfileId="SNAPMAKER_U1" /> : null}
     </div>
   );
 }

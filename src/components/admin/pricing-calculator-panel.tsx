@@ -73,12 +73,16 @@ export function PricingCalculatorPanel({
   priceInputIds,
   breakdownFieldName = 'pricingBreakdown',
   configIdFieldName = 'pricingConfigId',
+  defaultPrinterProfileId = DEFAULT_PRINTER_TARGET_ID,
 }: {
   materials: PricingMaterialOption[];
   config: PricingConfigOption | null;
   priceInputIds: string[];
   breakdownFieldName?: string;
   configIdFieldName?: string;
+  /** Pre-selected printer. Custom-request quotes default to Snapmaker U1; catalog product pages pass
+   * BAMBU_P2S so existing products keep being costed with the saved (AMS) pricing config. */
+  defaultPrinterProfileId?: PrinterProfileId;
 }) {
   const [rows, setRows] = useState<MaterialRow[]>([]);
   const [printMinutes, setPrintMinutes] = useState('');
@@ -86,7 +90,7 @@ export function PricingCalculatorPanel({
   const [parseError, setParseError] = useState<string | null>(null);
   const [isParsing, setIsParsing] = useState(false);
   const [appliedBreakdown, setAppliedBreakdown] = useState<PricingBreakdown | null>(null);
-  const [printerId, setPrinterId] = useState<PrinterProfileId>(DEFAULT_PRINTER_TARGET_ID);
+  const [printerId, setPrinterId] = useState<PrinterProfileId>(defaultPrinterProfileId);
   const [draftNote, setDraftNote] = useState<string | null>(null);
   // Last unsliced upload: its purge/prime-tower rows depend on the printer, so a printer switch re-parses it.
   const unslicedFile = useRef<File | null>(null);

@@ -92,28 +92,6 @@ test('estimateColorPurge: U1 tool changer drastically cuts purge waste & extra t
   assert.equal(u1Estimate.extraMinutes, 11); // 66 * 10s / 60 = 11 min (reduced by 75%!)
 });
 
-test('estimateFileBytes: passes printerTarget to specs and adjusts calculations', () => {
-  const gengarPath = 'scratch/gengar-keycap.3mf';
-  if (!fs.existsSync(gengarPath)) return;
-
-  const bytes = fs.readFileSync(gengarPath);
-
-  // When priced for Snapmaker U1
-  const u1Result = estimateFileBytes(ctx, {
-    fileName: 'gengar-keycap.3mf',
-    bytes,
-    materialType: 'PLA',
-    printerTarget: 'Snapmaker U1',
-  });
-
-  assert.equal(u1Result.status, 'OK');
-  assert.ok(u1Result.estimate);
-  assert.equal(u1Result.estimate.specs.printerType, 'TOOL_CHANGER');
-  assert.equal(u1Result.estimate.specs.printerTarget, 'Snapmaker U1 (4 Toolheads)');
-  assert.ok((u1Result.estimate.specs.purgeGrams ?? 0) < 5); // Prime tower only ~2-3g, not 28g!
-  assert.ok((u1Result.estimate.specs.colorChangeMinutes ?? 0) <= 15); // ~11 min, not 44 min!
-});
-
 // ---------------------------------------------------------------------------------------------
 // Fixtures: an unsliced 4-color Bambu/Orca project (same layout as phase-40-multicolor-purge.test.ts)
 // and a sliced .3mf carrying the real BambuStudio slice_info.config fixture.
@@ -127,7 +105,10 @@ function box(id: number, [x0, y0, z0]: number[], [x1, y1, z1]: number[]) {
     + `<triangles>${f.map(([a, b, c]) => `<triangle v1="${a}" v2="${b}" v3="${c}"/>`).join('')}</triangles></mesh></object>`;
 }
 
-function unslicedProject(parts: { id: number; extruder: number; from: number[]; to: number[] }[]) {
+function unslicedProject(
+  parts: { id: number; extruder: number; from: number[]; to: number[] }[],
+  opts: { flushMm3?: number; primeVolumeMm3?: number } = {},
+) {
   const colours = ['#FFFFFF', '#000000', '#7B2FBE', '#E53935'];
   const objects = `<?xml version="1.0"?><model unit="millimeter" ${NS}><resources>${parts.map((p) => box(p.id, p.from, p.to)).join('')}</resources><build/></model>`;
   const main = `<?xml version="1.0"?><model unit="millimeter" ${NS}><resources><object id="10" type="model"><components>`
@@ -138,8 +119,8 @@ function unslicedProject(parts: { id: number; extruder: number; from: number[]; 
     + `</object><plate><metadata key="plater_id" value="1"/><model_instance><metadata key="object_id" value="10"/><metadata key="instance_id" value="0"/></model_instance></plate></config>`;
   const settings = {
     filament_colour: colours, filament_type: colours.map(() => 'PLA'),
-    flush_volumes_matrix: colours.flatMap((_, i) => colours.map((__, j) => (i === j ? '0' : '200'))),
-    flush_multiplier: '1', layer_height: '0.2', enable_prime_tower: '1', prime_volume: '45', printer_model: 'Bambu Lab P2S',
+    flush_volumes_matrix: colours.flatMap((_, i) => colours.map((__, j) => (i === j ? '0' : String(opts.flushMm3 ?? 200)))),
+    flush_multiplier: '1', layer_height: '0.2', enable_prime_tower: '1', prime_volume: String(opts.primeVolumeMm3 ?? 45), printer_model: 'Bambu Lab P2S',
   };
   return zipSync({
     '[Content_Types].xml': strToU8('<Types/>'),
@@ -156,6 +137,14 @@ const fourColorKeycap = unslicedProject([
   { id: 3, extruder: 3, from: [8, 8, 0], to: [12, 12, 20] },
   { id: 4, extruder: 4, from: [13, 13, 0], to: [16, 16, 20] },
 ]);
+// Gengar-style keycap: 4 colors, the 3 accent colors only in the bottom 4 mm (few dozen changes),
+// Bambu-default 300 mm³ flush and a 25 mm³ prime tower — replaces the old scratch/gengar-keycap.3mf.
+const gengarLikeKeycap = unslicedProject([
+  { id: 1, extruder: 1, from: [0, 0, 0], to: [18, 18, 20] },
+  { id: 2, extruder: 2, from: [2, 2, 0], to: [6, 6, 4] },
+  { id: 3, extruder: 3, from: [8, 8, 0], to: [12, 12, 4] },
+  { id: 4, extruder: 4, from: [13, 13, 0], to: [16, 16, 4] },
+], { flushMm3: 300, primeVolumeMm3: 25 });
 const sliced3mf = zipSync({
   'Metadata/slice_info.config': strToU8(fs.readFileSync(new URL('./fixtures/bambu-studio-slice-info.config', import.meta.url), 'utf8')),
   '3D/3dmodel.model': strToU8('<model/>'),
@@ -277,4 +266,30 @@ test('publicCustomRequestInputSchema: printerTarget is optional and limited to k
   assert.equal(publicCustomRequestInputSchema.safeParse({ ...base, printerTarget: 'SNAPMAKER_U1' }).success, true);
   assert.equal(publicCustomRequestInputSchema.safeParse({ ...base, printerTarget: 'BAMBU_P2S' }).success, true);
   assert.equal(publicCustomRequestInputSchema.safeParse({ ...base, printerTarget: 'Snapmaker U1' }).success, false);
+});
+
+test('estimateFileBytes: in-memory 4-color keycap — U1 prime tower only vs P2S AMS purge', () => {
+  const run = (printerTarget: string) => estimateFileBytes(ctx, { fileName: 'gengar-like.3mf', bytes: gengarLikeKeycap, materialType: 'PLA', printerTarget });
+  const u1 = run('SNAPMAKER_U1');
+  const p2s = run('BAMBU_P2S');
+  assert.equal(u1.status, 'OK');
+  assert.equal(p2s.status, 'OK');
+  const u1Specs = u1.estimate!.specs;
+  const p2sSpecs = p2s.estimate!.specs;
+  const changes = u1Specs.colorChanges ?? 0;
+  assert.ok(changes >= 50 && changes <= 70, `expected a few dozen color changes, got ${changes}`);
+  assert.equal(p2sSpecs.colorChanges, changes);
+
+  // 1. Snapmaker U1: 0 flush, 25 mm³ prime tower per change → ~2 g; 10 s per swap.
+  assert.equal(u1Specs.printerType, 'TOOL_CHANGER');
+  assert.equal(u1Specs.printerTarget, PRINTER_PROFILES.SNAPMAKER_U1.name);
+  assert.equal(u1Specs.purgeGrams, Math.round(((changes * 25) / 1000) * 1.24 * 10) / 10);
+  assert.ok((u1Specs.purgeGrams ?? 0) >= 1.5 && (u1Specs.purgeGrams ?? 0) <= 2.5, `U1 purge ~2 g, got ${u1Specs.purgeGrams}`);
+  assert.equal(u1Specs.colorChangeMinutes, Math.round((changes * 10) / 60));
+
+  // 2. Bambu P2S/AMS: 300 mm³ flush + 25 mm³ prime per change → >20 g; 40 s per change.
+  assert.equal(p2sSpecs.printerType, 'SINGLE_NOZZLE_AMS');
+  assert.equal(p2sSpecs.purgeGrams, Math.round(((changes * 325) / 1000) * 1.24 * 10) / 10);
+  assert.ok((p2sSpecs.purgeGrams ?? 0) > 20, `P2S purge > 20 g, got ${p2sSpecs.purgeGrams}`);
+  assert.equal(p2sSpecs.colorChangeMinutes, Math.round((changes * 40) / 60));
 });

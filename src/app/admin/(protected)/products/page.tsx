@@ -86,7 +86,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
               <Input id="basePrice" name="basePrice" type="number" min={0} />
             </div>
             <div className="col-span-2">
-              <PricingCalculatorPanel materials={materials} config={pricingConfig} priceInputIds={['basePrice']} />
+              <PricingCalculatorPanel materials={materials} config={pricingConfig} priceInputIds={['basePrice']} defaultPrinterProfileId="BAMBU_P2S" />
             </div>
             <div className="flex items-center gap-2 pt-6">
               <input id="isFeatured" name="isFeatured" type="checkbox" className="size-4 rounded border-input" />

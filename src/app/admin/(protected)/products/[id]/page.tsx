@@ -65,7 +65,7 @@ export default async function ProductDetailPage({ params, searchParams }: { para
               <Input id="basePrice" name="basePrice" type="number" min={0} defaultValue={product.basePrice ?? ''} />
             </div>
             <div className="col-span-2">
-              <PricingCalculatorPanel materials={materials} config={pricingConfig} priceInputIds={['basePrice']} />
+              <PricingCalculatorPanel materials={materials} config={pricingConfig} priceInputIds={['basePrice']} defaultPrinterProfileId="BAMBU_P2S" />
             </div>
             <div className="col-span-2 flex flex-col gap-1.5">
               <Label htmlFor="shortDescription">Mô tả ngắn</Label>
