@@ -72,8 +72,11 @@ comment on column public.products.license_type is
 --    has an image, a price > 0 and a real category — and while ACTIVE, an edit of its price or
 --    category may not break that (security review 2026-10-21). Collects every reason, raises once.
 --    Deleting its images/variants after publishing is not covered (accepted, business-rules #28).
+-- security definer: the gate must see every product_import_items row regardless of the caller's
+-- grants/RLS — with security invoker, a future select grant without policy would make the item
+-- invisible ("not found") and silently skip the gate.
 create or replace function public.enforce_import_publish_gate() returns trigger
-language plpgsql security invoker set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $$
 declare
   item record;
   reasons text[] := array[]::text[];
@@ -112,7 +115,7 @@ create trigger products_import_publish_gate before insert or update of status, b
 --    license-reviewed (blocks "create ACTIVE product, then attach a pending item" and un-ticking
 --    the license check on a published product).
 create or replace function public.enforce_import_item_link() returns trigger
-language plpgsql security invoker set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $$
 begin
   if new.product_id is not null
      and (new.review_status <> 'APPROVED' or not new.license_reviewed)

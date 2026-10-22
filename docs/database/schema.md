@@ -190,6 +190,6 @@ select it.
 - `updated_at` maintained by `set_updated_at()` (the admin page's optimistic lock relies on it).
 - Triggers: `products_import_publish_gate` (`before insert or update of status on products … when new.status = 'ACTIVE'`)
   raises `IMPORT_PUBLISH_BLOCKED:<reasons>`; `product_import_items_link_gate` refuses linking/un-approving/un-reviewing an
-  item whose product is `ACTIVE` (`IMPORT_LINK_BLOCKED`). Both functions `security invoker`, `search_path = ''`.
+  item whose product is `ACTIVE` (`IMPORT_LINK_BLOCKED`). Both functions `security definer`, `search_path = ''` (the gate must see every import item regardless of the caller's grants/RLS).
 - Category `chua-phan-loai` ("Chưa phân loại", `is_active = false`) is seeded by the migration.
 - `products.license_type` gains the documented value `UNKNOWN` (still no CHECK — Phase 29 decision; Zod validates).

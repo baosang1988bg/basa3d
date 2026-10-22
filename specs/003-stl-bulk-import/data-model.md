@@ -52,7 +52,7 @@ on conflict (slug) do nothing;`
 
 ## 4. Trigger gate lên web (FR-021)
 
-`public.enforce_import_publish_gate()` — `language plpgsql security invoker set search_path = ''`.
+`public.enforce_import_publish_gate()` — `language plpgsql security definer set search_path = ''` (đổi từ invoker sau review 2026-10-21: gate phải thấy mọi import item bất kể quyền/RLS của người gọi).
 
 - Gắn: `before insert or update of status on public.products for each row when (new.status = 'ACTIVE')`; trong thân: thoát
   ngay nếu `TG_OP = 'UPDATE' and old.status = 'ACTIVE'` hoặc không có item cho `new.id`.

@@ -157,3 +157,30 @@ test('every existing write path is gated: updateProduct (product page save, unar
   const status = (await getPool().query('select status from products where id = $1', [fixture.productId])).rows[0].status;
   assert.equal(status, 'DRAFT');
 });
+
+test('gate is security definer: a caller granted select on product_import_items without a policy is still blocked', { skip: !hasDb }, async () => {
+  const fixture = await seed();
+  const client = await getPool().connect();
+  try {
+    // Everything below is rolled back: the temporary grants/policy (and, on plain PostgreSQL, the
+    // stand-in `authenticated` role) never outlive this test.
+    await client.query('begin');
+    const roles = await client.query("select 1 from pg_roles where rolname = 'authenticated'");
+    if (!roles.rowCount) await client.query('create role authenticated nologin');
+    await client.query('grant select on public.product_import_items to authenticated');
+    await client.query('grant select, update on public.products to authenticated');
+    await client.query('create policy stl_gate_probe on public.products for all to authenticated using (true) with check (true)');
+    await client.query('set local role authenticated');
+    // With RLS on and no policy the item is invisible to the caller; a security invoker gate would see
+    // "not found" and let the product go ACTIVE.
+    assert.equal((await client.query('select 1 from public.product_import_items where id = $1', [fixture.itemId])).rowCount, 0);
+    await expectBlocked(client.query(`update public.products set status = 'ACTIVE' where id = $1`, [fixture.productId]), ['NOT_APPROVED']);
+  } finally {
+    await client.query('rollback');
+    client.release();
+  }
+  const db = getPool();
+  assert.equal((await db.query('select status from products where id = $1', [fixture.productId])).rows[0].status, 'DRAFT');
+  const leaked = await db.query("select 1 from information_schema.role_table_grants where table_schema = 'public' and table_name = 'product_import_items' and grantee = 'authenticated'");
+  assert.equal(leaked.rowCount, 0);
+});

@@ -65,7 +65,7 @@ commit Conventional Commits cục bộ.
     on conflict (slug) do nothing;` (kiểm tên cột thật của `categories` trước khi viết)
   - `comment on column public.products.license_type` liệt kê `OWN_DESIGN, CC_BY, CC0, COMMERCIAL_LICENSE, OTHER, UNKNOWN`
     (R10 phương án A — **không** CHECK)
-  - function `public.enforce_import_publish_gate()` (`language plpgsql security invoker set search_path = ''`), trigger
+  - function `public.enforce_import_publish_gate()` (`language plpgsql security definer set search_path = ''`; đổi từ invoker sau review 2026-10-21), trigger
     `products_import_publish_gate before insert or update of status on public.products for each row when (new.status =
     'ACTIVE')`; thoát sớm nếu `TG_OP='UPDATE' and old.status='ACTIVE'` hoặc không có item; gom lý do
     `NOT_APPROVED, LICENSE_NOT_REVIEWED, NO_IMAGE, NO_PRICE, UNCATEGORIZED` rồi
