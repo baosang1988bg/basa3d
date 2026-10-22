@@ -61,6 +61,13 @@ chạy lại `e2e/admin.spec.ts`, `e2e/copyright-compliance.spec.ts`.
 - `report.html`: "Thư mục nguồn" mỗi thẻ + lọc theo thư mục; lọc Lỗi / Có cảnh báo / Nghi sai đơn vị / Nghi gộp sai.
 - Cổng 2026-10-22 (Postgres local, không Supabase): lint ✅ typecheck ✅ build ✅; `npm test` chỉ còn 16 fail
   cần Supabase API/Auth/Storage (`fetch failed` / 502) — không fail nào thuộc stl-import; E2E chưa chạy (xem DoD).
+- Lần chạy lại 2026-10-22 (sau khi xoá `.next-test`, 0 lỗi 500 `/home` `/products`): 711 test, 693 pass, 18 fail.
+  16 fail như trên (RBAC/staff, upload Storage, cover blog). 2 fail mới — `makerworld-estimate` "VERIFIED: returns the
+  admin-verified prices…" và `makerworld-price-preset` "save → lookup … KIT < ASSEMBLED" — không thuộc feature 003.
+  Giả thuyết: Postgres Homebrew chạy TimeZone `Asia/Ho_Chi_Minh` → `timezone('utc', now()) - 1s` ghi lùi 7 giờ, nên
+  pricing config còn sót từ lần chạy trước (ghi bằng `now()` thật) thắng "config hiện hành". Đã sửa
+  `scripts/test-db-setup.ts`: đặt `timezone = 'UTC'` cho DB test (giống Supabase). Cần chạy lại
+  `npm run test:db:setup -- --reset && npm test` để xác nhận.
 
 ## Definition of Done
 

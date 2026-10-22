@@ -46,6 +46,20 @@ async function main() {
     }
   }
 
+  // Supabase runs in UTC. Tests seed `effective_from = timezone('utc', now()) - 1s`, which only equals
+  // "1 second ago" when the session TimeZone is UTC; on a Mac Postgres in Asia/Ho_Chi_Minh it lands 7h
+  // in the past, so configs left by earlier runs (stored with real now()) win "current pricing config"
+  // and price-lookup tests fail. Pin the test database to UTC (applies to new connections).
+  {
+    const tzClient = new Client({ connectionString: testUrl });
+    await tzClient.connect();
+    try {
+      await tzClient.query(`alter database "${databaseName.replaceAll('"', '""')}" set timezone to 'UTC'`);
+    } finally {
+      await tzClient.end();
+    }
+  }
+
   const client = new Client({ connectionString: testUrl });
   await client.connect();
   try {
