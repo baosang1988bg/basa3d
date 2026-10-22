@@ -132,7 +132,7 @@ export async function POST(request: Request) {
     let quoteEstimateSnapshot: CustomRequestQuoteEstimateSnapshot | null = null;
     if (input.fileEstimateOption && input.attachmentPath) {
       try {
-        const result = await estimateAttachment(input.attachmentPath, input.requestedMaterial ?? null);
+        const result = await estimateAttachment(input.attachmentPath, input.requestedMaterial ?? null, { printerTarget: input.printerTarget ?? null });
         const option = result.estimate?.options.find((o) => o.key === input.fileEstimateOption);
         if (result.estimate && (result.estimate.kind === 'SLICED' || result.estimate.kind === 'MESH') && option) {
           quoteEstimateSnapshot = {

@@ -132,6 +132,12 @@ export default async function PublicQuotePage({
         </div>
       ) : null}
 
+      {quote.printerName ? (
+        <p className="mt-6 text-sm text-muted-foreground">
+          Máy in: <span className="inline-flex items-center rounded-md bg-muted px-2.5 py-1 font-medium text-foreground">{quote.printerName}</span>
+        </p>
+      ) : null}
+
       <div className="mt-6 rounded-xl border border-border bg-card p-6 shadow-xs">
         <p className="text-sm font-semibold text-foreground">Chi tiết vật liệu</p>
         <div className="mt-3 flex flex-col gap-2">

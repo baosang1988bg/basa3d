@@ -5,6 +5,7 @@ import { createDatabaseRateLimiter, getClientIp } from '@/lib/rate-limit';
 import { estimateAttachment } from '@/services/file-estimate.service';
 import { verifyUploadClaim } from '@/lib/upload-claim';
 import { DomainError } from '@/lib/domain-error';
+import { PRINTER_PROFILE_IDS } from '@/lib/pricing/printer-profiles';
 
 // Option 2 (ADR-0034): price an attachment the customer just uploaded, before any contact details.
 // Input is the private storage path returned by /api/public/custom-requests/attachments (itself
@@ -16,6 +17,7 @@ const inputSchema = z.object({
   attachmentPath: z.string().trim().min(1).max(500),
   uploadClaim: z.string().trim().min(1).max(1_000),
   materialType: z.string().trim().max(20).nullable().optional(),
+  printerTarget: z.enum(PRINTER_PROFILE_IDS).nullable().optional(),
 }).strict();
 
 export async function POST(request: Request) {
@@ -27,7 +29,7 @@ export async function POST(request: Request) {
     if (!verifyUploadClaim(input.attachmentPath, input.uploadClaim)) {
       throw new DomainError('INVALID_UPLOAD_CLAIM', 'Liên kết tải lên không hợp lệ hoặc đã hết hạn, vui lòng tải lại file.', 403);
     }
-    const result = await estimateAttachment(input.attachmentPath, input.materialType);
+    const result = await estimateAttachment(input.attachmentPath, input.materialType, { printerTarget: input.printerTarget });
     return NextResponse.json(result, { headers: { 'cache-control': 'no-store' } });
   } catch (error) {
     return apiError(error);

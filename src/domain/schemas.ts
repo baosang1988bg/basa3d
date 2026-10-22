@@ -6,6 +6,7 @@ import { MAX_UPLOAD_BYTES, MAX_UPLOAD_FILES_PER_REQUEST, UPLOAD_EXTENSIONS } fro
 import { BAO_GIA_MAX_EXTENT_MM, BAO_GIA_MAX_ITEMS } from '../config/bao-gia';
 import { FDM_MATERIALS, INFILL_OPTIONS, SCALE_PERMILLE_RANGE } from '../lib/pricing/fdm-estimate-model';
 import { MESH_MAX_TRIANGLES, checkMeshConsistency } from '../lib/pricing/mesh-metrics';
+import { PRINTER_PROFILE_IDS } from '../lib/pricing/printer-profiles';
 
 export const uuidSchema = z.string().uuid();
 const nonEmptyText = z.string().trim().min(1);
@@ -102,6 +103,9 @@ export const pricingBreakdownSchema = z.object({
   totalCostVnd: vndSchema,
   priceBeforeRoundingVnd: vndSchema,
   finalPriceVnd: vndSchema,
+  /** Target printer picked in the calculator. Snapmaker U1 prices with its own machine power/price/
+   * lifetime instead of the pricingConfigId row — recorded so the snapshot stays explainable. */
+  printerProfileId: z.enum(PRINTER_PROFILE_IDS).optional(),
 }).strict();
 
 function validatePricingSnapshotPair(
@@ -284,6 +288,9 @@ export const publicCustomRequestInputSchema = z.object({
   // ADR-0034: which option of the file estimate the customer picked. The price itself is recomputed
   // server-side from attachmentPath + requestedMaterial — never accepted from the browser.
   fileEstimateOption: z.enum(['ASSEMBLED', 'KIT', 'STANDARD']).optional(),
+  // Target printer the customer priced the file for (Snapmaker U1 tool changer vs Bambu AMS). Only
+  // feeds the server-side re-estimate, so the stored estimate matches what the customer saw.
+  printerTarget: z.enum(PRINTER_PROFILE_IDS).optional(),
 }).strict().superRefine((request, context) => {
   if (Boolean(request.attachmentPath) !== Boolean(request.uploadClaim)) {
     context.addIssue({ code: z.ZodIssueCode.custom, message: 'attachmentPath and uploadClaim must be provided together.', path: ['uploadClaim'] });

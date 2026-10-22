@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { QuoteToolSwitcher } from '@/components/admin/quote-tool-switcher';
 import { QuoteTotalsFields } from '@/components/admin/quote-totals-fields';
 import { ASSEMBLY_TIERS } from '@/lib/pricing/assembly-tiers';
+import { PRINTER_PROFILES } from '@/lib/pricing/printer-profiles';
 import { CopyZaloQuoteButton } from '@/components/admin/copy-zalo-quote-button';
 import { ProcessStepper } from '@/components/admin/process-stepper';
 import { createCustomRequestAttachmentSignedUrl, getCustomRequestById, nextCustomRequestStatuses } from '@/services/custom-request.service';
@@ -414,6 +415,9 @@ export default async function CustomRequestDetailPage({ params, searchParams }: 
                           {quote.modelSnapshot.tier ? ` · ${ASSEMBLY_TIERS[quote.modelSnapshot.tier].label}` : ''}
                           {quote.modelSnapshot.dataSource === 'MANUAL' ? ' · nhập tay' : ''}
                         </p>
+                      ) : null}
+                      {quote.printerProfileId ? (
+                        <p className="text-xs font-normal text-muted-foreground">Máy in: {PRINTER_PROFILES[quote.printerProfileId].shortName}</p>
                       ) : null}
                     </TableCell>
                     <TableCell className="text-xs">{quote.customRequestItemId && itemPosition.get(quote.customRequestItemId) ? `#${itemPosition.get(quote.customRequestItemId)}` : '—'}</TableCell>

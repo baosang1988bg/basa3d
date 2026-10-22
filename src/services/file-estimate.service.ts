@@ -32,7 +32,7 @@ export type PublicFileEstimate = { status: FileEstimateStatus; estimate: Instant
  * when the customer didn't choose; an explicit RESIN gets no automatic price. */
 const FDM_TYPES = new Set(['PLA', 'PETG', 'ABS', 'ASA', 'TPU']);
 
-export function estimateFileBytes(ctx: PricingContext, input: { fileName: string; bytes: Uint8Array; materialType?: string | null }): PublicFileEstimate {
+export function estimateFileBytes(ctx: PricingContext, input: { fileName: string; bytes: Uint8Array; materialType?: string | null; printerTarget?: string | null }): PublicFileEstimate {
   const extension = input.fileName.toLowerCase().split('.').pop() ?? '';
   const requested = input.materialType?.trim().toUpperCase() || null;
   if (requested && !FDM_TYPES.has(requested)) return { status: 'UNSUPPORTED', estimate: null };
@@ -46,10 +46,10 @@ export function estimateFileBytes(ctx: PricingContext, input: { fileName: string
         // Unsliced project (typical MakerWorld download): price the geometry as a range instead of
         // giving up; fall back to NOT_SLICED only if the geometry can't be read either.
         try {
-          // Phase 40: multi-color project → add estimated AMS purge + color-change time. The parser
-          // never throws; null (not a Bambu/Orca project, odd file) prices exactly as before.
+          // Phase 40: multi-color project → add estimated AMS / Tool changer purge + color-change time.
+          // The parser never throws; null (not a Bambu/Orca project, odd file) prices exactly as before.
           const project = parseThreeMfProjectInfo(input.bytes);
-          const purge = project ? estimateColorPurge(project) : null;
+          const purge = project ? estimateColorPurge(project, undefined, input.printerTarget) : null;
           // Customer didn't pick a material: use the project's own filament type when it has exactly one.
           const projectType = !requested && purge?.filamentTypes.length === 1 ? purge.filamentTypes[0] : null;
           const type = requested ?? (projectType && FDM_TYPES.has(projectType) ? projectType : null);
@@ -81,7 +81,11 @@ export function estimateFileBytes(ctx: PricingContext, input: { fileName: string
 export async function estimateAttachment(
   attachmentPath: string,
   materialType: string | null | undefined,
-  options: { download?: (path: string) => Promise<Uint8Array>; size?: (path: string) => Promise<number | null> } = {},
+  options: {
+    download?: (path: string) => Promise<Uint8Array>;
+    size?: (path: string) => Promise<number | null>;
+    printerTarget?: string | null;
+  } = {},
 ): Promise<PublicFileEstimate> {
   if (!ATTACHMENT_PATH_RE.test(attachmentPath)) throw new DomainError('INVALID_ATTACHMENT_PATH', 'Đường dẫn file không hợp lệ.', 400);
   const extension = attachmentPath.split('.').pop() ?? '';
@@ -104,5 +108,5 @@ export async function estimateAttachment(
     throw error;
   }
   if (bytes.byteLength > MAX_ATTACHMENT_PARSE_BYTES) return { status: 'TOO_LARGE', estimate: null };
-  return estimateFileBytes(ctx, { fileName: attachmentPath, bytes, materialType });
+  return estimateFileBytes(ctx, { fileName: attachmentPath, bytes, materialType, printerTarget: options.printerTarget });
 }

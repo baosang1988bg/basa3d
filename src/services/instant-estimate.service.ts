@@ -55,6 +55,8 @@ export type InstantEstimate = {
     colors?: string[];
     /** 'SINGLE_COLOR': price excludes purge + change time (shown as "Từ ~X đ"); 'FULL': everything priced. */
     priceBasis?: 'SINGLE_COLOR' | 'FULL';
+    printerTarget?: string | null;
+    printerType?: PrinterType;
   };
   /** Multi-plate jobs get the two finishing tiers (ráp sẵn / kit); single-plate jobs one price. */
   options: InstantOption[];
@@ -74,11 +76,14 @@ export function roundInstant(value: number): number {
   return Math.max(INSTANT_ROUNDING_VND, Math.ceil(value / INSTANT_ROUNDING_VND) * INSTANT_ROUNDING_VND);
 }
 
+import { resolvePrinterProfile, type PrinterType } from '../lib/pricing/printer-profiles';
+
 // ---------------------------------------------------------------------------------------------
-// Phase 40 (ADR-0043): AMS purge + color-change time for UNSLICED multi-color .3mf projects.
+// Phase 40 (ADR-0043): Multi-color purge + color-change time for UNSLICED multi-color .3mf projects.
+// Supports both SINGLE_NOZZLE_AMS (Bambu P2S/AMS) and TOOL_CHANGER (Snapmaker U1).
 // A sliced file already carries both (slice_info used_g / prediction) — this is only the fallback.
 // ---------------------------------------------------------------------------------------------
-/** Flush volume per change when the project has no flush_volumes_matrix (Bambu defaults are ~100–700 mm³
+/** Flush volume per change when the project has no flush_volumes_matrix on AMS (Bambu defaults are ~100–700 mm³
  * depending on the color pair; dark→light is the expensive end). Conservative middle. */
 export const DEFAULT_FLUSH_MM3 = 300;
 /** Prime-tower wipe per change when enable_prime_tower is on and prime_volume is missing (Bambu default 45). */
@@ -99,34 +104,51 @@ export type ColorPurgeEstimate = {
   filamentTypes: string[];
   platesCount: number;
   sizeMm: { x: number; y: number; z: number } | null;
+  printerModel?: string | null;
+  printerType?: PrinterType;
 };
 
 /** null when the project uses a single filament per plate (nothing to purge). */
-export function estimateColorPurge(info: ThreeMfProjectInfo, density = PLA_DENSITY): ColorPurgeEstimate | null {
+export function estimateColorPurge(
+  info: ThreeMfProjectInfo,
+  density = PLA_DENSITY,
+  printerTarget?: string | null,
+): ColorPurgeEstimate | null {
+  const profile = resolvePrinterProfile(printerTarget ?? info.printerModel);
   const used = [...new Set(info.plates.flatMap((p) => p.filaments))].sort((a, b) => a - b);
   const colorChanges = info.plates.reduce((sum, p) => sum + p.colorChanges, 0);
-  const pairs: number[] = [];
-  if (info.flushMatrix) {
-    for (const from of used) for (const to of used) {
-      const value = info.flushMatrix[from - 1]?.[to - 1];
-      if (from !== to && value !== undefined && Number.isFinite(value)) pairs.push(value);
+
+  let flushMm3 = 0;
+  if (profile.type === 'SINGLE_NOZZLE_AMS') {
+    const pairs: number[] = [];
+    if (info.flushMatrix) {
+      for (const from of used) for (const to of used) {
+        const value = info.flushMatrix[from - 1]?.[to - 1];
+        if (from !== to && value !== undefined && Number.isFinite(value)) pairs.push(value);
+      }
     }
+    flushMm3 = (pairs.length ? pairs.reduce((a, b) => a + b, 0) / pairs.length : profile.defaultFlushMm3) * info.flushMultiplier;
+  } else {
+    // Tool changer (e.g. Snapmaker U1) has independent toolheads: zero nozzle flush waste!
+    flushMm3 = 0;
   }
-  const flushMm3 = (pairs.length ? pairs.reduce((a, b) => a + b, 0) / pairs.length : DEFAULT_FLUSH_MM3) * info.flushMultiplier;
-  const primeMm3 = info.primeTowerEnabled ? info.primeVolumeMm3 ?? DEFAULT_PRIME_VOLUME_MM3 : 0;
+
+  const primeMm3 = info.primeTowerEnabled ? (info.primeVolumeMm3 ?? profile.defaultPrimeMm3) : 0;
   const sizes = info.plates.map((p) => p.sizeMm).filter((s): s is NonNullable<typeof s> => s !== null);
   const base = {
     colors: used.map((f) => info.filamentColors[f - 1] ?? '').filter((c) => /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(c)).map((c) => c.slice(0, 7)),
     filamentTypes: [...new Set(used.map((f) => info.filamentTypes[f - 1]).filter(Boolean))],
     platesCount: info.plates.length,
     sizeMm: sizes.length ? { x: Math.max(...sizes.map((s) => s.x)), y: Math.max(...sizes.map((s) => s.y)), z: Math.max(...sizes.map((s) => s.z)) } : null,
+    printerModel: profile.name,
+    printerType: profile.type,
   };
   if (colorChanges <= 0) return { ...base, colorChanges: 0, purgeGrams: 0, extraMinutes: 0 };
   return {
     ...base,
     colorChanges,
     purgeGrams: Math.round(((colorChanges * (flushMm3 + primeMm3)) / 1000) * density * 10) / 10,
-    extraMinutes: Math.round((colorChanges * COLOR_CHANGE_SECONDS) / 60),
+    extraMinutes: Math.round((colorChanges * profile.colorChangeSeconds) / 60),
   };
 }
 
@@ -256,6 +278,7 @@ export function estimateFromMesh(
     printMinutesRange: { min: minutesFor(gramsFor(MESH_FILL_RANGE.low)), max: minutesFor(gramsFor(MESH_FILL_RANGE.high)) },
     ...(multiColor && purge ? { purgeGrams, colorChanges: purge.colorChanges, colorChangeMinutes: purge.extraMinutes, priceBasis } : {}),
     ...(purge?.colors.length ? { colors: purge.colors } : {}),
+    ...(purge?.printerModel ? { printerTarget: purge.printerModel, printerType: purge.printerType } : {}),
   };
   // No priced active material of this type → no range (caller reports NO_MATERIAL_PRICE).
   if (low === null || high === null) return { kind: 'MESH', materialType: type, specs, options: [{ key: 'STANDARD', priceVnd: null }] };

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,6 +9,15 @@ import {
   resolveMaterialUnitCostVndPerGram,
   type PricingBreakdown,
 } from '@/services/pricing.service';
+import {
+  DEFAULT_PRINTER_TARGET_ID,
+  PRINTER_PROFILES,
+  PRINTER_PROFILE_IDS,
+  applyPrinterProfileToConfig,
+  isPrinterProfileId,
+  type PrinterProfileId,
+} from '@/lib/pricing/printer-profiles';
+import type { ThreeMfPricingDraft } from '@/services/threemf-pricing-draft.service';
 
 export type PricingMaterialOption = {
   id: string;
@@ -32,6 +41,11 @@ export type PricingConfigOption = {
 };
 
 type MaterialRow = { key: string; materialId: string; label: string; gram: string };
+
+const PRINTER_OPTION_LABELS: Record<PrinterProfileId, string> = {
+  SNAPMAKER_U1: 'Snapmaker U1',
+  BAMBU_P2S: 'Bambu Lab P2S/AMS',
+};
 
 let rowKeyCounter = 0;
 function nextRowKey(): string {
@@ -72,9 +86,16 @@ export function PricingCalculatorPanel({
   const [parseError, setParseError] = useState<string | null>(null);
   const [isParsing, setIsParsing] = useState(false);
   const [appliedBreakdown, setAppliedBreakdown] = useState<PricingBreakdown | null>(null);
+  const [printerId, setPrinterId] = useState<PrinterProfileId>(DEFAULT_PRINTER_TARGET_ID);
+  const [draftNote, setDraftNote] = useState<string | null>(null);
+  // Last unsliced upload: its purge/prime-tower rows depend on the printer, so a printer switch re-parses it.
+  const unslicedFile = useRef<File | null>(null);
+
+  // Snapmaker U1 prices with its own machine power/price/lifetime; Bambu keeps the saved config.
+  const machineConfig = useMemo(() => (config ? applyPrinterProfileToConfig(config, printerId) : null), [config, printerId]);
 
   const breakdown = useMemo<PricingBreakdown | null>(() => {
-    if (!config) return null;
+    if (!machineConfig) return null;
     const printMin = Number(printMinutes);
     const laborMin = Number(laborMinutes);
     if (!Number.isFinite(printMin) || !Number.isFinite(laborMin)) return null;
@@ -86,13 +107,16 @@ export function PricingCalculatorPanel({
         return { label: row.label || material?.name, gram: Number(row.gram), unitCostVndPerGram: unitCost };
       });
     if (!materialLines.length && printMin === 0 && laborMin === 0) return null;
-    return computePricingBreakdown({
-      materials: materialLines,
-      printMinutes: printMin,
-      laborMinutes: laborMin,
-      config,
-    });
-  }, [rows, printMinutes, laborMinutes, materials, config]);
+    return {
+      ...computePricingBreakdown({
+        materials: materialLines,
+        printMinutes: printMin,
+        laborMinutes: laborMin,
+        config: machineConfig,
+      }),
+      printerProfileId: printerId,
+    };
+  }, [rows, printMinutes, laborMinutes, materials, machineConfig, printerId]);
 
   function addRow(prefill?: { label: string; gram: number }) {
     setRows((prev) => [...prev, { key: nextRowKey(), materialId: '', label: prefill?.label ?? '', gram: prefill ? String(prefill.gram) : '' }]);
@@ -106,33 +130,52 @@ export function PricingCalculatorPanel({
     setRows((prev) => prev.filter((row) => row.key !== key));
   }
 
-  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  async function parseFile(file: File, printer: PrinterProfileId) {
     setParseError(null);
     setIsParsing(true);
     try {
       const formData = new FormData();
       formData.set('file', file);
+      formData.set('printerTarget', printer);
       const response = await fetch('/api/admin/pricing/parse-3mf', { method: 'POST', body: formData });
       const body = await response.json();
       if (!response.ok) {
         setParseError(body.message ?? 'Không đọc được file .3mf.');
         return;
       }
-      const data = body.data as { plateCount: number; totalPrintMinutes: number; filaments: { color: string | null; type: string | null; totalGrams: number }[] };
+      const data = body.data as ThreeMfPricingDraft;
+      unslicedFile.current = data.source === 'PROJECT_ESTIMATE' ? file : null;
+      setDraftNote(data.source === 'PROJECT_ESTIMATE'
+        ? `File chưa slice — số liệu ước tính từ hình học cho ${data.printer.name}: ~${data.modelGrams}g mô hình`
+          + (data.colorChanges > 0
+            ? ` + ~${data.purgeGrams}g ${data.printer.type === 'TOOL_CHANGER' ? 'tháp mồi (không xả thải)' : 'nhựa xả AMS'}, ~${data.colorChanges} lần đổi màu (+${data.colorChangeMinutes} phút).`
+            : '.')
+          + ' Kiểm tra lại trước khi dùng giá.'
+        : null);
       setPrintMinutes(String(data.totalPrintMinutes));
       setLaborMinutes(String(data.plateCount * 15));
       setRows(data.filaments.map((filament) => ({
         key: nextRowKey(), materialId: '', gram: String(Math.round(filament.totalGrams * 100) / 100),
-        label: [filament.color, filament.type].filter(Boolean).join(' '),
+        label: filament.label ?? [filament.color, filament.type].filter(Boolean).join(' '),
       })));
     } catch {
       setParseError('Không thể kết nối tới máy chủ để đọc file .3mf.');
     } finally {
       setIsParsing(false);
-      event.target.value = '';
     }
+  }
+
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    await parseFile(file, printerId);
+    event.target.value = '';
+  }
+
+  function changePrinter(value: string) {
+    if (!isPrinterProfileId(value)) return;
+    setPrinterId(value);
+    if (unslicedFile.current) void parseFile(unslicedFile.current, value);
   }
 
   function applyToForm() {
@@ -168,6 +211,26 @@ export function PricingCalculatorPanel({
         </label>
       </div>
       {parseError ? <p className="text-xs text-destructive">{parseError}</p> : null}
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="pricing-printer">Máy in</Label>
+        <select
+          id="pricing-printer"
+          value={printerId}
+          onChange={(e) => changePrinter(e.target.value)}
+          disabled={isParsing}
+          className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm"
+        >
+          {PRINTER_PROFILE_IDS.map((id) => <option key={id} value={id}>{PRINTER_OPTION_LABELS[id]}</option>)}
+        </select>
+        {machineConfig ? (
+          <p className="text-xs text-muted-foreground">
+            {PRINTER_PROFILES[printerId].name}: {machineConfig.printerPowerKw}kW · giá máy {formatVnd(machineConfig.machinePriceVnd)} · khấu hao {machineConfig.machineLifetimeHours.toLocaleString('vi-VN')}h
+            {printerId === 'SNAPMAKER_U1' ? ' (cấu hình riêng của U1)' : ' (theo Cài đặt giá)'}
+          </p>
+        ) : null}
+      </div>
+      {draftNote ? <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-700 dark:text-amber-300">{draftNote}</p> : null}
 
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">

@@ -4,6 +4,7 @@
 // pricing_configs row first, then call computePricingBreakdown. This keeps the formula itself
 // testable without a database and stops it from ever opening a transaction that could nest inside
 // a caller's own withTransaction (phase-9.md decision #1).
+import type { PrinterProfileId } from '../lib/pricing/printer-profiles';
 
 export type PricingConfigInput = {
   electricityVndPerKwh: number;
@@ -48,6 +49,8 @@ export type PricingBreakdown = {
   priceBeforeRoundingVnd: number;
   /** Integer VND, rounded up to the nearest 1,000 (ADR-0010). This is the number to actually charge. */
   finalPriceVnd: number;
+  /** Set by the admin calculator when a target printer was picked (see pricingBreakdownSchema). */
+  printerProfileId?: PrinterProfileId;
 };
 
 /** Every line total is an integer VND (Rule #2) — Math.round is applied per line, not once at the

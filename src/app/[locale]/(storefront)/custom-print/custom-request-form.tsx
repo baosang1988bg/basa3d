@@ -11,6 +11,7 @@ import type { PublicFileEstimate } from '@/services/file-estimate.service';
 import type { InstantOptionKey } from '@/services/instant-estimate.service';
 import { MAX_UPLOAD_BYTES, UPLOAD_EXTENSIONS, formatUploadLimitMb } from '@/config/uploads';
 import { uploadCustomRequestFile } from '@/lib/uploads/upload-custom-request-file';
+import { DEFAULT_PRINTER_TARGET_ID, type PrinterProfileId } from '@/lib/pricing/printer-profiles';
 
 type SubmitState = { status: 'idle' | 'submitting' | 'success' | 'error'; message?: string };
 type UploadState = { status: 'idle' | 'uploading' | 'done' | 'error'; fileName?: string; message?: string };
@@ -22,6 +23,13 @@ const ALLOWED_EXTENSIONS = new Set<string>(UPLOAD_EXTENSIONS);
 const PRICEABLE_EXTENSIONS = new Set(['3mf', 'stl', 'obj']);
 const MAX_FILE_SIZE_BYTES = MAX_UPLOAD_BYTES;
 const RESPONSE_TIME_TEXT = 'trong 2 giờ làm việc';
+/** Keycap / figurine-sized parts: several fit one plate, so batching saves heating + prime tower time. */
+const SMALL_PART_MAX_MM = 40;
+
+const PRINTER_CHOICES: { id: PrinterProfileId; label: string }[] = [
+  { id: 'SNAPMAKER_U1', label: 'Snapmaker U1 (4 đầu in - Tối ưu chi phí & không xả thải nhựa)' },
+  { id: 'BAMBU_P2S', label: 'Bambu Lab AMS (Dòng máy phổ thông)' },
+];
 
 const OPTION_LABEL: Record<InstantOptionKey, string> = {
   ASSEMBLED: 'Bản ráp sẵn hoàn thiện',
@@ -92,6 +100,7 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
   const [quantity, setQuantity] = useState(1);
   const [estimate, setEstimate] = useState<EstimateState>({ status: 'idle' });
   const [selectedOption, setSelectedOption] = useState<InstantOptionKey | null>(null);
+  const [printerTarget, setPrinterTarget] = useState<PrinterProfileId>(DEFAULT_PRINTER_TARGET_ID);
   // Tool-generated designs (prefill) already have a price on the tool page — go straight to contact.
   const [showContact, setShowContact] = useState(Boolean(prefill));
   const inflight = useRef<AbortController | null>(null);
@@ -115,7 +124,7 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
         const response = await fetch('/api/public/file-estimate', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ attachmentPath, uploadClaim, materialType: material || null }),
+          body: JSON.stringify({ attachmentPath, uploadClaim, materialType: material || null, printerTarget }),
           signal: controller.signal,
         });
         const data = await response.json().catch(() => null);
@@ -134,7 +143,7 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
       }
     })();
     return () => controller.abort();
-  }, [attachmentPath, uploadClaim, material, canPrice]);
+  }, [attachmentPath, uploadClaim, material, printerTarget, canPrice]);
 
   async function handleFile(file: File) {
     const fileExtension = file.name.toLowerCase().split('.').pop() ?? '';
@@ -231,7 +240,7 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
       honeypot: String(form.get('company-website') ?? ''),
       copyrightConfirmed: true as const,
       tosVersion: CURRENT_TOS_VERSION,
-      ...(priced && selectedOption ? { fileEstimateOption: selectedOption } : {}),
+      ...(priced && selectedOption ? { fileEstimateOption: selectedOption, printerTarget } : {}),
     };
 
     try {
@@ -354,6 +363,24 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
           </div>
         </div>
 
+        {canPrice ? (
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-1.5 text-sm font-semibold text-foreground">Máy in</legend>
+            {PRINTER_CHOICES.map((choice) => (
+              <label
+                key={choice.id}
+                className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-sm ${printerTarget === choice.id ? 'border-primary bg-primary/5' : 'border-border'}`}
+              >
+                <input type="radio" name="printerTarget" value={choice.id} checked={printerTarget === choice.id} onChange={() => setPrinterTarget(choice.id)} className="mt-0.5 size-4" />
+                <span className="text-foreground">
+                  {choice.label}
+                  {choice.id === DEFAULT_PRINTER_TARGET_ID ? <span className="ml-2 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">Khuyên dùng</span> : null}
+                </span>
+              </label>
+            ))}
+          </fieldset>
+        ) : null}
+
         {/* Instant price */}
         {estimate.status === 'loading' ? (
           <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/20 p-3 text-sm text-muted-foreground">
@@ -385,13 +412,30 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
                   {priced.specs.colors.length} màu
                 </span>
               ) : null}
+              {priced.specs.printerTarget ? (
+                <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2.5 py-1 font-medium">
+                  {priced.specs.printerTarget}
+                </span>
+              ) : null}
             </div>
+            {priced.specs.sizeMm && Math.max(priced.specs.sizeMm.x, priced.specs.sizeMm.y, priced.specs.sizeMm.z) <= SMALL_PART_MAX_MM ? (
+              <p className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs text-foreground">
+                Tiết kiệm tới 40% chi phí khi in từ 2 sản phẩm trở lên trên cùng 1 mẻ in.
+              </p>
+            ) : null}
             {/* Phase 40: what the estimate is made of — quantities only, never internal costs/margin (B1). */}
             {priced.kind === 'MESH' && priced.specs.modelGrams ? (
               <dl className="grid grid-cols-1 gap-x-6 gap-y-1.5 rounded-lg border border-border bg-muted/20 p-3 text-xs sm:grid-cols-2">
                 <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Nhựa cho mô hình</dt><dd className="font-medium text-foreground">~{priced.specs.modelGrams.min}–{priced.specs.modelGrams.max} g {priced.materialType}</dd></div>
                 {priced.specs.purgeGrams ? (
-                  <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Nhựa xả khi đổi màu</dt><dd className="font-medium text-foreground">~{priced.specs.purgeGrams} g · ~{priced.specs.colorChanges} lần đổi màu{priced.specs.priceBasis === 'SINGLE_COLOR' ? ' (chưa tính vào giá)' : ''}</dd></div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-muted-foreground">{priced.specs.printerType === 'TOOL_CHANGER' ? 'Tháp mồi (Tool Changer)' : 'Nhựa xả khi đổi màu'}</dt>
+                    <dd className="font-medium text-foreground">
+                      ~{priced.specs.purgeGrams} g · ~{priced.specs.colorChanges} lần đổi màu
+                      {priced.specs.printerType === 'TOOL_CHANGER' ? ' · không xả thải' : ''}
+                      {priced.specs.priceBasis === 'SINGLE_COLOR' ? ' (chưa tính vào giá)' : ''}
+                    </dd>
+                  </div>
                 ) : null}
                 {priced.specs.printMinutesRange ? (
                   <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Thời gian máy chạy</dt><dd className="font-medium text-foreground">~{formatHours(priced.specs.printMinutesRange.min)}–{formatHours(priced.specs.printMinutesRange.max)} giờ</dd></div>

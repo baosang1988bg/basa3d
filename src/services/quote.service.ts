@@ -8,6 +8,7 @@ import type { PricingBreakdown } from './pricing.service';
 import { quoteModelSnapshotSchema, type QuoteModelSnapshotData } from '../domain/schemas';
 import { sanitizeMakerWorldImageUrl } from '../lib/parsers/makerworld-image';
 import { computeQuoteTotals } from '../lib/pricing/vat';
+import { PRINTER_PROFILES, applyPrinterProfileToConfig, isPrinterProfileId, type PrinterProfileId } from '../lib/pricing/printer-profiles';
 
 export function canAcceptQuote(validUntil: Date, now = new Date()): boolean { return validUntil >= now; }
 
@@ -69,17 +70,21 @@ type QuoteSummary = {
   vatRateBps: number; vatAmount: number;
   validUntil: Date; status: string; note: string | null; createdAt: Date; modelSnapshot: QuoteModelSnapshot | null;
   customRequestItemId: string | null;
+  /** pricing_breakdown->>'printerProfileId' — set when the calculator priced for a chosen printer. */
+  printerProfileId: PrinterProfileId | null;
 };
 
 export async function listQuotesByCustomRequest(customRequestId: string): Promise<QuoteSummary[]> {
   const result = await query<QuoteSummary>(`
     select id, quote_number as "quoteNumber", subtotal, shipping_fee as "shippingFee", discount, total,
-      vat_rate_bps as "vatRateBps", vat_amount as "vatAmount", custom_request_item_id as "customRequestItemId", valid_until as "validUntil", status, note, created_at as "createdAt", model_snapshot as "modelSnapshot"
+      vat_rate_bps as "vatRateBps", vat_amount as "vatAmount", custom_request_item_id as "customRequestItemId", valid_until as "validUntil", status, note, created_at as "createdAt", model_snapshot as "modelSnapshot",
+      pricing_breakdown->>'printerProfileId' as "printerProfileId"
     from quotes where custom_request_id = $1 order by created_at desc`, [customRequestId]);
   // ADR-0023: bigint money columns come back from node-postgres as strings — coerce once here.
   return result.rows.map((row) => ({
     ...row,
     subtotal: Number(row.subtotal), shippingFee: Number(row.shippingFee), discount: Number(row.discount), total: Number(row.total),
+    printerProfileId: isPrinterProfileId(row.printerProfileId) ? row.printerProfileId : null,
     vatRateBps: Number(row.vatRateBps), vatAmount: Number(row.vatAmount),
     modelSnapshot: readQuoteModelSnapshot(row.modelSnapshot, { quoteId: row.id }),
   }));
@@ -121,12 +126,16 @@ export async function createQuote(input: {
         from pricing_configs where id = $1`, [input.pricingConfigId]);
       if (!config.rowCount) throw new DomainError('PRICING_CONFIG_NOT_FOUND', 'Pricing config was not found.', 404);
       const row = config.rows[0];
-      const derivedMinutes = derivePrintMinutesFromBreakdown(breakdown, {
+      const savedMachine = {
         electricityVndPerKwh: Number(row.electricityVndPerKwh),
         machinePriceVnd: Number(row.machinePriceVnd),
         machineLifetimeHours: Number(row.machineLifetimeHours),
         printerPowerKw: Number(row.printerPowerKw),
-      });
+      };
+      // A calculator breakdown priced for Snapmaker U1 used the profile's machine params, not the row's.
+      const derivedMinutes = derivePrintMinutesFromBreakdown(breakdown, breakdown.printerProfileId
+        ? applyPrinterProfileToConfig(savedMachine, breakdown.printerProfileId)
+        : savedMachine);
       // Second, cheaper signal: the priced material can't be far BELOW the profile's net weight
       // (waste/consumables only ever add grams). Catches two profiles with similar print times but
       // different weights (e.g. 170g vs 285g) that the minutes check alone would let through.
@@ -321,6 +330,8 @@ export type PublicQuoteDetail = {
   customerName: string;
   note: string | null;
   modelSnapshot: QuoteModelSnapshot | null;
+  /** Printer picked in the admin calculator (pricingBreakdown.printerProfileId) — name only, no costs. */
+  printerName: string | null;
   item: PublicQuoteItem | null;
   pricing: PublicQuotePricing;
 };
@@ -375,6 +386,7 @@ function toPublicQuoteDetail(row: QuoteRow, options: { masked: boolean }): Publi
     customerName: options.masked ? maskCustomerName(row.customerName) : row.customerName,
     note: row.note,
     modelSnapshot: row.modelSnapshot,
+    printerName: row.pricingBreakdown?.printerProfileId ? PRINTER_PROFILES[row.pricingBreakdown.printerProfileId].name : null,
     item: row.itemDisplayName && row.itemMaterialType
       ? { displayName: row.itemDisplayName, materialType: row.itemMaterialType, quantity: Number(row.itemQuantity ?? 1), sizeMm: row.itemSizeMm }
       : null,
