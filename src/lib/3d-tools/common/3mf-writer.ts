@@ -15,8 +15,26 @@ function validate(parts: ExportPart[]) {
     if (index) for (let i=0;i<index.count;i++) if (!Number.isInteger(index.getX(i)) || index.getX(i)<0 || index.getX(i)>=p.count) throw new RangeError('Chỉ số đỉnh không hợp lệ.');
   }
 }
+/**
+ * ADR-0051: opt-in Bambu Studio metadata. `extruders[i]` (1-based) is the filament slot for `parts[i]`;
+ * when given, Metadata/model_settings.config is added so the slicer maps each part to its AMS slot.
+ * Omitted (the default) keeps the package byte-identical to the pre-ADR-0051 output.
+ */
+export type Write3mfOptions = { extruders?: number[] };
+export const MAX_EXTRUDERS = 16;
+/** One slot per distinct color, in first-seen order — the same order as the colorgroup. */
+export function extrudersByColor(parts: Pick<ExportPart, 'colorHex'>[]): number[] {
+  const colors=[...new Set(parts.map(p=>p.colorHex.toUpperCase()))];
+  return parts.map(p=>colors.indexOf(p.colorHex.toUpperCase())+1);
+}
+function modelSettings(parts: ExportPart[], extruders: number[], assemblyId: number, assemblyName: string): string {
+  if (extruders.length!==parts.length) throw new RangeError('Số extruder phải bằng số phần.');
+  if (!extruders.every(e=>Number.isInteger(e)&&e>=1&&e<=MAX_EXTRUDERS)) throw new RangeError(`Extruder phải là số nguyên 1–${MAX_EXTRUDERS}.`);
+  const partXml=parts.map((part,i)=>`<part id="${i+2}" subtype="normal_part"><metadata key="name" value="${xml(part.name)}"/><metadata key="extruder" value="${extruders[i]}"/></part>`).join('');
+  return `<?xml version="1.0" encoding="UTF-8"?><config><object id="${assemblyId}"><metadata key="name" value="${xml(assemblyName)}"/><metadata key="extruder" value="${extruders[0]}"/>${partXml}</object></config>`;
+}
 /** One colored object per solid part; one assembly keeps all parts registered on the plate. */
-export function write3mf(parts: ExportPart[], assemblyName = 'Compact keychain'): Uint8Array {
+export function write3mf(parts: ExportPart[], assemblyName = 'Compact keychain', options: Write3mfOptions = {}): Uint8Array {
   validate(parts);
   const colors=[...new Set(parts.map(p=>p.colorHex.toUpperCase()))];
   const objects=parts.map((part,i)=>{
@@ -27,10 +45,13 @@ export function write3mf(parts: ExportPart[], assemblyName = 'Compact keychain')
   }).join('');
   const assemblyId=parts.length+2;
   const model=`<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:m="http://schemas.microsoft.com/3dmanufacturing/material/2015/02"><resources><m:colorgroup id="1">${colors.map(color=>`<m:color color="${color}"/>`).join('')}</m:colorgroup>${objects}<object id="${assemblyId}" type="model" name="${xml(assemblyName)}"><components>${parts.map((_,i)=>`<component objectid="${i+2}"/>`).join('')}</components></object></resources><build><item objectid="${assemblyId}"/></build></model>`;
+  const settings=options.extruders ? modelSettings(parts,options.extruders,assemblyId,assemblyName) : null;
+  const override=settings ? '<Override PartName="/Metadata/model_settings.config" ContentType="text/xml"/>' : '';
   return zipSync({
-    '[Content_Types].xml':strToU8('<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>'),
+    '[Content_Types].xml':strToU8(`<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>${override}</Types>`),
     '_rels/.rels':strToU8('<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>'),
     '3D/3dmodel.model':strToU8(model),
+    ...(settings ? { 'Metadata/model_settings.config':strToU8(settings) } : {}),
   });
 }
 /** Base plus one STL per cap/glyph pair, retaining their assembly coordinates. */

@@ -41,3 +41,6 @@ __pycache__/
 # Local scratch directory
 scratch/
 
+
+# REA evidence (phase 46/47): chứa nội dung lấy từ trang tham khảo — không commit
+docs/rea/*/evidence/

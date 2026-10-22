@@ -856,3 +856,79 @@ table, two triggers and a script-side write service (the existing `product.servi
 narrowed: T1 (offline render), T5 (service-role on the OWNER machine) and T7 (`sha1(relPath)` key) are kept; T3/T4/T6
 (separate table, `model-previews` bucket, `custom_requests.model_library_item_id`) are superseded. A browse-only gallery
 for models not worth selling can be revisited later on top of `product_import_items`.
+
+## ADR-0050 — Pet bowl stand: bowl sizes, hole tolerance, height formula, stability, GDV warning
+
+**Status.** Proposed 2026-10-22, **chưa đủ số liệu**. The decision *shape* is accepted for slice 0 (GATE A); every
+number below is a placeholder until OWNER fills the measurements. While `PET_BOWL_UNCONFIRMED` is non-empty the tool
+stays behind `NEXT_PUBLIC_PET_BOWL_ENABLED=false` (`src/config/pet-bowl.ts`, enforced by `tests/pet-bowl-config.test.ts`).
+
+**Context.** Phase 47 surveyed the Print Paws reference (`docs/exec-plans/active/phase-47-printpaws-rea.md`). Its height
+coefficients, its hole sizes for its own bowls and its templates are **not** reused. They describe someone else's bowls and
+a design choice the reference itself says is not a veterinary standard. BaSa3D needs its own numbers from the bowls it sells.
+
+**Decision.** Single source: `src/lib/3d-tools/pet-bowl-stand/pet-bowl-stand-constants.ts`.
+1. *Bowls.* A fixed list of stainless bowls BaSa3D sells (`BOWL_SIZES`, S/M): Ø outer rim, Ø lip/flange, Ø body just below
+   the lip, depth, capacity, empty mass, plus a `measured` flag. MVP has no free-form "custom bowl"; that is how you get a bowl
+   that falls through.
+2. *Fit.* Hole Ø = Ø body below lip + `HOLE_CLEARANCE_MM`. The lip rests on a ledge. Export is **blocked** (not just
+   warned) when `Ø lip − Ø hole < 2 × MIN_LEDGE_WIDTH_MM`.
+3. *Height.* `H = clamp(k[species] × shoulder height, min[species], max[species])`, then `H ≥ bowl depth +
+   BOWL_FLOOR_CLEARANCE_MM`. The UI shows this as a starting point the customer can adjust within [min, max], not as a
+   health recommendation.
+4. *Stability* — both must pass, else export/quote are blocked with an explanation:
+   (a) `Ø base / H ≥ MIN_BASE_TO_HEIGHT_RATIO`;
+   (b) full-bowl tip angle `atan(r_base / z_cg) ≥ MIN_TIP_ANGLE_DEG`.
+   Assumptions for `z_cg` (recorded, not measured):
+   - the stand's mass sits at its mesh centroid (PLA 1.24 g/cm³ on the solid mesh, overestimates infill so it is
+     conservative for mass but not for centroid);
+   - each bowl is full of **water** (`capacity × 1 g/ml`, heavier than dry food) plus `emptyMassG`, centred at
+     `H − depth/2`;
+   - with two bowls the load is symmetric, so the horizontal CG stays at the base centre;
+   - the floor is flat, with no dynamic loads (a pet pushing or stepping in).
+   `r_base` is the inscribed radius of the footprint.
+5. *Printability.*
+   - Footprint + `BED_MARGIN_MM` must fit the build volume of `PET_BOWL_PRINTER_PROFILE_ID`, read from
+     `src/lib/pricing/printer-profiles.ts` (never hard-coded).
+   - Overhang ≤ `MAX_OVERHANG_DEG` (45°), so no supports.
+   - Wall ≥ `MIN_WALL_MM`.
+6. *GDV (gastric dilatation-volvulus).* For dogs a warning (`GDV_WARNING`, VI/EN) is **always visible** next to the
+   height control and in the Custom Request description. The tool never auto-lowers or overrides the customer's
+   choice. It only informs and points to a vet. Wording needs OWNER approval.
+
+**Trade-off.** Fixed bowl sizes cut the "bowl falls through / wobbles" support cases at the cost of not serving customers
+with their own bowls (they can still use Custom Request). Blocking on stability may reject designs a careful customer
+would accept. We prefer that to shipping a stand that tips with a full water bowl. The stability model ignores infill
+and dynamic loads, so the thresholds must be checked with one real print per bowl size before the flag goes on.
+
+**Open (CHƯA ĐO / CHƯA CHỐT / CHƯA DUYỆT).** Tracked in `PET_BOWL_UNCONFIRMED`:
+- bowl S/M measurements;
+- `HOLE_CLEARANCE_MM`, `MIN_LEDGE_WIDTH_MM`, `BOWL_FLOOR_CLEARANCE_MM`;
+- `HEIGHT_RULES` (k/min/max per species), `SHOULDER_HEIGHT_RANGE_MM`;
+- `MIN_BASE_TO_HEIGHT_RATIO`, `MIN_TIP_ANGLE_DEG`, `MIN_WALL_MM`;
+- default printer (placeholder `BAMBU_P2S` = `DEFAULT_PRINTER_PROFILE`, 256 mm; the storefront's
+  `DEFAULT_PRINTER_TARGET_ID` is `SNAPMAKER_U1`, 270 mm);
+- GDV wording.
+
+## ADR-0051 — 3MF writer: opt-in `Metadata/model_settings.config` with per-part extruders
+
+**Status.** Accepted 2026-10-22 (slice 0 of `/tools/pet-bowl-stand`).
+
+**Context.** `common/3mf-writer.ts` colours each part with a `colorgroup` but writes no slicer metadata, so Bambu Studio /
+OrcaSlicer import a multi-colour export with every part on filament 1 (phase 47 B-01). The reference writes
+`Metadata/model_settings.config` with an `extruder` per part (C-44), so the AMS mapping is ready on import. Seven existing
+tools (lamp-shade, dual-text, car-nameplate, hinge-box, jigsaw, keychain-blocks, organizer) share the writer. Customers
+already have their files, and the admin flow may compare uploads.
+
+**Decision.** `write3mf(parts, assemblyName, { extruders? })`. With `extruders` (1-based, one per part, integer 1–16;
+`extrudersByColor(parts)` gives one slot per distinct colour in colour-group order), the package gains
+`Metadata/model_settings.config`, containing one `<object id=assembly>` with one `<part id=objectId subtype="normal_part">`
+per part (`name`, `extruder`), and a `[Content_Types]` override for it. Without the option the output is **byte-for-byte
+unchanged**. `tests/3mf-writer-snapshot.test.ts` pins SHA-256 digests of 12 outputs from the 7 tools, recorded *before*
+the change, with `Date` mocked and `TZ=UTC` because fflate stamps a local DOS mtime. New-mode tests are in
+`tests/3mf-writer.test.ts`.
+
+**Trade-off.** The config format is Bambu's (OrcaSlicer reads it too; PrusaSlicer ignores it). It is a de-facto format,
+not part of the 3MF spec, so a slicer update may need follow-up. Assigning slots by colour order means a customer with a
+different AMS layout still has to remap, which is the same as today. No plate/print settings are written: the slicer's own
+profile wins. Old tools can opt in later one at a time, each with its own snapshot update.

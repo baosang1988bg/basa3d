@@ -3,7 +3,7 @@ import test from 'node:test';
 import { BoxGeometry, BufferGeometry, Float32BufferAttribute } from 'three';
 import { unzipSync, strFromU8 } from 'fflate';
 import { XMLParser, XMLValidator } from 'fast-xml-parser';
-import { write3mf, exportBlocksStlZip } from '../src/lib/3d-tools/common/3mf-writer';
+import { write3mf, exportBlocksStlZip, extrudersByColor } from '../src/lib/3d-tools/common/3mf-writer';
 const parser=new XMLParser({ignoreAttributes:false});
 test('3MF OPC package contains object-level colors and a registered assembly without triangle colors',()=>{
   const geometry=new BoxGeometry(12,12,8);
@@ -43,4 +43,32 @@ test('writer rejects empty/invalid geometry, indices and colors',()=>{
   assert.throws(()=>write3mf([{geometry,colorHex:'#ffffff',name:'x'}]));
   geometry.dispose();
   const box=new BoxGeometry();assert.throws(()=>write3mf([{geometry:box,colorHex:'red',name:'x'}]));box.setIndex([0,1,999]);assert.throws(()=>write3mf([{geometry:box,colorHex:'#ffffff',name:'x'}]));box.dispose();
+});
+test('ADR-0051: extruders option adds model_settings.config mapping every part to its slot',()=>{
+  const geometry=new BoxGeometry(10,10,10);
+  try {
+    const parts=[{geometry,colorHex:'#112233',name:'lower'},{geometry,colorHex:'#445566',name:'upper'},{geometry,colorHex:'#112233',name:'name-<&>'}];
+    assert.deepEqual(extrudersByColor(parts),[1,2,1]);
+    const files=unzipSync(write3mf(parts,'Pet bowl stand',{extruders:extrudersByColor(parts)}));
+    assert.deepEqual(Object.keys(files).sort(),['3D/3dmodel.model','Metadata/model_settings.config','[Content_Types].xml','_rels/.rels']);
+    for(const file of Object.values(files))assert.equal(XMLValidator.validate(strFromU8(file)),true);
+    const types=parser.parse(strFromU8(files['[Content_Types].xml'])).Types;
+    assert.equal(types.Override['@_PartName'],'/Metadata/model_settings.config');
+    const model=parser.parse(strFromU8(files['3D/3dmodel.model'])).model;
+    const config=parser.parse(strFromU8(files['Metadata/model_settings.config'])).config;
+    assert.equal(config.object['@_id'],model.build.item['@_objectid']);
+    const meta=(p:{metadata:Record<string,string>[]})=>Object.fromEntries(p.metadata.map(m=>[m['@_key'],m['@_value']]));
+    assert.deepEqual(config.object.part.map((p:{'@_id':string;metadata:Record<string,string>[]})=>[p['@_id'],meta(p).name,meta(p).extruder]),[['2','lower','1'],['3','upper','2'],['4','name-<&>','1']]);
+    assert.deepEqual(model.resources.object.slice(0,3).map((o:Record<string,string>)=>o['@_id']),['2','3','4']);
+  } finally {geometry.dispose();}
+});
+test('ADR-0051: extruders option rejects a wrong count or out-of-range slot',()=>{
+  const geometry=new BoxGeometry(10,10,10);
+  try {
+    const parts=[{geometry,colorHex:'#112233',name:'a'},{geometry,colorHex:'#445566',name:'b'}];
+    assert.throws(()=>write3mf(parts,'x',{extruders:[1]}),RangeError);
+    assert.throws(()=>write3mf(parts,'x',{extruders:[1,0]}),RangeError);
+    assert.throws(()=>write3mf(parts,'x',{extruders:[1,17]}),RangeError);
+    assert.throws(()=>write3mf(parts,'x',{extruders:[1,1.5]}),RangeError);
+  } finally {geometry.dispose();}
 });
