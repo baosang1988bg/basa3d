@@ -20,7 +20,8 @@
 - [x] `.gitignore`: `docs/rea/*/evidence/`
 - [x] Helper `src/lib/3d-tools/common/text-metrics.ts`: `normalizeText` (NFC + gộp khoảng trắng), `graphemes/graphemeCount` (`Intl.Segmenter`), `findMissingGlyphs`, `textWidthMm`, `arcLengthMm`, `fitTextOnArc`. Test `tests/text-metrics.test.ts`: tiếng Việt dựng sẵn/tổ hợp, emoji, ZWJ, cờ, chữ Hán, khoảng trắng
 - [x] typecheck + lint + test
-- [ ] **GATE A**: owner duyệt lát 0 **và điền OWNER INPUT** (xem dưới), rồi mới chạy `/speckit-auto`
+- [x] **GATE A** (2026-10-22): owner duyệt lát 0, cho chạy `/speckit-auto` trên số tạm (flag tắt), sẽ gửi số đo sau
+- [x] Bàn in = `petBowlBuildVolumeMm()` (min mọi profile); ADR-0051 ghi `model_settings.config` chỉ có tác dụng với Bambu/Orca + Unknown "import 3MF vào slicer Snapmaker"
 
 ## Giá trị còn CHƯA ĐO / CHƯA CHỐT / CHƯA DUYỆT
 | Hằng số | Giá trị tạm | Owner cần cung cấp |
@@ -35,7 +36,7 @@
 | `MIN_BASE_TO_HEIGHT_RATIO` | 1,0 | Ngưỡng ổn định |
 | `MIN_TIP_ANGLE_DEG` | 20° | Ngưỡng góc lật khi bát đầy nước |
 | `MIN_WALL_MM` | 1,6 | Thành tối thiểu |
-| `PET_BOWL_PRINTER_PROFILE_ID` | `BAMBU_P2S` (256 mm, = `DEFAULT_PRINTER_PROFILE`) | Chọn máy mặc định (`DEFAULT_PRINTER_TARGET_ID` hiện là `SNAPMAKER_U1`, 270 mm) |
+| `PET_BOWL_MAIN_PRINTER_ID` | `null` | Máy in chính cho giá bát (U1 hay P2S); chỉ ảnh hưởng ghi chú slicer. Bàn in đã chốt = min buildVolume mọi profile (256 mm) |
 | `GDV_WARNING` VI/EN | Câu tạm "hỏi bác sĩ thú y…" | Duyệt nội dung |
 
 ## Sau GATE A

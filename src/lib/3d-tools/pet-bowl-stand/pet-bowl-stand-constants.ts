@@ -6,7 +6,7 @@
  * reference (phase 47). The tool stays behind NEXT_PUBLIC_PET_BOWL_ENABLED=false until
  * PET_BOWL_UNCONFIRMED is empty.
  */
-import type { PrinterProfileId } from '@/lib/pricing/printer-profiles';
+import { PRINTER_PROFILES, type PrinterProfileId } from '@/lib/pricing/printer-profiles';
 
 export type PetSpecies = 'dog' | 'cat';
 
@@ -59,8 +59,19 @@ export const MAX_OVERHANG_DEG = 45;
 export const MIN_WALL_MM = 1.6; // CHƯA CHỐT — 4 đường 0,4 mm
 export const BED_MARGIN_MM = 5; // khoảng chừa mỗi cạnh bàn in
 
-/** Build volume comes from this profile — never hard-coded (phase 47 IMPORTANT #2). */
-export const PET_BOWL_PRINTER_PROFILE_ID: PrinterProfileId = 'BAMBU_P2S'; // CHƯA CHỐT — owner chưa chọn máy mặc định, xem ADR-0050
+/**
+ * Bed check uses the smallest build volume of every printer profile (OWNER 2026-10-22), so a stand that
+ * passes fits whichever machine prints it. Read from printer-profiles.ts — never hard-coded.
+ */
+export function petBowlBuildVolumeMm(profiles = Object.values(PRINTER_PROFILES)): { x: number; y: number; z: number } {
+  return {
+    x: Math.min(...profiles.map(p => p.buildVolumeMm.x)),
+    y: Math.min(...profiles.map(p => p.buildVolumeMm.y)),
+    z: Math.min(...profiles.map(p => p.buildVolumeMm.z)),
+  };
+}
+/** Machine the stand is mainly printed on — informs slicer notes only, not the bed check. */
+export const PET_BOWL_MAIN_PRINTER_ID: PrinterProfileId | null = null; // CHƯA CHỐT — Snapmaker U1 hay Bambu P2S, xem ADR-0050
 
 /** Always shown for dogs (ADR-0050 §6). */
 export const GDV_WARNING = {
@@ -80,6 +91,6 @@ export const PET_BOWL_UNCONFIRMED = [
   'MIN_BASE_TO_HEIGHT_RATIO',
   'MIN_TIP_ANGLE_DEG',
   'MIN_WALL_MM',
-  'PET_BOWL_PRINTER_PROFILE_ID',
+  'PET_BOWL_MAIN_PRINTER_ID (máy in chính)',
   'GDV_WARNING (VI/EN)',
 ] as const;

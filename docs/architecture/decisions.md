@@ -888,8 +888,9 @@ a design choice the reference itself says is not a veterinary standard. BaSa3D n
    - the floor is flat, with no dynamic loads (a pet pushing or stepping in).
    `r_base` is the inscribed radius of the footprint.
 5. *Printability.*
-   - Footprint + `BED_MARGIN_MM` must fit the build volume of `PET_BOWL_PRINTER_PROFILE_ID`, read from
-     `src/lib/pricing/printer-profiles.ts` (never hard-coded).
+   - Footprint + `BED_MARGIN_MM` and height must fit `petBowlBuildVolumeMm()`: the **smallest** build volume across
+     every profile in `src/lib/pricing/printer-profiles.ts` (OWNER 2026-10-22; today 256 mm from Bambu P2S), so the
+     stand fits whichever machine prints it. Never hard-coded.
    - Overhang ≤ `MAX_OVERHANG_DEG` (45°), so no supports.
    - Wall ≥ `MIN_WALL_MM`.
 6. *GDV (gastric dilatation-volvulus).* For dogs a warning (`GDV_WARNING`, VI/EN) is **always visible** next to the
@@ -906,8 +907,9 @@ and dynamic loads, so the thresholds must be checked with one real print per bow
 - `HOLE_CLEARANCE_MM`, `MIN_LEDGE_WIDTH_MM`, `BOWL_FLOOR_CLEARANCE_MM`;
 - `HEIGHT_RULES` (k/min/max per species), `SHOULDER_HEIGHT_RANGE_MM`;
 - `MIN_BASE_TO_HEIGHT_RATIO`, `MIN_TIP_ANGLE_DEG`, `MIN_WALL_MM`;
-- default printer (placeholder `BAMBU_P2S` = `DEFAULT_PRINTER_PROFILE`, 256 mm; the storefront's
-  `DEFAULT_PRINTER_TARGET_ID` is `SNAPMAKER_U1`, 270 mm);
+- main printer for stands (`PET_BOWL_MAIN_PRINTER_ID`, Snapmaker U1 or Bambu P2S). This only affects slicer notes,
+  not the bed check. `DEFAULT_PRINTER_PROFILE` (fallback) and `DEFAULT_PRINTER_TARGET_ID` (recommended machine)
+  stay as they are;
 - GDV wording.
 
 ## ADR-0051 — 3MF writer: opt-in `Metadata/model_settings.config` with per-part extruders
@@ -928,7 +930,10 @@ unchanged**. `tests/3mf-writer-snapshot.test.ts` pins SHA-256 digests of 12 outp
 the change, with `Date` mocked and `TZ=UTC` because fflate stamps a local DOS mtime. New-mode tests are in
 `tests/3mf-writer.test.ts`.
 
-**Trade-off.** The config format is Bambu's (OrcaSlicer reads it too; PrusaSlicer ignores it). It is a de-facto format,
+**Trade-off.** `model_settings.config` only takes effect in Bambu Studio and OrcaSlicer (Bambu's de-facto format;
+PrusaSlicer ignores it). It does nothing on other slicers. **Unknown:** how Snapmaker's slicer for the U1 handles a 3MF
+with this file, i.e. whether it maps parts to toolheads, ignores the file, or warns. Import one export by hand before
+relying on it; until then the U1 operator assigns toolheads manually. The format It is a de-facto format,
 not part of the 3MF spec, so a slicer update may need follow-up. Assigning slots by colour order means a customer with a
 different AMS layout still has to remap, which is the same as today. No plate/print settings are written: the slicer's own
 profile wins. Old tools can opt in later one at a time, each with its own snapshot update.

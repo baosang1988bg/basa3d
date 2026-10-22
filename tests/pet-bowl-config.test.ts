@@ -30,7 +30,17 @@ test('ADR-0050 constants are internally consistent', () => {
     // Phase 47 rule: never reuse the reference's coefficients.
     assert.ok(![0.3, 0.35].includes(rule.k));
   }
-  assert.ok(C.PET_BOWL_PRINTER_PROFILE_ID in PRINTER_PROFILES);
+  assert.ok(C.PET_BOWL_MAIN_PRINTER_ID === null || C.PET_BOWL_MAIN_PRINTER_ID in PRINTER_PROFILES);
   assert.ok(C.MAX_OVERHANG_DEG <= 45);
   assert.ok(C.GDV_WARNING.vi.length > 0 && C.GDV_WARNING.en.length > 0);
+});
+
+test('bed check uses the smallest build volume across every printer profile', () => {
+  const all = Object.values(PRINTER_PROFILES);
+  const v = C.petBowlBuildVolumeMm();
+  for (const axis of ['x', 'y', 'z'] as const) {
+    assert.equal(v[axis], Math.min(...all.map(p => p.buildVolumeMm[axis])));
+    for (const p of all) assert.ok(v[axis] <= p.buildVolumeMm[axis]);
+  }
+  assert.deepEqual(v, { x: 256, y: 256, z: 256 }); // today: Bambu P2S < Snapmaker U1
 });
