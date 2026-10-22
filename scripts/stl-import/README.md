@@ -18,7 +18,9 @@ npx tsx --env-file=.env.local scripts/stl-import/import-stl.ts --in "…/STL" --
 
 Windows (PowerShell): giống hệt, đường dẫn dạng `"G:\My Drive\STL"`; render dùng Chrome đã cài (`channel: chrome`).
 
-Script **không tự nạp** `.env*` — luôn truyền `--env-file`. Cần `DATABASE_URL`; `--apply` cần thêm
+Script **không tự nạp** `.env*` — luôn truyền `--env-file`, trỏ vào file chứa kết nối tới **đúng project mà web đọc**
+(máy OWNER 2026-10-22: `.env` → Supabase Development, cùng project với Vercel Preview; `.env.local` chỉ có biến test local
+nên **không** dùng được cho script này). Cần `DATABASE_URL`; `--apply` cần thêm
 `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (chỉ dùng để upload/xoá ảnh `.webp` trong bucket
 `product-images`; file STL gốc **không bao giờ** được tải lên).
 

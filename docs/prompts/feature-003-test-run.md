@@ -79,14 +79,14 @@ Cấm: force push, sửa migration đã apply, chạy import-stl --apply.
 DRIVE="$HOME/Library/CloudStorage/GoogleDrive-<email>/My Drive"
 
 # 1. Dry-run 10 mẫu → xem nhanh chất lượng ảnh
-npx tsx --env-file=.env.local scripts/stl-import/import-stl.ts --in "$DRIVE" --only "KeyCap3D/**" --limit 10
+npx tsx --env-file=.env scripts/stl-import/import-stl.ts --in "$DRIVE" --only "KeyCap3D/**" --limit 10
 open .stl-import/report.html
 
 # 2. Ổn → dry-run toàn bộ (46 thư mục)
-npx tsx --env-file=.env.local scripts/stl-import/import-stl.ts --in "$DRIVE" --only "KeyCap3D/**"
+npx tsx --env-file=.env scripts/stl-import/import-stl.ts --in "$DRIVE" --only "KeyCap3D/**"
 
 # 3. Ổn → ghi thật
-npx tsx --env-file=.env.local scripts/stl-import/import-stl.ts --in "$DRIVE" --only "KeyCap3D/**" --apply
+npx tsx --env-file=.env scripts/stl-import/import-stl.ts --in "$DRIVE" --only "KeyCap3D/**" --apply
 
 # 4. Chạy lại y hệt lệnh 3 → report phải báo 0 CREATE (kiểm idempotent)
 ```
