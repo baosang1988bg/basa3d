@@ -192,4 +192,5 @@ select it.
   raises `IMPORT_PUBLISH_BLOCKED:<reasons>`; `product_import_items_link_gate` refuses linking/un-approving/un-reviewing an
   item whose product is `ACTIVE` (`IMPORT_LINK_BLOCKED`). Both functions `security definer`, `search_path = ''` (the gate must see every import item regardless of the caller's grants/RLS).
 - Category `chua-phan-loai` ("Chưa phân loại", `is_active = false`) is seeded by the migration.
+- Category `keycap` ("Keycap", active) is seeded by `20261022000100_keycap_category.sql` — target of the `KeyCap3D` rule in `scripts/stl-import/category-map.json` (SKU `KCP`).
 - `products.license_type` gains the documented value `UNKNOWN` (still no CHECK — Phase 29 decision; Zod validates).

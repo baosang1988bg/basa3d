@@ -1,6 +1,7 @@
 {
   "groupBy": "folder",
   "rules": [
+    { "folderPattern": "KeyCap3D", "categorySlug": "keycap", "skuCode": "KCP" },
     { "folderPattern": "Keychain", "categorySlug": "keychain", "skuCode": "KEY" },
     { "folderPattern": "Móc khoá", "categorySlug": "keychain", "skuCode": "KEY" },
     { "folderPattern": "Figures", "categorySlug": "figure-model", "skuCode": "FIG" },
