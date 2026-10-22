@@ -1,0 +1,54 @@
+{
+  "browser": {
+    "mode": "launch",
+    "executable_path": "__CHROME_PATH__",
+    "headless": true
+  },
+  "start_url": {
+    "url": "https://printpaws.mam3d.workers.dev/app",
+    "query": [{ "name": "p", "value": { "source": "literal", "value": "bowl-stand-wave" } }]
+  },
+  "environment": {
+    "viewport": { "width": 1440, "height": 900 },
+    "locale": "vi-VN",
+    "timezone": "Asia/Ho_Chi_Minh",
+    "service_workers": "block"
+  },
+  "actions": [
+    { "step_id": "S01-wait-ui", "action": "wait_for", "locator": { "kind": "css", "selector": "#export-menu" }, "state": "attached", "timeout_ms": 30000 },
+    { "step_id": "S02-settle", "action": "wait_for_timeout", "duration_ms": 5000 },
+    { "step_id": "S03-tab-size", "action": "click", "locator": { "kind": "role", "role": "button", "name": "Kích thước bát" } },
+    { "step_id": "S04-pet-dog", "action": "select_option", "locator": { "kind": "css", "selector": "#p-pet" }, "value": { "source": "literal", "value": "dog" } },
+    { "step_id": "S05-settle-dog", "action": "wait_for_timeout", "duration_ms": 2000 },
+    { "step_id": "S06-bowl-19", "action": "click", "locator": { "kind": "css", "selector": "[role=radio][data-value=inox-19]" } },
+    { "step_id": "S07-settle-19", "action": "wait_for_timeout", "duration_ms": 2000 },
+    { "step_id": "S08-tab-addons", "action": "click", "locator": { "kind": "role", "role": "button", "name": "Phụ kiện" } },
+    { "step_id": "S09-fill-name", "action": "fill", "locator": { "kind": "css", "selector": "#addon-0-text" }, "value": { "source": "literal", "value": "Bông Gòn" } },
+    { "step_id": "S10-blur-name", "action": "press", "locator": { "kind": "css", "selector": "#addon-0-text" }, "key": "Tab" },
+    { "step_id": "S11-settle-name", "action": "wait_for_timeout", "duration_ms": 3000 },
+    { "step_id": "S12-open-menu-stl", "action": "click", "locator": { "kind": "css", "selector": "#export-menu > summary" } },
+    { "step_id": "S13-export-stl", "action": "click", "locator": { "kind": "css", "selector": "#export-stl" } },
+    { "step_id": "S14-wait-stl", "action": "wait_for_timeout", "duration_ms": 5000 },
+    { "step_id": "S15-close-modal-1", "action": "press", "locator": { "kind": "css", "selector": "body" }, "key": "Escape" },
+    { "step_id": "S16-open-menu-3mf", "action": "click", "locator": { "kind": "css", "selector": "#export-menu > summary" } },
+    { "step_id": "S17-export-3mf", "action": "click", "locator": { "kind": "css", "selector": "#export-3mf" } },
+    { "step_id": "S18-wait-3mf", "action": "wait_for_timeout", "duration_ms": 5000 },
+    { "step_id": "S19-close-modal-2", "action": "press", "locator": { "kind": "css", "selector": "body" }, "key": "Escape" },
+    { "step_id": "S20-open-menu-noams", "action": "click", "locator": { "kind": "css", "selector": "#export-menu > summary" } },
+    { "step_id": "S21-export-noams", "action": "click", "locator": { "kind": "css", "selector": "#export-noams" } },
+    { "step_id": "S22-wait-noams", "action": "wait_for_timeout", "duration_ms": 6000 },
+    { "step_id": "S23-close-modal-3", "action": "press", "locator": { "kind": "css", "selector": "body" }, "key": "Escape" },
+    { "step_id": "S24-add-to-cart", "action": "click", "locator": { "kind": "role", "role": "button", "name": "Thêm vào giỏ" } },
+    { "step_id": "S25-settle-cart", "action": "wait_for_timeout", "duration_ms": 2500 },
+    { "step_id": "S26-goto-cart", "action": "goto", "destination": { "url": "https://printpaws.mam3d.workers.dev/order#cart" }, "wait_until": "load" },
+    { "step_id": "S27-settle-order", "action": "wait_for_timeout", "duration_ms": 3000 },
+    { "step_id": "S28-goto-checkout", "action": "goto", "destination": { "url": "https://printpaws.mam3d.workers.dev/order#checkout" }, "wait_until": "load" },
+    { "step_id": "S29-settle-checkout", "action": "wait_for_timeout", "duration_ms": 3000 }
+  ],
+  "capture": {
+    "after_each_step": ["url"],
+    "at_end": ["accessibility", "storage"],
+    "events": ["network", "console", "page-errors", "downloads", "popups"],
+    "network": { "request_body": true, "response_body": false, "header_values": false }
+  }
+}

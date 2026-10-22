@@ -12,6 +12,10 @@ Owner xác nhận được chủ trang cho phép phân tích (2026-10-21). Quy t
 | 5 | Flex Lamp | https://flex-lamp.vunguyenhoanglong06031992.workers.dev/ | 24 | Chưa | — |
 | 6 | Hinge Box Studio | https://hinge-box-studio.vunguyenhoanglong06031992.workers.dev/ | 25 | Chưa | — |
 | 7 | Jigsaw Studio | https://jigsaw-studio.vunguyenhoanglong06031992.workers.dev/ | 26 | Chưa | — |
+| 8 | Print Paws: giá bát ăn thú cưng (chủ trang khác: mam3d) | https://printpaws.mam3d.workers.dev/ | 47 | **Đã khảo sát** (REA R-01/R-02 + Playwright C-xx, 2026-10-22; 3 mẫu wave / paws / cat-paws) | `docs/exec-plans/active/phase-47-printpaws-rea.md` |
+
+Ghi chú #8: chủ Print Paws chia sẻ link trực tiếp cho owner; owner xác nhận được phép quan sát hành vi ngày 2026-10-22.
+Phạm vi giống các dòng trên: chỉ quan sát hành vi, không lưu hay commit bundle/asset/mẫu của trang, không đặt đơn thật.
 
 **Thứ tự đề xuất:** Keychain → Dual Text → Organizer (dễ đối chiếu với engine sẵn có) → Car → Lamp →
 Hinge Box → Jigsaw → Hub.
