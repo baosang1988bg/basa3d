@@ -1,6 +1,7 @@
 # Nhập kho STL → sản phẩm nháp (feature 003)
 
-Chạy trên **máy OWNER**. Đọc thư mục Google Drive for desktop, đo + render 4 ảnh + ước giá, rồi (chỉ khi `--apply`)
+Chạy trên **máy OWNER**. Đọc thư mục Google Drive for desktop (file `.stl` và `.3mf`; một thư mục lá có thể trộn cả hai —
+`.3mf` chỉ lấy hình học, không dùng ảnh nhúng của tác giả; file khác bị bỏ qua và đếm trong báo cáo), đo + render 4 ảnh + ước giá, rồi (chỉ khi `--apply`)
 tạo sản phẩm **DRAFT** để duyệt ở `/admin/stl-import`. Đặc tả: `specs/003-stl-bulk-import/`,
 hợp đồng cờ: `specs/003-stl-bulk-import/contracts/cli-import-stl.md`.
 

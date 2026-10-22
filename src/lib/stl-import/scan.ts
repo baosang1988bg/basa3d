@@ -18,7 +18,8 @@ export type ModelGroup = {
   oversizeSkipped: string[];
 };
 
-const MODEL_FILE_RE = /\.stl$/i;
+/** A model is made of .stl and/or .3mf files (a leaf folder may mix both). */
+export const MODEL_FILE_RE = /\.(stl|3mf)$/i;
 
 function dirOf(relPath: string): string {
   const index = relPath.lastIndexOf('/');
@@ -35,9 +36,9 @@ export function matchesOnly(relPath: string, only: string | undefined): boolean 
 }
 
 /**
- * FOLDER (default): every STL in one leaf folder is one multi-part model. A file with no leaf folder
+ * FOLDER (default): every model file (.stl/.3mf) in one leaf folder is one multi-part model. A file with no leaf folder
  * of its own — directly in the import root, or loose next to sub-folders that hold models — becomes
- * a model of its own. FILE: one STL, one model.
+ * a model of its own. FILE: one file, one model.
  */
 export function groupModels(files: SourceFile[], mode: GroupMode, options: { maxBytes: number; only?: string }): ModelGroup[] {
   const groups = new Map<string, ModelGroup>();
@@ -75,8 +76,12 @@ export function groupModels(files: SourceFile[], mode: GroupMode, options: { max
   return [...groups.values()];
 }
 
-/** Recursive listing of STL files under `root` (dot-entries skipped, symlinks not followed). */
-export async function walkDir(root: string): Promise<SourceFile[]> {
+/**
+ * Recursive listing of model files under `root` (dot-entries skipped, symlinks not followed). Every
+ * other file (.jpg, .png, .txt…) is left out and, when `ignored` is given, its relative path is added
+ * to it so the report can say how many files were skipped.
+ */
+export async function walkDir(root: string, ignored?: string[]): Promise<SourceFile[]> {
   const found: SourceFile[] = [];
   async function visit(dir: string) {
     for (const entry of await readdir(dir, { withFileTypes: true })) {
@@ -86,7 +91,7 @@ export async function walkDir(root: string): Promise<SourceFile[]> {
       else if (entry.isFile() && MODEL_FILE_RE.test(entry.name)) {
         const info = await stat(absolute);
         found.push({ relPath: normalizeRelPath(path.relative(root, absolute)), bytes: info.size, mtimeMs: info.mtimeMs });
-      }
+      } else if (entry.isFile()) ignored?.push(normalizeRelPath(path.relative(root, absolute)));
     }
   }
   await visit(root);

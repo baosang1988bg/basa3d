@@ -3,6 +3,7 @@
 import {
   accumulateStl, checkMeshConsistency, MESH_MAX_TRIANGLES, MeshMetricsAccumulator, MeshMetricsError, type MeshMetrics,
 } from '../pricing/mesh-metrics';
+import { threeMfToBinaryStl } from './threemf-mesh';
 
 export const UNIT_TOO_SMALL_MM = 5;
 export const UNIT_TOO_LARGE_MM = 400;
@@ -37,10 +38,35 @@ function overlapVolume(a: Box, b: Box): number {
   return volume;
 }
 
+function failure(relPath: string, error: unknown): string {
+  const message = error instanceof MeshMetricsError ? `${error.code}: ${error.message}` : `MESH_INVALID: ${(error as Error).message}`;
+  return `${relPath} — ${message}`;
+}
+
+/**
+ * .3mf parts become binary STL (their build plate, in mm) so measuring and rendering share one path;
+ * .stl parts pass through. An unreadable .3mf fails the model (→ process_error), never the batch.
+ */
+export function toStlParts<T extends { relPath: string; bytes: Uint8Array }>(parts: T[]): { ok: true; parts: T[] } | { ok: false; error: string } {
+  const out: T[] = [];
+  for (const part of parts) {
+    if (!/\.3mf$/i.test(part.relPath)) {
+      out.push(part);
+      continue;
+    }
+    try {
+      out.push({ ...part, bytes: threeMfToBinaryStl(part.bytes) });
+    } catch (error) {
+      return { ok: false, error: failure(part.relPath, error) };
+    }
+  }
+  return { ok: true, parts: out };
+}
+
 const round = (value: number, digits: number) => Math.round(value * 10 ** digits) / 10 ** digits;
 
 export function analyzeModel(parts: { relPath: string; bytes: Uint8Array }[]): ModelAnalysis {
-  if (!parts.length) return { ok: false, error: 'Không có file STL hợp lệ trong mẫu.' };
+  if (!parts.length) return { ok: false, error: 'Không có file STL/3MF hợp lệ trong mẫu.' };
   const boxes: Box[] = [];
   let volumeMm3 = 0;
   let surfaceMm2 = 0;
@@ -56,8 +82,7 @@ export function analyzeModel(parts: { relPath: string; bytes: Uint8Array }[]): M
       triangles += metrics.triangles;
       boxes.push(acc.bounds());
     } catch (error) {
-      const message = error instanceof MeshMetricsError ? `${error.code}: ${error.message}` : `MESH_INVALID: ${(error as Error).message}`;
-      return { ok: false, error: `${part.relPath} — ${message}` };
+      return { ok: false, error: failure(part.relPath, error) };
     }
   }
   if (triangles > MESH_MAX_TRIANGLES) return { ok: false, error: 'MESH_TOO_LARGE: mẫu có quá nhiều tam giác.' };

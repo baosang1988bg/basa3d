@@ -13,10 +13,10 @@ import { createClient } from '@supabase/supabase-js';
 import type { PoolClient } from 'pg';
 import { getPool } from '../../src/lib/db';
 import { categoryMapSchema, resolveCategory, type CategoryMap } from '../../src/lib/stl-import/category-map';
-import { analyzeModel, type ImportWarning } from '../../src/lib/stl-import/metrics';
+import { analyzeModel, toStlParts, type ImportWarning } from '../../src/lib/stl-import/metrics';
 import { buildSku, describeModel, displayName, uniqueSlug } from '../../src/lib/stl-import/naming';
 import { estimateImportPrice, type ImportPrice, type ImportPricingContext } from '../../src/lib/stl-import/pricing';
-import { groupModels, walkDir, type GroupMode } from '../../src/lib/stl-import/scan';
+import { groupModels, matchesOnly, walkDir, type GroupMode } from '../../src/lib/stl-import/scan';
 import { sourceKey } from '../../src/lib/stl-import/source-key';
 import { applyImport, findImportItem, planImport, PRODUCT_IMAGE_BUCKET, type ImageStore, type ImportAction } from '../../src/services/stl-import-write.service';
 import { getBucketUsageBytes, STORAGE_BLOCK_BYTES, STORAGE_WARN_BYTES } from '../../src/services/storage-usage.service';
@@ -161,7 +161,10 @@ export async function main(argv: string[]): Promise<number> {
   const groupMode: GroupMode = options.groupBy
     ?? (process.env.STL_IMPORT_GROUP_BY === 'file' ? 'FILE' : process.env.STL_IMPORT_GROUP_BY === 'folder' ? 'FOLDER' : null)
     ?? (map.groupBy === 'file' ? 'FILE' : 'FOLDER');
-  const groups = groupModels(await walkDir(options.in), groupMode, { maxBytes: options.maxBytes, only: options.only }).slice(0, options.limit);
+  const ignored: string[] = [];
+  const groups = groupModels(await walkDir(options.in, ignored), groupMode, { maxBytes: options.maxBytes, only: options.only }).slice(0, options.limit);
+  // Not a model (.jpg, .png, .txt…): skipped, only counted in the report.
+  const ignoredFiles = ignored.filter((relPath) => matchesOnly(relPath, options.only)).length;
   console.log(`${groups.length} mẫu (${groupMode === 'FOLDER' ? 'gom theo thư mục' : 'mỗi file một mẫu'}) — ${options.apply ? 'GHI THẬT' : 'chạy thử'}`);
 
   let lockClient: PoolClient | null = null;
@@ -209,7 +212,7 @@ export async function main(argv: string[]): Promise<number> {
       const name = displayName(group.nameSource);
       const extraWarnings: ImportWarning[] = group.oversizeSkipped.length ? ['OVERSIZE_SKIPPED_PART'] : [];
       const item: ManifestItem = {
-        sourceKey: plan.key, sourceRelPath: group.sourceRelPath, action: plan.action === 'SOURCE_CHANGED' ? 'SOURCE_CHANGED' : plan.action,
+        sourceKey: plan.key, sourceRelPath: group.sourceRelPath, sourceDir: group.sourceDir, action: plan.action === 'SOURCE_CHANGED' ? 'SOURCE_CHANGED' : plan.action,
         name, slug: null, sku: null, categorySlug: category.categorySlug, bboxMm: null, volumeCm3: null, triangles: null,
         basePrice: null, warnings: [...extraWarnings], error: null, images: [], ms: 0,
       };
@@ -217,8 +220,10 @@ export async function main(argv: string[]): Promise<number> {
         if (plan.action === 'CREATE' || plan.action === 'RERENDER') {
           // FR-015: --timeout bounds the whole model (Drive read + measure + render), not just the render.
           const prepare = async () => {
-            const parts = await Promise.all(group.files.map(async (file) => ({ relPath: file.relPath, bytes: new Uint8Array(await readFile(path.join(options.in, ...file.relPath.split('/')))) })));
-            const measured = analyzeModel(parts);
+            const files = await Promise.all(group.files.map(async (file) => ({ relPath: file.relPath, bytes: new Uint8Array(await readFile(path.join(options.in, ...file.relPath.split('/')))) })));
+            const converted = toStlParts(files);
+            const parts = converted.ok ? converted.parts : [];
+            const measured = converted.ok ? analyzeModel(parts) : { ok: false as const, error: converted.error };
             const rendered: Uint8Array[] = measured.ok && renderer
               ? await renderer.render(parts.map((part) => part.bytes), { size: options.size, quality: 0.85, color: options.color, views: options.views, dims: options.dims ? measured.bboxMm : null })
               : [];
@@ -298,6 +303,7 @@ export async function main(argv: string[]): Promise<number> {
     mode: options.apply ? 'apply' : 'dry-run',
     groupBy: groupMode === 'FILE' ? 'file' : 'folder',
     totals: totalsOf(items),
+    ignoredFiles,
     avgMsPerItem: processed.length ? Math.round(processed.reduce((sum, item) => sum + item.ms, 0) / processed.length) : 0,
     bucketUsageBytesBefore: usageBefore,
     bucketUsageBytesAfterEstimate: usageAfter,

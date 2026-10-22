@@ -34,10 +34,15 @@ upload/xoá ảnh bucket `product-images`). Không in giá trị key ra log.
 ## Đầu ra
 
 - `manifest.json`: `{ runAt, mode: 'dry-run'|'apply', groupBy, totals: {items, created, rerendered, skipped, errors,
-  warnings}, avgMsPerItem, bucketUsageBytesBefore, bucketUsageBytesAfterEstimate, items: [{sourceKey, sourceRelPath,
-  action: 'CREATE'|'RERENDER'|'SOURCE_CHANGED'|'SKIP'|'ERROR', name, slug, sku, categorySlug, bboxMm, volumeCm3,
+  warnings}, ignoredFiles, avgMsPerItem, bucketUsageBytesBefore, bucketUsageBytesAfterEstimate, items: [{sourceKey, sourceRelPath,
+  sourceDir, action: 'CREATE'|'RERENDER'|'SOURCE_CHANGED'|'SKIP'|'ERROR', name, slug, sku, categorySlug, bboxMm, volumeCm3,
   triangles, basePrice|null, warnings[], error|null, images: [file…], ms}] }`.
-- `report.html`: lưới ảnh cover, bộ lọc lỗi/cảnh báo, thống kê (số mẫu, tỉ lệ lỗi, thời gian TB/mẫu), banner dung lượng.
+- `report.html`: lưới ảnh cover kèm "Thư mục nguồn", bộ lọc Lỗi / Có cảnh báo / Nghi sai đơn vị (`UNIT_TOO_*`) /
+  Nghi gộp sai (`PARTS_OVERLAP`) + lọc theo thư mục nguồn, thống kê (số mẫu, tỉ lệ lỗi, thời gian TB/mẫu, số file bỏ
+  qua), banner dung lượng.
+- File nguồn: `.stl` và `.3mf` (một thư mục lá trộn cả hai = một mẫu). `.3mf` chỉ đọc hình học (`3D/**.model`, theo
+  `<build>` + transform + đơn vị) rồi đo/render như STL — không dùng ảnh nhúng trong 3MF. 3MF không đọc được → mẫu
+  `ERROR` (`process_error`), lô chạy tiếp. File khác bị bỏ qua và chỉ được đếm (`ignoredFiles`).
 - Mã thoát: `0` xong (kể cả có item lỗi), `1` lỗi cấu hình/kết nối/khóa advisory đang bị giữ, `2` cờ sai,
   `3` chặn vì dung lượng.
 
