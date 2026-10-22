@@ -121,3 +121,10 @@ ACTIVE được, nhưng trước khi mở domain:
 - [ ] Bỏ tick "đã kiểm tra bản quyền" của các mẫu đó (tick ở giai đoạn test không phải kiểm tra thật)
 - [ ] Bỏ noindex của môi trường test, kiểm tra lại sitemap chỉ còn mẫu được phép bán
 - [ ] Nếu sau này môi trường test bị index, gửi yêu cầu gỡ URL trên Google Search Console
+- [ ] **Bắt buộc khai IP khi duyệt**: admin chọn "Không có IP" hoặc "Thương hiệu: …"; chưa khai → gate chặn
+      `IP_NOT_DECLARED` (`docs/research/product-tagging.md` mục 6.3, Q4). Không dựa từ khoá: từ điển hiện chỉ bắt 7/45
+      thư mục KeyCap3D.
+- [ ] **Tên/slug trung tính** cho mẫu khai "Thương hiệu" (vd. `gengar-pokemon-…` → tên mô tả chung) trước khi lên web public
+- [ ] **Sửa `detectIpRiskKeywords()`**: lỗi ranh giới từ với `_` (`…_pokemon_edition`, `…_dragon_ball`) + bổ sung từ điển
+      (Mario, Kirby, Gundam, Hollow Knight, Tetris, Mandalorian, Chainsaw Man, Digimon, Attack on Titan, Spy Family,
+      Sailor Moon… — bảng mục 6.3 của `product-tagging.md`)

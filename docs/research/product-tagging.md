@@ -546,8 +546,18 @@ Việc **khai IP bắt buộc** cho sản phẩm nhập STL (mục 6.3) không n
 
 ## 9. Câu hỏi mở cho OWNER
 
-> **Trả lời của OWNER: CHƯA GHI.** Bản review của Cowork yêu cầu dán bảng trả lời, nhưng nội dung nhận được chỉ có
-> placeholder `[dán bảng trả lời của tôi vào đây]` — không tự điền thay OWNER. Thêm cột "Trả lời" vào đây khi có.
+> **Trả lời của OWNER — chốt 2026-10-22** (OWNER duyệt theo đề xuất của Cowork, yêu cầu "chốt làm luôn"):
+>
+> | Q | Quyết định |
+> |---|---|
+> | Q1 | Bỏ nhánh con Anime/Game/Movie của FIG và bỏ GIFT (thành tag). Chỉ thêm cấp 2 khi một nhánh có ≥ 15 sản phẩm ACTIVE. |
+> | Q2 | `GIFT`, `PART` chưa dùng cho SKU thật → **reserved**: không xoá, không tái dùng mã. |
+> | Q3 | STAFF tạo tag **INTERNAL**; chỉ OWNER chuyển PUBLIC / bật indexable / đổi slug / gộp / xoá. |
+> | Q4 | Giai đoạn test: cho lên Preview. **Trước khi public domain**: gate chặn sản phẩm khai IP "Thương hiệu: …" (hoặc có tag `franchise`) mà tên/slug chưa trung tính; chưa khai IP → chặn `IP_NOT_DECLARED`. |
+> | Q5 | `/danh-muc/[slug]` và `/chu-de/[slug]`. |
+> | Q6 | "Móc khoá" là category; **cấm** tạo tag có slug trùng slug category (kể cả qua alias). |
+> | Q7 | Đồng ý đo: xuất CSV từ `docs/research/keycap3d-folders.txt`, OWNER đánh dấu đúng/sai. |
+> | Q8 | Seed sẵn `name_en` cho category + 44 tag; `description_en` để trống (landing EN không index tới khi có). |
 
 1. **Q1 — Cây category**: đồng ý bỏ nhánh con Anime/Game/Movie của FIG và bỏ GIFT khỏi cây (chuyển thành tag)? Có muốn cấp 2 ngay hay chỉ khi đủ ~15 sản phẩm?
 2. **Q2 — Mã SKU**: `GIFT` và `PART` đã từng dùng cho SKU thật nào chưa (kể cả ngoài DB, vd. nhãn in)? Nếu chưa, đánh dấu reserved.
