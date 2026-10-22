@@ -18,6 +18,8 @@ import { Client } from 'pg';
 import { isolatedTestEnvironment } from '../tests/helpers/test-environment';
 
 const MIGRATIONS_DIR = path.join(process.cwd(), 'supabase', 'migrations');
+const SEED_FILE = path.join(process.cwd(), 'supabase', 'seed.sql');
+const SEED_MARKER = 'supabase/seed.sql';
 
 async function main() {
   nextEnv.loadEnvConfig(process.cwd());
@@ -104,6 +106,21 @@ async function main() {
       } catch (error) {
         await client.query('rollback');
         throw new Error(`Migration ${file} failed: ${(error as Error).message}`);
+      }
+      // docs/operations/local-testing.md (Phase 36): seed.sql must run right after the FIRST migration,
+      // before Phase 12's migration creates its own random-id MAIN warehouse — otherwise the fixed
+      // warehouse …000000000010 that order/stock tests use never exists on a fresh (--reset) database.
+      if (file === files[0] && !applied.has(SEED_MARKER)) {
+        await client.query('begin');
+        try {
+          await client.query(readFileSync(SEED_FILE, 'utf8'));
+          await client.query('insert into public._local_test_migrations (name) values ($1)', [SEED_MARKER]);
+          await client.query('commit');
+          console.log('applied supabase/seed.sql (right after the first migration)');
+        } catch (error) {
+          await client.query('rollback');
+          throw new Error(`seed.sql failed: ${(error as Error).message}`);
+        }
       }
     }
     console.log(count ? `Done — ${count} migration(s) applied to ${databaseName}.` : `Up to date — ${databaseName}.`);
