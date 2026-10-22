@@ -50,6 +50,18 @@ chạy lại `e2e/admin.spec.ts`, `e2e/copyright-compliance.spec.ts`.
 - [x] Database review SUGGESTIONS: 13 làm luôn; 12/14/15 để sau
 - [x] Nhánh: `dev`, commit cục bộ; run `/speckit-auto` song song để OWNER tự dừng
 
+## Cập nhật 2026-10-22 (chuẩn bị chạy thử KeyCap3D — `docs/prompts/feature-003-test-run.md`)
+
+- Publish gate + link gate chuyển `security definer` (`search_path = ''`); test: `authenticated` được grant tạm `select`
+  (không policy) vẫn bị `IMPORT_PUBLISH_BLOCKED`.
+- Migration `20261022000100_keycap_category.sql` + rule `KeyCap3D → keycap / KCP`.
+- Importer nhận `.3mf` (thư mục lá trộn `.stl` + `.3mf` được): mesh → STL trong bộ nhớ (`src/lib/stl-import/threemf-mesh.ts`)
+  rồi đo + render như STL; **không** dùng ảnh nhúng (`Auxiliaries/.thumbnails/*`, `Metadata/plate_N.png`); 3MF hỏng →
+  `process_error`, lô vẫn chạy; file khác (.jpg/.png/.txt…) bỏ qua + đếm trong report.
+- `report.html`: "Thư mục nguồn" mỗi thẻ + lọc theo thư mục; lọc Lỗi / Có cảnh báo / Nghi sai đơn vị / Nghi gộp sai.
+- Cổng 2026-10-22 (Postgres local, không Supabase): lint ✅ typecheck ✅ build ✅; `npm test` chỉ còn 16 fail
+  cần Supabase API/Auth/Storage (`fetch failed` / 502) — không fail nào thuộc stl-import; E2E chưa chạy (xem DoD).
+
 ## Definition of Done
 
 - [ ] Batch thật ≥ 100 mẫu chạy xong; `report.html` có tỉ lệ lỗi + thời gian trung bình/mẫu (OWNER chạy trên máy)
@@ -58,6 +70,9 @@ chạy lại `e2e/admin.spec.ts`, `e2e/copyright-compliance.spec.ts`.
 - [x] Test: không lộ thông tin nguồn ra public (service storefront, API, sitemap slugs) + RLS bảng mới — HTML qua E2E (chưa chạy)
 - [x] Test: idempotent, đổi nguồn (DRAFT vs APPROVED), rollback ảnh, quyền 401/403/OWNER-only, optimistic lock, bulk partial
 - [x] `npm run lint`, `npm run typecheck`, `npm test`, `npm run build` (0 fail mới; 29 fail có sẵn từ trước do môi trường test thiếu seed/Supabase Auth)
-- [ ] Playwright `e2e/stl-import.spec.ts` (OWNER duyệt → storefront hiển thị) + E2E sản phẩm hiện có
+- [ ] Playwright `e2e/stl-import.spec.ts` (OWNER duyệt → storefront hiển thị) + E2E sản phẩm hiện có —
+  **E2E chưa chạy — thiếu Supabase local** (2026-10-22: máy không chạy Supabase CLI/Docker; DB test là Postgres Homebrew
+  `basa3d_test`. Lần thử 2026-10-21: cả 3 spec stl-import/admin/copyright-compliance dừng ở `mintStaffAccount` —
+  `AuthRetryableFetchError: fetch failed`, chưa chạy tới bước nào của tính năng)
 - [x] Docs theo danh sách trên; ADR-0049 *Accepted*
 - [x] Reviewer: BLOCKERS = 0 (database-review + security-review, research.md)
