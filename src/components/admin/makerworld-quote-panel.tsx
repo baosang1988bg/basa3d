@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -325,9 +326,23 @@ export function MakerWorldQuotePanel({
     setManualError(null);
   }
 
+  const isChinaUrl = /makerworld\.(com\.)?cn/i.test(url);
+
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/10 p-4">
-      <p className="text-sm font-semibold">Tự động lấy báo giá từ link MakerWorld</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-semibold">Tự động lấy báo giá từ link MakerWorld</p>
+        <a
+          href="https://mwc.3dhubvn.net/makerworld-cn"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors border border-border rounded-md px-2.5 py-1 bg-background hover:bg-muted/50"
+          title="Mở công cụ 3DHubVN để tải file 3MF từ MakerWorld China"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          <span>Tải file 3MF (3DHubVN)</span>
+        </a>
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         <Input
           value={url}
@@ -340,7 +355,7 @@ export function MakerWorldQuotePanel({
             setSelectedProfileId('');
             setManualSource(null);
           }}
-          placeholder="https://makerworld.com/en/models/...#profileId-..."
+          placeholder="https://makerworld.com/... hoặc makerworld.com.cn/..."
           className="min-w-64 flex-1"
         />
         <Button type="button" size="sm" onClick={handleFetch} disabled={state.kind === 'loading' || !url.trim()}>
@@ -350,6 +365,14 @@ export function MakerWorldQuotePanel({
           {manualOpen ? 'Ẩn nhập tay' : 'Nhập tay thông số'}
         </Button>
       </div>
+
+      {isChinaUrl ? (
+        <div className="flex items-center justify-between gap-2 rounded-md bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+          <span>
+            <strong>Link MakerWorld China:</strong> Hệ thống tự bóc tách thông số tính giá bình thường. Để tải file 3MF in thực tế về xưởng, dùng nút <em>&quot;Tải file 3MF (3DHubVN)&quot;</em> ở trên.
+          </span>
+        </div>
+      ) : null}
 
       {state.kind === 'error' ? (
         <p className="text-xs text-destructive">

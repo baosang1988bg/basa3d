@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ...estimate, screenshotAvailable: isScreenshotEstimateEnabled() }, { headers: { 'cache-control': 'no-store' } });
   } catch (error) {
     if (error instanceof MakerWorldNotFoundError) {
-      return NextResponse.json({ code: 'INVALID_MAKERWORLD_URL', message: 'Link không hợp lệ — vui lòng dán link dạng https://makerworld.com/en/models/...' }, { status: 400 });
+      return NextResponse.json({ code: 'INVALID_MAKERWORLD_URL', message: 'Link không hợp lệ — vui lòng dán link dạng https://makerworld.com/... hoặc https://makerworld.com.cn/...' }, { status: 400 });
     }
     return apiError(error);
   }

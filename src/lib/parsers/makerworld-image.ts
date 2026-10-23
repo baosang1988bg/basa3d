@@ -21,7 +21,17 @@ export const MAX_IMAGE_URL_LENGTH = 2_000;
  * hosts like forum.bambulab.com / wiki.bambulab.com serve USER uploads, so a wildcard would let
  * anyone place an arbitrary image next to the VietQR code on the public quote page (the B2 risk).
  * Add a new CDN host here only after seeing it in a real payload. */
-const EXACT_HOSTS = new Set<string>(['makerworld.com', 'image.makerworld.com', 'makerworld.bblmw.com']);
+const EXACT_HOSTS = new Set<string>([
+  'makerworld.com',
+  'image.makerworld.com',
+  'makerworld.bblmw.com',
+  // MakerWorld China image CDN & domains (Phase 49):
+  'makerworld.bblmw.cn',
+  'public-cdn.bblmw.cn',
+  'public-cdn.bblmw.com',
+  'makerworld.com.cn',
+  'makerworld.cn',
+]);
 
 export function isAllowedMakerWorldImageHost(hostname: string): boolean {
   return EXACT_HOSTS.has(hostname.toLowerCase());

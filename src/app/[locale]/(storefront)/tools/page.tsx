@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
-import { Box, Car, CircleUserRound, Cuboid, Grid2X2, Image, KeyRound, Lamp, Layers3, Palette, Puzzle, ScanLine, Scaling, Shapes, Tag, Type, Waves } from 'lucide-react';
+import { Box, Car, CircleUserRound, Cuboid, Download, Grid2X2, Image, KeyRound, Lamp, Layers3, Palette, Puzzle, ScanLine, Scaling, Shapes, Tag, Type, Waves } from 'lucide-react';
 import { Breadcrumb } from '@/components/storefront/breadcrumb';
 import { Link } from '@/i18n/navigation';
 import { storefrontButtonClasses } from '@/components/storefront/button';
 import { applyRequestLocale, type LocaleParams } from '@/i18n/request-locale';
 
-const ICONS = [Tag, Type, Grid2X2, Waves, Puzzle, Box, Image, Shapes, Palette, ScanLine, Scaling, Cuboid, Layers3, CircleUserRound, KeyRound, Car, Lamp];
+const ICONS = [Tag, Type, Grid2X2, Waves, Puzzle, Box, Image, Shapes, Palette, ScanLine, Scaling, Cuboid, Layers3, CircleUserRound, KeyRound, Car, Lamp, Download];
 
 export const metadata: Metadata = { title: 'Công cụ thiết kế 3D — BaSa3D' };
 

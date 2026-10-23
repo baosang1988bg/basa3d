@@ -50,6 +50,8 @@
     "heroDescription": "BaSa3D 3D-printing workshop — from collectible models to precision engineering parts, made to order with premium virgin-grade filament.",
     "ctaCustomPrint": "Send a file for custom printing",
     "ctaExploreProducts": "Explore products",
+    "ctaExploreBadge": "In stock",
+    "quickBrowseLabel": "Quick browse",
     "toolEyebrow": "Free 3D design tool",
     "toolTitle": "Create a personalized name keychain in your browser",
     "toolDescription": "Enter a name, choose colors, and preview the model in 3D. Download one ready-to-print STL or send it directly to BaSa3D for a quote.",
@@ -191,7 +193,19 @@
     "viewCart": "View cart",
     "noVariants": "This product has no orderable variants yet.",
     "contactToOrderZalo": "Message us on Zalo to order",
-    "contactToOrderHotline": "Or call {hotline}"
+    "contactToOrderHotline": "Or call {hotline}",
+    "makerworldDiscoveryBadge": "Endless 3D Models",
+    "makerworldDiscoveryNew": "New",
+    "makerworldDiscoveryNewTag": "New",
+    "makerworldDiscoveryTitle": "Can't find what you need? Search MakerWorld & Analyze instantly",
+    "makerworldDiscoveryDesc": "Explore millions of free 3D models on MakerWorld Global & MakerWorld China. Once you find a model you love, copy the link and use BaSa3D's new analyzer tool to preview print plates, 3D mesh, and place a print order.",
+    "makerworldDirectGlobal": "MakerWorld Global",
+    "makerworldDirectChina": "MakerWorld China",
+    "makerworldOpenTool": "Open MakerWorld Analyzer Tool",
+    "makerworldInputLabel": "Or paste a MakerWorld link to analyze right away:",
+    "makerworldInputPlaceholder": "Paste makerworld.com or makerworld.com.cn link...",
+    "makerworldAnalyzeBtn": "Analyze now",
+    "makerworldEmptyHint": "You can also search models on MakerWorld and send the link for printing:"
   },
   "tools": {
     "breadcrumbHome": "Home",
@@ -308,6 +322,12 @@
         "description": "Pick a perforation pattern, ring/row counts, sized to fit a bulb socket.",
         "status": "available",
         "slug": "lamp-shade"
+      },
+      {
+        "name": "MakerWorld China Downloader",
+        "description": "Extract print profiles, preview plates and download 3MF project files from MakerWorld China.",
+        "status": "available",
+        "slug": "makerworld-cn"
       }
     ]
   },

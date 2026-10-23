@@ -8,6 +8,7 @@ import {
   resolveMakerWorldUrl,
   type FetchLike,
 } from '../src/lib/parsers/makerworld-resolver.js';
+import { sanitizeMakerWorldImageUrl } from '../src/lib/parsers/makerworld-image.js';
 
 const ACE_SNAIL_URL = 'https://makerworld.com/en/models/2851863-ace-snail-controller-stand#profileId-3334843';
 
@@ -56,6 +57,51 @@ test('parseMakerWorldUrl extracts modelId and profileId from a valid URL', () =>
   const parsed = parseMakerWorldUrl(ACE_SNAIL_URL);
   assert.equal(parsed.modelId, '2851863');
   assert.equal(parsed.profileId, '3334843');
+});
+
+test('parseMakerWorldUrl accepts valid makerworld.com.cn and makerworld.cn URLs', () => {
+  const parsedComCn = parseMakerWorldUrl('https://makerworld.com.cn/zh/models/12345#profileId-67890');
+  assert.equal(parsedComCn.modelId, '12345');
+  assert.equal(parsedComCn.profileId, '67890');
+
+  const parsedCn = parseMakerWorldUrl('https://makerworld.cn/zh/models/54321#profileId-98765');
+  assert.equal(parsedCn.modelId, '54321');
+  assert.equal(parsedCn.profileId, '98765');
+
+  const parsedSubdomain = parseMakerWorldUrl('https://www.makerworld.com.cn/zh/models/999');
+  assert.equal(parsedSubdomain.modelId, '999');
+  assert.equal(parsedSubdomain.profileId, null);
+});
+
+test('parseMakerWorldUrl rejects spoofed domains', () => {
+  assert.throws(() => parseMakerWorldUrl('https://evil-makerworld.cn/models/123'), MakerWorldNotFoundError);
+  assert.throws(() => parseMakerWorldUrl('https://makerworld.com.cn.evil.com/models/123'), MakerWorldNotFoundError);
+  assert.throws(() => parseMakerWorldUrl('https://fakemakerworld.com/models/123'), MakerWorldNotFoundError);
+});
+
+test('sanitizeMakerWorldImageUrl accepts MakerWorld China CDN and domain images', () => {
+  assert.equal(
+    sanitizeMakerWorldImageUrl('https://makerworld.bblmw.cn/image/design/cover.jpg'),
+    'https://makerworld.bblmw.cn/image/design/cover.jpg'
+  );
+  assert.equal(
+    sanitizeMakerWorldImageUrl('https://public-cdn.bblmw.cn/thumb.png'),
+    'https://public-cdn.bblmw.cn/thumb.png'
+  );
+  assert.equal(
+    sanitizeMakerWorldImageUrl('https://public-cdn.bblmw.com/thumb.png'),
+    'https://public-cdn.bblmw.com/thumb.png'
+  );
+  assert.equal(
+    sanitizeMakerWorldImageUrl('https://makerworld.com.cn/covers/item.png'),
+    'https://makerworld.com.cn/covers/item.png'
+  );
+  assert.equal(
+    sanitizeMakerWorldImageUrl('https://makerworld.cn/covers/item.png'),
+    'https://makerworld.cn/covers/item.png'
+  );
+  // Still rejects unknown/untrusted CDN
+  assert.equal(sanitizeMakerWorldImageUrl('https://evil.bblmw.cn/image.png'), null);
 });
 
 test('parseMakerWorldUrl rejects a non-makerworld.com hostname', () => {

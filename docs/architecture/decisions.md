@@ -937,3 +937,16 @@ relying on it; until then the U1 operator assigns toolheads manually. The format
 not part of the 3MF spec, so a slicer update may need follow-up. Assigning slots by colour order means a customer with a
 different AMS layout still has to remap, which is the same as today. No plate/print settings are written: the slicer's own
 profile wins. Old tools can opt in later one at a time, each with its own snapshot update.
+
+## ADR-0052 — MakerWorld China support & external 3MF download bridge
+
+**Status.** Accepted 2026-10-23 (Phase 49).
+
+**Context.** MakerWorld China (`makerworld.com.cn`, `makerworld.cn`) hosts rich, localized 3D models not present on the global site. However, MakerWorld restricts direct file downloads to accounts verified with mainland Chinese phone numbers, and BaSa3D's existing resolver strictly limited hostnames to `makerworld.com`. Running automated binary downloads of large `.3mf` files (10MB–100MB) through BaSa3D's Vercel Serverless infrastructure creates 504 timeout risks, memory payload overflows (4.5MB cap), and unnecessary bandwidth exhaustion.
+
+**Decision.**
+1. **Resolver & Sanitizer Extension:** `makerworld-resolver.ts` allows `makerworld.com`, `makerworld.com.cn`, and `makerworld.cn` (plus valid subdomains). `makerworld-image.ts` allowlists exact CDN hosts: `makerworld.bblmw.cn`, `public-cdn.bblmw.cn`, `public-cdn.bblmw.com`, `makerworld.com.cn`, `makerworld.cn`.
+2. **Dual-Path Strategy (Approach C):** BaSa3D web resolves metadata (title, cover, plates, print time, filaments, weight) to compute instant quotes and persist `QuoteModelSnapshot` v2 identically to global links.
+3. **External 3MF Download Bridge:** Instead of proxying binary streams through Vercel, the Admin quote panel provides a direct bridge button to `https://mwc.3dhubvn.net/makerworld-cn` (a community tool with authenticated mainland tokens) so staff can download 3MF files directly to workshop machines.
+4. **Region Routing for ID Disambiguation:** MakerWorld Global (`makerworld.com`) and MakerWorld China (`makerworld.com.cn`) use independent numeric ID spaces. To prevent ID collisions (e.g., ID 2851863 being "Ace Snail Stand" on Global but "Food Scoop" on China), the resolver branches strictly: global URLs query `https://api.bambulab.com`, whereas China URLs query `https://api.bambulab.cn` (and fallback to 3DHubVN).
+5. **Client-Side 3D Mesh Preview:** On the `/tools/makerworld-cn` storefront tool, 3MF geometry is parsed directly in the user's browser using `fflate` via `threeMfToPositions` and rendered with Three.js (360° orbit rotation, zoom, mm bounding box dimensions).

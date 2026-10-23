@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import { connection } from 'next/server';
 import { getTranslations } from 'next-intl/server';
-import { Zap, ShieldCheck, Timer } from 'lucide-react';
+import { Zap, ShieldCheck, Timer, ShoppingBag, ArrowRight } from 'lucide-react';
 import { getCachedCategories, getCachedStorefrontProducts } from '@/lib/cache/storefront-cache';
 import { applyRequestLocale, type LocaleParams } from '@/i18n/request-locale';
 import { localeAlternates } from '@/i18n/seo';
@@ -139,10 +139,39 @@ export default async function HomePage({ params }: { params: LocaleParams }) {
         </svg>
         <p className="mx-auto mt-3 max-w-xl text-lg text-muted-foreground">{t('heroDescription')}</p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Link href="/custom-print" className={storefrontButtonClasses('accent')}>{t('ctaCustomPrint')}</Link>
-          <Link href="/products" className={storefrontButtonClasses('secondary')}>{t('ctaExploreProducts')}</Link>
+          <div className="relative inline-flex">
+            <Link
+              href="/products"
+              className={storefrontButtonClasses('primary', 'group gap-2 px-6 py-3 text-base shadow-tactile-lift')}
+            >
+              <ShoppingBag className="size-5 transition-transform duration-200 group-hover:scale-110 motion-reduce:group-hover:transform-none" aria-hidden="true" />
+              <span>{t('ctaExploreProducts')}</span>
+              <ArrowRight className="size-4.5 transition-transform duration-150 ease-out group-hover:translate-x-1 motion-reduce:group-hover:transform-none" aria-hidden="true" />
+            </Link>
+            <span className="pointer-events-none absolute -top-2.5 -right-2 inline-flex items-center rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-accent-foreground shadow-sm motion-safe:animate-pulse">
+              {t('ctaExploreBadge')}
+            </span>
+          </div>
+          <Link href="/custom-print" className={storefrontButtonClasses('secondary', 'px-5 py-3 text-base')}>
+            {t('ctaCustomPrint')}
+          </Link>
         </div>
-        <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground/80">{t('quickBrowseLabel')}:</span>
+          {categories.map((category) => {
+            const href = getCategoryHref(category.name, dbCategories);
+            return (
+              <Link
+                key={category.name}
+                href={href}
+                className="inline-flex cursor-pointer items-center rounded-full border border-border/70 bg-card px-2.5 py-1 text-xs font-medium text-muted-foreground transition-all duration-150 hover:border-primary/50 hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {category.name}
+              </Link>
+            );
+          })}
+        </div>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           {heroValueProps.map(({ label, href }, index) => {
             const Icon = HERO_VALUE_PROP_ICONS[index];
             return (

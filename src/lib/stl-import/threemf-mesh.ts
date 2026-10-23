@@ -151,3 +151,67 @@ export function threeMfToBinaryStl(bytes: Uint8Array): Uint8Array {
   }
   return out;
 }
+
+/** Extracts flat vertex coordinates (Float32Array) from a 3MF package for direct Three.js rendering. */
+export function threeMfToPositions(bytes: Uint8Array): Float32Array {
+  let files: Record<string, Uint8Array>;
+  try {
+    let total = 0;
+    files = unzipSync(bytes, {
+      filter: (file) => {
+        if (!file.name.toLowerCase().endsWith('.model')) return false;
+        total += file.originalSize;
+        if (total > MAX_3MF_UNZIPPED_BYTES) throw new MeshMetricsError('MESH_TOO_LARGE', 'File .3mf quá lớn.');
+        return true;
+      },
+    });
+  } catch (error) {
+    if (error instanceof MeshMetricsError) throw error;
+    throw new MeshMetricsError('MESH_INVALID', 'File .3mf không đọc được (không phải file zip 3MF hợp lệ).');
+  }
+  const xmlByPath = new Map(Object.entries(files).map(([name, data]) => [name.toLowerCase(), strFromU8(data)]));
+  const mainXml = xmlByPath.get(MAIN_MODEL);
+  if (!mainXml) throw new MeshMetricsError('MESH_EMPTY', 'Không tìm thấy 3D/3dmodel.model trong file .3mf.');
+
+  const objects = new Map<string, ModelObject>();
+  const budget = { triangles: 0 };
+  try {
+    for (const [path, xml] of xmlByPath) parseModelFile(xml, path, objects, budget);
+  } catch (error) {
+    if (error instanceof MeshMetricsError) throw error;
+    throw new MeshMetricsError('MESH_INVALID', 'File .3mf bị hỏng (XML không đọc được).');
+  }
+
+  const modelElement = firstElement(mainXml, 'model', 0, mainXml.length, false);
+  const scale = UNIT_TO_MM[(attr(modelElement?.attrs ?? '', 'unit') ?? 'millimeter').toLowerCase()] ?? 1;
+  const unit: Mat = [scale, 0, 0, 0, scale, 0, 0, 0, scale, 0, 0, 0];
+
+  const positions: number[] = [];
+  const emit = (key: string, transform: Mat, depth: number) => {
+    if (depth > MAX_DEPTH) throw new MeshMetricsError('MESH_INVALID', 'Cấu trúc .3mf lồng nhau quá sâu.');
+    const object = objects.get(key);
+    if (!object) return;
+    for (const component of object.components ?? []) emit(component.key, compose(component.transform, transform), depth + 1);
+    if (!object.mesh) return;
+    const { vertices, triangles } = object.mesh;
+    if (positions.length / 9 + triangles.length / 3 > MESH_MAX_TRIANGLES) throw new MeshMetricsError('MESH_TOO_LARGE', 'File .3mf có quá nhiều tam giác.');
+    const order = determinant(transform) < 0 ? [0, 2, 1] : [0, 1, 2];
+    const m = transform;
+    for (let t = 0; t < triangles.length; t += 3) {
+      for (const k of order) {
+        const v = triangles[t + k] * 3;
+        const x = vertices[v], y = vertices[v + 1], z = vertices[v + 2];
+        positions.push(x * m[0] + y * m[3] + z * m[6] + m[9], x * m[1] + y * m[4] + z * m[7] + m[10], x * m[2] + y * m[5] + z * m[8] + m[11]);
+      }
+    }
+  };
+  const build = firstElement(mainXml, 'build', 0, mainXml.length, true);
+  if (build) {
+    for (const item of scanElements(mainXml, 'item', build.bodyStart, build.bodyEnd, false)) {
+      const objectId = attr(item.attrs, 'objectid');
+      if (objectId) emit(`${MAIN_MODEL}#${objectId}`, compose(parseTransform(attr(item.attrs, 'transform')), unit), 0);
+    }
+  }
+  if (!positions.length) throw new MeshMetricsError('MESH_EMPTY', 'Không đọc được hình khối nào trong file .3mf.');
+  return new Float32Array(positions);
+}

@@ -4,6 +4,7 @@ import { getCachedCategories, getCachedStorefrontProducts } from '@/lib/cache/st
 import { ProductCard } from '@/components/storefront/product-card';
 import { StorefrontButton, storefrontButtonClasses } from '@/components/storefront/button';
 import { Breadcrumb } from '@/components/storefront/breadcrumb';
+import { MakerWorldDiscoveryBanner } from '@/components/storefront/makerworld-discovery-banner';
 import { cn } from '@/lib/utils';
 import { ViewItemListTracker } from '@/components/analytics/storefront-trackers';
 import { Link } from '@/i18n/navigation';
@@ -57,6 +58,8 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
         ))}
       </div>
 
+      <MakerWorldDiscoveryBanner />
+
       <form className="mt-6 flex flex-col gap-3 md:flex-row md:items-center" method="get">
         {params.categoryId && <input type="hidden" name="categoryId" value={params.categoryId} />}
         <input
@@ -83,7 +86,10 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
         <div className="mt-16 flex flex-col items-center gap-4 text-center">
           <p className="text-muted-foreground">{t('emptyTitle')}</p>
           <p className="text-sm text-muted-foreground">{t('emptyDescription')}</p>
-          <Link href="/custom-print" className={storefrontButtonClasses('accent')}>{t('ctaCustomRequest')}</Link>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Link href="/custom-print" className={storefrontButtonClasses('accent')}>{t('ctaCustomRequest')}</Link>
+            <Link href="/tools/makerworld-cn" className={storefrontButtonClasses('secondary')}>{t('makerworldOpenTool')}</Link>
+          </div>
         </div>
       ) : (
         <div className="reveal-stagger mt-8 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">

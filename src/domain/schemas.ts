@@ -311,7 +311,7 @@ export const publicCustomRequestInputSchema = z.object({
 //   MakerWorld/Bambu Lab allowlist (B2) — these values round-trip through the browser and are
 //   rendered on the public quote page.
 const makerWorldSourceUrlSchema = z.string().trim().url().max(2_000)
-  .refine(isMakerWorldModelUrl, { message: 'sourceUrl must be an https makerworld.com model URL.' });
+  .refine(isMakerWorldModelUrl, { message: 'sourceUrl must be an https MakerWorld model URL (makerworld.com / .com.cn / .cn).' });
 const makerWorldImageUrlSchema = z.string().trim().max(2_000)
   .refine(isSafeMakerWorldImageUrl, { message: 'Image URL must be an https MakerWorld/Bambu Lab image URL.' });
 

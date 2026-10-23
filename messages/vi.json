@@ -50,6 +50,8 @@
     "heroDescription": "Xưởng in 3D BaSa3D — từ mô hình sưu tầm đến linh kiện kỹ thuật chính xác, sản xuất theo yêu cầu với vật liệu nguyên sinh cao cấp.",
     "ctaCustomPrint": "Gửi file in theo yêu cầu",
     "ctaExploreProducts": "Khám phá sản phẩm",
+    "ctaExploreBadge": "Có sẵn",
+    "quickBrowseLabel": "Xem nhanh",
     "toolEyebrow": "Công cụ thiết kế 3D miễn phí",
     "toolTitle": "Tự tạo móc khoá khắc tên ngay trên trình duyệt",
     "toolDescription": "Nhập tên tiếng Việt, chọn màu và xem trước mẫu 3D trực tiếp. Bạn có thể tải một file STL hoàn chỉnh hoặc gửi mẫu thẳng tới BaSa3D để nhận báo giá.",
@@ -191,7 +193,19 @@
     "viewCart": "Xem giỏ hàng",
     "noVariants": "Sản phẩm hiện chưa có phân loại nào để đặt hàng.",
     "contactToOrderZalo": "Nhắn Zalo để đặt hàng",
-    "contactToOrderHotline": "Hoặc gọi hotline {hotline}"
+    "contactToOrderHotline": "Hoặc gọi hotline {hotline}",
+    "makerworldDiscoveryBadge": "Kho mẫu 3D vô tận",
+    "makerworldDiscoveryNew": "Mới",
+    "makerworldDiscoveryNewTag": "Mới",
+    "makerworldDiscoveryTitle": "Chưa tìm thấy mẫu bạn ưng ý? Tìm trên MakerWorld & Phân tích ngay",
+    "makerworldDiscoveryDesc": "Khám phá hàng triệu mẫu in 3D miễn phí trên MakerWorld Global & MakerWorld China. Khi tìm được mẫu thích hợp, bạn chỉ cần sao chép link và dùng công cụ phân tích của BaSa3D để xem trước chi tiết bàn in, 3D mesh và đặt in.",
+    "makerworldDirectGlobal": "MakerWorld Global",
+    "makerworldDirectChina": "MakerWorld China",
+    "makerworldOpenTool": "Mở công cụ phân tích MakerWorld",
+    "makerworldInputLabel": "Hoặc dán ngay link MakerWorld để phân tích:",
+    "makerworldInputPlaceholder": "Dán link makerworld.com hoặc makerworld.com.cn...",
+    "makerworldAnalyzeBtn": "Phân tích ngay",
+    "makerworldEmptyHint": "Bạn cũng có thể tìm thêm mẫu trên MakerWorld và gửi link để xưởng in:"
   },
   "tools": {
     "breadcrumbHome": "Trang chủ",
@@ -308,6 +322,12 @@
         "description": "Chọn kiểu hoa văn đục lỗ, số lượng quanh vòng và hàng, lắp vừa đế bóng đèn.",
         "status": "available",
         "slug": "lamp-shade"
+      },
+      {
+        "name": "Tải mẫu MakerWorld China",
+        "description": "Bóc tách thông số bàn in, xem trước chi tiết và hỗ trợ tải file 3MF từ MakerWorld nội địa Trung Quốc.",
+        "status": "available",
+        "slug": "makerworld-cn"
       }
     ]
   },

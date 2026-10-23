@@ -42,11 +42,11 @@
 import { z } from 'zod';
 import { sanitizeMakerWorldImageUrl } from './makerworld-image';
 
-const ALLOWED_HOST_SUFFIX = 'makerworld.com';
+const ALLOWED_HOST_SUFFIXES = ['makerworld.com', 'makerworld.com.cn', 'makerworld.cn'] as const;
 export const MAKERWORLD_FETCH_DEADLINE_MS = 6_000;
 export const MAKERWORLD_MAX_RESPONSE_BYTES = 3 * 1024 * 1024;
 const MAX_REDIRECTS = 3;
-const USER_AGENT = 'Mozilla/5.0 (compatible; BaSa3DQuoteBot/1.0; +https://basa3d.vn)';
+const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 export const MAKERWORLD_LIMITS = {
   maxProfiles: 50,
@@ -88,9 +88,21 @@ export class MakerWorldProfileNotFoundError extends MakerWorldResolverError {
 
 export type ParsedMakerWorldUrl = { modelId: string; profileId: string | null; url: URL };
 
+/** Extracts and normalizes a MakerWorld URL from raw user input (e.g. from mobile app share strings). */
+export function cleanMakerWorldUrlInput(raw: string): string {
+  let cleaned = raw.trim();
+  const urlMatch = cleaned.match(/https?:\/\/[^\s"'<>]+/i);
+  if (urlMatch) {
+    cleaned = urlMatch[0];
+  } else if (/^(www\.)?makerworld\./i.test(cleaned)) {
+    cleaned = `https://${cleaned}`;
+  }
+  return cleaned;
+}
+
 function isAllowedHostname(hostname: string): boolean {
   const host = hostname.toLowerCase();
-  return host === ALLOWED_HOST_SUFFIX || host.endsWith(`.${ALLOWED_HOST_SUFFIX}`);
+  return ALLOWED_HOST_SUFFIXES.some((suffix) => host === suffix || host.endsWith(`.${suffix}`));
 }
 
 function isAllowedMakerWorldUrl(url: URL): boolean {
@@ -113,14 +125,15 @@ export function isMakerWorldModelUrl(raw: unknown): boolean {
  * `{ modelId: '2851863', profileId: '3334843' }`. Validates the hostname allowlist here too, so
  * callers never need to fetch an unvalidated URL. */
 export function parseMakerWorldUrl(rawUrl: string): ParsedMakerWorldUrl {
+  const cleaned = cleanMakerWorldUrlInput(rawUrl);
   let url: URL;
   try {
-    url = new URL(rawUrl.trim());
+    url = new URL(cleaned);
   } catch {
     throw new MakerWorldNotFoundError('Link không đúng định dạng URL.');
   }
   if (!isAllowedMakerWorldUrl(url)) {
-    throw new MakerWorldNotFoundError('Chỉ chấp nhận link từ makerworld.com (https).');
+    throw new MakerWorldNotFoundError('Chỉ chấp nhận link từ makerworld.com, makerworld.com.cn hoặc makerworld.cn (https).');
   }
   const modelMatch = url.pathname.match(/\/models\/(\d+)/);
   // Phase 36: exactly one /models/<id> segment — `/models/1000/models/2000` must not be read as
@@ -432,7 +445,8 @@ export function extractResolutionFromHtml(html: string, parsed: ParsedMakerWorld
   } catch {
     throw new MakerWorldProfileNotFoundError('Dữ liệu mẫu trên trang MakerWorld không đúng định dạng JSON.');
   }
-  const design = data?.props?.pageProps?.design ?? data?.props?.pageProps?.designDetail;
+  const pageProps = data?.props?.pageProps as Record<string, unknown> | undefined;
+  const design = (pageProps?.design ?? pageProps?.designDetail ?? (pageProps?.data as Record<string, unknown> | undefined)?.design) as RawMakerWorldDesign | undefined;
   const instances = design?.instances;
   if (!design || !Array.isArray(instances) || instances.length === 0) {
     throw new MakerWorldProfileNotFoundError();

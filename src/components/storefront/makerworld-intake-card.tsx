@@ -341,7 +341,7 @@ export function MakerWorldIntakeCard() {
                   handleEstimate();
                 }
               }}
-              placeholder="https://makerworld.com/en/models/...#profileId-..."
+              placeholder="https://makerworld.com/... hoặc makerworld.com.cn/..."
               className="w-full rounded-xl border border-input bg-background py-3 pl-10 pr-4 text-sm text-foreground shadow-xs placeholder:text-muted-foreground/60 focus:border-primary focus:outline-hidden focus:ring-2 focus:ring-primary/20"
             />
           </div>
