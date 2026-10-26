@@ -19,6 +19,9 @@ import { formatVnd } from '@/components/storefront/format';
 import type { MakerWorldCnModelDetail, MakerWorldCnProfile } from '@/app/api/public/makerworld-cn/resolve/route';
 import { MakerWorld3dModal } from './makerworld-3d-modal';
 import { MakerWorldOrderModal } from './makerworld-order-modal';
+import { BUILD_INFO } from '@/config/build-info';
+
+const isProduction = BUILD_INFO.channel === 'production' || process.env.NODE_ENV === 'production';
 
 const SAMPLES = [
   {
@@ -466,16 +469,18 @@ export function MakerWorldCnTool({ initialUrl }: { initialUrl?: string } = {}) {
                     <span>Mở trang MakerWorld</span>
                   </a>
 
-                  <a
-                    href="https://mwc.3dhubvn.net/makerworld-cn"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-xl border border-input bg-muted/40 px-3.5 py-2.5 text-xs text-muted-foreground transition hover:text-foreground"
-                    title="Mở công cụ dự phòng tải file 3MF của 3DHubVN"
-                  >
-                    <Share2 className="size-3.5" />
-                    <span>Dự phòng 3DHubVN</span>
-                  </a>
+                  {!isProduction && (
+                    <a
+                      href="https://mwc.3dhubvn.net/makerworld-cn"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-xl border border-input bg-muted/40 px-3.5 py-2.5 text-xs text-muted-foreground transition hover:text-foreground"
+                      title="Mở công cụ dự phòng tải file 3MF của 3DHubVN"
+                    >
+                      <Share2 className="size-3.5" />
+                      <span>Dự phòng 3DHubVN</span>
+                    </a>
+                  )}
                 </div>
               </div>
             </div>
@@ -486,7 +491,7 @@ export function MakerWorldCnTool({ initialUrl }: { initialUrl?: string } = {}) {
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
                 <Layers className="size-5 text-primary" />
-                <span>Các bàn in / Print Profiles ({detail.profiles.length})</span>
+                <span>Các bản in / Print Profiles ({detail.profiles.length})</span>
               </h3>
               <p className="text-xs text-muted-foreground">Bấm tải file 3MF để in trực tiếp trên máy in Bambu Lab / OrcaSlicer</p>
             </div>

@@ -119,7 +119,10 @@ export function trackCustomPrintQuote(data: { technology?: string | null; materi
   sendGAEvent('request_custom_quote', { technology: data.technology ?? 'unspecified', material: data.material ?? 'unspecified', color: data.color ?? 'unspecified', quantity: data.quantity, has_attachment: data.hasAttachment });
 }
 
-export function trackContactClick(channel: 'zalo' | 'hotline' | 'messenger' | 'email', placement: string): void {
+export function trackContactClick(
+  channel: 'zalo' | 'hotline' | 'messenger' | 'email' | 'facebook' | 'tiktok' | 'instagram',
+  placement: string
+): void {
   sendGAEvent('click_contact_channel', { channel, placement });
 }
 
