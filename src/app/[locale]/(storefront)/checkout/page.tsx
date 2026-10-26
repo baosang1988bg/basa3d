@@ -16,13 +16,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { OrderZaloAction, type ZaloOrderData } from '@/components/storefront/order-zalo-action';
+import { orderErrorOutcome } from '@/lib/checkout/order-error-outcome';
 
 type SubmitState = { status: 'idle' | 'submitting' | 'error'; message?: string };
-
-const ERROR_MESSAGES: Record<string, string> = {
-  INSUFFICIENT_STOCK: 'Một sản phẩm trong giỏ hàng không còn đủ số lượng tồn kho. Vui lòng quay lại giỏ hàng và điều chỉnh số lượng.',
-  VARIANT_NOT_FOUND: 'Một sản phẩm trong giỏ hàng không còn tồn tại. Vui lòng quay lại giỏ hàng và kiểm tra lại.',
-};
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -56,12 +52,7 @@ export default function CheckoutPage() {
     };
   }
 
-  function handleSendViaZalo(event: React.MouseEvent<HTMLButtonElement>) {
-    const form = event.currentTarget.form;
-    if (!form) return;
-    if (!form.reportValidity()) return;
-
-    const payload = getFormData(form);
+  function openZaloDialog(payload: ReturnType<typeof getFormData>) {
     const orderData: ZaloOrderData = {
       customerName: payload.customerName,
       customerPhone: payload.customerPhone,
@@ -82,6 +73,13 @@ export default function CheckoutPage() {
     setIsZaloDialogOpen(true);
   }
 
+  function handleSendViaZalo(event: React.MouseEvent<HTMLButtonElement>) {
+    const form = event.currentTarget.form;
+    if (!form) return;
+    if (!form.reportValidity()) return;
+    openZaloDialog(getFormData(form));
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (items.length === 0) return;
@@ -94,30 +92,15 @@ export default function CheckoutPage() {
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
-        if (body.code && ERROR_MESSAGES[body.code]) {
-          setState({ status: 'error', message: ERROR_MESSAGES[body.code] });
-          return;
+        // Only "ordering is off" (404 NOT_FOUND) falls back to Zalo; every other failure means no
+        // order was saved and must be shown as an error (src/lib/checkout/order-error-outcome.ts).
+        const outcome = orderErrorOutcome(response.status, body);
+        if (outcome.kind === 'zalo-fallback') {
+          openZaloDialog(payload);
+          setState({ status: 'idle' });
+        } else {
+          setState({ status: 'error', message: outcome.message });
         }
-        // In current phase (or if cart API is disabled / returns 404), allow direct Zalo order with filled info:
-        const orderData: ZaloOrderData = {
-          customerName: payload.customerName,
-          customerPhone: payload.customerPhone,
-          customerEmail: payload.customerEmail,
-          shippingAddress: payload.shippingAddress,
-          paymentMethod: payload.paymentMethod,
-          customerNote: payload.customerNote,
-          items: items.map((item) => ({
-            name: item.productName,
-            variantName: item.variantName,
-            sku: item.sku,
-            quantity: item.quantity,
-            price: item.price,
-          })),
-          total: subtotal,
-        };
-        setZaloOrder(orderData);
-        setIsZaloDialogOpen(true);
-        setState({ status: 'idle' });
         return;
       }
       clearCart();
