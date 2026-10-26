@@ -1,9 +1,9 @@
 import { MaterialBadge } from '@/components/storefront/material-badge';
 import { Breadcrumb } from '@/components/storefront/breadcrumb';
 import { CustomRequestForm } from './custom-request-form';
-import Link from 'next/link';
-import { storefrontButtonClasses } from '@/components/storefront/button';
-import { MakerWorldIntakeCard } from '@/components/storefront/makerworld-intake-card';
+import { MakerWorldDiscoveryBanner } from '@/components/storefront/makerworld-discovery-banner';
+import { redirect } from '@/i18n/navigation';
+import { applyRequestLocale, type LocaleParams } from '@/i18n/request-locale';
 
 const STEPS = [
   { step: '1', title: 'Tải file, xem giá ngay', description: 'File .3mf đã slice cho giá ước tính tức thì; .stl/.obj cho khoảng giá; .step hoặc ảnh mẫu thì xưởng báo giá' },
@@ -19,7 +19,21 @@ const MATERIALS = [
   { material: 'TPU' as const, durability: 'Rất cao (đàn hồi)', heat: 'Trung bình', finish: 'Mềm dẻo', cost: 'Trung bình - cao' },
 ];
 
-export default function CustomPrintPage() {
+export default async function CustomPrintPage({
+  params,
+  searchParams,
+}: {
+  params?: LocaleParams;
+  searchParams?: Promise<{ modelUrl?: string; profileId?: string; title?: string }>;
+}) {
+  const locale = params ? await applyRequestLocale(params) : 'vi';
+  const resolved = searchParams ? await searchParams : undefined;
+  const modelUrl = resolved?.modelUrl;
+
+  if (modelUrl) {
+    redirect({ href: `/tools/makerworld-cn?url=${encodeURIComponent(modelUrl)}`, locale });
+  }
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
       <Breadcrumb items={[{ label: 'Trang chủ', href: '/home' }, { label: 'Đặt in' }]} />
@@ -48,12 +62,7 @@ export default function CustomPrintPage() {
         ))}
       </section>
 
-      <MakerWorldIntakeCard />
-
-      <section className="reveal mt-12 rounded-xl border border-primary/20 bg-primary/5 p-6 md:flex md:items-center md:justify-between">
-        <div><p className="text-sm font-semibold uppercase tracking-wide text-primary">Chưa có file 3D?</p><h2 className="font-heading mt-1 text-2xl font-bold">Tự tạo móc khoá khắc tên</h2><p className="mt-2 text-sm text-muted-foreground">Nhập tên, xem trước 3D và gửi file STL thẳng tới xưởng.</p></div>
-        <Link href="/tools/keychain-generator" className={storefrontButtonClasses('accent', 'mt-4 md:mt-0')}>Mở công cụ tạo mẫu</Link>
-      </section>
+      <MakerWorldDiscoveryBanner className="mt-12" />
 
       <section className="reveal mt-12">
         <h2 className="font-heading text-2xl font-bold text-foreground">Bảng tra cứu vật liệu</h2>

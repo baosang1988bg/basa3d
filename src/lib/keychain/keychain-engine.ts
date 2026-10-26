@@ -39,10 +39,10 @@ export function loadKeychainFont(): Promise<Font> {
 
 function addCommand(shapePath: THREE.ShapePath, command: PathCommand): void {
   switch (command.type) {
-    case 'M': shapePath.moveTo(command.x, command.y); break;
-    case 'L': shapePath.lineTo(command.x, command.y); break;
-    case 'C': shapePath.bezierCurveTo(command.x1, command.y1, command.x2, command.y2, command.x, command.y); break;
-    case 'Q': shapePath.quadraticCurveTo(command.x1, command.y1, command.x, command.y); break;
+    case 'M': shapePath.moveTo(command.x, -command.y); break;
+    case 'L': shapePath.lineTo(command.x, -command.y); break;
+    case 'C': shapePath.bezierCurveTo(command.x1, -command.y1, command.x2, -command.y2, command.x, -command.y); break;
+    case 'Q': shapePath.quadraticCurveTo(command.x1, -command.y1, command.x, -command.y); break;
     case 'Z': shapePath.currentPath?.closePath(); break;
   }
 }
@@ -75,7 +75,10 @@ function roundedTagShape(width: number, height: number, options: {
 export function buildKeychainModel(options: KeychainOptions, font: Font): KeychainModel {
   const text = options.text.trim().slice(0, 24) || 'BaSa3D';
   const fontSize = THREE.MathUtils.clamp(options.fontSizeMm ?? 11, 6, 20);
-  const letterSpacing = THREE.MathUtils.clamp(options.letterSpacing ?? 1, 0.75, 2);
+  // In opentype.js, options.letterSpacing is in em units added between glyphs.
+  // 1x = standard natural spacing (0 extra em). Range 0.75x to 2x maps to -0.03em to +0.15em.
+  const letterSpacingMultiplier = options.letterSpacing ?? 1;
+  const opentypeLetterSpacing = (letterSpacingMultiplier - 1) * 0.15;
   const horizontalPadding = THREE.MathUtils.clamp(options.horizontalPaddingMm ?? 7, 4, 16);
   const verticalPadding = THREE.MathUtils.clamp(options.verticalPaddingMm ?? 5, 3, 12);
   const cornerRadius = THREE.MathUtils.clamp(options.cornerRadiusMm ?? 4, 1, 10);
@@ -84,10 +87,24 @@ export function buildKeychainModel(options: KeychainOptions, font: Font): Keycha
   const ringWall = 2.5;
   const holeCenterX = horizontalPadding + holeDiameter / 2;
   const holeAreaWidth = options.includeKeyringHole ? holeDiameter + ringWall * 2 + horizontalPadding : horizontalPadding;
-  const path = font.getPath(text, 0, 0, fontSize, { letterSpacing });
-  const bounds = path.getBoundingBox();
-  const textWidth = Math.max(1, bounds.x2 - bounds.x1);
-  const textHeight = Math.max(1, bounds.y2 - bounds.y1);
+
+  const path = font.getPath(text, 0, 0, fontSize, { letterSpacing: opentypeLetterSpacing });
+
+  const textPath = new THREE.ShapePath();
+  for (const command of path.commands) addCommand(textPath, command);
+  const textShapes = textPath.toShapes();
+  if (textShapes.length === 0) throw new Error('Nội dung không tạo được hình chữ.');
+
+  const textGeometry = new THREE.ExtrudeGeometry(textShapes, {
+    depth: textThickness,
+    bevelEnabled: false,
+    curveSegments: 12,
+  });
+  textGeometry.computeBoundingBox();
+  const tb = textGeometry.boundingBox!;
+  const textWidth = Math.max(1, tb.max.x - tb.min.x);
+  const textHeight = Math.max(1, tb.max.y - tb.min.y);
+
   const tagWidth = Math.max(36, textWidth + holeAreaWidth + horizontalPadding);
   const tagHeight = Math.max(18, textHeight + verticalPadding * 2, options.includeKeyringHole ? holeDiameter + ringWall * 2 + 4 : 0);
 
@@ -105,17 +122,19 @@ export function buildKeychainModel(options: KeychainOptions, font: Font): Keycha
     curveSegments: 12,
   });
 
-  const textPath = new THREE.ShapePath();
-  for (const command of path.commands) addCommand(textPath, command);
-  const textShapes = textPath.toShapes();
-  if (textShapes.length === 0) throw new Error('Nội dung không tạo được hình chữ.');
-  const textGeometry = new THREE.ExtrudeGeometry(textShapes, {
-    depth: textThickness,
-    bevelEnabled: false,
-    curveSegments: 12,
-  });
-  const textAreaStart = options.includeKeyringHole ? holeAreaWidth : horizontalPadding;
-  textGeometry.translate(textAreaStart + (tagWidth - textAreaStart - horizontalPadding - textWidth) / 2 - bounds.x1, (tagHeight - textHeight) / 2 - bounds.y1, options.baseThicknessMm);
+  const leftBound = options.includeKeyringHole ? holeAreaWidth : horizontalPadding;
+  const rightBound = tagWidth - horizontalPadding;
+  const targetCenterX = (leftBound + rightBound) / 2;
+  const targetCenterY = tagHeight / 2;
+
+  const currentCenterX = (tb.min.x + tb.max.x) / 2;
+  const currentCenterY = (tb.min.y + tb.max.y) / 2;
+
+  textGeometry.translate(
+    targetCenterX - currentCenterX,
+    targetCenterY - currentCenterY,
+    options.baseThicknessMm
+  );
 
   const mergeInputs = [
     baseGeometry.index ? baseGeometry.toNonIndexed() : baseGeometry.clone(),

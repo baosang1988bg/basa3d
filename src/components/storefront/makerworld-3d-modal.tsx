@@ -16,6 +16,7 @@ export interface MakerWorld3dModalProps {
   sourceUrl: string;
   isChinaModel?: boolean;
   onDownload?: () => void;
+  onOrder?: () => void;
   estimatedPriceVnd?: number | null;
 }
 
@@ -28,6 +29,7 @@ export function MakerWorld3dModal({
   sourceUrl,
   isChinaModel = true,
   onDownload,
+  onOrder,
   estimatedPriceVnd,
 }: MakerWorld3dModalProps) {
   const [loading, setLoading] = useState(false);
@@ -220,13 +222,24 @@ export function MakerWorld3dModal({
               </button>
             ) : null}
 
-            <Link
-              href={`/custom-print?modelUrl=${encodeURIComponent(sourceUrl)}&profileId=${encodeURIComponent(profileId)}&title=${encodeURIComponent(profileTitle)}`}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90"
-            >
-              <Printer className="size-3.5" />
-              <span>Đặt in BaSa3D {estimatedPriceVnd ? `(~${formatVnd(estimatedPriceVnd)})` : ''}</span>
-            </Link>
+            {onOrder ? (
+              <button
+                type="button"
+                onClick={onOrder}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 cursor-pointer"
+              >
+                <Printer className="size-3.5" />
+                <span>Đặt in BaSa3D {estimatedPriceVnd ? `(~${formatVnd(estimatedPriceVnd)})` : ''}</span>
+              </button>
+            ) : (
+              <Link
+                href={`/custom-print?modelUrl=${encodeURIComponent(sourceUrl)}&profileId=${encodeURIComponent(profileId)}&title=${encodeURIComponent(profileTitle)}`}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90"
+              >
+                <Printer className="size-3.5" />
+                <span>Đặt in BaSa3D {estimatedPriceVnd ? `(~${formatVnd(estimatedPriceVnd)})` : ''}</span>
+              </Link>
+            )}
 
             <button
               type="button"

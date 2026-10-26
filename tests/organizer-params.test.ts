@@ -14,7 +14,7 @@ test('defaults and presets match the reference values', () => {
   assert.equal(ORGANIZER_PRESETS.length, 6);
   const drawer = ORGANIZER_PRESETS.find((preset) => preset.id === 'drawerInsert')!.params;
   assert.deepEqual([drawer.width, drawer.depth, drawer.height, drawer.cols, drawer.rows], [220, 160, 40, 5, 4]);
-  assert.deepEqual(PRINTERS.map((printer) => printer.bed), [[180, 180], [256, 256], [250, 210], [220, 220], [300, 300]]);
+  assert.deepEqual(PRINTERS.map((printer) => printer.bed), [[256, 256], [270, 270]]);
   for (const preset of ORGANIZER_PRESETS) {
     const { warnings } = normalizeOrganizerParams(preset.params);
     assert.deepEqual(warnings.filter((key) => key !== 'warn.thinWalls'), [], preset.id);
@@ -80,10 +80,12 @@ test('hostile values from a shared URL are clamped to the UI ranges', () => {
 });
 
 test('printer fit adds twice the outward texture depth, no rotation', () => {
-  assert.equal(fitsPrinter({ ...defaults, width: 180, depth: 180 }, 'a1mini'), true);
-  assert.equal(fitsPrinter({ ...defaults, width: 180, depth: 180, wallTexture: 'reeded', textureDepth: 1 }, 'a1mini'), false);
-  assert.equal(fitsPrinter({ ...defaults, width: 180, depth: 180, wallTexture: 'fluted', textureDepth: 1 }, 'a1mini'), true);
-  assert.equal(fitsPrinter({ ...defaults, width: 210, depth: 250 }, 'prusa'), false);
+  assert.equal(fitsPrinter({ ...defaults, width: 256, depth: 256 }, 'p2s'), true);
+  assert.equal(fitsPrinter({ ...defaults, width: 256, depth: 256, wallTexture: 'reeded', textureDepth: 1 }, 'p2s'), false);
+  assert.equal(fitsPrinter({ ...defaults, width: 256, depth: 256, wallTexture: 'fluted', textureDepth: 1 }, 'p2s'), true);
+  assert.equal(fitsPrinter({ ...defaults, width: 260, depth: 260 }, 'p2s'), false);
+  assert.equal(fitsPrinter({ ...defaults, width: 260, depth: 260 }, 'u1'), true);
+  assert.equal(fitsPrinter({ ...defaults, width: 275, depth: 275 }, 'u1'), false);
 });
 
 test('share URL uses the reference keys and round-trips', () => {

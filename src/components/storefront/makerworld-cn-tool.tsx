@@ -15,10 +15,10 @@ import {
   ClipboardPaste,
   Eye,
 } from 'lucide-react';
-import { Link } from '@/i18n/navigation';
 import { formatVnd } from '@/components/storefront/format';
 import type { MakerWorldCnModelDetail, MakerWorldCnProfile } from '@/app/api/public/makerworld-cn/resolve/route';
 import { MakerWorld3dModal } from './makerworld-3d-modal';
+import { MakerWorldOrderModal } from './makerworld-order-modal';
 
 const SAMPLES = [
   {
@@ -141,6 +141,14 @@ export function MakerWorldCnTool({ initialUrl }: { initialUrl?: string } = {}) {
     title: string;
     estimatedPriceVnd?: number | null;
   } | null>(null);
+
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [selectedOrderProfileId, setSelectedOrderProfileId] = useState<string | null>(null);
+
+  function handleOpenOrderModal(profileId?: string) {
+    setSelectedOrderProfileId(profileId || null);
+    setIsOrderModalOpen(true);
+  }
 
   async function handlePasteClipboard() {
     try {
@@ -439,13 +447,14 @@ export function MakerWorldCnTool({ initialUrl }: { initialUrl?: string } = {}) {
 
                 {/* Primary Action Buttons */}
                 <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-border/60 pt-4">
-                  <Link
-                    href={`/custom-print?modelUrl=${encodeURIComponent(detail.sourceUrl)}&title=${encodeURIComponent(detail.title)}`}
-                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90"
+                  <button
+                    type="button"
+                    onClick={() => handleOpenOrderModal()}
+                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 cursor-pointer"
                   >
                     <Printer className="size-4" />
                     <span>Đặt xưởng BaSa3D in mẫu này {minPrice ? `(từ ~${formatVnd(minPrice)})` : ''}</span>
-                  </Link>
+                  </button>
 
                   <a
                     href={detail.sourceUrl}
@@ -609,9 +618,10 @@ export function MakerWorldCnTool({ initialUrl }: { initialUrl?: string } = {}) {
 
                     {/* Action buttons */}
                     <div className="mt-4 flex flex-col gap-2">
-                      <Link
-                        href={`/custom-print?modelUrl=${encodeURIComponent(detail.sourceUrl)}&profileId=${encodeURIComponent(p.profileId)}`}
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2.5 text-xs font-semibold text-primary-foreground shadow-xs transition hover:bg-primary/90"
+                      <button
+                        type="button"
+                        onClick={() => handleOpenOrderModal(p.profileId)}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2.5 text-xs font-semibold text-primary-foreground shadow-xs transition hover:bg-primary/90 cursor-pointer"
                       >
                         <Printer className="size-3.5" />
                         <span>
@@ -622,7 +632,7 @@ export function MakerWorldCnTool({ initialUrl }: { initialUrl?: string } = {}) {
                               ? '(Đang tính…)'
                               : ''}
                         </span>
-                      </Link>
+                      </button>
 
                       <div className="grid grid-cols-2 gap-2">
                         <button
@@ -712,7 +722,22 @@ export function MakerWorldCnTool({ initialUrl }: { initialUrl?: string } = {}) {
           sourceUrl={detail.sourceUrl}
           isChinaModel={detail.isChinaModel}
           onDownload={() => handleDownload(active3dProfile.profileId)}
+          onOrder={() => {
+            const targetPid = active3dProfile.profileId;
+            setActive3dProfile(null);
+            handleOpenOrderModal(targetPid);
+          }}
           estimatedPriceVnd={active3dProfile.estimatedPriceVnd}
+        />
+      ) : null}
+
+      {/* Instant Order Modal */}
+      {isOrderModalOpen && detail ? (
+        <MakerWorldOrderModal
+          isOpen={isOrderModalOpen}
+          onClose={() => setIsOrderModalOpen(false)}
+          detail={detail}
+          initialProfileId={selectedOrderProfileId}
         />
       ) : null}
     </div>

@@ -43,7 +43,7 @@ export function buildZaloOrderMessage(order: ZaloOrderData): string {
 
   const paymentText = order.paymentMethod === 'BANK_TRANSFER'
     ? 'Chuyển khoản ngân hàng'
-    : 'Thanh toán khi nhận hàng (COD)';
+    : 'Xác nhận qua SĐT / Zalo';
 
   const itemLines = order.items.map((item, index) => {
     const lineTotal = item.price * item.quantity;

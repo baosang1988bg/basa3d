@@ -58,8 +58,14 @@ const SPEC_HELP = 'Mở link trên MakerWorld → ở mục "Print Profile", cop
  * Prices come only from the server: admin-verified presets (VERIFIED) or the optional auto estimate
  * (AUTO). This component never sends grams/minutes/prices — only the link + what the customer picked.
  */
-export function MakerWorldIntakeCard() {
-  const [url, setUrl] = useState('');
+export function MakerWorldIntakeCard({
+  initialUrl,
+  initialProfileId,
+}: {
+  initialUrl?: string;
+  initialProfileId?: string;
+} = {}) {
+  const [url, setUrl] = useState(initialUrl ?? '');
   const [isEstimating, setIsEstimating] = useState(false);
   const [estimateError, setEstimateError] = useState('');
   const [estimate, setEstimate] = useState<PublicMakerWorldEstimate | null>(null);
@@ -145,6 +151,16 @@ export function MakerWorldIntakeCard() {
       if (inflight.current === controller) setIsEstimating(false);
     }
   }
+
+  useEffect(() => {
+    if (initialUrl) {
+      void handleEstimate(initialUrl).then(() => {
+        if (initialProfileId) {
+          setSelectedProfileId(initialProfileId);
+        }
+      });
+    }
+  }, [initialUrl, initialProfileId]);
 
   /** ADR-0039: upload the screenshot (existing signed-upload flow), then send link + image path in ONE request. */
   async function handleScreenshot(file: File) {

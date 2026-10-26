@@ -1,16 +1,28 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useTranslations } from 'next-intl';
 import { Globe, ExternalLink, Sparkles, ArrowRight, Link2 } from 'lucide-react';
 import { Link, useRouter } from '@/i18n/navigation';
 import { storefrontButtonClasses } from '@/components/storefront/button';
 import { cn } from '@/lib/utils';
 
-export function MakerWorldDiscoveryBanner({ className }: { className?: string } = {}) {
+export function MakerWorldDiscoveryBanner({
+  className,
+  initialUrl = '',
+}: {
+  className?: string;
+  initialUrl?: string;
+} = {}) {
   const t = useTranslations('products');
   const router = useRouter();
-  const [inputUrl, setInputUrl] = useState('');
+  const [inputUrl, setInputUrl] = useState(initialUrl);
+
+  useEffect(() => {
+    if (initialUrl) {
+      setInputUrl(initialUrl);
+    }
+  }, [initialUrl]);
 
   function handleQuickAnalyze(e: FormEvent) {
     e.preventDefault();

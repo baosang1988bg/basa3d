@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     // Payment method has no dedicated DB column (phase-5.md decision #4 — no new column for a
     // reference-only field) — folded into customer_note as a plain line admin reads when
     // reconciling payment by hand.
-    const paymentMethodLabel = input.paymentMethod === 'BANK_TRANSFER' ? 'Thanh toán: Chuyển khoản ngân hàng' : 'Thanh toán: COD (thanh toán khi nhận hàng)';
+    const paymentMethodLabel = input.paymentMethod === 'BANK_TRANSFER' ? 'Thanh toán: Chuyển khoản ngân hàng' : 'Thanh toán: Xác nhận qua SĐT / Zalo';
     const customerNote = [paymentMethodLabel, input.customerNote].filter(Boolean).join('\n');
 
     // Explicit allowlist into createOrder — shippingFee/discount/codFee are never forwarded from

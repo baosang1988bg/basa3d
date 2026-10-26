@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { StorefrontButton, storefrontButtonClasses } from '@/components/storefront/button';
 import { Button } from '@/components/ui/button';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, PhoneCall } from 'lucide-react';
 import { formatVnd } from '@/components/storefront/format';
 import { useCart } from '@/lib/cart/cart-context';
 import {
@@ -168,15 +168,19 @@ export default function CheckoutPage() {
           </div>
 
           <fieldset className="flex flex-col gap-2">
-            <legend className="text-sm font-semibold text-foreground">Phương thức thanh toán *</legend>
-            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border p-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-              <input type="radio" name="paymentMethod" value="COD" defaultChecked className="cursor-pointer" />
-              Thanh toán khi nhận hàng (COD)
-            </label>
-            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border p-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-              <input type="radio" name="paymentMethod" value="BANK_TRANSFER" className="cursor-pointer" />
-              Chuyển khoản ngân hàng (quét mã QR ở bước xác nhận)
-            </label>
+            <legend className="text-sm font-semibold text-foreground">Hình thức thanh toán & xác nhận</legend>
+            <input type="hidden" name="paymentMethod" value="COD" />
+            <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/40 p-3.5 text-sm">
+              <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <PhoneCall className="size-4" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <p className="font-semibold text-foreground">Xác nhận qua SĐT hoặc Zalo</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Hiện tại BaSa3D chưa thu tiền trực tuyến trên web. Sau khi nhận được thông tin đặt hàng, bên mình sẽ chủ động liên hệ lại qua điện thoại hoặc tin nhắn Zalo để xác nhận chi tiết đơn hàng, thời gian in và thống nhất hình thức thanh toán thuận tiện nhất.
+                </p>
+              </div>
+            </div>
           </fieldset>
 
           <div className="flex flex-col gap-1.5">

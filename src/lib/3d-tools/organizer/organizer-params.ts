@@ -79,15 +79,12 @@ export const ORGANIZER_PRESETS: { id: PresetId; params: OrganizerParams }[] = [
   { id: 'screwSorter', params: preset({ width: 100, depth: 100, height: 30, cols: 4, rows: 4, wall: 1.2, floor: 1.2, divider: 1, radius: 2 }) },
 ];
 
-export type PrinterId = 'a1mini' | 'bambu256' | 'prusa' | 'ender3' | 'large';
+export type PrinterId = 'p2s' | 'u1';
 export const PRINTERS: { id: PrinterId; label: string; bed: [number, number] }[] = [
-  { id: 'a1mini', label: 'Bambu A1 mini', bed: [180, 180] },
-  { id: 'bambu256', label: 'Bambu A1 / P1 / X1', bed: [256, 256] },
-  { id: 'prusa', label: 'Prusa MK4 / MK3', bed: [250, 210] },
-  { id: 'ender3', label: 'Ender 3', bed: [220, 220] },
-  { id: 'large', label: 'Large 300×300', bed: [300, 300] },
+  { id: 'p2s', label: 'P2S', bed: [256, 256] },
+  { id: 'u1', label: 'U1', bed: [270, 270] },
 ];
-export const DEFAULT_PRINTER_ID: PrinterId = 'bambu256';
+export const DEFAULT_PRINTER_ID: PrinterId = 'p2s';
 
 export type TextureDef = {
   id: Exclude<WallTexture, 'none'>;

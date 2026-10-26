@@ -3,17 +3,16 @@
 // each one exists in src/data/handbook/sections.ts (importing that file here would ship all nine
 // chapters to every storefront page).
 
-export type KnowledgeNavKey = 'handbook' | 'troubleshooting' | 'materials' | 'tolerances' | 'tools' | 'blog';
+export type KnowledgeNavKey = 'handbook' | 'blog' | 'troubleshooting' | 'materials' | 'tolerances';
 
 export type KnowledgeNavItem = { key: KnowledgeNavKey; href: string };
 
 export const KNOWLEDGE_NAV_ITEMS: KnowledgeNavItem[] = [
   { key: 'handbook', href: '/cam-nang' },
+  { key: 'blog', href: '/blog' },
   { key: 'troubleshooting', href: '/cam-nang#xu-ly-loi' },
   { key: 'materials', href: '/cam-nang#vat-lieu' },
   { key: 'tolerances', href: '/cam-nang#dung-sai' },
-  { key: 'tools', href: '/tools' },
-  { key: 'blog', href: '/blog' },
 ];
 
 /** Items to show — the blog entry follows SITE_CONFIG.blogEnabled like the old top-level link. */
