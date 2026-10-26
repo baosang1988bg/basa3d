@@ -975,3 +975,39 @@ with staff Supabase Auth, OTP cost, order-claiming risk, PII retention) — see 
 **Trade-offs.** No cross-device sync, no order history. Risk on shared devices is mitigated by the
 visible checkbox + clear button + policy note. Migration to accounts later is additive: the saved
 contact can seed the profile on first sign-in.
+
+## ADR-0054 — Netlify Free as an alternative deploy target (Vercel kept working)
+
+Status: proposed (2026-10-26) — branch `chore/netlify-free`, not yet deployed
+
+**Context.** Vercel Hobby forbids commercial use (any request for payment or advertising the sale of
+a product/service — https://vercel.com/docs/limits/fair-use-guidelines). BaSa3D is a storefront with
+quotes, orders and a VietQR transfer QR, so Production on Hobby is not allowed; Vercel Pro is
+$20/month. Netlify's free plan has no non-commercial clause (owner to re-check Netlify's Terms before
+go-live). UAT can stay on Vercel Hobby (internal, no real customers or payments).
+
+**Decision.** Make the app host-agnostic for Vercel **and** Netlify instead of switching hard:
+1. `netlify.toml`: `npm run build`, publish `.next`, Node 22. Netlify's built-in Next.js runtime
+   (OpenNext) is used — no adapter dependency added.
+2. The `vercel.json` cron becomes a Netlify Scheduled Function
+   (`netlify/functions/cleanup-orphan-uploads.mts`) that calls the existing route with the same
+   `Authorization: Bearer ${CRON_SECRET}`. A test pins the schedule to `vercel.json`.
+3. **Client IP (security).** Netlify only guarantees `x-nf-client-connection-ip`; it does not promise
+   to overwrite client-sent `x-real-ip`/`x-forwarded-for`. The host is decided at BUILD time
+   (`resolveDeployPlatform`: `VERCEL=1` → vercel, `NETLIFY=true` → netlify, else other) and inlined
+   as `BASA3D_DEPLOY_PLATFORM`. Netlify builds read only `x-nf-client-connection-ip`; all other
+   builds ignore it (attacker-controlled there). Vercel/local behaviour is unchanged.
+4. Build identity: Netlify `CONTEXT` → channel (`production`, `deploy-preview`/`branch-deploy` →
+   preview), `COMMIT_REF` → commit; `APP_CHANNEL`/`APP_COMMIT_SHA`/`VERCEL_*` still win.
+5. `@vercel/speed-insights` renders only on Vercel builds.
+
+**Not covered / open risks.**
+- Vercel Firewall rate-limit rule for `/api/public/makerworld-estimate` (ADR-0033) has no free
+  Netlify equivalent configured here — keep that storefront card on the VERIFIED path on Netlify.
+- `makerworld-screenshot-estimate` exports `maxDuration = 45`; Netlify's synchronous function
+  timeout must be checked on the free plan before enabling that feature there.
+- `scripts/deploy/qc-deploy-vercel.mjs` stays Vercel-only; Netlify releases use Git-based deploys.
+- Netlify's free plan is credit-based; when credits run out the site pauses until the next cycle.
+
+**Migration cost.** Additive; switching back to Vercel needs no code change. Runbook:
+`docs/operations/deploy-netlify.md`.

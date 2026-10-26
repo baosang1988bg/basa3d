@@ -36,6 +36,7 @@
     "src/**/*.ts",
     "tests/**/*.ts",
     "scripts/stl-import/**/*.ts",
+    "netlify/**/*.mts",
     ".next-test/types/**/*.ts"
   ],
   "exclude": [
