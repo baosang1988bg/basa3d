@@ -265,7 +265,60 @@ export async function createCustomRequest(input: Record<string, unknown>, actorI
   });
   // Notified only after the transaction has committed (phase-15.md decision #1) — never inside
   // the callback above, so a rolled-back insert can never trigger a staff notification.
-  await sendStaffNotification({ type: 'CUSTOM_REQUEST', id: created.id, code: created.requestNumber });
+  const customerName = typeof input.customerName === 'string' ? input.customerName : null;
+  const customerPhone = typeof input.customerPhone === 'string' ? input.customerPhone : null;
+  const quantity = typeof input.quantity === 'number' ? input.quantity : null;
+  const material = typeof input.requestedMaterial === 'string' ? input.requestedMaterial : null;
+  const description = typeof input.description === 'string' ? input.description : null;
+  const quoteSnapshot = input.quoteEstimateSnapshot as { priceVnd?: number } | null | undefined;
+  const mwSnapshot = input.makerworldSnapshot as {
+    sourceUrl?: string;
+    modelTitle?: string;
+    profileTitle?: string;
+    estimatedPriceVnd?: number;
+  } | null | undefined;
+  const totalVnd = quoteSnapshot?.priceVnd ?? mwSnapshot?.estimatedPriceVnd ?? null;
+
+  let modelUrl: string | null = null;
+  let modelTitle: string | null = null;
+
+  if (mwSnapshot?.sourceUrl) {
+    modelUrl = mwSnapshot.sourceUrl;
+    modelTitle = mwSnapshot.modelTitle ? `MakerWorld: ${mwSnapshot.modelTitle}` : 'Xem trên MakerWorld';
+  } else if (typeof input.attachmentPath === 'string' && input.attachmentPath) {
+    modelTitle = input.attachmentPath.split('/').pop() ?? 'File 3D đính kèm';
+    try {
+      modelUrl = await createCustomRequestAttachmentSignedUrl(input.attachmentPath, 7 * 24 * 3600);
+    } catch {
+      // Non-fatal
+    }
+  } else if (Array.isArray(input.items) && input.items.length > 0) {
+    const firstItem = input.items[0] as { displayName?: string; attachmentPath?: string };
+    if (firstItem?.displayName) {
+      modelTitle = input.items.length === 1 ? firstItem.displayName : `${input.items.length} file 3D (${firstItem.displayName})`;
+    }
+    if (firstItem?.attachmentPath) {
+      try {
+        modelUrl = await createCustomRequestAttachmentSignedUrl(firstItem.attachmentPath, 7 * 24 * 3600);
+      } catch {
+        // Non-fatal
+      }
+    }
+  }
+
+  await sendStaffNotification({
+    type: 'CUSTOM_REQUEST',
+    id: created.id,
+    code: created.requestNumber,
+    customerName,
+    customerPhone,
+    quantity,
+    material,
+    description,
+    totalVnd,
+    modelUrl,
+    modelTitle,
+  });
   return created;
 }
 
