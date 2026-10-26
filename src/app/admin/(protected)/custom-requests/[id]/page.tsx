@@ -24,6 +24,7 @@ import { ReverifyItemButton } from '@/components/admin/reverify-item-button';
 import { CopyQuoteLinksButton } from '@/components/admin/copy-quote-links-button';
 import { AutoLinkText } from '@/components/ui/auto-link-text';
 import { parseMakerWorldSpecText } from '@/lib/parsers/makerworld-spec-text';
+import { parseMakerWorldDescription } from '@/lib/parsers/makerworld-description';
 
 function getModelDisplayTitle(sourceUrl: string, modelTitle?: string | null, profileTitle?: string | null): string {
   if (modelTitle && modelTitle !== profileTitle && !/^\d+(\.\d+)?\s*mm\s+layer/i.test(modelTitle)) {
@@ -108,6 +109,30 @@ export default async function CustomRequestDetailPage({ params, searchParams }: 
 
   const now = Date.now();
 
+  const parsedDesc = parseMakerWorldDescription(customRequest.description);
+  const isMakerWorld = Boolean(customRequest.makerworldSnapshot || parsedDesc.isMakerWorld);
+  const effectiveMkw = isMakerWorld ? {
+    sourceUrl: customRequest.makerworldSnapshot?.sourceUrl || parsedDesc.sourceUrl || '',
+    modelId: customRequest.makerworldSnapshot?.modelId || (parsedDesc.sourceUrl ? parsedDesc.sourceUrl.match(/\/models\/(\d+)/)?.[1] ?? null : null),
+    profileId: customRequest.makerworldSnapshot?.profileId || parsedDesc.profileId || null,
+    modelTitle: customRequest.makerworldSnapshot?.modelTitle || parsedDesc.modelTitle || null,
+    profileTitle: customRequest.makerworldSnapshot?.profileTitle || parsedDesc.profileTitle || null,
+    tier: customRequest.makerworldSnapshot?.tier || parsedDesc.tier || 'ASSEMBLED',
+    profileConfirmed: true as const,
+    estimateSource: (customRequest.makerworldSnapshot?.estimateSource && customRequest.makerworldSnapshot.estimateSource !== 'NONE')
+      ? customRequest.makerworldSnapshot.estimateSource
+      : (parsedDesc.estimatedPriceVnd ? 'AUTO' as const : 'NONE' as const),
+    estimatedPriceVnd: customRequest.makerworldSnapshot?.estimatedPriceVnd ?? parsedDesc.estimatedPriceVnd,
+    estimatedAt: customRequest.makerworldSnapshot?.estimatedAt ?? customRequest.createdAt.toISOString(),
+    specText: customRequest.makerworldSnapshot?.specText || (parsedDesc.printTimeText ? `${parsedDesc.printTimeText} · ${parsedDesc.weightText ?? ''} · ${parsedDesc.platesText ?? ''} · ${parsedDesc.printerTarget ?? ''} · ${parsedDesc.amsText ?? ''}`.trim() : null),
+    screenshot: customRequest.makerworldSnapshot?.screenshot,
+  } : null;
+
+  const displayMaterial = customRequest.requestedMaterial || parsedDesc.material || (isMakerWorld ? 'PLA' : null);
+  const displayColor = customRequest.requestedColor || parsedDesc.requestedColor || (parsedDesc.fileColors ? `${parsedDesc.fileColors}` : null);
+  const displaySize = customRequest.requestedSize || null;
+  const defaultSubtotalValue = prefillSubtotal ?? (effectiveMkw?.estimatedPriceVnd ? effectiveMkw.estimatedPriceVnd * customRequest.quantity : null);
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -134,14 +159,49 @@ export default async function CustomRequestDetailPage({ params, searchParams }: 
       <Card>
         <CardHeader><CardTitle>Thông tin yêu cầu</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-2 gap-4 text-sm">
-          <div><p className="text-muted-foreground">Khách hàng</p><p>{customRequest.customerName}</p></div>
-          <div><p className="text-muted-foreground">Số điện thoại</p><p>{customRequest.customerPhone}</p></div>
-          <div><p className="text-muted-foreground">Email</p><p>{customRequest.customerEmail ?? '—'}</p></div>
-          <div><p className="text-muted-foreground">Số lượng</p><p>{customRequest.quantity}</p></div>
-          <div><p className="text-muted-foreground">Chất liệu yêu cầu</p><p>{customRequest.requestedMaterial ?? '—'}</p></div>
-          <div><p className="text-muted-foreground">Màu sắc yêu cầu</p><p>{customRequest.requestedColor ?? '—'}</p></div>
-          <div><p className="text-muted-foreground">Kích thước yêu cầu</p><p>{customRequest.requestedSize ?? '—'}</p></div>
-          <div><p className="text-muted-foreground">Ngày tạo</p><p>{new Date(customRequest.createdAt).toLocaleString('vi-VN')}</p></div>
+          <div><p className="text-muted-foreground">Khách hàng</p><p className="font-medium text-foreground">{customRequest.customerName}</p></div>
+          <div>
+            <p className="text-muted-foreground">Số điện thoại</p>
+            <p className="font-medium text-foreground">
+              <a href={`tel:${customRequest.customerPhone}`} className="hover:text-primary transition-colors underline-offset-2 hover:underline">
+                {customRequest.customerPhone}
+              </a>
+            </p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Email</p>
+            <p className="font-medium text-foreground">
+              {customRequest.customerEmail ? (
+                <a href={`mailto:${customRequest.customerEmail}`} className="hover:text-primary transition-colors underline-offset-2 hover:underline">
+                  {customRequest.customerEmail}
+                </a>
+              ) : '—'}
+            </p>
+          </div>
+          <div><p className="text-muted-foreground">Số lượng</p><p className="font-medium text-foreground">{customRequest.quantity}</p></div>
+          <div>
+            <p className="text-muted-foreground">Chất liệu yêu cầu</p>
+            <p className="font-medium text-foreground">
+              {displayMaterial ?? '—'}
+              {!customRequest.requestedMaterial && parsedDesc.material ? (
+                <span className="ml-1 text-xs font-normal text-muted-foreground">(từ file mẫu)</span>
+              ) : null}
+            </p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Màu sắc yêu cầu</p>
+            <p className="font-medium text-foreground">
+              {displayColor ?? '—'}
+              {!customRequest.requestedColor && parsedDesc.fileColors ? (
+                <span className="ml-1 text-xs font-normal text-muted-foreground">(màu theo file)</span>
+              ) : null}
+            </p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Kích thước yêu cầu</p>
+            <p className="font-medium text-foreground">{displaySize ?? '—'}</p>
+          </div>
+          <div><p className="text-muted-foreground">Ngày tạo</p><p className="font-medium text-foreground">{new Date(customRequest.createdAt).toLocaleString('vi-VN')}</p></div>
           <div className="col-span-2">
             <p className="text-muted-foreground">File đính kèm / Ảnh mẫu</p>
             {attachmentSignedUrl ? (
@@ -152,10 +212,10 @@ export default async function CustomRequestDetailPage({ params, searchParams }: 
               <p className="text-muted-foreground">Chưa có file đính kèm</p>
             )}
           </div>
-          {customRequest.makerworldSnapshot ? (() => {
-            const mw = customRequest.makerworldSnapshot;
+          {effectiveMkw ? (() => {
+            const mw = effectiveMkw;
             const parsedSpec = mw.specText ? parseMakerWorldSpecText(mw.specText) : null;
-            const modelDisplayTitle = getModelDisplayTitle(mw.sourceUrl, mw.modelTitle, mw.profileTitle);
+            const modelDisplayTitle = mw.modelTitle || getModelDisplayTitle(mw.sourceUrl, mw.modelTitle, mw.profileTitle);
             const sourceBadge = mw.estimateSource === 'VERIFIED'
               ? { label: 'Giá đã duyệt (Verified)', variant: 'default' as const }
               : mw.estimateSource === 'AUTO'
@@ -164,9 +224,17 @@ export default async function CustomRequestDetailPage({ params, searchParams }: 
                   ? { label: 'Khách dán thông số / Nhập tay (Spec)', variant: 'outline' as const }
                   : mw.estimateSource === 'SCREENSHOT'
                     ? { label: 'AI đọc từ ảnh chụp (Screenshot)', variant: 'outline' as const }
-                    : { label: 'Chưa có giá tham khảo', variant: 'secondary' as const };
+                    : mw.estimatedPriceVnd
+                      ? { label: 'Giá ước tính storefront', variant: 'secondary' as const }
+                      : { label: 'Chưa có giá tham khảo', variant: 'secondary' as const };
             const shot = mw.screenshot;
             const matchLabel = shot?.matchStatus === 'MATCH' ? 'Khớp link' : shot?.matchStatus === 'MISMATCH' ? 'KHÔNG khớp link' : 'Chưa đối chiếu được';
+
+            const printMinutesVal = parsedSpec?.printMinutes ?? parsedDesc.printMinutes;
+            const weightGramsVal = parsedSpec?.netWeightGrams ?? parsedDesc.weightGrams;
+            const platesCountVal = parsedSpec?.platesCount ?? parsedDesc.platesCount;
+            const printerTargetVal = parsedSpec?.printerTarget ?? parsedDesc.printerTarget;
+            const amsRequiredVal = parsedSpec?.amsRequired ?? parsedDesc.amsRequired;
 
             return (
               <div className="col-span-2 flex flex-col gap-3 rounded-lg border border-emerald-600/40 bg-emerald-600/5 p-4 text-sm">
@@ -176,15 +244,20 @@ export default async function CustomRequestDetailPage({ params, searchParams }: 
                     <Badge variant={sourceBadge.variant}>{sourceBadge.label}</Badge>
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    Phương án: <strong className="text-foreground">{ASSEMBLY_TIERS[mw.tier].label}</strong>
+                    Phương án: <strong className="text-foreground">{ASSEMBLY_TIERS[mw.tier]?.label ?? parsedDesc.tierLabel ?? 'Bản Ráp sẵn'}</strong>
                   </span>
                 </div>
 
                 <div className="flex flex-col gap-0.5">
                   <span className="text-xs text-muted-foreground">Mô hình &amp; Liên kết gốc</span>
-                  <a href={mw.sourceUrl} target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline break-all">
-                    🔗 {modelDisplayTitle}
-                  </a>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <a href={mw.sourceUrl} target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline break-all">
+                      🔗 {modelDisplayTitle}
+                    </a>
+                    {parsedDesc.author ? (
+                      <span className="text-xs text-muted-foreground">· Tác giả: <strong className="font-medium text-foreground">{parsedDesc.author}</strong></span>
+                    ) : null}
+                  </div>
                 </div>
 
                 {/* Bảng dữ liệu đã lưu trước đó để đối chiếu */}
@@ -206,31 +279,31 @@ export default async function CustomRequestDetailPage({ params, searchParams }: 
                     <div>
                       <span className="text-muted-foreground block">Thời gian in</span>
                       <span className="font-medium text-foreground">
-                        {parsedSpec?.printMinutes != null ? `${Math.round(parsedSpec.printMinutes / 60 * 10) / 10}h (${parsedSpec.printMinutes}p)` : 'Chưa có'}
+                        {printMinutesVal != null ? `${Math.round(printMinutesVal / 60 * 10) / 10}h (${printMinutesVal}p)` : 'Chưa có'}
                       </span>
                     </div>
                     <div>
                       <span className="text-muted-foreground block">Trọng lượng (net)</span>
-                      <span className="font-medium text-foreground">{parsedSpec?.netWeightGrams != null ? `${parsedSpec.netWeightGrams}g` : 'Chưa có'}</span>
+                      <span className="font-medium text-foreground">{weightGramsVal != null ? `${weightGramsVal}g` : 'Chưa có'}</span>
                     </div>
                     <div>
                       <span className="text-muted-foreground block">Số plate</span>
-                      <span className="font-medium text-foreground">{parsedSpec?.platesCount != null ? `${parsedSpec.platesCount} plates` : 'Chưa có'}</span>
+                      <span className="font-medium text-foreground">{platesCountVal != null ? `${platesCountVal} plates` : 'Chưa có'}</span>
                     </div>
                     <div>
                       <span className="text-muted-foreground block">Máy in mục tiêu</span>
-                      <span className="font-medium text-foreground">{parsedSpec?.printerTarget ?? 'Chưa rõ'}</span>
+                      <span className="font-medium text-foreground">{printerTargetVal ?? 'Chưa rõ'}</span>
                     </div>
                     <div>
                       <span className="text-muted-foreground block">Hệ thống AMS</span>
                       <span className="font-medium text-foreground">
-                        {parsedSpec?.amsRequired === false ? 'Không AMS' : parsedSpec?.amsRequired === true ? 'Có AMS' : 'Chưa rõ'}
+                        {amsRequiredVal === false ? 'Không AMS' : amsRequiredVal === true ? 'Có AMS (Đa màu)' : 'Chưa rõ'}
                       </span>
                     </div>
                     <div>
                       <span className="text-muted-foreground block">Giá tham khảo khách thấy</span>
                       <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                        {mw.estimatedPriceVnd !== null ? `${mw.estimatedPriceVnd.toLocaleString('vi-VN')}đ` : 'Chưa có giá'}
+                        {mw.estimatedPriceVnd !== null && mw.estimatedPriceVnd !== undefined ? `${mw.estimatedPriceVnd.toLocaleString('vi-VN')}đ` : 'Chưa có giá'}
                       </span>
                     </div>
                     <div>
@@ -259,7 +332,7 @@ export default async function CustomRequestDetailPage({ params, searchParams }: 
 
                   {mw.specText && !shot ? (
                     <div className="mt-2.5 pt-2 border-t border-border/50 text-xs">
-                      <span className="text-muted-foreground block mb-1">Đoạn thông số khách dán ban đầu:</span>
+                      <span className="text-muted-foreground block mb-1">Đoạn thông số ghi nhận:</span>
                       <code className="block rounded bg-muted/60 px-2 py-1 font-mono text-[11px] text-foreground break-words select-all">
                         {mw.specText}
                       </code>
@@ -295,7 +368,31 @@ export default async function CustomRequestDetailPage({ params, searchParams }: 
               </p>
             </div>
           ) : null}
-          <div className="col-span-2"><p className="text-muted-foreground">Mô tả</p><p className="whitespace-pre-wrap"><AutoLinkText text={customRequest.description} /></p></div>
+          <div className="col-span-2">
+            <p className="text-muted-foreground">Mô tả / Ghi chú của khách</p>
+            {parsedDesc.isMakerWorld ? (
+              <div className="mt-1 flex flex-col gap-2">
+                {parsedDesc.customerNote ? (
+                  <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-sm text-foreground">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-primary mb-1">Ghi chú từ khách hàng:</p>
+                    <p className="whitespace-pre-wrap"><AutoLinkText text={parsedDesc.customerNote} /></p>
+                  </div>
+                ) : (
+                  <p className="text-sm italic text-muted-foreground">Không có ghi chú thêm từ khách hàng (thông số kỹ thuật MakerWorld đã được tổng hợp ở bảng trên).</p>
+                )}
+                <details className="text-xs text-muted-foreground group">
+                  <summary className="cursor-pointer hover:text-foreground select-none py-1 transition-colors">
+                    ▶ Xem nội dung đầy đủ từ storefront (raw text)
+                  </summary>
+                  <pre className="mt-1.5 p-2.5 rounded bg-muted/60 text-[11px] font-mono text-foreground/80 whitespace-pre-wrap break-words border border-border/40">
+                    {customRequest.description}
+                  </pre>
+                </details>
+              </div>
+            ) : (
+              <p className="whitespace-pre-wrap mt-1"><AutoLinkText text={customRequest.description} /></p>
+            )}
+          </div>
           {customRequest.internalNote ? (
             <div className="col-span-2"><p className="text-muted-foreground">Ghi chú nội bộ</p><p className="whitespace-pre-wrap"><AutoLinkText text={customRequest.internalNote} /></p></div>
           ) : null}
@@ -477,19 +574,19 @@ export default async function CustomRequestDetailPage({ params, searchParams }: 
               {/* B7: exactly one pricing tool mounted at a time — see QuoteToolSwitcher. */}
               <QuoteToolSwitcher
                 materials={materials} config={pricingConfig} priceInputIds={['subtotal']}
-                initialMakerWorld={customRequest.makerworldSnapshot ? {
-                  url: customRequest.makerworldSnapshot.sourceUrl,
-                  tier: customRequest.makerworldSnapshot.tier,
-                  specText: customRequest.makerworldSnapshot.specText,
-                  profileTitle: customRequest.makerworldSnapshot.profileTitle,
-                  estimatedPriceVnd: customRequest.makerworldSnapshot.estimatedPriceVnd,
-                  estimateSource: customRequest.makerworldSnapshot.estimateSource,
-                  modelTitle: customRequest.makerworldSnapshot.modelTitle,
+                initialMakerWorld={effectiveMkw ? {
+                  url: effectiveMkw.sourceUrl,
+                  tier: effectiveMkw.tier,
+                  specText: effectiveMkw.specText,
+                  profileTitle: effectiveMkw.profileTitle,
+                  estimatedPriceVnd: effectiveMkw.estimatedPriceVnd,
+                  estimateSource: effectiveMkw.estimateSource,
+                  modelTitle: effectiveMkw.modelTitle,
                 } : null}
               />
             </div>
             {/* Phase 33 S1: VAT line (read-only) + derived total, from the CURRENT pricing config. */}
-            <QuoteTotalsFields vatEnabled={pricingConfig?.vatEnabled ?? false} vatRateBps={pricingConfig?.vatRateBps ?? 0} defaultSubtotal={prefillSubtotal} />
+            <QuoteTotalsFields vatEnabled={pricingConfig?.vatEnabled ?? false} vatRateBps={pricingConfig?.vatRateBps ?? 0} defaultSubtotal={defaultSubtotalValue} />
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="validUntil">Hiệu lực đến</Label>
               <Input id="validUntil" name="validUntil" type="datetime-local" required />
