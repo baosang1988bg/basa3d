@@ -14,6 +14,8 @@ import {
   MessageCircle,
 } from 'lucide-react';
 import { CURRENT_TOS_VERSION } from '@/lib/copyright/tos-version';
+import { useContactStatePrefill, useSavedContact } from '@/lib/customer/use-saved-contact';
+import { RememberContactOption } from '@/components/storefront/remember-contact-option';
 import { calculateMeshVolumeCm3, estimateMeshWeightGrams, estimatePrintMinutes } from '@/lib/pricing/mesh-estimator';
 import { uploadCustomRequestFile } from '@/lib/uploads/upload-custom-request-file';
 import { trackKeychainExportToRequest } from '@/lib/analytics';
@@ -64,6 +66,8 @@ export function KeychainOrderModal({
   const [status, setStatus] = useState<'idle' | 'uploading_file' | 'submitting' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [requestNumber, setRequestNumber] = useState('');
+  const savedContact = useSavedContact();
+  useContactStatePrefill(savedContact.contact, { name: setCustomerName, phone: setCustomerPhone, email: setCustomerEmail });
 
   // Sync color description when opened
   useEffect(() => {
@@ -164,6 +168,7 @@ export function KeychainOrderModal({
         return;
       }
 
+      savedContact.saveAfterSubmit({ name: customerName, phone: customerPhone, email: customerEmail });
       setStatus('success');
       setRequestNumber(data?.requestNumber || '');
       trackKeychainExportToRequest({ characterCount: text.trim().length, hasKeyringHole: includeKeyringHole });
@@ -378,6 +383,8 @@ export function KeychainOrderModal({
                     <input
                       id="keychainCustomerName"
                       type="text"
+                      autoComplete="name"
+                      maxLength={200}
                       required
                       placeholder="Nguyễn Văn A"
                       value={customerName}
@@ -393,6 +400,8 @@ export function KeychainOrderModal({
                     <input
                       id="keychainCustomerPhone"
                       type="tel"
+                      autoComplete="tel"
+                      maxLength={30}
                       required
                       placeholder="0912 345 678"
                       value={customerPhone}
@@ -425,6 +434,8 @@ export function KeychainOrderModal({
                     <input
                       id="keychainCustomerEmail"
                       type="email"
+                      autoComplete="email"
+                      maxLength={320}
                       placeholder="email@example.com"
                       value={customerEmail}
                       onChange={(e) => setCustomerEmail(e.target.value)}
@@ -479,6 +490,13 @@ export function KeychainOrderModal({
               </div>
 
               {/* Error Alert */}
+              <RememberContactOption
+                remember={savedContact.remember}
+                onRememberChange={savedContact.setRemember}
+                hasSaved={savedContact.contact !== null}
+                onClear={savedContact.clear}
+              />
+
               {errorMessage ? (
                 <div className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
                   <AlertCircle className="size-4 shrink-0" />

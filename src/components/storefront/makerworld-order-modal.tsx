@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { formatVnd } from '@/components/storefront/format';
 import { CURRENT_TOS_VERSION } from '@/lib/copyright/tos-version';
+import { useContactStatePrefill, useSavedContact } from '@/lib/customer/use-saved-contact';
+import { RememberContactOption } from '@/components/storefront/remember-contact-option';
 import type { MakerWorldCnModelDetail } from '@/services/makerworld-cn-pricing.service';
 
 function formatPrintTime(minutes: number): string {
@@ -64,6 +66,8 @@ export function MakerWorldOrderModal({
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [requestNumber, setRequestNumber] = useState('');
+  const savedContact = useSavedContact();
+  useContactStatePrefill(savedContact.contact, { name: setCustomerName, phone: setCustomerPhone, email: setCustomerEmail });
 
   // Sync profile when initialProfileId changes
   useEffect(() => {
@@ -174,6 +178,7 @@ export function MakerWorldOrderModal({
         return;
       }
 
+      savedContact.saveAfterSubmit({ name: customerName, phone: customerPhone, email: customerEmail });
       setStatus('success');
       setRequestNumber(data?.requestNumber || '');
     } catch {
@@ -477,6 +482,7 @@ export function MakerWorldOrderModal({
                     </label>
                     <input
                       id="orderCustomerName"
+                      autoComplete="name"
                       required
                       maxLength={200}
                       placeholder="Ví dụ: Nguyễn Văn A"
@@ -493,6 +499,7 @@ export function MakerWorldOrderModal({
                     <input
                       id="orderCustomerPhone"
                       type="tel"
+                      autoComplete="tel"
                       required
                       maxLength={30}
                       placeholder="098xxxxxxx"
@@ -509,6 +516,7 @@ export function MakerWorldOrderModal({
                     <input
                       id="orderCustomerEmail"
                       type="email"
+                      autoComplete="email"
                       maxLength={320}
                       placeholder="name@example.com"
                       value={customerEmail}
@@ -580,6 +588,13 @@ export function MakerWorldOrderModal({
               </div>
 
               {/* Error Alert */}
+              <RememberContactOption
+                remember={savedContact.remember}
+                onRememberChange={savedContact.setRemember}
+                hasSaved={savedContact.contact !== null}
+                onClear={savedContact.clear}
+              />
+
               {errorMessage ? (
                 <div className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
                   <AlertCircle className="size-4 shrink-0" />

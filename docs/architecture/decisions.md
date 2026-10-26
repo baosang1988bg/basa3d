@@ -950,3 +950,28 @@ profile wins. Old tools can opt in later one at a time, each with its own snapsh
 3. **External 3MF Download Bridge:** Instead of proxying binary streams through Vercel, the Admin quote panel provides a direct bridge button to `https://mwc.3dhubvn.net/makerworld-cn` (a community tool with authenticated mainland tokens) so staff can download 3MF files directly to workshop machines.
 4. **Region Routing for ID Disambiguation:** MakerWorld Global (`makerworld.com`) and MakerWorld China (`makerworld.com.cn`) use independent numeric ID spaces. To prevent ID collisions (e.g., ID 2851863 being "Ace Snail Stand" on Global but "Food Scoop" on China), the resolver branches strictly: global URLs query `https://api.bambulab.com`, whereas China URLs query `https://api.bambulab.cn` (and fallback to 3DHubVN).
 5. **Client-Side 3D Mesh Preview:** On the `/tools/makerworld-cn` storefront tool, 3MF geometry is parsed directly in the user's browser using `fflate` via `threeMfToPositions` and rendered with Three.js (360° orbit rotation, zoom, mm bounding box dimensions).
+
+## ADR-0053 — Remember guest contact details per device instead of customer accounts
+
+Status: accepted (2026-10-26)
+
+**Context.** Repeat customers re-type name/phone/address on every order or quote form (checkout,
+/custom-print, /bao-gia, MakerWorld order modal + intake card, keychain modal). None of those inputs
+had `autocomplete` hints. Customer accounts remain in requirements.md "Later" (auth surface shared
+with staff Supabase Auth, OTP cost, order-claiming risk, PII retention) — see ADR-0014.
+
+**Decision.**
+1. Every public contact input carries standard `autocomplete` tokens (`name`, `tel`, `email`,
+   `shipping street-address`, `shipping address-level2` for Phường/Xã, `shipping address-level1`
+   for Tỉnh/Thành) so the OS/browser autofill works.
+2. Opt-out "Ghi nhớ thông tin liên hệ trên thiết bị này" checkbox (default ticked) on all six forms.
+   After a **successful** submit the contact is saved to `localStorage`
+   (`basa3d_saved_contact:v1`, `src/lib/customer/saved-contact.ts`); unticking it and submitting —
+   or "Xoá thông tin đã lưu" — removes it. Next visit prefills only empty fields. Non-empty submitted
+   values win; a form without address fields never wipes a saved address.
+3. Nothing new is sent to or stored on the server; the server still validates every field (Zod) —
+   the saved value is a prefill only. Privacy policy states this (section 2 device note).
+
+**Trade-offs.** No cross-device sync, no order history. Risk on shared devices is mitigated by the
+visible checkbox + clear button + policy note. Migration to accounts later is additive: the saved
+contact can seed the profile on first sign-in.

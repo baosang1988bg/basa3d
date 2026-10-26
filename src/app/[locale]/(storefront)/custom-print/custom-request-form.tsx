@@ -12,6 +12,9 @@ import type { InstantOptionKey } from '@/services/instant-estimate.service';
 import { MAX_UPLOAD_BYTES, UPLOAD_EXTENSIONS, formatUploadLimitMb } from '@/config/uploads';
 import { uploadCustomRequestFile } from '@/lib/uploads/upload-custom-request-file';
 import { DEFAULT_PRINTER_TARGET_ID, type PrinterProfileId } from '@/lib/pricing/printer-profiles';
+import { contactFromFormData } from '@/lib/customer/saved-contact';
+import { useContactFormPrefill, useSavedContact } from '@/lib/customer/use-saved-contact';
+import { RememberContactOption } from '@/components/storefront/remember-contact-option';
 
 type SubmitState = { status: 'idle' | 'submitting' | 'success' | 'error'; message?: string };
 type UploadState = { status: 'idle' | 'uploading' | 'done' | 'error'; fileName?: string; message?: string };
@@ -103,6 +106,8 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
   const [printerTarget, setPrinterTarget] = useState<PrinterProfileId>(DEFAULT_PRINTER_TARGET_ID);
   // Tool-generated designs (prefill) already have a price on the tool page — go straight to contact.
   const [showContact, setShowContact] = useState(Boolean(prefill));
+  const savedContact = useSavedContact();
+  const prefillFormRef = useContactFormPrefill(savedContact.contact, showContact);
   const inflight = useRef<AbortController | null>(null);
 
   const extension = (upload.fileName ?? attachmentPath).toLowerCase().split('.').pop() ?? '';
@@ -262,6 +267,7 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
         setState({ status: 'error', message: fileProblem && body.message ? body.message : 'Có lỗi xảy ra, vui lòng kiểm tra lại thông tin.' });
         return;
       }
+      savedContact.saveAfterSubmit(contactFromFormData(form));
       trackCustomPrintQuote({ material: payload.requestedMaterial, color: payload.requestedColor, quantity: payload.quantity, hasAttachment: payload.attachmentPath !== null });
       setState({ status: 'success' });
     } catch {
@@ -284,7 +290,7 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6 rounded-xl border border-border bg-card p-6 shadow-xs">
+    <form ref={prefillFormRef} onSubmit={handleSubmit} className="flex flex-col gap-6 rounded-xl border border-border bg-card p-6 shadow-xs">
       {/* Honeypot: visually hidden from real users */}
       <div className="absolute -left-[9999px]" aria-hidden="true">
         <label htmlFor="company-website">Company website</label>
@@ -515,15 +521,15 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
           <p className="font-heading text-lg font-bold text-foreground md:col-span-2">2. Thông tin liên hệ để xưởng xác nhận</p>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="customerName" className="text-sm font-semibold text-foreground">Họ tên *</label>
-            <input id="customerName" name="customerName" required maxLength={200} placeholder="Ví dụ: Nguyễn Văn A" className={inputClass} />
+            <input id="customerName" name="customerName" autoComplete="name" required maxLength={200} placeholder="Ví dụ: Nguyễn Văn A" className={inputClass} />
           </div>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="customerPhone" className="text-sm font-semibold text-foreground">SĐT / Zalo liên hệ *</label>
-            <input id="customerPhone" name="customerPhone" required maxLength={30} placeholder="098xxxxxxx" className={inputClass} />
+            <input id="customerPhone" name="customerPhone" type="tel" inputMode="tel" autoComplete="tel" required maxLength={30} placeholder="098xxxxxxx" className={inputClass} />
           </div>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="customerEmail" className="text-sm font-semibold text-foreground">Email (không bắt buộc)</label>
-            <input id="customerEmail" name="customerEmail" type="email" maxLength={320} placeholder="name@example.com" className={inputClass} />
+            <input id="customerEmail" name="customerEmail" type="email" autoComplete="email" maxLength={320} placeholder="name@example.com" className={inputClass} />
           </div>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="requestedColor" className="text-sm font-semibold text-foreground">Màu sắc yêu cầu</label>
@@ -543,6 +549,13 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
             />
           </div>
 
+          <RememberContactOption
+            className="md:col-span-2"
+            remember={savedContact.remember}
+            onRememberChange={savedContact.setRemember}
+            hasSaved={savedContact.contact !== null}
+            onClear={savedContact.clear}
+          />
           {state.status === 'error' && <p role="alert" className="text-sm font-medium text-destructive md:col-span-2">{state.message}</p>}
 
           <div className="flex items-start gap-2 md:col-span-2">
