@@ -34,6 +34,20 @@ export type MakerWorldCnModelDetail = {
   profiles: MakerWorldCnProfile[];
 };
 
+export function canonicalMaterialType(type: string | null | undefined): string {
+  if (!type) return 'PLA';
+  const norm = type.trim().toUpperCase();
+  if (norm.startsWith('PLA')) return 'PLA';
+  if (norm.startsWith('PETG')) return 'PETG';
+  if (norm.startsWith('ABS')) return 'ABS';
+  if (norm.startsWith('TPU')) return 'TPU';
+  if (norm.startsWith('ASA')) return 'ASA';
+  if (norm.startsWith('PC')) return 'PC';
+  if (norm.startsWith('PA') || norm.startsWith('NYLON')) return 'PA';
+  if (norm.startsWith('RESIN')) return 'RESIN';
+  return norm || 'PLA';
+}
+
 export async function attachInstantEstimates(
   detail: MakerWorldCnModelDetail,
   pricingCtxLoader = loadPricingContext
@@ -44,7 +58,7 @@ export async function attachInstantEstimates(
 
     for (const profile of detail.profiles) {
       if (profile.printTimeMinutes > 0 && profile.weightGrams > 0) {
-        const primaryMaterial = profile.filaments[0]?.type || 'PLA';
+        const primaryMaterial = canonicalMaterialType(profile.filaments[0]?.type || 'PLA');
         const colorsCount = profile.filaments.length > 0 ? profile.filaments.length : 1;
         const estimate = estimateFromSpec(
           ctx,

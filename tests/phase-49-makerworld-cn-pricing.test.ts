@@ -102,6 +102,50 @@ test('attachInstantEstimates calculates rounded VND prices for single and multi-
   assert.equal(p3.priceTiers, undefined);
 });
 
+test('attachInstantEstimates prices real-world Bambu filament types like PLA Basic and PETG Basic', async () => {
+  const detail = createSampleDetail();
+  detail.profiles[0].filaments = [{ name: 'Trắng', colorHex: '#ffffff', type: 'PLA Basic', weightGrams: 120 }];
+  detail.profiles[1].filaments = [{ name: 'Đen', colorHex: '#000000', type: 'PETG Basic', weightGrams: 280 }];
+
+  const enriched = await attachInstantEstimates(detail, async () => mockPricingContext);
+  assert.ok(typeof enriched.profiles[0].estimatedPriceVnd === 'number' && enriched.profiles[0].estimatedPriceVnd > 0);
+  assert.ok(typeof enriched.profiles[1].estimatedPriceVnd === 'number' && enriched.profiles[1].estimatedPriceVnd > 0);
+});
+
+test('attachInstantEstimates correctly prices large multi-plate profile (user report: 66h 2p, 1720g, 7 plates, AMS)', async () => {
+  const detail: MakerWorldCnModelDetail = {
+    modelId: '999999',
+    isChinaModel: true,
+    title: 'Mẫu in lớn',
+    coverImageUrl: null,
+    author: 'Author',
+    license: 'CC',
+    sourceUrl: 'https://makerworld.com.cn/zh/models/999999',
+    summary: null,
+    profiles: [
+      {
+        profileId: '1',
+        title: '头部 0.2mm 层高, 5 层墙, 5% 填充',
+        coverImageUrl: null,
+        printerTarget: 'P1S',
+        printTimeMinutes: 66 * 60 + 2, // 66h 2p = 3962
+        weightGrams: 1720,
+        platesCount: 7,
+        amsRequired: true,
+        filaments: [{ name: 'Màu 1', colorHex: '#ffffff', type: 'PLA Basic', weightGrams: 1720 }],
+      },
+    ],
+  };
+
+  const enriched = await attachInstantEstimates(detail, async () => mockPricingContext);
+  const p = enriched.profiles[0];
+  assert.ok(typeof p.estimatedPriceVnd === 'number' && p.estimatedPriceVnd > 0);
+  assert.equal(p.estimatedPriceVnd % 5_000, 0);
+  assert.ok(p.priceTiers);
+  assert.ok(typeof p.priceTiers.assembledVnd === 'number');
+  assert.ok(typeof p.priceTiers.kitVnd === 'number');
+});
+
 test('attachInstantEstimates gracefully handles missing pricing context without crashing', async () => {
   const detail = createSampleDetail();
   const enriched = await attachInstantEstimates(detail, async () => null);

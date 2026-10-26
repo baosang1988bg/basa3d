@@ -165,6 +165,19 @@ function normalizeType(type: string | null | undefined): string {
   return (type ?? 'PLA').trim().toUpperCase() || 'PLA';
 }
 
+export function resolveMaterialCost(medians: Map<string, number>, materialType: string | null | undefined): number | null {
+  const norm = normalizeType(materialType);
+  if (medians.has(norm)) return medians.get(norm)!;
+  if (norm.startsWith('PLA')) return medians.get('PLA') ?? null;
+  if (norm.startsWith('PETG')) return medians.get('PETG') ?? null;
+  if (norm.startsWith('ABS')) return medians.get('ABS') ?? null;
+  if (norm.startsWith('TPU')) return medians.get('TPU') ?? null;
+  if (norm.startsWith('ASA')) return medians.get('ASA') ?? null;
+  if (norm.startsWith('PC')) return medians.get('PC') ?? null;
+  if (norm.startsWith('PA') || norm.startsWith('NYLON')) return medians.get('PA') ?? null;
+  return medians.get('PLA') ?? null;
+}
+
 type Filament = { name: string; materialType: string; netWeightGrams: number; extraWaste?: 'NONE' };
 
 function priceOptions(ctx: PricingContext, input: {
@@ -184,7 +197,7 @@ function priceOptions(ctx: PricingContext, input: {
       amsRequired: input.amsRequired,
       tier,
       choices: input.filaments.map((f) => ({
-        unitCostVndPerGram: ctx.medians.get(normalizeType(f.materialType)) ?? null,
+        unitCostVndPerGram: resolveMaterialCost(ctx.medians, f.materialType),
         // Sliced grams already include purge/prime-tower waste (Phase 9 addendum) — add nothing.
         waste: f.extraWaste === 'NONE' ? { mode: 'CUSTOM_GRAMS' as const, grams: 0 } : undefined,
       })),

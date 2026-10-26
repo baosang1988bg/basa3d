@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import {
   Download,
   ExternalLink,
@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { Link } from '@/i18n/navigation';
 import { formatVnd } from '@/components/storefront/format';
-import type { MakerWorldCnModelDetail } from '@/app/api/public/makerworld-cn/resolve/route';
+import type { MakerWorldCnModelDetail, MakerWorldCnProfile } from '@/app/api/public/makerworld-cn/resolve/route';
 import { MakerWorld3dModal } from './makerworld-3d-modal';
 
 const SAMPLES = [
@@ -55,6 +55,87 @@ export function MakerWorldCnTool({ initialUrl }: { initialUrl?: string } = {}) {
   const [detail, setDetail] = useState<MakerWorldCnModelDetail | null>(null);
   const [downloadingProfileId, setDownloadingProfileId] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [profilePricingStatus, setProfilePricingStatus] = useState<
+    Record<string, 'loading' | 'done' | 'unpriced'>
+  >({});
+  const resolveSeqRef = useRef(0);
+
+  async function triggerSequentialPricing(modelDetail: MakerWorldCnModelDetail) {
+    const currentSeq = ++resolveSeqRef.current;
+
+    const initialStatuses: Record<string, 'loading' | 'done' | 'unpriced'> = {};
+    const unpricedQueue: MakerWorldCnProfile[] = [];
+
+    for (const p of modelDetail.profiles) {
+      if (typeof p.estimatedPriceVnd === 'number' && p.estimatedPriceVnd > 0) {
+        initialStatuses[p.profileId] = 'done';
+      } else if (p.printTimeMinutes > 0 && p.weightGrams > 0) {
+        initialStatuses[p.profileId] = 'loading';
+        unpricedQueue.push(p);
+      } else {
+        initialStatuses[p.profileId] = 'unpriced';
+      }
+    }
+
+    setProfilePricingStatus(initialStatuses);
+
+    if (unpricedQueue.length === 0) return;
+
+    for (const profile of unpricedQueue) {
+      if (resolveSeqRef.current !== currentSeq) return;
+
+      try {
+        const res = await fetch('/api/public/makerworld-cn/estimate-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            printTimeMinutes: profile.printTimeMinutes,
+            weightGrams: profile.weightGrams,
+            platesCount: profile.platesCount,
+            amsRequired: profile.amsRequired,
+            filaments: profile.filaments,
+          }),
+        });
+
+        if (resolveSeqRef.current !== currentSeq) return;
+
+        if (res.ok) {
+          const json = await res.json();
+          const { estimatedPriceVnd, priceTiers } = json.data ?? {};
+          if (typeof estimatedPriceVnd === 'number' && estimatedPriceVnd > 0) {
+            setDetail((prev) => {
+              if (!prev || prev.modelId !== modelDetail.modelId) return prev;
+              return {
+                ...prev,
+                profiles: prev.profiles.map((p) =>
+                  p.profileId === profile.profileId
+                    ? { ...p, estimatedPriceVnd, priceTiers }
+                    : p
+                ),
+              };
+            });
+            setProfilePricingStatus((prev) => ({
+              ...prev,
+              [profile.profileId]: 'done',
+            }));
+            continue;
+          }
+        }
+
+        setProfilePricingStatus((prev) => ({
+          ...prev,
+          [profile.profileId]: 'unpriced',
+        }));
+      } catch {
+        if (resolveSeqRef.current !== currentSeq) return;
+        setProfilePricingStatus((prev) => ({
+          ...prev,
+          [profile.profileId]: 'unpriced',
+        }));
+      }
+    }
+  }
+
   const [active3dProfile, setActive3dProfile] = useState<{
     profileId: string;
     title: string;
@@ -80,6 +161,8 @@ export function MakerWorldCnTool({ initialUrl }: { initialUrl?: string } = {}) {
     setLoading(true);
     setError(null);
     setDownloadError(null);
+    setProfilePricingStatus({});
+    resolveSeqRef.current++;
 
     try {
       const res = await fetch('/api/public/makerworld-cn/resolve', {
@@ -94,6 +177,9 @@ export function MakerWorldCnTool({ initialUrl }: { initialUrl?: string } = {}) {
       }
 
       setDetail(data.data);
+      if (data.data) {
+        triggerSequentialPricing(data.data);
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Đã có lỗi xảy ra khi phân tích liên kết.';
       setError(msg);
@@ -156,6 +242,8 @@ export function MakerWorldCnTool({ initialUrl }: { initialUrl?: string } = {}) {
       setDownloadingProfileId(null);
     }
   }
+
+  const hasAnyLoadingProfile = Object.values(profilePricingStatus).some((status) => status === 'loading');
 
   const pricedProfiles = detail?.profiles.filter(
     (p) => typeof p.estimatedPriceVnd === 'number' && p.estimatedPriceVnd > 0
@@ -336,6 +424,11 @@ export function MakerWorldCnTool({ initialUrl }: { initialUrl?: string } = {}) {
                         (Tuỳ theo bàn in bạn chọn)
                       </span>
                     </div>
+                  ) : hasAnyLoadingProfile ? (
+                    <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 className="size-3.5 animate-spin text-primary" />
+                      <span>Đang tính báo giá in xưởng theo từng bàn…</span>
+                    </div>
                   ) : null}
                   {!detail.isChinaModel ? (
                     <div className="rounded-lg bg-sky-500/10 border border-sky-500/20 p-2.5 text-xs text-sky-800 dark:text-sky-300 mt-2">
@@ -457,24 +550,61 @@ export function MakerWorldCnTool({ initialUrl }: { initialUrl?: string } = {}) {
                       ) : null}
 
                       {/* Estimated price badge */}
-                      {p.estimatedPriceVnd ? (
-                        <div className="mt-3 flex items-center justify-between rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-xs">
-                          <div className="flex items-center gap-1.5 font-semibold text-emerald-800 dark:text-emerald-300">
-                            <Sparkles className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                            <span>Giá in ước tính:</span>
-                          </div>
-                          <div className="text-right">
-                            <span className="font-bold text-sm text-emerald-700 dark:text-emerald-400">
-                              ~{formatVnd(p.estimatedPriceVnd)}
+                      {(() => {
+                        const status =
+                          profilePricingStatus[p.profileId] ??
+                          (typeof p.estimatedPriceVnd === 'number' && p.estimatedPriceVnd > 0
+                            ? 'done'
+                            : p.printTimeMinutes > 0 && p.weightGrams > 0
+                              ? 'loading'
+                              : 'unpriced');
+
+                        if (status === 'loading') {
+                          return (
+                            <div className="mt-3 flex items-center justify-between rounded-lg bg-muted/60 border border-border/80 px-3 py-2 text-xs">
+                              <div className="flex items-center gap-1.5 font-medium text-foreground/80">
+                                <Loader2 className="size-3.5 animate-spin text-primary shrink-0" />
+                                <span>Báo giá:</span>
+                              </div>
+                              <div className="text-right">
+                                <span className="inline-block text-xs font-semibold text-primary animate-pulse">
+                                  Đang tính giá…
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        if (p.estimatedPriceVnd) {
+                          return (
+                            <div className="mt-3 flex items-center justify-between rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-xs">
+                              <div className="flex items-center gap-1.5 font-semibold text-emerald-800 dark:text-emerald-300">
+                                <Sparkles className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                <span>Giá in ước tính:</span>
+                              </div>
+                              <div className="text-right">
+                                <span className="font-bold text-sm text-emerald-700 dark:text-emerald-400">
+                                  ~{formatVnd(p.estimatedPriceVnd)}
+                                </span>
+                                {p.priceTiers?.kitVnd && p.priceTiers.kitVnd !== p.estimatedPriceVnd ? (
+                                  <span className="block text-[10px] text-muted-foreground">
+                                    (Kit tự ráp: ~{formatVnd(p.priceTiers.kitVnd)})
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="mt-3 flex items-center justify-between rounded-lg bg-muted/30 border border-border/40 px-3 py-2 text-xs text-muted-foreground">
+                            <span className="text-[11px] font-medium">Báo giá:</span>
+                            <span className="text-[11px] text-muted-foreground">
+                              Liên hệ xưởng báo giá
                             </span>
-                            {p.priceTiers?.kitVnd && p.priceTiers.kitVnd !== p.estimatedPriceVnd ? (
-                              <span className="block text-[10px] text-muted-foreground">
-                                (Kit tự ráp: ~{formatVnd(p.priceTiers.kitVnd)})
-                              </span>
-                            ) : null}
                           </div>
-                        </div>
-                      ) : null}
+                        );
+                      })()}
                     </div>
 
                     {/* Action buttons */}
@@ -484,7 +614,14 @@ export function MakerWorldCnTool({ initialUrl }: { initialUrl?: string } = {}) {
                         className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2.5 text-xs font-semibold text-primary-foreground shadow-xs transition hover:bg-primary/90"
                       >
                         <Printer className="size-3.5" />
-                        <span>Đặt in bàn này {p.estimatedPriceVnd ? `(~${formatVnd(p.estimatedPriceVnd)})` : ''}</span>
+                        <span>
+                          Đặt in bàn này{' '}
+                          {p.estimatedPriceVnd
+                            ? `(~${formatVnd(p.estimatedPriceVnd)})`
+                            : profilePricingStatus[p.profileId] === 'loading'
+                              ? '(Đang tính…)'
+                              : ''}
+                        </span>
                       </Link>
 
                       <div className="grid grid-cols-2 gap-2">
