@@ -10,6 +10,7 @@ import { ProductGallery } from './product-gallery';
 import { ViewItemTracker } from '@/components/analytics/storefront-trackers';
 import { serializeJsonLd } from '@/lib/json-ld';
 import { localeAlternates } from '@/i18n/seo';
+import { getCategoryDisplayName } from '@/lib/categories';
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -24,8 +25,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
-export default async function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+export default async function ProductDetailPage({ params }: { params: Promise<{ slug: string; locale?: string }> }) {
+  const { slug, locale = 'vi' } = await params;
   const [product, t, categories] = await Promise.all([
     getCachedStorefrontProductBySlug(slug),
     getTranslations('products'),
@@ -42,7 +43,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: t('breadcrumbHome'), href: '/home' },
     { label: t('breadcrumbProducts'), href: '/products' },
-    ...(category ? [{ label: category.name, href: `/products?categoryId=${category.id}` }] : []),
+    ...(category ? [{ label: getCategoryDisplayName(category, locale), href: `/products?categoryId=${category.id}` }] : []),
     { label: product.name },
   ];
   const jsonLd = {
@@ -66,7 +67,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
-      {firstVariant && <ViewItemTracker item={{ item_id: firstVariant.sku, item_name: product.name, item_category: category?.name, item_variant: firstVariant.name, price: firstVariant.price, quantity: 1 }} />}
+      {firstVariant && <ViewItemTracker item={{ item_id: firstVariant.sku, item_name: product.name, item_category: category ? getCategoryDisplayName(category, locale) : undefined, item_variant: firstVariant.name, price: firstVariant.price, quantity: 1 }} />}
       {/* JSON-LD built server-side; serializeJsonLd escapes `</script>` in staff-entered fields. */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }} />
       <Breadcrumb items={breadcrumbItems} />

@@ -4,11 +4,11 @@ import { getCachedCategories, getCachedStorefrontProducts } from '@/lib/cache/st
 import { ProductCard } from '@/components/storefront/product-card';
 import { StorefrontButton, storefrontButtonClasses } from '@/components/storefront/button';
 import { Breadcrumb } from '@/components/storefront/breadcrumb';
-import { MakerWorldDiscoveryBanner } from '@/components/storefront/makerworld-discovery-banner';
 import { cn } from '@/lib/utils';
 import { ViewItemListTracker } from '@/components/analytics/storefront-trackers';
 import { Link } from '@/i18n/navigation';
 import { localeAlternates } from '@/i18n/seo';
+import { getCategoryDisplayName } from '@/lib/categories';
 
 type SearchParams = { q?: string; type?: string; sort?: string; page?: string; categoryId?: string };
 
@@ -16,8 +16,18 @@ export const metadata: Metadata = {
   alternates: localeAlternates('/products'),
 };
 
-export default async function ProductsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  const params = await searchParams;
+export default async function ProductsPage({
+  searchParams,
+  params: routeParams,
+}: {
+  searchParams: Promise<SearchParams>;
+  params?: Promise<{ locale?: string }>;
+}) {
+  const [params, resolvedRouteParams] = await Promise.all([
+    searchParams,
+    routeParams ? routeParams : Promise.resolve(undefined),
+  ]);
+  const locale = resolvedRouteParams?.locale || 'vi';
   const sortBy = params.sort === 'price_asc' || params.sort === 'price_desc' ? params.sort : 'newest';
   const [{ items, page, limit }, { items: categories }, t] = await Promise.all([
     getCachedStorefrontProducts({
@@ -30,10 +40,8 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
-      <ViewItemListTracker listName="Product catalog" items={items.map((product) => ({ item_id: product.id, item_name: product.name, price: product.basePrice ?? undefined, item_category: categories.find((category) => category.id === product.categoryId)?.name }))} />
+      <ViewItemListTracker listName="Product catalog" items={items.map((product) => ({ item_id: product.id, item_name: product.name, price: product.basePrice ?? undefined, item_category: categories.find((category) => category.id === product.categoryId) ? getCategoryDisplayName(categories.find((category) => category.id === product.categoryId)!, locale) : undefined }))} />
       <Breadcrumb items={[{ label: t('breadcrumbHome'), href: '/home' }, { label: t('breadcrumbProducts') }]} />
-
-      <MakerWorldDiscoveryBanner className="mt-4" />
 
       <h1 className="font-heading mt-8 text-2xl font-bold text-foreground md:text-[2rem]">{t('title')}</h1>
 
@@ -56,7 +64,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
               params.categoryId === category.id ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground hover:text-foreground',
             )}
           >
-            {category.name}
+            {getCategoryDisplayName(category, locale)}
           </Link>
         ))}
       </div>

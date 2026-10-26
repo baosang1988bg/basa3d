@@ -20,6 +20,9 @@ export const SITE_CONFIG = {
   // reliably for a Facebook Page, not a personal profile. Once a Fanpage exists, set this to
   // https://m.me/<fanpage-username> and the contact CTA will pick it up automatically.
   messengerUrl: process.env.NEXT_PUBLIC_MESSENGER_URL || '',
+  facebookUrl: process.env.NEXT_PUBLIC_FACEBOOK_URL || '',
+  tiktokUrl: process.env.NEXT_PUBLIC_TIKTOK_URL || '',
+  instagramUrl: process.env.NEXT_PUBLIC_INSTAGRAM_URL || '',
   email: process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'basa3d.vn@gmail.com',
   address: 'Hồ Chí Minh, Việt Nam',
   // Cart temporarily hidden (2026-09) — customers are directed to contact Zalo/hotline directly

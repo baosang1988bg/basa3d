@@ -11,6 +11,7 @@ import { CustomRequestRowActions } from '@/components/admin/custom-request-row-a
 import { CustomRequestHeaderActions } from '@/components/admin/custom-request-header-actions';
 import { CreateCustomRequestDialog } from '@/components/admin/create-custom-request-dialog';
 import { AutoLinkText } from '@/components/ui/auto-link-text';
+import { parseMakerWorldDescription } from '@/lib/parsers/makerworld-description';
 import { cn } from '@/lib/utils';
 
 const FILTER_GROUPS: StatusFilterGroup[] = [
@@ -215,25 +216,37 @@ export default async function CustomRequestsPage({
 
                         {/* 3. Nội dung yêu cầu */}
                         <TableCell className="align-top py-4 whitespace-normal">
-                          <div className="flex flex-col gap-1.5 min-w-0">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs font-semibold text-foreground shrink-0 border border-border/40">
-                                SL: {item.quantity}
-                              </span>
-                              {(item.requestedMaterial || item.requestedColor || item.requestedSize) && (
-                                <span className="text-xs text-foreground/85 font-medium">
-                                  {[item.requestedMaterial, item.requestedColor, item.requestedSize].filter(Boolean).join(' · ')}
-                                </span>
-                              )}
-                            </div>
-                            {item.description ? (
-                              <p className="line-clamp-2 text-xs text-muted-foreground leading-relaxed break-words" title={item.description}>
-                                <AutoLinkText text={item.description} />
-                              </p>
-                            ) : (
-                              <span className="text-xs text-muted-foreground/40 italic">Chưa có ghi chú mô tả</span>
-                            )}
-                          </div>
+                          {(() => {
+                            const parsedDesc = parseMakerWorldDescription(item.description);
+                            const displayMaterial = item.requestedMaterial || parsedDesc.material;
+                            const displayColor = item.requestedColor || parsedDesc.requestedColor;
+                            const displaySpecs = [displayMaterial, displayColor, item.requestedSize].filter(Boolean).join(' · ');
+                            const descriptionPreview = parsedDesc.isMakerWorld
+                              ? `[MakerWorld] ${parsedDesc.modelTitle ?? ''}${parsedDesc.customerNote ? ` — Ghi chú: ${parsedDesc.customerNote}` : ''}`
+                              : item.description;
+
+                            return (
+                              <div className="flex flex-col gap-1.5 min-w-0">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs font-semibold text-foreground shrink-0 border border-border/40">
+                                    SL: {item.quantity}
+                                  </span>
+                                  {displaySpecs ? (
+                                    <span className="text-xs text-foreground/85 font-medium">
+                                      {displaySpecs}
+                                    </span>
+                                  ) : null}
+                                </div>
+                                {item.description ? (
+                                  <p className="line-clamp-2 text-xs text-muted-foreground leading-relaxed break-words" title={item.description}>
+                                    <AutoLinkText text={descriptionPreview} />
+                                  </p>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground/40 italic">Chưa có ghi chú mô tả</span>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </TableCell>
 
                         {/* 4. Trạng thái */}

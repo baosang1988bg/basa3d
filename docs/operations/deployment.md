@@ -9,6 +9,9 @@ MVP target:
 
 Do not make production depend on a developer laptop.
 
+Host: Vercel (`vercel.json`, `scripts/deploy/qc-deploy-vercel.mjs`). Alternative under evaluation:
+Netlify Free (ADR-0054, `netlify.toml`). Runbook: `docs/operations/deploy-netlify.md`.
+
 ## Biến môi trường bắt buộc (Phase 38)
 
 Server ném lỗi (→ HTTP 500) nếu thiếu các biến dưới. `scripts/deploy/qc-deploy-vercel.mjs` phải xử lý tất

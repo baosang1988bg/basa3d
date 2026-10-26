@@ -48,7 +48,7 @@ export async function createOrder(input: CreateOrderInput, actorId: string | nul
   const variantIds = [...byVariant.keys()].sort();
   if (!variantIds.length) throw new DomainError('ORDER_ITEMS_REQUIRED', 'An order requires at least one item.');
 
-  let created: { id: string; orderNumber: string; total: number; isReplay: boolean };
+  let created: { id: string; orderNumber: string; total: number; isReplay: boolean; productNames?: string };
   try {
     created = await withTransaction(async (client) => {
     // Lock in a consistent order to avoid deadlocks during concurrent multi-variant checkout.
@@ -111,7 +111,13 @@ export async function createOrder(input: CreateOrderInput, actorId: string | nul
         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, [order.rows[0].id, item.variantId, variant.product_name, variant.variant_name, variant.sku, variant.attributes, variant.product_type, item.quantity, variant.price, variant.price * item.quantity]);
     }
     await writeAuditLog(client, { actorId, action: actorId === null ? 'ORDER_CREATED_PUBLIC' : 'ORDER_CREATED', entityType: 'order', entityId: order.rows[0].id, afterData: { orderNumber, total } });
-    return { id: order.rows[0].id, orderNumber: order.rows[0].order_number, total: Number(order.rows[0].total), isReplay: false };
+    return {
+      id: order.rows[0].id,
+      orderNumber: order.rows[0].order_number,
+      total: Number(order.rows[0].total),
+      isReplay: false,
+      productNames: [...new Set(snapshots.rows.map((v) => v.product_name))].join(', '),
+    };
     });
   } catch (error) {
     if (!input.checkoutRequestId || !checkoutRequestHash || !isCheckoutIdConflict(error)) throw error;
@@ -127,7 +133,21 @@ export async function createOrder(input: CreateOrderInput, actorId: string | nul
   if (!created.isReplay) invalidateStorefrontCatalog();
   // Notified only after the transaction has committed (phase-15.md decision #1) — never inside
   // the callback above, so a rolled-back insert can never trigger a staff notification.
-  if (!created.isReplay) await (options.notify ?? sendStaffNotification)({ type: 'ORDER', id: created.id, code: created.orderNumber });
+  if (!created.isReplay) {
+    const totalQuantity = input.items.reduce((sum, item) => sum + item.quantity, 0);
+    await (options.notify ?? sendStaffNotification)({
+      type: 'ORDER',
+      id: created.id,
+      code: created.orderNumber,
+      customerName: input.customerName,
+      customerPhone: input.customerPhone,
+      quantity: totalQuantity,
+      totalVnd: created.total,
+      description: input.customerNote ?? null,
+      productNames: created.productNames ?? null,
+      modelTitle: created.productNames ?? null,
+    });
+  }
   return created;
 }
 

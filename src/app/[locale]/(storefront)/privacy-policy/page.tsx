@@ -19,7 +19,7 @@ export default async function PrivacyPolicyPage({ params }: { params: LocalePara
   await applyRequestLocale(params);
   const t = await getTranslations('policies.privacy');
   return (
-    <LegalPage title={t('title')} updatedAt="2026-08-31">
+    <LegalPage title={t('title')} updatedAt="2026-10-26">
       <section>
         <h2>{t('section1Title')}</h2>
         <p>{t('section1Body', { siteName: SITE_CONFIG.name })}</p>
@@ -31,6 +31,7 @@ export default async function PrivacyPolicyPage({ params }: { params: LocalePara
           <li>{t('section2Item2')}</li>
           <li>{t('section2Item3')}</li>
         </ul>
+        <p>{t('section2DeviceNote')}</p>
       </section>
       <section>
         <h2>{t('section3Title')}</h2>

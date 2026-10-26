@@ -10,6 +10,7 @@ import { createCustomRequest, inspectUploadedObject, type CustomRequestMakerWorl
 import { referencePriceFor } from '../../../../services/makerworld-estimate.service';
 import { loadScreenshotSubmission } from '../../../../services/makerworld-screenshot-estimate.service';
 import { parseMakerWorldUrl } from '../../../../lib/parsers/makerworld-resolver';
+import { parseMakerWorldDescription } from '../../../../lib/parsers/makerworld-description';
 import { estimateAttachment } from '../../../../services/file-estimate.service';
 import type { CustomRequestQuoteEstimateSnapshot } from '../../../../services/custom-request.service';
 import { createDatabaseRateLimiter, getClientIp } from '../../../../lib/rate-limit';
@@ -112,18 +113,20 @@ export async function POST(request: Request) {
     } else if (input.makerworld) {
       const { modelId } = parseMakerWorldUrl(input.makerworld.sourceUrl);
       const reference = await referencePriceFor(input.makerworld.sourceUrl, input.makerworld.profileId, input.makerworld.tier, input.makerworld.specText);
+      const descParsed = parseMakerWorldDescription(input.description);
+      const specLine = input.makerworld.specText || (descParsed.printTimeText ? `${descParsed.printTimeText} · ${descParsed.weightText ?? ''} · ${descParsed.platesText ?? ''} · ${descParsed.printerTarget ?? ''} · ${descParsed.amsText ?? ''}`.trim() : undefined);
       makerworldSnapshot = {
         sourceUrl: input.makerworld.sourceUrl,
         modelId,
-        profileId: input.makerworld.profileId,
-        modelTitle: reference.modelTitle,
-        profileTitle: reference.profileTitle,
+        profileId: input.makerworld.profileId ?? descParsed.profileId,
+        modelTitle: reference.modelTitle ?? descParsed.modelTitle,
+        profileTitle: reference.profileTitle ?? descParsed.profileTitle,
         tier: input.makerworld.tier,
         profileConfirmed: true,
-        estimateSource: reference.source,
-        estimatedPriceVnd: reference.priceVnd,
+        estimateSource: reference.source !== 'NONE' ? reference.source : (descParsed.estimatedPriceVnd ? 'AUTO' : 'NONE'),
+        estimatedPriceVnd: reference.priceVnd ?? descParsed.estimatedPriceVnd,
         estimatedAt: new Date().toISOString(),
-        ...(input.makerworld.specText ? { specText: input.makerworld.specText } : {}),
+        ...(specLine ? { specText: specLine } : {}),
       };
     }
 
@@ -146,6 +149,8 @@ export async function POST(request: Request) {
       }
     }
 
+    const descParsed = parseMakerWorldDescription(input.description);
+
     // sourceChannel is never client-settable here — always hardcoded server-side, same
     // defense-in-depth pattern as the Phase 3 fix that forced status: 'ACTIVE' in GET /api/products.
     // Explicit allowlist (rather than spreading `input`) so honeypot never reaches the service
@@ -156,8 +161,8 @@ export async function POST(request: Request) {
       customerEmail: input.customerEmail,
       description: input.description,
       quantity: input.quantity,
-      requestedMaterial: input.requestedMaterial,
-      requestedColor: input.requestedColor,
+      requestedMaterial: input.requestedMaterial ?? (descParsed.isMakerWorld ? descParsed.material : null),
+      requestedColor: input.requestedColor ?? (descParsed.isMakerWorld ? (descParsed.requestedColor ?? (descParsed.fileColors ? `${descParsed.fileColors} (theo file)` : null)) : null),
       requestedSize: input.requestedSize,
       attachmentPath,
       makerworldSnapshot,

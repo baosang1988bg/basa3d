@@ -16,6 +16,9 @@ import { trackContactClick, trackQuoteEstimateShown, trackQuoteFileAdded, trackQ
 import { uploadCustomRequestFiles, type UploadedCustomRequestFile } from '@/lib/uploads/upload-custom-request-file';
 import type { MeshAnalyzeRequest, MeshAnalyzeResponse } from '@/workers/mesh-analyze.worker';
 import { EstimatePrintSheet, type PrintLine } from './estimate-print-sheet';
+import { contactFromFormData } from '@/lib/customer/saved-contact';
+import { useContactFormPrefill, useSavedContact } from '@/lib/customer/use-saved-contact';
+import { RememberContactOption } from '@/components/storefront/remember-contact-option';
 
 const MeshViewer = dynamic(() => import('./mesh-viewer'), { ssr: false, loading: () => <div className="h-64 animate-pulse rounded-lg bg-muted sm:h-80" /> });
 
@@ -66,6 +69,8 @@ export function QuoteFlow({ materials }: { materials: string[] }) {
   const [estimate, setEstimate] = useState<{ status: 'idle' | 'loading' | 'done' | 'error'; data?: EstimateResponse; forIds?: string[] }>({ status: 'idle' });
   const [submit, setSubmit] = useState<{ status: 'idle' | 'uploading' | 'submitting' | 'error'; message?: string; progress?: string }>({ status: 'idle' });
   const [done, setDone] = useState<{ requestNumber: string } | null>(null);
+  const savedContact = useSavedContact();
+  const prefillFormRef = useContactFormPrefill(savedContact.contact);
   const [copyrightConfirmed, setCopyrightConfirmed] = useState(false);
   const [copied, setCopied] = useState(false);
   const workerRef = useRef<Worker | null>(null);
@@ -208,6 +213,7 @@ export function QuoteFlow({ materials }: { materials: string[] }) {
         setSubmit({ status: 'error', message: response.status === 429 ? body?.message ?? 'Bạn đã gửi quá nhiều lần, vui lòng thử lại sau ít phút.' : body?.message ?? 'Có lỗi xảy ra, vui lòng kiểm tra lại thông tin.' });
         return;
       }
+      savedContact.saveAfterSubmit(contactFromFormData(form));
       trackQuoteSubmitted({ itemCount: ready.length, totalVnd: totals?.totalVnd ?? 0 });
       setDone({ requestNumber: String(body.requestNumber) });
       setSubmit({ status: 'idle' });
@@ -361,20 +367,26 @@ export function QuoteFlow({ materials }: { materials: string[] }) {
             </section>
 
             {ready.length ? (
-              <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+              <form ref={prefillFormRef} onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
                 <p className="font-heading text-lg font-bold">Gửi yêu cầu cho xưởng</p>
                 <div className="absolute -left-[9999px]" aria-hidden="true">
                   <label htmlFor="bg-company-website">Company website</label>
                   <input id="bg-company-website" name="company-website" type="text" tabIndex={-1} autoComplete="off" />
                 </div>
-                <label className="flex flex-col gap-1 text-xs font-medium">Họ tên *<input name="customerName" required maxLength={200} className={inputClass} /></label>
-                <label className="flex flex-col gap-1 text-xs font-medium">SĐT / Zalo *<input name="customerPhone" required maxLength={30} className={inputClass} /></label>
-                <label className="flex flex-col gap-1 text-xs font-medium">Email (không bắt buộc)<input name="customerEmail" type="email" maxLength={320} className={inputClass} /></label>
+                <label className="flex flex-col gap-1 text-xs font-medium">Họ tên *<input name="customerName" autoComplete="name" required maxLength={200} className={inputClass} /></label>
+                <label className="flex flex-col gap-1 text-xs font-medium">SĐT / Zalo *<input name="customerPhone" type="tel" inputMode="tel" autoComplete="tel" required maxLength={30} className={inputClass} /></label>
+                <label className="flex flex-col gap-1 text-xs font-medium">Email (không bắt buộc)<input name="customerEmail" type="email" autoComplete="email" maxLength={320} className={inputClass} /></label>
                 <label className="flex flex-col gap-1 text-xs font-medium">Ghi chú / địa chỉ nhận hàng<textarea name="note" rows={2} maxLength={2000} className="rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50" /></label>
                 <label className="flex items-start gap-2 text-xs text-muted-foreground">
                   <input type="checkbox" required checked={copyrightConfirmed} onChange={(event) => setCopyrightConfirmed(event.target.checked)} className="mt-0.5 size-4 shrink-0" />
                   <span>Tôi cam kết có quyền sử dụng hợp pháp các file này và đồng ý với <NextLink href="/file-confidentiality-policy" target="_blank" className="font-medium text-primary hover:underline">Chính sách bảo mật file thiết kế</NextLink>.</span>
                 </label>
+                <RememberContactOption
+                  remember={savedContact.remember}
+                  onRememberChange={savedContact.setRemember}
+                  hasSaved={savedContact.contact !== null}
+                  onClear={savedContact.clear}
+                />
                 {submit.status === 'error' ? <p role="alert" className="text-xs text-destructive">{submit.message}</p> : null}
                 <StorefrontButton type="submit" variant="accent" disabled={!copyrightConfirmed || submit.status === 'uploading' || submit.status === 'submitting' || items.some((item) => item.analysis === 'pending')}>
                   {submit.status === 'uploading' ? submit.progress : submit.status === 'submitting' ? 'Đang gửi yêu cầu…' : submit.status === 'error' ? 'Thử lại' : 'Gửi yêu cầu báo giá'}

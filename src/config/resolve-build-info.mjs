@@ -17,17 +17,53 @@ function asChannel(value) {
 }
 
 /**
+ * ADR-0054: Netlify build CONTEXT → channel. Netlify sets CONTEXT for every build:
+ * `production`, `deploy-preview` (PRs), `branch-deploy` (other branches) or `dev` (netlify dev).
+ * @param {string | undefined} context
+ * @returns {BuildChannel | undefined}
+ */
+function netlifyContextChannel(context) {
+  switch (context?.trim().toLowerCase()) {
+    case 'production': return 'production';
+    case 'deploy-preview':
+    case 'branch-deploy': return 'preview';
+    case 'dev': return 'development';
+    default: return undefined;
+  }
+}
+
+/** @typedef {'vercel' | 'netlify' | 'other'} DeployPlatform */
+
+/**
+ * ADR-0054: which host built this bundle. Decided at BUILD time from the variables each host sets
+ * during its build (Vercel: VERCEL=1, Netlify: NETLIFY=true), then inlined by next.config.mjs as
+ * BASA3D_DEPLOY_PLATFORM — runtime code must not guess, because the trusted client-IP header differs
+ * per host and trusting the wrong one lets a caller spoof it (src/lib/rate-limit.ts).
+ * @param {Record<string, string | undefined>} env
+ * @returns {DeployPlatform}
+ */
+export function resolveDeployPlatform(env) {
+  if (env.VERCEL === '1' || env.VERCEL_ENV) return 'vercel';
+  if (env.NETLIFY === 'true') return 'netlify';
+  return 'other';
+}
+
+/**
  * Resolution order (first hit wins):
- * - channel: APP_CHANNEL override → VERCEL_ENV (Vercel sets it for every build) → 'development'.
+ * - channel: APP_CHANNEL override → VERCEL_ENV (Vercel sets it for every build) → Netlify CONTEXT
+ *            → 'development'.
  * - commit:  APP_COMMIT_SHA (qc-deploy-vercel.mjs passes it: CLI deploys of a `git archive` have no
- *            git metadata) → VERCEL_GIT_COMMIT_SHA (Git-integration previews) → local `git rev-parse`
- *            → 'unknown'.
+ *            git metadata) → VERCEL_GIT_COMMIT_SHA (Git-integration previews) → COMMIT_REF (Netlify)
+ *            → local `git rev-parse` → 'unknown'.
  * @param {{ env: Record<string, string | undefined>, version: string, readGitSha?: () => string | undefined, now?: Date }} input
  * @returns {BuildInfo}
  */
 export function resolveBuildInfo({ env, version, readGitSha, now = new Date() }) {
-  const channel = asChannel(env.APP_CHANNEL) ?? asChannel(env.VERCEL_ENV) ?? 'development';
-  const commit = (env.APP_COMMIT_SHA || env.VERCEL_GIT_COMMIT_SHA || readGitSha?.() || 'unknown').trim().toLowerCase();
+  const channel = asChannel(env.APP_CHANNEL)
+    ?? asChannel(env.VERCEL_ENV)
+    ?? (env.NETLIFY === 'true' ? netlifyContextChannel(env.CONTEXT) : undefined)
+    ?? 'development';
+  const commit = (env.APP_COMMIT_SHA || env.VERCEL_GIT_COMMIT_SHA || env.COMMIT_REF || readGitSha?.() || 'unknown').trim().toLowerCase();
   return { version, channel, commit, builtAt: now.toISOString() };
 }
 

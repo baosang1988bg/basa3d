@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
+import { getCategoryDisplayName } from '@/lib/categories';
 import { Menu, X, ShoppingCart, MessageCircle, ChevronDown, Package } from 'lucide-react';
 import { Link, usePathname } from '@/i18n/navigation';
 import { ThemeToggle } from './theme-toggle';
@@ -62,6 +63,7 @@ export function Header({ categories: initialCategories = [] }: HeaderProps = {})
   const badgeBump = useCartBadgeBump(itemCount, isReady);
   const pathname = usePathname();
   const t = useTranslations('nav');
+  const locale = useLocale();
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const dropdownContainerRef = useRef<HTMLDivElement>(null);
@@ -287,7 +289,7 @@ export function Header({ categories: initialCategories = [] }: HeaderProps = {})
                                       : 'text-foreground/80 hover:bg-secondary hover:text-foreground',
                                   )}
                                 >
-                                  <span className="truncate">{category.name}</span>
+                                  <span className="truncate">{getCategoryDisplayName(category, locale)}</span>
                                 </Link>
                               );
                             })}
@@ -439,7 +441,7 @@ export function Header({ categories: initialCategories = [] }: HeaderProps = {})
                         onClick={() => setIsMenuOpen(false)}
                         className="rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                       >
-                        {cat.name}
+                        {getCategoryDisplayName(cat, locale)}
                       </Link>
                     ))}
                   </div>

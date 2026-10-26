@@ -1,3 +1,4 @@
+import { getCategoryDisplayName } from '@/lib/categories';
 import { AdminPagination } from '@/components/admin/admin-pagination';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -78,7 +79,7 @@ export default async function StlImportPage({ searchParams }: { searchParams: Pr
         <Input name="q" defaultValue={filter.q} placeholder="Tìm theo tên" aria-label="Tìm theo tên" className="h-11" />
         <select name="categoryId" defaultValue={filter.categoryId ?? ''} aria-label="Danh mục" className="h-11 rounded-lg border border-input bg-background px-3 text-sm">
           <option value="">Mọi danh mục</option>
-          {categories.map((category: { id: string; name: string }) => <option key={category.id} value={category.id}>{category.name}</option>)}
+          {categories.map((category: { id: string; name: string; slug?: string }) => <option key={category.id} value={category.id}>{getCategoryDisplayName(category, 'vi')}</option>)}
         </select>
         <select name="sourceDir" defaultValue={filter.sourceDir ?? ''} aria-label="Thư mục nguồn" className="h-11 rounded-lg border border-input bg-background px-3 text-sm">
           <option value="">Mọi thư mục nguồn</option>
@@ -89,7 +90,7 @@ export default async function StlImportPage({ searchParams }: { searchParams: Pr
 
       <ImportGrid
         items={items}
-        categories={categories.map((category: { id: string; name: string; slug: string }) => ({ id: category.id, name: category.name, slug: category.slug }))}
+        categories={categories.map((category: { id: string; name: string; slug: string }) => ({ id: category.id, name: getCategoryDisplayName(category, 'vi'), slug: category.slug }))}
         isOwner={session.role === 'OWNER'}
       />
 

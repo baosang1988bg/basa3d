@@ -18,6 +18,8 @@ import {
   Camera,
 } from 'lucide-react';
 import { CURRENT_TOS_VERSION } from '@/lib/copyright/tos-version';
+import { useContactStatePrefill, useSavedContact } from '@/lib/customer/use-saved-contact';
+import { RememberContactOption } from '@/components/storefront/remember-contact-option';
 import { formatVnd } from '@/components/storefront/format';
 import { ProfileVerificationCard } from '@/components/makerworld/profile-verification-card';
 import type { PublicMakerWorldEstimate, EstimateReason } from '@/services/makerworld-estimate.service';
@@ -91,6 +93,8 @@ export function MakerWorldIntakeCard({
   const [detailStatus, setDetailStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [detailErrorMessage, setDetailErrorMessage] = useState('');
   const [requestNumber, setRequestNumber] = useState('');
+  const savedContact = useSavedContact();
+  useContactStatePrefill(savedContact.contact, { name: setCustomerName, phone: setCustomerPhone });
 
   useEffect(() => () => inflight.current?.abort(), []);
 
@@ -267,6 +271,7 @@ export function MakerWorldIntakeCard({
         setDetailErrorMessage(data?.message || 'Có lỗi xảy ra khi gửi yêu cầu. Vui lòng thử lại.');
         return;
       }
+      savedContact.saveAfterSubmit({ name: customerName, phone: customerPhone });
       setDetailStatus('success');
       setRequestNumber(data?.requestNumber || '');
     } catch {
@@ -598,12 +603,12 @@ export function MakerWorldIntakeCard({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="mw-customer-name" className="text-xs font-semibold text-foreground">Họ và tên của bạn (*)</label>
-              <input id="mw-customer-name" type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Ví dụ: Nguyễn Văn An" required maxLength={200}
+              <input id="mw-customer-name" type="text" autoComplete="name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Ví dụ: Nguyễn Văn An" required maxLength={200}
                 className="rounded-lg border border-input bg-background p-2.5 text-sm text-foreground shadow-xs focus:border-primary focus:outline-hidden focus:ring-2 focus:ring-primary/20" />
             </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="mw-customer-phone" className="text-xs font-semibold text-foreground">Số điện thoại / Zalo nhận báo giá (*)</label>
-              <input id="mw-customer-phone" type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="Ví dụ: 0912 345 678" required maxLength={30}
+              <input id="mw-customer-phone" type="tel" autoComplete="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="Ví dụ: 0912 345 678" required maxLength={30}
                 className="rounded-lg border border-input bg-background p-2.5 text-sm text-foreground shadow-xs focus:border-primary focus:outline-hidden focus:ring-2 focus:ring-primary/20" />
             </div>
           </div>
@@ -620,6 +625,13 @@ export function MakerWorldIntakeCard({
                 className="rounded-lg border border-input bg-background p-2.5 text-sm text-foreground shadow-xs focus:border-primary focus:outline-hidden focus:ring-2 focus:ring-primary/20" />
             </div>
           </div>
+
+          <RememberContactOption
+            remember={savedContact.remember}
+            onRememberChange={savedContact.setRemember}
+            hasSaved={savedContact.contact !== null}
+            onClear={savedContact.clear}
+          />
 
           <label className="flex cursor-pointer items-start gap-2 pt-1 text-xs text-muted-foreground">
             <input id="mw-profile-confirm" type="checkbox" checked={profileConfirmed} onChange={(e) => setProfileConfirmed(e.target.checked)} className="mt-0.5 size-4 cursor-pointer" />

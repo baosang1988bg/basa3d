@@ -2,15 +2,15 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import { connection } from 'next/server';
 import { getTranslations } from 'next-intl/server';
-import { Zap, ShieldCheck, Timer, ShoppingBag, ArrowRight } from 'lucide-react';
+import { PackageCheck, Sparkles, Timer, ShoppingBag, ArrowRight } from 'lucide-react';
 import { getCachedCategories, getCachedStorefrontProducts } from '@/lib/cache/storefront-cache';
 import { applyRequestLocale, type LocaleParams } from '@/i18n/request-locale';
 import { localeAlternates } from '@/i18n/seo';
+import { getCategoryDisplayName } from '@/lib/categories';
 import { ProductCard } from '@/components/storefront/product-card';
 import { SectionHeader } from '@/components/storefront/section-header';
 import { FaqAccordion } from '@/components/storefront/faq-accordion';
 import { storefrontButtonClasses } from '@/components/storefront/button';
-import { MaterialBadge } from '@/components/storefront/material-badge';
 import { SITE_CONFIG } from '@/config/site';
 import { Link } from '@/i18n/navigation';
 import { serializeJsonLd } from '@/lib/json-ld';
@@ -22,23 +22,32 @@ function getCategoryHref(
   dbCategories: readonly DbCategoryItem[],
 ): string {
   const normalized = categoryName.toLowerCase();
-  const directMatch = dbCategories.find((c) => c.name.toLowerCase() === normalized);
+  const directMatch = dbCategories.find(
+    (c) =>
+      c.name.toLowerCase() === normalized ||
+      getCategoryDisplayName(c, 'vi').toLowerCase() === normalized ||
+      getCategoryDisplayName(c, 'en').toLowerCase() === normalized,
+  );
   if (directMatch) return `/products?categoryId=${directMatch.id}`;
 
   if (normalized.includes('móc khoá') || normalized.includes('móc khóa') || normalized.includes('keychain')) {
     const match = dbCategories.find((c) => c.slug === 'keychain');
     if (match) return `/products?categoryId=${match.id}`;
   }
-  if (normalized.includes('mô hình') || normalized.includes('art toy')) {
+  if (normalized.includes('mô hình') || normalized.includes('art toy') || normalized.includes('nhân vật') || normalized.includes('figure')) {
     const match = dbCategories.find((c) => c.slug === 'figure-model' || c.name.toLowerCase().includes('figure'));
     if (match) return `/products?categoryId=${match.id}`;
   }
-  if (normalized.includes('decor')) {
+  if (normalized.includes('decor') || normalized.includes('trang trí')) {
     const match = dbCategories.find((c) => c.slug === 'home-decor' || c.name.toLowerCase().includes('decor'));
     if (match) return `/products?categoryId=${match.id}`;
   }
-  if (normalized.includes('phụ kiện')) {
+  if (normalized.includes('phụ kiện') || normalized.includes('tiện ích') || normalized.includes('accessories') || normalized.includes('gadgets')) {
     const match = dbCategories.find((c) => c.slug === 'accessories-gadgets' || c.name.toLowerCase().includes('accessories') || c.name.toLowerCase().includes('gadgets'));
+    if (match) return `/products?categoryId=${match.id}`;
+  }
+  if (normalized.includes('keycap') || normalized.includes('nút phím') || normalized.includes('nút bàn phím')) {
+    const match = dbCategories.find((c) => c.slug === 'keycap');
     if (match) return `/products?categoryId=${match.id}`;
   }
 
@@ -61,7 +70,7 @@ const LOCAL_BUSINESS_JSON_LD = {
   address: { '@type': 'PostalAddress', addressLocality: SITE_CONFIG.address, addressCountry: 'VN' },
 };
 
-const HERO_VALUE_PROP_ICONS = [Zap, ShieldCheck, Timer];
+const HERO_VALUE_PROP_ICONS = [PackageCheck, Sparkles, Timer];
 
 // Phase 42 (ADR-0045): ISR instead of force-dynamic. Prerendered at `next build` for both locales and
 // then served from cache; catalog writes call invalidateStorefrontCatalog() after commit, which purges
@@ -76,10 +85,14 @@ export const revalidate = 60;
 // error is rethrown as usual.
 async function loadHomeCatalog() {
   try {
-    return await Promise.all([
+    const [featuredRes, categoriesRes] = await Promise.all([
       getCachedStorefrontProducts({ limit: 8, featuredOnly: true }),
       getCachedCategories(100),
     ]);
+    const productsRes = featuredRes.items.length > 0
+      ? featuredRes
+      : await getCachedStorefrontProducts({ limit: 8 });
+    return [productsRes, categoriesRes] as const;
   } catch (error) {
     if (process.env.NEXT_PHASE === 'phase-production-build') await connection();
     throw error;
@@ -191,7 +204,19 @@ export default async function HomePage({ params }: { params: LocaleParams }) {
 
       <section className="bg-secondary/40">
         <div className="mx-auto max-w-6xl px-4 py-12">
-          <SectionHeader eyebrow={t('categoriesEyebrow')} title={t('categoriesTitle')} />
+          <SectionHeader
+            eyebrow={t('categoriesEyebrow')}
+            title={t('categoriesTitle')}
+            action={
+              <Link
+                href="/products"
+                className="group inline-flex items-center gap-1.5 text-sm font-semibold text-primary transition-colors hover:text-primary/80"
+              >
+                <span>{t('viewAllProducts')}</span>
+                <ArrowRight className="size-4 transition-transform duration-150 ease-out group-hover:translate-x-1" aria-hidden="true" />
+              </Link>
+            }
+          />
           <div className="reveal-stagger grid grid-cols-2 gap-4 md:grid-cols-4">
             {categories.map((category) => {
               const href = getCategoryHref(category.name, dbCategories);
@@ -212,14 +237,65 @@ export default async function HomePage({ params }: { params: LocaleParams }) {
         </div>
       </section>
 
-      {featuredProducts.length > 0 && (
-        <section className="mx-auto max-w-6xl px-4 py-12">
-          <SectionHeader eyebrow={t('featuredEyebrow')} title={t('featuredTitle')} />
-          <div className="reveal-stagger grid grid-cols-2 gap-4 md:grid-cols-4">
-            {featuredProducts.map((product) => <ProductCard key={product.id} product={product} />)}
+      <section id="featured-products" className="scroll-mt-20 mx-auto max-w-6xl px-4 py-12 md:py-16">
+        <SectionHeader
+          eyebrow={t('featuredEyebrow')}
+          title={t('featuredTitle')}
+          description={t('featuredDescription')}
+          action={
+            <Link
+              href="/products"
+              className="group inline-flex items-center gap-1.5 text-sm font-semibold text-primary transition-colors hover:text-primary/80"
+            >
+              <span>{t('viewAll')}</span>
+              <ArrowRight className="size-4 transition-transform duration-150 ease-out group-hover:translate-x-1" aria-hidden="true" />
+            </Link>
+          }
+        />
+
+        {featuredProducts.length > 0 ? (
+          <div className="reveal-stagger grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-4">
+            {featuredProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
           </div>
-        </section>
-      )}
+        ) : (
+          <div className="reveal rounded-2xl border border-dashed border-border bg-card/60 p-8 text-center sm:p-12">
+            <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <ShoppingBag className="size-6" aria-hidden="true" />
+            </div>
+            <h3 className="font-heading mt-4 text-base font-semibold text-foreground md:text-lg">
+              {t('featuredTitle')}
+            </h3>
+            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+              {t('emptyFeatured')}
+            </p>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+              <Link
+                href="/products"
+                className={storefrontButtonClasses('primary', 'group gap-2 px-5 py-2.5 text-sm shadow-tactile-lift')}
+              >
+                <ShoppingBag className="size-4" aria-hidden="true" />
+                <span>{t('viewAllProducts')}</span>
+                <ArrowRight className="size-4 transition-transform duration-150 group-hover:translate-x-1" aria-hidden="true" />
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {featuredProducts.length > 0 && (
+          <div className="reveal mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Link
+              href="/products"
+              className={storefrontButtonClasses('secondary', 'group gap-2 px-6 py-3 text-sm font-semibold shadow-tactile hover:border-primary/50')}
+            >
+              <ShoppingBag className="size-4.5 text-primary transition-transform duration-200 group-hover:scale-110" aria-hidden="true" />
+              <span>{t('viewAllProducts')}</span>
+              <ArrowRight className="size-4.5 transition-transform duration-150 ease-out group-hover:translate-x-1" aria-hidden="true" />
+            </Link>
+          </div>
+        )}
+      </section>
 
       <section id="workflow" className="scroll-mt-20 bg-secondary/40">
         <div className="mx-auto max-w-6xl px-4 py-12">
@@ -239,33 +315,6 @@ export default async function HomePage({ params }: { params: LocaleParams }) {
         </div>
       </section>
 
-      <section id="materials" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-12">
-        <SectionHeader eyebrow={t('materialsEyebrow')} title={t('materialsTitle')} />
-        <div className="reveal-stagger grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="rounded-xl bg-card p-4 shadow-tactile">
-            <MaterialBadge material="PLA" />
-            <p className="mt-2 text-sm text-muted-foreground">{t('materialPlaDescription')}</p>
-          </div>
-          <div className="rounded-xl bg-card p-4 shadow-tactile">
-            <MaterialBadge material="PETG" />
-            <p className="mt-2 text-sm text-muted-foreground">{t('materialPetgDescription')}</p>
-          </div>
-        </div>
-
-        <div className="reveal mt-6 rounded-xl border border-border bg-secondary/50 p-4">
-          <p className="text-sm font-semibold text-foreground">{t('pricingTitle')}</p>
-          <p className="mt-1 text-sm text-muted-foreground">{t('pricingDescription')}</p>
-          <Link href="/custom-print" className={storefrontButtonClasses('secondary', 'mt-3 text-sm')}>
-            {t('ctaGetQuote')}
-          </Link>
-        </div>
-      </section>
-
-      <section className="bg-secondary/40">
-        <div className="mx-auto max-w-6xl px-4 py-12">
-          <SectionHeader title={t('qualityTitle')} description={t('qualityDescription')} />
-        </div>
-      </section>
 
       <section className="mx-auto max-w-6xl px-4 py-12">
         <SectionHeader eyebrow={t('faqEyebrow')} title={t('faqTitle')} />

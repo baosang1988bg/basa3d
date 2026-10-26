@@ -17,6 +17,9 @@ import {
 } from '@/components/ui/dialog';
 import { OrderZaloAction, type ZaloOrderData } from '@/components/storefront/order-zalo-action';
 import { orderErrorOutcome } from '@/lib/checkout/order-error-outcome';
+import { contactFromFormData } from '@/lib/customer/saved-contact';
+import { useContactFormPrefill, useSavedContact } from '@/lib/customer/use-saved-contact';
+import { RememberContactOption } from '@/components/storefront/remember-contact-option';
 
 type SubmitState = { status: 'idle' | 'submitting' | 'error'; message?: string };
 
@@ -28,6 +31,8 @@ export default function CheckoutPage() {
   const [zaloOrder, setZaloOrder] = useState<ZaloOrderData | null>(null);
   const [isZaloDialogOpen, setIsZaloDialogOpen] = useState(false);
   const checkoutRequestId = useRef('');
+  const savedContact = useSavedContact();
+  const prefillFormRef = useContactFormPrefill(savedContact.contact);
   const cartSignature = items.map((item) => `${item.variantId}:${item.quantity}`).sort().join('|');
 
   useEffect(() => setHasMounted(true), []);
@@ -84,6 +89,7 @@ export default function CheckoutPage() {
     event.preventDefault();
     if (items.length === 0) return;
     const payload = getFormData(event.currentTarget);
+    const submittedContact = contactFromFormData(new FormData(event.currentTarget));
     setState({ status: 'submitting' });
 
     try {
@@ -103,6 +109,7 @@ export default function CheckoutPage() {
         }
         return;
       }
+      savedContact.saveAfterSubmit(submittedContact);
       clearCart();
       const phoneSuffix = payload.customerPhone.replace(/\D/g, '').slice(-4);
       const confirmationQuery = new URLSearchParams({ phoneSuffix });
@@ -128,7 +135,7 @@ export default function CheckoutPage() {
       <h1 className="font-heading text-2xl font-bold text-foreground md:text-[2rem]">Thông tin đặt hàng</h1>
 
       <div className="mt-6 grid grid-cols-1 gap-8 md:grid-cols-3">
-        <form onSubmit={handleSubmit} className="flex flex-col gap-5 rounded-xl border border-border bg-card p-6 shadow-xs md:col-span-2">
+        <form ref={prefillFormRef} onSubmit={handleSubmit} className="flex flex-col gap-5 rounded-xl border border-border bg-card p-6 shadow-xs md:col-span-2">
           {/* Honeypot: visually hidden from real users, same pattern as the custom-print form */}
           <div className="absolute -left-[9999px]" aria-hidden="true">
             <label htmlFor="company-website">Company website</label>
@@ -138,31 +145,31 @@ export default function CheckoutPage() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="customerName" className="text-sm font-semibold text-foreground">Họ tên *</label>
-              <input id="customerName" name="customerName" required maxLength={200} placeholder="Ví dụ: Nguyễn Văn A" className="h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50" />
+              <input id="customerName" name="customerName" autoComplete="name" required maxLength={200} placeholder="Ví dụ: Nguyễn Văn A" className="h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50" />
             </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="customerPhone" className="text-sm font-semibold text-foreground">SĐT nhận hàng *</label>
-              <input id="customerPhone" name="customerPhone" required maxLength={30} placeholder="098xxxxxxx" className="h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50" />
+              <input id="customerPhone" name="customerPhone" type="tel" inputMode="tel" autoComplete="tel" required maxLength={30} placeholder="098xxxxxxx" className="h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50" />
             </div>
             <div className="flex flex-col gap-1.5 sm:col-span-2">
               <label htmlFor="customerEmail" className="text-sm font-semibold text-foreground">Email (không bắt buộc)</label>
-              <input id="customerEmail" name="customerEmail" type="email" maxLength={320} placeholder="name@example.com" className="h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50" />
+              <input id="customerEmail" name="customerEmail" type="email" autoComplete="email" maxLength={320} placeholder="name@example.com" className="h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50" />
             </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="addressLine1" className="text-sm font-semibold text-foreground">Địa chỉ nhận hàng *</label>
-              <input id="addressLine1" name="addressLine1" required maxLength={500} placeholder="Số nhà, tên đường" className="h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50" />
+              <input id="addressLine1" name="addressLine1" autoComplete="shipping street-address" required maxLength={500} placeholder="Số nhà, tên đường" className="h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50" />
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="ward" className="text-sm font-semibold text-foreground">Phường/Xã *</label>
-                <input id="ward" name="ward" required maxLength={200} className="h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50" />
+                <input id="ward" name="ward" autoComplete="shipping address-level2" required maxLength={200} className="h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50" />
               </div>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="city" className="text-sm font-semibold text-foreground">Tỉnh/Thành phố *</label>
-                <input id="city" name="city" required maxLength={200} className="h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50" />
+                <input id="city" name="city" autoComplete="shipping address-level1" required maxLength={200} className="h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50" />
               </div>
             </div>
           </div>
@@ -187,6 +194,13 @@ export default function CheckoutPage() {
             <label htmlFor="customerNote" className="text-sm font-semibold text-foreground">Ghi chú (không bắt buộc)</label>
             <textarea id="customerNote" name="customerNote" maxLength={2000} rows={3} placeholder="Ghi chú cho đơn hàng, ví dụ giờ giao hàng thuận tiện..." className="rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50" />
           </div>
+
+          <RememberContactOption
+            remember={savedContact.remember}
+            onRememberChange={savedContact.setRemember}
+            hasSaved={savedContact.contact !== null}
+            onClear={savedContact.clear}
+          />
 
           {state.status === 'error' && <p className="text-sm font-medium text-destructive">{state.message}</p>}
 

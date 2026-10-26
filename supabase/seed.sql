@@ -9,9 +9,9 @@ insert into materials (id, name, material_type, brand, color, unit, cost_per_spo
   ('00000000-0000-4000-8000-000000000020', 'PLA Black 1kg', 'PLA', 'Sample', 'Black', 'GRAM', 250000, 1000, 250),
   ('00000000-0000-4000-8000-000000000021', 'PLA White 1kg', 'PLA', 'Sample', 'White', 'GRAM', 250000, 1000, 250),
   ('00000000-0000-4000-8000-000000000022', 'PETG Clear 1kg', 'PETG', 'Sample', 'Clear', 'GRAM', 320000, 1000, 320);
-insert into products (id, category_id, name, slug, product_type, status, base_price) values
-  ('00000000-0000-4000-8000-000000000101', '00000000-0000-4000-8000-000000000001', 'Phone Stand', 'phone-stand', 'READY_STOCK', 'ACTIVE', 99000),
-  ('00000000-0000-4000-8000-000000000102', '00000000-0000-4000-8000-000000000002', 'Desk Organizer', 'desk-organizer', 'MADE_TO_ORDER', 'ACTIVE', 149000);
+insert into products (id, category_id, name, slug, product_type, status, base_price, is_featured) values
+  ('00000000-0000-4000-8000-000000000101', '00000000-0000-4000-8000-000000000001', 'Phone Stand', 'phone-stand', 'READY_STOCK', 'ACTIVE', 99000, true),
+  ('00000000-0000-4000-8000-000000000102', '00000000-0000-4000-8000-000000000002', 'Desk Organizer', 'desk-organizer', 'MADE_TO_ORDER', 'ACTIVE', 149000, true);
 insert into product_variants (id, product_id, sku, name, attributes, price, weight_grams) values
   ('00000000-0000-4000-8000-000000000201', '00000000-0000-4000-8000-000000000101', 'ACC-PHONE-STAND-BLK', 'Black', '{"color":"Black"}', 99000, 80),
   ('00000000-0000-4000-8000-000000000202', '00000000-0000-4000-8000-000000000102', 'DEC-DESK-ORGANIZER-WHT', 'White', '{"color":"White"}', 149000, 180);

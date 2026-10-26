@@ -91,16 +91,16 @@
     "toolCta": "Mở công cụ tạo mẫu",
     "heroValueProps": [
       {
-        "label": "In nhanh 24h",
-        "href": "/#workflow"
+        "label": "Nhận in từ 1 sản phẩm",
+        "href": "/custom-print"
       },
       {
-        "label": "Nhựa nguyên sinh cao cấp",
-        "href": "/#materials"
+        "label": "Tự thiết kế 3D miễn phí",
+        "href": "/tools"
       },
       {
         "label": "Báo giá nhanh trong 30p",
-        "href": "/custom-print"
+        "href": "/bao-gia"
       }
     ],
     "categoriesEyebrow": "Danh mục",
@@ -111,20 +111,24 @@
         "description": "Móc khoá khắc tên, logo, quà tặng cá nhân hoá"
       },
       {
-        "name": "Mô hình / Art Toys",
+        "name": "Mô hình & Nhân vật",
         "description": "Nhân vật, mô hình sưu tầm chi tiết cao"
       },
       {
-        "name": "Decor bàn làm việc",
+        "name": "Trang trí nhà cửa",
         "description": "Vật trang trí, đèn, chậu cây mini"
       },
       {
-        "name": "Phụ kiện tiện ích",
+        "name": "Phụ kiện & Tiện ích",
         "description": "Giá đỡ, hộp đựng, phụ kiện đời sống"
       }
     ],
     "featuredEyebrow": "Nổi bật",
     "featuredTitle": "Sản phẩm tiêu biểu",
+    "featuredDescription": "Các mẫu in 3D hoàn thiện sẵn có và thiết kế được yêu thích nhất tại BaSa3D",
+    "viewAllProducts": "Xem tất cả sản phẩm",
+    "viewAll": "Xem tất cả",
+    "emptyFeatured": "Hiện chưa có sản phẩm nổi bật, hãy khám phá toàn bộ danh mục sản phẩm của chúng tôi.",
     "workflowEyebrow": "Quy trình",
     "workflowTitle": "Đặt in theo yêu cầu chỉ với 4 bước",
     "workflowSteps": [
@@ -158,8 +162,6 @@
     "pricingTitle": "Cách tính giá",
     "pricingDescription": "Chi phí = Vật liệu tiêu hao (gram) + Thời gian in (giờ) + Xử lý bề mặt. Vì mỗi file có khối lượng và độ phức tạp khác nhau, chúng tôi không niêm yết một bảng giá cố định — gửi file để nhận báo giá chính xác trong 30 phút.",
     "ctaGetQuote": "Gửi file nhận báo giá",
-    "qualityTitle": "Cam kết chất lượng",
-    "qualityDescription": "Mỗi sản phẩm được kiểm tra độ bền và độ chính xác cơ khí trước khi giao đến khách hàng.",
     "faqEyebrow": "Hỗ trợ",
     "faqTitle": "Câu hỏi thường gặp",
     "faq": [
@@ -174,6 +176,10 @@
       {
         "question": "Vật liệu nào phù hợp với nhu cầu của tôi?",
         "answer": "PLA phù hợp mô hình trang trí chi tiết cao, PETG bền và chịu va đập tốt cho phụ kiện dùng hàng ngày, Resin cho độ mịn và chi tiết cực cao. Xem so sánh đầy đủ ở mục Vật liệu bên trên."
+      },
+      {
+        "question": "Chất lượng và độ chính xác của sản phẩm in 3D được đảm bảo như thế nào?",
+        "answer": "Mỗi sản phẩm trước khi giao đều được kiểm tra độ bền cơ học và độ chính xác kích thước. Nếu sản phẩm phát sinh lỗi kỹ thuật do quá trình in hoặc sai lệch so với thiết kế đã duyệt, BaSa3D cam kết hỗ trợ in lại hoặc xử lý thỏa đáng cho bạn."
       },
       {
         "question": "Tôi có thể thanh toán và đổi trả như thế nào?",
@@ -206,6 +212,7 @@
     "nextPage": "Trang sau",
     "noImage": "Chưa có ảnh",
     "galleryThumbnail": "Xem ảnh {index}",
+    "viewDetail": "Xem chi tiết",
     "inStock": "Sẵn hàng",
     "outOfStock": "Tạm hết hàng",
     "printOnDemand24h": "Đặt in 24h",
@@ -373,6 +380,7 @@
       "section2Item1": "Liên hệ tư vấn, báo giá, và xác nhận đơn hàng",
       "section2Item2": "Sản xuất và giao hàng đúng yêu cầu",
       "section2Item3": "Chăm sóc khách hàng sau bán",
+      "section2DeviceNote": "Nếu bạn chọn \"Ghi nhớ thông tin liên hệ trên thiết bị này\", họ tên, SĐT, email và địa chỉ được lưu ngay trong trình duyệt của bạn (không gửi lên máy chủ) để tự điền cho lần đặt sau. Bạn có thể xoá bất cứ lúc nào bằng nút \"Xoá thông tin đã lưu\" trên form đặt hàng. Không nên bật tuỳ chọn này trên máy dùng chung.",
       "section3Title": "3. Chia sẻ thông tin",
       "section3Body": "Chúng tôi không bán hoặc chia sẻ thông tin cá nhân của bạn cho bên thứ ba ngoài mục đích vận chuyển đơn hàng (đơn vị giao hàng) và các dịch vụ hạ tầng kỹ thuật cần thiết để vận hành website.",
       "section4Title": "4. Liên hệ",
@@ -420,5 +428,13 @@
       "section4BodyBefore": "Bạn xác nhận có quyền hợp pháp đối với file thiết kế gửi cho chúng tôi để sản xuất.",
       "section4BodyAfter": "không chịu trách nhiệm nếu file do khách hàng cung cấp vi phạm quyền sở hữu trí tuệ của bên thứ ba, và có quyền từ chối hoặc dừng xử lý đơn hàng nếu phát hiện dấu hiệu vi phạm."
     }
+  },
+  "categoryNames": {
+    "keycap": "Nút bàn phím (Keycap)",
+    "accessories-gadgets": "Phụ kiện & Tiện ích",
+    "home-decor": "Trang trí nhà cửa",
+    "figure-model": "Mô hình & Nhân vật",
+    "keychain": "Móc khoá",
+    "chua-phan-loai": "Chưa phân loại"
   }
 }

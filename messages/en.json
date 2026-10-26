@@ -91,16 +91,16 @@
     "toolCta": "Open the design tool",
     "heroValueProps": [
       {
-        "label": "24h fast printing",
-        "href": "/#workflow"
+        "label": "Custom print from 1 piece",
+        "href": "/custom-print"
       },
       {
-        "label": "Premium virgin-grade filament",
-        "href": "/#materials"
+        "label": "Free 3D design tools",
+        "href": "/tools"
       },
       {
         "label": "Quote in 30 minutes",
-        "href": "/custom-print"
+        "href": "/bao-gia"
       }
     ],
     "categoriesEyebrow": "Categories",
@@ -111,20 +111,24 @@
         "description": "Name and logo keychains, personalised gifts"
       },
       {
-        "name": "Models / Art Toys",
+        "name": "Models & Figures",
         "description": "Highly detailed collectible figures and models"
       },
       {
-        "name": "Desk decor",
+        "name": "Home Decor",
         "description": "Decorative pieces, lamps, mini planters"
       },
       {
-        "name": "Everyday accessories",
+        "name": "Accessories & Gadgets",
         "description": "Stands, organizers, everyday-use accessories"
       }
     ],
     "featuredEyebrow": "Featured",
     "featuredTitle": "Featured products",
+    "featuredDescription": "Ready-to-ship 3D printed items and popular bespoke designs at BaSa3D",
+    "viewAllProducts": "View all products",
+    "viewAll": "View all",
+    "emptyFeatured": "No featured products right now, explore our full catalog below.",
     "workflowEyebrow": "Process",
     "workflowTitle": "Custom printing in just 4 steps",
     "workflowSteps": [
@@ -158,8 +162,6 @@
     "pricingTitle": "How we price",
     "pricingDescription": "Cost = material used (grams) + print time (hours) + finishing. Since every file differs in weight and complexity, we don't publish a fixed price list — send your file for an accurate quote within 30 minutes.",
     "ctaGetQuote": "Send a file for a quote",
-    "qualityTitle": "Our quality commitment",
-    "qualityDescription": "Every product is checked for durability and mechanical accuracy before it reaches you.",
     "faqEyebrow": "Support",
     "faqTitle": "Frequently asked questions",
     "faq": [
@@ -174,6 +176,10 @@
       {
         "question": "Which material fits my needs?",
         "answer": "PLA is great for highly detailed decorative models, PETG is durable and impact-resistant for everyday-use accessories, and Resin gives extremely fine detail and a smooth finish. See the full comparison in the Materials section above."
+      },
+      {
+        "question": "How do you ensure product quality and mechanical accuracy?",
+        "answer": "Every product is thoroughly inspected for durability and mechanical accuracy before delivery. If there is any defect caused by the printing process or deviation from the approved design, BaSa3D commits to reprinting or resolving it promptly for you."
       },
       {
         "question": "How can I pay, and what's your return policy?",
@@ -206,6 +212,7 @@
     "nextPage": "Next",
     "noImage": "No image yet",
     "galleryThumbnail": "View image {index}",
+    "viewDetail": "View details",
     "inStock": "In stock",
     "outOfStock": "Out of stock",
     "printOnDemand24h": "24h custom print",
@@ -373,6 +380,7 @@
       "section2Item1": "To contact you for consultation, quoting, and order confirmation",
       "section2Item2": "To produce and deliver exactly what you requested",
       "section2Item3": "For after-sales customer care",
+      "section2DeviceNote": "If you tick \"Remember my contact details on this device\", your name, phone, email and address are stored only in your browser (never sent to our server) to prefill your next order. You can remove them at any time with the \"Clear saved details\" button on the order form. Avoid this option on shared devices.",
       "section3Title": "3. Sharing your information",
       "section3Body": "We never sell or share your personal information with third parties, other than what's necessary for delivery (our shipping partners) and the technical infrastructure services required to run this website.",
       "section4Title": "4. Contact",
@@ -420,5 +428,13 @@
       "section4BodyBefore": "You confirm you hold the legal rights to any design file you send us for production.",
       "section4BodyAfter": "is not responsible if a file provided by a customer infringes a third party's intellectual property rights, and reserves the right to refuse or stop processing an order if it shows signs of infringement."
     }
+  },
+  "categoryNames": {
+    "keycap": "Keycaps",
+    "accessories-gadgets": "Accessories & Gadgets",
+    "home-decor": "Home Decor",
+    "figure-model": "Models & Figures",
+    "keychain": "Keychains",
+    "chua-phan-loai": "Uncategorized"
   }
 }

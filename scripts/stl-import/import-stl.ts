@@ -6,17 +6,19 @@
 // This script never loads an env file itself: it only reads process.env, so a test can run it with an
 // explicit, empty environment and it can never pick up the real credentials by accident. It never
 // uploads the source STL files — only the rendered .webp images (FR-012).
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 import type { PoolClient } from 'pg';
+import sharp from 'sharp';
 import { getPool } from '../../src/lib/db';
+import { parseThreeMfSliceInfo, type ParsedSliceInfo } from '../../src/lib/parsers/threemf-slice-info';
 import { categoryMapSchema, resolveCategory, type CategoryMap } from '../../src/lib/stl-import/category-map';
 import { analyzeModel, toStlParts, type ImportWarning } from '../../src/lib/stl-import/metrics';
 import { buildSku, describeModel, displayName, uniqueSlug } from '../../src/lib/stl-import/naming';
-import { estimateImportPrice, type ImportPrice, type ImportPricingContext } from '../../src/lib/stl-import/pricing';
-import { groupModels, matchesOnly, walkDir, type GroupMode } from '../../src/lib/stl-import/scan';
+import { estimateImportPrice, estimateImportPriceFromSliceInfo, type ImportPrice, type ImportPricingContext } from '../../src/lib/stl-import/pricing';
+import { groupModels, matchesOnly, walkDir, type GroupMode, type ModelGroup } from '../../src/lib/stl-import/scan';
 import { sourceKey } from '../../src/lib/stl-import/source-key';
 import { applyImport, findImportItem, planImport, PRODUCT_IMAGE_BUCKET, type ImageStore, type ImportAction } from '../../src/services/stl-import-write.service';
 import { getBucketUsageBytes, STORAGE_BLOCK_BYTES, STORAGE_WARN_BYTES } from '../../src/services/storage-usage.service';
@@ -30,6 +32,43 @@ const AVG_IMAGE_BYTES = 120 * 1024; // planning estimate per rendered WebP (spik
 
 const VALUE_FLAGS = ['in', 'out', 'group-by', 'limit', 'only', 'views', 'color', 'size', 'max-mb', 'timeout', 'map'] as const;
 const BOOLEAN_FLAGS = ['dims-overlay', 'retry-errors', 'apply', 'allow-storage-over', 'no-render', 'help'] as const;
+
+const IMAGE_RE = /\.(jpe?g|png|webp)$/i;
+
+async function findExistingImagesForGroup(root: string, group: ModelGroup): Promise<string[]> {
+  const dir = group.groupMode === 'FOLDER'
+    ? path.join(root, ...group.sourceRelPath.split('/'))
+    : path.dirname(path.join(root, ...group.sourceRelPath.split('/')));
+  try {
+    const entries = await readdir(dir, { withFileTypes: true });
+    const imageFiles: string[] = [];
+    for (const entry of entries) {
+      if (entry.isFile() && IMAGE_RE.test(entry.name)) {
+        imageFiles.push(entry.name);
+      }
+    }
+    if (!imageFiles.length) return [];
+    imageFiles.sort((a, b) => {
+      const aLower = a.toLowerCase();
+      const bLower = b.toLowerCase();
+      const aPriority = aLower.startsWith('cover.') ? 2 : aLower.startsWith('preview.') ? 1 : 0;
+      const bPriority = bLower.startsWith('cover.') ? 2 : bLower.startsWith('preview.') ? 1 : 0;
+      if (aPriority !== bPriority) return bPriority - aPriority;
+      return aLower.localeCompare(bLower);
+    });
+    return imageFiles.map((name) => path.join(dir, name));
+  } catch {
+    return [];
+  }
+}
+
+async function convertImageToWebp(inputBytes: Uint8Array, size = 1200): Promise<Uint8Array> {
+  const buffer = await sharp(inputBytes)
+    .resize({ width: size, height: size, fit: 'inside', withoutEnlargement: true })
+    .webp({ quality: 85 })
+    .toBuffer();
+  return new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+}
 
 class UsageError extends Error {}
 
@@ -189,10 +228,22 @@ export async function main(argv: string[]): Promise<number> {
     const plans = await Promise.all(groups.map(async (group) => {
       const key = sourceKey(group.sourceRelPath);
       const existing = pool ? await findImportItem(pool, key) : null;
-      return { group, key, action: planImport(existing, group.files, { retryErrors: options.retryErrors }) as ImportAction };
+      const existingImages = await findExistingImagesForGroup(options.in, group);
+      return {
+        group,
+        key,
+        action: planImport(existing, group.files, { retryErrors: options.retryErrors }) as ImportAction,
+        existingImages,
+      };
     }));
-    const toRender = plans.filter((plan) => plan.action === 'CREATE' || plan.action === 'RERENDER').length;
-    const estimateAfter = usageBefore === null ? null : usageBefore + toRender * options.views * AVG_IMAGE_BYTES;
+
+    const toProcess = plans.filter((plan) => plan.action === 'CREATE' || plan.action === 'RERENDER');
+    const needs3dRender = toProcess.filter((plan) => plan.existingImages.length === 0).length;
+    const totalImagesToProduce = toProcess.reduce(
+      (sum, p) => sum + (p.existingImages.length > 0 ? p.existingImages.length : options.views),
+      0,
+    );
+    const estimateAfter = usageBefore === null ? null : usageBefore + totalImagesToProduce * AVG_IMAGE_BYTES;
     storageWarning = storageMessage(estimateAfter);
     if (storageWarning) console.warn(storageWarning);
     if (options.apply && estimateAfter !== null && estimateAfter > STORAGE_BLOCK_BYTES && !options.allowStorageOver) {
@@ -200,7 +251,7 @@ export async function main(argv: string[]): Promise<number> {
       return EXIT.STORAGE;
     }
     if (options.apply) store = supabaseImageStore();
-    if (!options.noRender && toRender > 0) renderer = new ModelRenderer(options.timeoutMs);
+    if (!options.noRender && needs3dRender > 0) renderer = new ModelRenderer(options.timeoutMs);
 
     const previewSlugs = new Set<string>();
     const previewSkus = new Set<string>();
@@ -220,27 +271,73 @@ export async function main(argv: string[]): Promise<number> {
         if (plan.action === 'CREATE' || plan.action === 'RERENDER') {
           // FR-015: --timeout bounds the whole model (Drive read + measure + render), not just the render.
           const prepare = async () => {
-            const files = await Promise.all(group.files.map(async (file) => ({ relPath: file.relPath, bytes: new Uint8Array(await readFile(path.join(options.in, ...file.relPath.split('/')))) })));
+            const files = await Promise.all(group.files.map(async (file) => ({
+              relPath: file.relPath,
+              bytes: new Uint8Array(await readFile(path.join(options.in, ...file.relPath.split('/')))),
+            })));
+
+            let sliceInfo: ParsedSliceInfo | null = null;
+            const threeMfFile = files.find((f) => /\.3mf$/i.test(f.relPath));
+            if (threeMfFile) {
+              try {
+                sliceInfo = parseThreeMfSliceInfo(threeMfFile.bytes);
+              } catch {
+                // Not sliced or non-Bambu/Orca slice_info: fall back to geometry analysis
+              }
+            }
+
             const converted = toStlParts(files);
             const parts = converted.ok ? converted.parts : [];
             const measured = converted.ok ? analyzeModel(parts) : { ok: false as const, error: converted.error };
-            const rendered: Uint8Array[] = measured.ok && renderer
-              ? await renderer.render(parts.map((part) => part.bytes), { size: options.size, quality: 0.85, color: options.color, views: options.views, dims: options.dims ? measured.bboxMm : null })
-              : [];
-            return { measured, rendered };
+
+            let rendered: Uint8Array[] = [];
+            if (plan.existingImages.length > 0) {
+              const convertedImages: Uint8Array[] = [];
+              for (const imgPath of plan.existingImages) {
+                try {
+                  const rawBytes = await readFile(imgPath);
+                  const webpBytes = await convertImageToWebp(rawBytes, options.size);
+                  convertedImages.push(webpBytes);
+                } catch (err) {
+                  console.warn(`  không chuyển đổi được ảnh ${path.basename(imgPath)}: ${(err as Error).message}`);
+                }
+              }
+              rendered = convertedImages;
+            }
+
+            if (!rendered.length && measured.ok && renderer) {
+              rendered = await renderer.render(parts.map((part) => part.bytes), {
+                size: options.size,
+                quality: 0.85,
+                color: options.color,
+                views: options.views,
+                dims: options.dims ? measured.bboxMm : null,
+              });
+            }
+
+            return { measured, rendered, sliceInfo };
           };
-          const { measured: analysis, rendered: images } = await withTimeout(prepare(), options.timeoutMs, () => renderer?.close())
+
+          const { measured: analysis, rendered: images, sliceInfo } = await withTimeout(prepare(), options.timeoutMs, () => renderer?.close())
             .catch((error: unknown) => {
               if (!(error instanceof ModelTimeoutError)) throw error;
-              return { measured: { ok: false as const, error: error.message }, rendered: [] as Uint8Array[] };
+              return { measured: { ok: false as const, error: error.message }, rendered: [] as Uint8Array[], sliceInfo: null };
             });
+
           let price: ImportPrice = { priced: false, reason: 'NO_PRICING_CONFIG' };
           if (analysis.ok) {
             Object.assign(item, { bboxMm: analysis.bboxMm, volumeCm3: analysis.volumeCm3, triangles: analysis.triangles });
             item.warnings.push(...analysis.warnings);
-            price = estimateImportPrice(analysis.metrics, pricing);
+
+            if (sliceInfo && sliceInfo.totalPrintMinutes > 0 && sliceInfo.filaments.length > 0) {
+              price = estimateImportPriceFromSliceInfo(sliceInfo, pricing);
+            }
+            if (!price.priced) {
+              price = estimateImportPrice(analysis.metrics, pricing);
+            }
             if (!price.priced) item.warnings.push('UNPRICED');
             else item.basePrice = price.basePrice;
+
             for (const [n, bytes] of images.entries()) {
               const file = `images/${plan.key}-${n}.webp`;
               await writeFile(path.join(options.out, file), bytes);
@@ -250,6 +347,7 @@ export async function main(argv: string[]): Promise<number> {
             item.action = 'ERROR';
             item.error = analysis.error;
           }
+
           if (options.apply && store && pool) {
             const result = await applyImport(pool, store, {
               sourceKey: plan.key, sourceRelPath: group.sourceRelPath, sourceDir: group.sourceDir, groupMode: group.groupMode, files: group.files,

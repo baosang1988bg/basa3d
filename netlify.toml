@@ -1,0 +1,19 @@
+# ADR-0054 — Netlify deploy target (alternative to Vercel; vercel.json stays for Vercel).
+# Netlify detects Next.js and runs it through its OpenNext-based runtime automatically; no
+# adapter dependency is added to package.json. Runbook: docs/operations/deploy-netlify.md.
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  # package.json engines: node >=22 (supabase-js needs the native WebSocket).
+  NODE_VERSION = "22"
+
+[functions]
+  # Netlify-only functions (today: the daily cleanup schedule that replaces vercel.json `crons`).
+  directory = "netlify/functions"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+

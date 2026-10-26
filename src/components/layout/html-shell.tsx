@@ -26,8 +26,9 @@ export function HtmlShell({ lang, children }: { lang: string; children: ReactNod
         {children}
         <GoogleAnalytics />
         {/* Vercel Speed Insights (Core Web Vitals). On Vercel it loads /_vercel/speed-insights/script.js
-            (same-origin, already allowed by CSP 'self'); off Vercel the script 404s harmlessly. */}
-        <SpeedInsights />
+            (same-origin, already allowed by CSP 'self'). ADR-0054: only rendered on Vercel builds —
+            elsewhere (Netlify) that script does not exist and would 404 on every page view. */}
+        {process.env.BASA3D_DEPLOY_PLATFORM === 'vercel' ? <SpeedInsights /> : null}
         {/* Phase 44: PREVIEW/DEV tag on non-production builds; renders nothing in production. */}
         <EnvironmentBadge />
         {process.env.NODE_ENV === 'development' ? <VisualAiInspector /> : null}

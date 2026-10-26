@@ -11,7 +11,15 @@ import { isIP } from 'node:net';
 // Phase 36 S4: the limiter key is the client's NETWORK, not its exact address. An IPv6 client
 // normally controls a whole /64 (2^64 addresses) and could otherwise get a fresh bucket per request;
 // IPv4-mapped IPv6 (`::ffff:1.2.3.4`) is folded back to the IPv4 address.
-export function getClientIp(requestHeaders: Headers): string {
+//
+// ADR-0054 (Netlify): Netlify only stands behind `x-nf-client-connection-ip`; it does not promise
+// to overwrite a client-sent x-real-ip / x-forwarded-for. So a Netlify build reads ONLY that header,
+// and every other build ignores it (off Netlify it is attacker-controlled, like cf-connecting-ip).
+// The platform is fixed at build time (BASA3D_DEPLOY_PLATFORM, inlined by next.config.mjs).
+export function getClientIp(requestHeaders: Headers, platform: string | undefined = process.env.BASA3D_DEPLOY_PLATFORM): string {
+  if (platform === 'netlify') {
+    return rateLimitNetworkKey(requestHeaders.get('x-nf-client-connection-ip')?.trim() || '');
+  }
   const raw = requestHeaders.get('x-real-ip')?.trim()
     || requestHeaders.get('x-forwarded-for')?.split(',')[0]?.trim()
     || '';

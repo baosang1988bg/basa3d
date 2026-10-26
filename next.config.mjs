@@ -1,7 +1,7 @@
 import createNextIntlPlugin from 'next-intl/plugin';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { resolveBuildInfo } from './src/config/resolve-build-info.mjs';
+import { resolveBuildInfo, resolveDeployPlatform } from './src/config/resolve-build-info.mjs';
 import { handbookRedirects } from './src/config/handbook-redirects.mjs';
 
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
@@ -60,6 +60,8 @@ const nextConfig = {
     BASA3D_BUILD_CHANNEL: buildInfo.channel,
     BASA3D_BUILD_COMMIT: buildInfo.commit,
     BASA3D_BUILD_TIME: buildInfo.builtAt,
+    // ADR-0054: 'vercel' | 'netlify' | 'other' — selects the trusted client-IP header (rate-limit.ts).
+    BASA3D_DEPLOY_PLATFORM: resolveDeployPlatform(process.env),
   },
   async headers() {
     return [{ source: '/(.*)', headers: securityHeaders }];

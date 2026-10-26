@@ -1,0 +1,103 @@
+# Phase 51 / D1: daily logical backup of the Supabase database (Supabase Free has no automatic backup).
+#
+# Output: one encrypted artifact per run (roles + schema + data as separate .sql files, tar.gz,
+# then GPG AES256). Retention 30 days. Restore: docs/operations/backup-restore.md "Backup tự động".
+#
+# This repo is PUBLIC: anyone can read the Actions logs, and any signed-in GitHub user can download
+# artifacts. So the dump is encrypted before upload, and nothing below prints the connection string
+# or raw tool output (pg_dump errors can contain host/user).
+#
+# Secrets (Settings → Secrets and variables → Actions):
+#   SUPABASE_DB_URL               Session Pooler URL of the database to back up
+#   BACKUP_ENCRYPTION_PASSPHRASE  long random passphrase; keep a copy OUTSIDE GitHub, or backups are unreadable
+#
+# Not included: files in Supabase Storage buckets (only the storage.objects metadata rows).
+#
+# Schedule note: GitHub runs `schedule` only from the default branch (main).
+
+name: DB Backup
+
+on:
+  schedule:
+    - cron: '30 19 * * *' # 02:30 Asia/Ho_Chi_Minh
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Dump Supabase DB
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check secrets
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_ENCRYPTION_PASSPHRASE: ${{ secrets.BACKUP_ENCRYPTION_PASSPHRASE }}
+        run: |
+          set -eu
+          missing=0
+          [ -n "${SUPABASE_DB_URL}" ] || { echo "::error::Secret SUPABASE_DB_URL is not set"; missing=1; }
+          [ -n "${BACKUP_ENCRYPTION_PASSPHRASE}" ] || { echo "::error::Secret BACKUP_ENCRYPTION_PASSPHRASE is not set"; missing=1; }
+          [ "${#BACKUP_ENCRYPTION_PASSPHRASE}" -ge 20 ] || { echo "::error::BACKUP_ENCRYPTION_PASSPHRASE must be at least 20 characters"; missing=1; }
+          exit "${missing}"
+
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.120.0
+
+      - name: Dump roles, schema and data
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -eu
+          stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+          dir="basa3d-db-${stamp}"
+          mkdir -p "backup/${dir}"
+          echo "BACKUP_NAME=${dir}" >> "$GITHUB_ENV"
+
+          # Output goes to a log file, never to the job log: pg_dump errors can contain host/user.
+          dump() {
+            label="$1"; shift
+            if ! supabase db dump --db-url "${SUPABASE_DB_URL}" "$@" > "backup/dump-${label}.log" 2>&1; then
+              echo "::error::supabase db dump (${label}) failed. Run the same command locally to see the error."
+              exit 1
+            fi
+          }
+          dump roles  -f "backup/${dir}/roles.sql"  --role-only
+          dump schema -f "backup/${dir}/schema.sql"
+          dump data   -f "backup/${dir}/data.sql"   --use-copy --data-only
+
+          for f in roles schema data; do
+            [ -s "backup/${dir}/${f}.sql" ] || { echo "::error::${f}.sql is empty"; exit 1; }
+          done
+          (cd "backup/${dir}" && sha256sum roles.sql schema.sql data.sql > SHA256SUMS)
+          ls -l "backup/${dir}" | awk 'NR>1 {print $5, $9}'
+
+      - name: Compress and encrypt
+        env:
+          BACKUP_ENCRYPTION_PASSPHRASE: ${{ secrets.BACKUP_ENCRYPTION_PASSPHRASE }}
+        run: |
+          set -eu
+          tar -C backup -czf "backup/${BACKUP_NAME}.tar.gz" "${BACKUP_NAME}"
+          printf '%s' "${BACKUP_ENCRYPTION_PASSPHRASE}" | gpg --batch --yes --quiet \
+            --pinentry-mode loopback --passphrase-fd 0 \
+            --symmetric --cipher-algo AES256 \
+            --output "backup/${BACKUP_NAME}.tar.gz.gpg" "backup/${BACKUP_NAME}.tar.gz"
+          # Only the encrypted file leaves the runner.
+          rm -rf "backup/${BACKUP_NAME}" "backup/${BACKUP_NAME}.tar.gz" backup/dump-*.log
+          ls -l backup | awk 'NR>1 {print $5, $9}'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BACKUP_NAME }}
+          path: backup/${{ env.BACKUP_NAME }}.tar.gz.gpg
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0 # already compressed + encrypted
