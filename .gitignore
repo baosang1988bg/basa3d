@@ -37,6 +37,8 @@ __pycache__/
 
 # STL bulk import (feature 003): output mặc định của scripts/stl-import
 .stl-import/
+.stl-import-test/
+test-import-sample/
 
 # Local scratch directory
 scratch/
