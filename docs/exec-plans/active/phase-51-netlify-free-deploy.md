@@ -17,9 +17,11 @@ Branch: `chore/netlify-free` (tách từ `dev` @ `e90ea65`). Owner: Sangcarmd. B
 
 ## Quyết định cần chốt trước khi làm
 
-- [ ] **D1 — Backup DB (Supabase Free không có backup tự động).** Đề xuất: GitHub Action chạy
-      `supabase db dump` mỗi ngày, lưu thành artifact private (giữ 30 ngày). Cần thêm secret
-      `SUPABASE_DB_URL` vào GitHub. Cách khác: tự dump bằng tay mỗi tuần. → Owner chọn.
+- [x] **D1 — Backup DB (Supabase Free không có backup tự động).** Chốt: GitHub Action
+      `.github/workflows/db-backup.yml` chạy `supabase db dump` mỗi ngày + chạy tay, giữ artifact 30 ngày.
+      Repo đang **public** (artifact ai cũng tải được) nên dump được **mã hoá GPG** trước khi upload →
+      cần 2 secret: `SUPABASE_DB_URL`, `BACKUP_ENCRYPTION_PASSPHRASE`. Không gồm file Storage.
+      Runbook: `docs/operations/backup-restore.md` mục "Backup tự động". Việc còn lại nằm ở S6.
 - [ ] **D2 — Account Netlify:** dùng team riêng cho BaSa3D (khuyến nghị) hay account cá nhân.
 - [ ] **D3 — Tên miền UAT:** `uat.<domain>` (Branch deploy) hay chỉ dùng link Deploy Preview của từng PR.
 
@@ -40,7 +42,14 @@ Branch: `chore/netlify-free` (tách từ `dev` @ `e90ea65`). Owner: Sangcarmd. B
 
 ### S2 — Kiểm tra trên máy (Owner, ~15 phút)
 - [ ] `git checkout chore/netlify-free && npm run build && npm test` (cần DB test)
-- [ ] Kiểm tra lại các worktree sau sự cố `git worktree prune` (xem mục Ghi chú)
+      2026-10-26 (Claude): `npm ci`, lint, typecheck, build, `NETLIFY=true CONTEXT=deploy-preview` build
+      đều pass (bundle inline `"netlify"`, channel `preview`; build thường inline `"other"`).
+      `npm test`: 771/788 pass, mọi test Phase 51 pass. 16 fail do Supabase local API
+      (`127.0.0.1:54321`) không chạy → cần `supabase start` rồi chạy lại. 1 fail có sẵn trên `dev`
+      (`makerworld-estimate`: URL không có `https://` không bị từ chối), không thuộc Phase 51.
+- [x] Kiểm tra lại các worktree sau sự cố `git worktree prune` (xem mục Ghi chú). 5 worktree đều
+      có thư mục và branch đúng. `BaSa3D-swarm/004…` có thay đổi chưa commit (2 file sửa + file mới
+      của feature 004), không có gì staged.
 
 ### S3 — Dựng site Netlify (Owner, ~1 giờ)
 - [ ] Tạo account/team Netlify (theo D2). Kết nối GitHub, **chỉ cấp quyền repo BaSa3D**
@@ -68,7 +77,8 @@ Branch: `chore/netlify-free` (tách từ `dev` @ `e90ea65`). Owner: Sangcarmd. B
 - [ ] Merge. Netlify Production branch chuyển sang branch release (`main`)
 
 ### S6 — Go-live (Owner, làm cùng go-live plan)
-- [ ] Chạy D1 (backup) **trước** khi có đơn hàng thật
+- [ ] Chạy D1 (backup) **trước** khi có đơn hàng thật: thêm 2 secret, merge workflow vào `main`,
+      chạy tay 1 lần, **restore thử** vào project trống và ghi kết quả vào `backup-restore.md`
 - [ ] Biến môi trường Production của Netlify trỏ vào **Supabase production**
 - [ ] Gắn domain: Netlify → Domain management, bản ghi tạo trong Cloudflare B ở chế độ **DNS only**
 - [ ] `NEXT_PUBLIC_SITE_URL` = domain thật, redeploy, chạy lại toàn bộ S4 trên domain thật
