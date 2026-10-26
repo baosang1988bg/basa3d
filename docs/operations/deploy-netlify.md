@@ -28,6 +28,16 @@ Danh sách giống bảng "Biến môi trường bắt buộc" trong `deployment
 
 ## 3. Kiểm tra sau deploy (smoke test)
 
+Chạy tự động trước (Phase 51):
+
+```bash
+node scripts/deploy/smoke-netlify.mjs https://<site>.netlify.app                 # chỉ đọc
+CRON_SECRET=... node scripts/deploy/smoke-netlify.mjs https://<site>.netlify.app --cron
+node scripts/deploy/smoke-netlify.mjs https://<site>.netlify.app --rate-limit      # IP của bạn bị khoá ~60 giây
+```
+
+Sau đó kiểm tra tay:
+
 - [ ] `GET /api/version`: `channel` là `preview` (branch/PR deploy) hoặc `production`, `commit` khớp HEAD.
 - [ ] Trang chủ, catalog, `/checkout`, trang xác nhận đơn (VietQR hiện ảnh) chạy bình thường.
 - [ ] Rate limit: gọi liên tục một route công khai (ví dụ tra cứu đơn) phải nhận 429. Đây là bằng chứng

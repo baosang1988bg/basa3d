@@ -6,6 +6,21 @@ import test from 'node:test';
 import { resolveBuildInfo, resolveDeployPlatform } from '../src/config/resolve-build-info.mjs';
 import { getClientIp } from '../src/lib/rate-limit.js';
 import { config as netlifyCronConfig, resolveCronTarget } from '../netlify/functions/cleanup-orphan-uploads.mjs';
+import { failingSecurityHeaders, versionPayloadError } from '../scripts/deploy/smoke-netlify.mjs';
+import { securityHeaders } from '../next.config.mjs';
+
+test('Phase 51 smoke: security-header check accepts exactly what next.config.mjs sends', () => {
+  const sent = Object.fromEntries(securityHeaders.map(({ key, value }) => [key.toLowerCase(), value]));
+  assert.deepEqual(failingSecurityHeaders(sent), []);
+  assert.deepEqual(failingSecurityHeaders({ ...sent, 'x-frame-options': null }), ['x-frame-options']);
+});
+
+test('Phase 51 smoke: /api/version payload must carry a real commit', () => {
+  assert.equal(versionPayloadError({ version: '1.0.0', channel: 'preview', commit: 'a'.repeat(40) }), null);
+  assert.match(versionPayloadError({ version: '1.0.0', channel: 'preview', commit: 'unknown' }) ?? '', /unknown/);
+  assert.match(versionPayloadError({ version: '1.0.0', channel: 'staging', commit: 'a'.repeat(40) }) ?? '', /channel/);
+  assert.equal(versionPayloadError(null), 'not a JSON object');
+});
 
 const SHA = 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678';
 
