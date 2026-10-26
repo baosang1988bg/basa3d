@@ -7,7 +7,7 @@ import { Link, useRouter } from '@/i18n/navigation';
 import { storefrontButtonClasses } from '@/components/storefront/button';
 import { cn } from '@/lib/utils';
 
-export function MakerWorldDiscoveryBanner() {
+export function MakerWorldDiscoveryBanner({ className }: { className?: string } = {}) {
   const t = useTranslations('products');
   const router = useRouter();
   const [inputUrl, setInputUrl] = useState('');
@@ -25,7 +25,10 @@ export function MakerWorldDiscoveryBanner() {
   return (
     <section
       aria-labelledby="makerworld-discovery-title"
-      className="mt-8 rounded-2xl border border-primary/20 bg-gradient-to-br from-card via-card to-primary/5 p-5 shadow-sm transition-all sm:p-6"
+      className={cn(
+        'mt-8 rounded-2xl border border-primary/20 bg-gradient-to-br from-card via-card to-primary/5 p-5 shadow-sm transition-all sm:p-6',
+        className,
+      )}
     >
       <div className="flex flex-col gap-4">
         {/* Badges & Heading */}
