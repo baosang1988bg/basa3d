@@ -2,6 +2,7 @@ import createNextIntlPlugin from 'next-intl/plugin';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolveBuildInfo } from './src/config/resolve-build-info.mjs';
+import { handbookRedirects } from './src/config/handbook-redirects.mjs';
 
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
@@ -62,6 +63,10 @@ const nextConfig = {
   },
   async headers() {
     return [{ source: '/(.*)', headers: securityHeaders }];
+  },
+  // Phase 50: one-hop 308s for the `/handbook` aliases of `/cam-nang` (see the module for why).
+  async redirects() {
+    return handbookRedirects(process.env.NEXT_PUBLIC_LANGUAGE_SWITCHER_ENABLED === 'true');
   },
   // `npm test` builds and runs a production server (tests/helpers/test-runner.ts) in the same repo
   // a developer may have `npm run dev` running in. `next dev` and `next build`/`next start` write

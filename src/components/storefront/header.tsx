@@ -12,6 +12,11 @@ import { SITE_CONFIG } from '@/config/site';
 import { useCart } from '@/lib/cart/cart-context';
 import { trackContactClick } from '@/lib/analytics';
 import { cn } from '@/lib/utils';
+import { isKnowledgeSectionActive, visibleKnowledgeNavItems } from '@/config/knowledge-nav';
+import { KnowledgeMenu } from './knowledge-menu';
+
+const KNOWLEDGE_SLOT = { slot: 'knowledge' } as const;
+type NavEntry = { href: string; label: string } | typeof KNOWLEDGE_SLOT;
 
 export type StorefrontCategoryNavItem = {
   id: string;
@@ -90,14 +95,18 @@ export function Header({ categories: initialCategories = [] }: HeaderProps = {})
     }
   }, [pathname]);
 
-  const navLinks = [
+  // Phase 50: Cẩm nang and Blog live in the "Kiến thức in 3D" dropdown (KNOWLEDGE_SLOT marks where
+  // it renders), which keeps the desktop bar at six entries.
+  const navLinks: NavEntry[] = [
     { href: '/home', label: t('home') },
     { href: '/products', label: t('products') },
     { href: '/tools', label: t('tools') },
+    KNOWLEDGE_SLOT,
     ...(BAO_GIA_ENABLED_IN_BROWSER ? [{ href: '/bao-gia', label: t('quote') }] : []),
     { href: '/custom-print', label: t('customPrint') },
-    ...(SITE_CONFIG.blogEnabled ? [{ href: '/blog', label: t('blog') }] : []),
   ];
+  const knowledgeItems = visibleKnowledgeNavItems({ blogEnabled: SITE_CONFIG.blogEnabled });
+  const knowledgeActive = isKnowledgeSectionActive(pathname);
 
   // Close menus whenever the route changes (link tap, browser back).
   useEffect(() => {
@@ -175,6 +184,7 @@ export function Header({ categories: initialCategories = [] }: HeaderProps = {})
 
           <nav className="hidden items-center gap-6 md:flex">
             {navLinks.map((link) => {
+              if ('slot' in link) return <KnowledgeMenu key="knowledge" items={knowledgeItems} isActive={knowledgeActive} pathname={pathname} />;
               const isActive = isNavLinkActive(pathname, link.href);
               const isProductsLink = link.href === '/products';
 
@@ -360,7 +370,7 @@ export function Header({ categories: initialCategories = [] }: HeaderProps = {})
           aria-label={t('menuTitle')}
           tabIndex={-1}
           className={cn(
-            'absolute inset-y-0 right-0 flex w-72 max-w-[85vw] flex-col gap-1 bg-card p-4 shadow-md outline-none transition-transform ease-sheet will-change-transform motion-reduce:transition-none',
+            'absolute inset-y-0 right-0 flex w-72 max-w-[85vw] flex-col gap-1 overflow-y-auto overscroll-contain bg-card p-4 shadow-md outline-none transition-transform ease-sheet will-change-transform motion-reduce:transition-none',
             isMenuOpen ? 'translate-x-0 duration-500' : 'translate-x-full duration-[350ms]',
           )}
         >
@@ -371,6 +381,31 @@ export function Header({ categories: initialCategories = [] }: HeaderProps = {})
             </button>
           </div>
           {navLinks.map((link, index) => {
+            // Links follow the panel in, one after another; on close they leave together.
+            const enter = { transitionDelay: isMenuOpen ? `${120 + index * 40}ms` : '0ms' };
+            const enterClass = cn(
+              'transition-[background-color,opacity,transform] duration-300 ease-out motion-reduce:transform-none motion-reduce:transition-none',
+              isMenuOpen ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0',
+            );
+            if ('slot' in link) {
+              // Mobile: no hover — the dropdown's items are shown inline as a labelled group.
+              return (
+                <div key="knowledge" role="group" aria-labelledby="mobile-knowledge-title" style={enter} className={cn('my-1 border-y border-border py-2', enterClass)}>
+                  <p id="mobile-knowledge-title" className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('knowledge')}</p>
+                  {knowledgeItems.map((item) => (
+                    <Link
+                      key={item.key}
+                      href={item.href}
+                      onClick={() => setIsMenuOpen(false)}
+                      className="block cursor-pointer rounded-lg px-3 py-2 transition-colors duration-150 hover:bg-secondary"
+                    >
+                      <span className="block text-sm font-medium text-foreground">{t(`knowledgeItems.${item.key}.title`)}</span>
+                      <span className="block text-xs text-muted-foreground">{t(`knowledgeItems.${item.key}.description`)}</span>
+                    </Link>
+                  ))}
+                </div>
+              );
+            }
             const isActive = isNavLinkActive(pathname, link.href);
             const isProductsLink = link.href === '/products';
             return (

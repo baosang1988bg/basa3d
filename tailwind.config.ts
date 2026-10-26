@@ -59,6 +59,8 @@ export default {
         'soft-ping': { '0%': { transform: 'scale(1)', opacity: '0.45' }, '70%, 100%': { transform: 'scale(1.45)', opacity: '0' } },
         // Ends on `transform: none` so a finished page never keeps a containing block for fixed children.
         'page-enter': { from: { opacity: '0', transform: 'translateY(8px)' }, to: { opacity: '1', transform: 'none' } },
+        // Phase 50: header "Kiến thức in 3D" dropdown card.
+        'dropdown-in': { from: { opacity: '0', transform: 'translateY(-4px)' }, to: { opacity: '1', transform: 'none' } },
       },
       animation: {
         shimmer: 'shimmer 1.6s ease-in-out infinite',
@@ -66,6 +68,7 @@ export default {
         'badge-pop': 'badge-pop 320ms ease-out',
         'soft-ping': 'soft-ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite',
         'page-enter': 'page-enter 220ms ease-out both',
+        'dropdown-in': 'dropdown-in 160ms ease-out both',
       },
       transitionTimingFunction: {
         // iOS sheet curve — the panel/drawer curve fixed by the ui-ux skill (500ms in, 350ms out).

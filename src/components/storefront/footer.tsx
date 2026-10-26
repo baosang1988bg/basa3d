@@ -40,6 +40,7 @@ export function Footer() {
           <ul className="mt-2 space-y-1 text-sm">
             <li><Link href="/products" className={FOOTER_LINK_CLASS}>{tNav('products')}</Link></li>
             <li><Link href="/custom-print" className={FOOTER_LINK_CLASS}>{t('customPrint')}</Link></li>
+            <li><Link href="/cam-nang" className={FOOTER_LINK_CLASS}>{tNav('handbook')}</Link></li>
             {SITE_CONFIG.blogEnabled && (
               <li><Link href="/blog" className={FOOTER_LINK_CLASS}>{tNav('blog')}</Link></li>
             )}

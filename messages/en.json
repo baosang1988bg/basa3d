@@ -19,6 +19,34 @@
     "closeMenu": "Close menu",
     "menuTitle": "Menu",
     "quote": "Instant quote",
+    "handbook": "Handbook",
+    "knowledge": "3D printing guides",
+    "knowledgeItems": {
+      "handbook": {
+        "title": "3D printing handbook",
+        "description": "Materials, slicer settings, tolerances and print fixes on one page."
+      },
+      "troubleshooting": {
+        "title": "Fix print problems",
+        "description": "Six classic defects and the order to try fixes in."
+      },
+      "materials": {
+        "title": "Material settings",
+        "description": "Nozzle, bed and drying temperatures for 7 filament families."
+      },
+      "tolerances": {
+        "title": "Fit tolerances",
+        "description": "CAD clearances for hinges, sliding lids and press fits."
+      },
+      "tools": {
+        "title": "Free 3D design tools",
+        "description": "Organizer trays, hinge boxes, keychains — right in your browser."
+      },
+      "blog": {
+        "title": "Workshop notes",
+        "description": "In-depth articles on materials, techniques and our projects."
+      }
+    },
     "logoAlt": "BASA 3D — go to homepage",
     "allProducts": "All products"
   },

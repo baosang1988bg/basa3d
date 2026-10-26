@@ -19,6 +19,34 @@
     "closeMenu": "Đóng menu",
     "menuTitle": "Menu",
     "quote": "Báo giá",
+    "handbook": "Cẩm nang",
+    "knowledge": "Kiến thức in 3D",
+    "knowledgeItems": {
+      "handbook": {
+        "title": "Cẩm nang in 3D",
+        "description": "Vật liệu, slicer, dung sai và cách sửa lỗi in, gom trong một trang."
+      },
+      "troubleshooting": {
+        "title": "Tra lỗi in",
+        "description": "Sáu lỗi kinh điển và thứ tự khắc phục từ dễ đến khó."
+      },
+      "materials": {
+        "title": "Bảng vật liệu",
+        "description": "Nhiệt độ in, nhiệt bàn và cách sấy cho 7 nhóm nhựa."
+      },
+      "tolerances": {
+        "title": "Dung sai lắp ghép",
+        "description": "Khe hở CAD cho khớp xoay, nắp trượt và lắp ép chặt."
+      },
+      "tools": {
+        "title": "Công cụ thiết kế 3D miễn phí",
+        "description": "Khay phân loại, hộp bản lề, móc khoá — chạy ngay trên trình duyệt."
+      },
+      "blog": {
+        "title": "Ghi chép xưởng",
+        "description": "Bài viết chuyên sâu về vật liệu, kỹ thuật và dự án của xưởng."
+      }
+    },
     "logoAlt": "BASA 3D — về trang chủ",
     "allProducts": "Tất cả sản phẩm"
   },

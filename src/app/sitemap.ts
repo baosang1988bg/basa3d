@@ -34,6 +34,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: '/custom-print', changeFrequency: 'monthly', priority: 0.8 },
     { path: '/tools', changeFrequency: 'monthly', priority: 0.8 },
     { path: '/tools/keychain-generator', changeFrequency: 'monthly', priority: 0.7 },
+    { path: '/cam-nang', changeFrequency: 'monthly', priority: 0.7 },
     { path: '/blog', changeFrequency: 'daily', priority: 0.6 },
     { path: '/privacy-policy', changeFrequency: 'yearly', priority: 0.2 },
     { path: '/shipping-policy', changeFrequency: 'yearly', priority: 0.2 },
