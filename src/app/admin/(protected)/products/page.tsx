@@ -1,3 +1,4 @@
+import { getCategoryDisplayName } from '@/lib/categories';
 import { AdminPagination } from '@/components/admin/admin-pagination';
 import Link from 'next/link';
 import { Warehouse } from 'lucide-react';
@@ -70,7 +71,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
               <select id="categoryId" name="categoryId" className="h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <option value="">— Không danh mục —</option>
                 {categories.map((category) => (
-                  <option key={category.id} value={category.id}>{category.name}</option>
+                  <option key={category.id} value={category.id}>{getCategoryDisplayName(category, 'vi')}</option>
                 ))}
               </select>
             </div>
@@ -137,7 +138,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
         <CardHeader><CardTitle>Danh mục</CardTitle></CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap gap-2">
-            {categories.map((category) => <Badge key={category.id} variant="secondary">{category.name}</Badge>)}
+            {categories.map((category) => <Badge key={category.id} variant="secondary">{getCategoryDisplayName(category, 'vi')}</Badge>)}
           </div>
           <form action={createCategoryAction} className="flex items-end gap-2">
             <div className="flex flex-col gap-1.5">

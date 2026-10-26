@@ -1,3 +1,4 @@
+import { getCategoryDisplayName } from '@/lib/categories';
 import { requireAdmin } from '@/lib/auth/require-admin';
 import { listCategories, listProductInventory } from '@/services/product.service';
 import { listMaterials } from '@/services/inventory.service';
@@ -21,7 +22,7 @@ export default async function ProductInventoryPage() {
   return (
     <ProductInventoryManager
       products={products}
-      categories={categories}
+      categories={categories.map((c) => ({ ...c, name: getCategoryDisplayName(c, 'vi') }))}
       materials={materials}
       pricingConfig={pricingConfig}
     />
