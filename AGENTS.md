@@ -60,6 +60,18 @@ automated visual audits using Playwright (`node .agents/skills/ui-ux/scripts/pro
 Use it whenever designing, building, or refactoring UI screens (dashboards, tables, forms,
 storefront, and instant quote flows).
 
+## shadcn/ui component skill
+`.agents/skills/shadcn/SKILL.md` (mirrored at `.claude/skills/shadcn/`) is the
+canonical `shadcn/ui` skill. It provides CLI usage (`npx shadcn@latest`),
+`components.json` awareness, Base UI (`@base-ui/react`) vs Radix primitives,
+component composition rules (Cards, Dialogs, Tables, Form fields), and semantic color tokens.
+
+## Design engineering & micro-interaction polish skill
+`.agents/skills/emil-design-eng/SKILL.md` (mirrored at `.claude/skills/emil-design-eng/`)
+encodes Emil Kowalski's guidelines on UI craft: fast snappiness (<300ms, spring physics,
+no sluggish `transition: all`), instant `:active` feedback, Base UI transform origins,
+and tabular Before/After review format.
+
 ## Closing a phase
 `.agents/skills/close-phase/SKILL.md` (mirrored at `.claude/skills/close-phase/`)
 is the canonical procedure for Step 8 of `PHASE_START_PROTOCOL.md`: verify the
