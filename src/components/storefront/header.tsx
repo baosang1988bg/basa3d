@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
-import { Menu, X, ShoppingCart, MessageCircle } from 'lucide-react';
+import { Menu, X, ShoppingCart, MessageCircle, ChevronDown, Package } from 'lucide-react';
 import { Link, usePathname } from '@/i18n/navigation';
 import { ThemeToggle } from './theme-toggle';
 import { LanguageSwitcher } from './language-switcher';
@@ -12,6 +12,17 @@ import { SITE_CONFIG } from '@/config/site';
 import { useCart } from '@/lib/cart/cart-context';
 import { trackContactClick } from '@/lib/analytics';
 import { cn } from '@/lib/utils';
+
+export type StorefrontCategoryNavItem = {
+  id: string;
+  name: string;
+  slug?: string;
+  description?: string | null;
+};
+
+export interface HeaderProps {
+  categories?: StorefrontCategoryNavItem[];
+}
 
 // Anchor links (e.g. `/#materials`) have no distinct pathname to match against, so they never
 // report active — accepted as out of scope for this slice rather than tracking scroll position.
@@ -36,14 +47,48 @@ function useCartBadgeBump(itemCount: number, isReady: boolean): number {
   return bump;
 }
 
-export function Header() {
+export function Header({ categories: initialCategories = [] }: HeaderProps = {}) {
+  const [categories, setCategories] = useState<StorefrontCategoryNavItem[]>(initialCategories);
+  const [isProductsDropdownOpen, setIsProductsDropdownOpen] = useState(false);
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   const { itemCount, isReady } = useCart();
   const badgeBump = useCartBadgeBump(itemCount, isReady);
   const pathname = usePathname();
   const t = useTranslations('nav');
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const dropdownContainerRef = useRef<HTMLDivElement>(null);
+  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Sync or fetch categories if not provided on SSR
+  useEffect(() => {
+    if (initialCategories && initialCategories.length > 0) {
+      setCategories(initialCategories);
+      return;
+    }
+    let active = true;
+    fetch('/api/categories?limit=50')
+      .then((res) => res.json())
+      .then((data) => {
+        if (active && Array.isArray(data?.items)) {
+          setCategories(data.items);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [initialCategories]);
+
+  // Read active category from URL without wrapping in Suspense
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      setActiveCategoryId(params.get('categoryId'));
+    }
+  }, [pathname]);
 
   const navLinks = [
     { href: '/home', label: t('home') },
@@ -54,10 +99,51 @@ export function Header() {
     ...(SITE_CONFIG.blogEnabled ? [{ href: '/blog', label: t('blog') }] : []),
   ];
 
-  // Close the drawer whenever the route changes (link tap, browser back).
+  // Close menus whenever the route changes (link tap, browser back).
   useEffect(() => {
     setIsMenuOpen(false);
+    setIsProductsDropdownOpen(false);
   }, [pathname]);
+
+  // Close desktop dropdown on Escape
+  useEffect(() => {
+    if (!isProductsDropdownOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsProductsDropdownOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isProductsDropdownOpen]);
+
+  // Cleanup hover close timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+    };
+  }, []);
+
+  const handleMouseEnter = () => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+    setIsProductsDropdownOpen(true);
+  };
+
+  const handleMouseLeave = () => {
+    if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+    closeTimeoutRef.current = setTimeout(() => {
+      setIsProductsDropdownOpen(false);
+    }, 150);
+  };
+
+  const handleDropdownBlur = (event: React.FocusEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+      setIsProductsDropdownOpen(false);
+    }
+  };
 
   // Drawer open: focus moves into it, Esc closes, the page behind cannot scroll. On close, focus
   // returns to the ☰ button that opened it.
@@ -90,20 +176,117 @@ export function Header() {
           <nav className="hidden items-center gap-6 md:flex">
             {navLinks.map((link) => {
               const isActive = isNavLinkActive(pathname, link.href);
+              const isProductsLink = link.href === '/products';
+
+              if (!isProductsLink) {
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={cn(
+                      'relative cursor-pointer py-1 text-sm font-medium transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                      // Phase 43: underline that grows from the left on hover and stays on the active page.
+                      'after:absolute after:inset-x-0 after:-bottom-0.5 after:h-0.5 after:origin-left after:rounded-full after:bg-primary after:transition-transform after:duration-200 after:ease-out motion-reduce:after:transition-none',
+                      isActive ? 'font-semibold text-foreground after:scale-x-100' : 'text-muted-foreground after:scale-x-0 hover:after:scale-x-100',
+                    )}
+                  >
+                    {link.label}
+                  </Link>
+                );
+              }
+
               return (
-                <Link
+                <div
                   key={link.href}
-                  href={link.href}
-                  aria-current={isActive ? 'page' : undefined}
-                  className={cn(
-                    'relative cursor-pointer py-1 text-sm font-medium transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-                    // Phase 43: underline that grows from the left on hover and stays on the active page.
-                    'after:absolute after:inset-x-0 after:-bottom-0.5 after:h-0.5 after:origin-left after:rounded-full after:bg-primary after:transition-transform after:duration-200 after:ease-out motion-reduce:after:transition-none',
-                    isActive ? 'font-semibold text-foreground after:scale-x-100' : 'text-muted-foreground after:scale-x-0 hover:after:scale-x-100',
-                  )}
+                  ref={dropdownContainerRef}
+                  className="relative flex items-center"
+                  onMouseEnter={handleMouseEnter}
+                  onMouseLeave={handleMouseLeave}
+                  onFocus={handleMouseEnter}
+                  onBlur={handleDropdownBlur}
                 >
-                  {link.label}
-                </Link>
+                  <Link
+                    href={link.href}
+                    aria-current={isActive ? 'page' : undefined}
+                    aria-haspopup="true"
+                    aria-expanded={isProductsDropdownOpen}
+                    onClick={() => setIsProductsDropdownOpen(false)}
+                    className={cn(
+                      'relative inline-flex items-center gap-1 cursor-pointer py-1 text-sm font-medium transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                      'after:absolute after:inset-x-0 after:-bottom-0.5 after:h-0.5 after:origin-left after:rounded-full after:bg-primary after:transition-transform after:duration-200 after:ease-out motion-reduce:after:transition-none',
+                      isActive ? 'font-semibold text-foreground after:scale-x-100' : 'text-muted-foreground after:scale-x-0 hover:after:scale-x-100',
+                    )}
+                  >
+                    <span>{link.label}</span>
+                    <ChevronDown
+                      className={cn(
+                        'size-3.5 text-muted-foreground transition-transform duration-200 ease-out motion-reduce:transition-none',
+                        isProductsDropdownOpen && 'rotate-180 text-foreground',
+                      )}
+                      aria-hidden="true"
+                    />
+                  </Link>
+
+                  {/* Dropdown panel on hover */}
+                  <div
+                    role="menu"
+                    aria-label={link.label}
+                    className={cn(
+                      'absolute top-full left-0 z-50 pt-2 transition-all duration-200 ease-out motion-reduce:transition-none',
+                      isProductsDropdownOpen
+                        ? 'visible opacity-100 translate-y-0 pointer-events-auto'
+                        : 'invisible opacity-0 -translate-y-1 pointer-events-none',
+                    )}
+                  >
+                    <div className="w-64 rounded-2xl border border-border bg-popover/95 p-1.5 text-popover-foreground shadow-lg backdrop-blur-md">
+                      <Link
+                        href="/products"
+                        role="menuitem"
+                        onClick={() => setIsProductsDropdownOpen(false)}
+                        className={cn(
+                          'flex items-center justify-between rounded-xl px-3 py-2 text-sm font-medium transition-colors duration-150 outline-none focus-visible:bg-secondary focus-visible:text-foreground',
+                          !activeCategoryId && isActive
+                            ? 'bg-secondary font-semibold text-primary'
+                            : 'text-foreground/90 hover:bg-secondary hover:text-foreground',
+                        )}
+                      >
+                        <span className="flex items-center gap-2">
+                          <Package className="size-4 text-primary" />
+                          {t('allProducts')}
+                        </span>
+                        <span className="text-xs text-muted-foreground font-normal">→</span>
+                      </Link>
+
+                      {categories.length > 0 && (
+                        <>
+                          <hr className="my-1 border-border" />
+                          <div className="flex flex-col gap-0.5 max-h-72 overflow-y-auto px-0.5">
+                            {categories.map((category) => {
+                              const isSelected = pathname === '/products' && activeCategoryId === category.id;
+                              return (
+                                <Link
+                                  key={category.id}
+                                  href={`/products?categoryId=${category.id}`}
+                                  role="menuitem"
+                                  onClick={() => setIsProductsDropdownOpen(false)}
+                                  className={cn(
+                                    'flex items-center justify-between rounded-xl px-3 py-2 text-sm transition-colors duration-150 outline-none focus-visible:bg-secondary focus-visible:text-foreground',
+                                    isSelected
+                                      ? 'bg-secondary font-semibold text-primary'
+                                      : 'text-foreground/80 hover:bg-secondary hover:text-foreground',
+                                  )}
+                                >
+                                  <span className="truncate">{category.name}</span>
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
               );
             })}
           </nav>
@@ -189,22 +372,44 @@ export function Header() {
           </div>
           {navLinks.map((link, index) => {
             const isActive = isNavLinkActive(pathname, link.href);
+            const isProductsLink = link.href === '/products';
             return (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setIsMenuOpen(false)}
-                aria-current={isActive ? 'page' : undefined}
-                // Links follow the panel in, one after another; on close they leave together.
-                style={{ transitionDelay: isMenuOpen ? `${120 + index * 40}ms` : '0ms' }}
-                className={cn(
-                  'cursor-pointer rounded-lg px-3 py-2.5 text-sm text-foreground transition-[background-color,opacity,transform] duration-300 ease-out hover:bg-secondary motion-reduce:transform-none motion-reduce:transition-none',
-                  isActive ? 'bg-secondary/60 font-semibold' : 'font-medium',
-                  isMenuOpen ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0',
+              <div key={link.href} className="flex flex-col">
+                <Link
+                  href={link.href}
+                  onClick={() => setIsMenuOpen(false)}
+                  aria-current={isActive ? 'page' : undefined}
+                  // Links follow the panel in, one after another; on close they leave together.
+                  style={{ transitionDelay: isMenuOpen ? `${120 + index * 40}ms` : '0ms' }}
+                  className={cn(
+                    'cursor-pointer rounded-lg px-3 py-2.5 text-sm text-foreground transition-[background-color,opacity,transform] duration-300 ease-out hover:bg-secondary motion-reduce:transform-none motion-reduce:transition-none',
+                    isActive ? 'bg-secondary/60 font-semibold' : 'font-medium',
+                    isMenuOpen ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0',
+                  )}
+                >
+                  {link.label}
+                </Link>
+                {isProductsLink && categories.length > 0 && (
+                  <div
+                    style={{ transitionDelay: isMenuOpen ? `${140 + index * 40}ms` : '0ms' }}
+                    className={cn(
+                      'ml-4 my-1 flex flex-col gap-0.5 border-l border-border/70 pl-3 transition-[opacity,transform] duration-300 ease-out motion-reduce:transform-none motion-reduce:transition-none',
+                      isMenuOpen ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0',
+                    )}
+                  >
+                    {categories.map((cat) => (
+                      <Link
+                        key={cat.id}
+                        href={`/products?categoryId=${cat.id}`}
+                        onClick={() => setIsMenuOpen(false)}
+                        className="rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                      >
+                        {cat.name}
+                      </Link>
+                    ))}
+                  </div>
                 )}
-              >
-                {link.label}
-              </Link>
+              </div>
             );
           })}
         </div>
