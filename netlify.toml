@@ -13,3 +13,7 @@
 [functions]
   # Netlify-only functions (today: the daily cleanup schedule that replaces vercel.json `crons`).
   directory = "netlify/functions"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
