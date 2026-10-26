@@ -10,6 +10,7 @@ import { SITE_CONFIG } from '@/config/site';
 import { buildVietQrUrl } from '@/lib/vietqr';
 import { PurchaseTracker } from '@/components/analytics/storefront-trackers';
 import { createDatabaseRateLimiter, getClientIp } from '@/lib/rate-limit';
+import { OrderZaloAction } from '@/components/storefront/order-zalo-action';
 
 const DEPOSIT_SUGGESTED_THRESHOLD = 300_000; // ADR-0009 / business-rules.md #8
 
@@ -40,6 +41,7 @@ export default async function OrderConfirmationPage({ params, searchParams }: { 
 
   const bankTransfer = order.paymentMethod === 'BANK_TRANSFER';
   const qrUrl = bankTransfer ? buildVietQrUrl(order.total, order.orderNumber) : null;
+  const confirmationUrl = `https://basa3d.vn/order-confirmation/${order.orderNumber}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
@@ -50,6 +52,29 @@ export default async function OrderConfirmationPage({ params, searchParams }: { 
         <p className="mt-2 text-sm text-muted-foreground">Mã đơn hàng của bạn — vui lòng lưu lại để tra cứu sau này.</p>
         <p className="mt-2 font-mono text-lg font-bold tracking-wide text-foreground">{order.orderNumber}</p>
       </div>
+
+      <OrderZaloAction
+        className="mt-6"
+        order={{
+          orderNumber: order.orderNumber,
+          customerName: order.customerName,
+          customerPhone: order.customerPhone,
+          shippingAddress: order.shippingAddress,
+          paymentMethod: order.paymentMethod,
+          items: order.items.map((item) => ({
+            name: item.productNameSnapshot,
+            variantName: item.variantNameSnapshot,
+            sku: item.skuSnapshot,
+            quantity: item.quantity,
+            price: item.unitPrice,
+          })),
+          subtotal: order.subtotal,
+          shippingFee: order.shippingFee,
+          discount: order.discount,
+          total: order.total,
+          confirmationUrl,
+        }}
+      />
 
       <div className="mt-8 rounded-xl border border-border bg-card p-6 shadow-xs">
         <p className="text-sm font-semibold text-foreground">Sản phẩm</p>

@@ -4,8 +4,18 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { StorefrontButton, storefrontButtonClasses } from '@/components/storefront/button';
+import { Button } from '@/components/ui/button';
+import { MessageCircle } from 'lucide-react';
 import { formatVnd } from '@/components/storefront/format';
 import { useCart } from '@/lib/cart/cart-context';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { OrderZaloAction, type ZaloOrderData } from '@/components/storefront/order-zalo-action';
 
 type SubmitState = { status: 'idle' | 'submitting' | 'error'; message?: string };
 
@@ -19,19 +29,17 @@ export default function CheckoutPage() {
   const { items, subtotal, clearCart } = useCart();
   const [state, setState] = useState<SubmitState>({ status: 'idle' });
   const [hasMounted, setHasMounted] = useState(false);
+  const [zaloOrder, setZaloOrder] = useState<ZaloOrderData | null>(null);
+  const [isZaloDialogOpen, setIsZaloDialogOpen] = useState(false);
   const checkoutRequestId = useRef('');
   const cartSignature = items.map((item) => `${item.variantId}:${item.quantity}`).sort().join('|');
 
   useEffect(() => setHasMounted(true), []);
   useEffect(() => { checkoutRequestId.current = crypto.randomUUID(); }, [cartSignature]);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (items.length === 0) return;
-    const form = new FormData(event.currentTarget);
-    setState({ status: 'submitting' });
-
-    const payload = {
+  function getFormData(formElement: HTMLFormElement) {
+    const form = new FormData(formElement);
+    return {
       checkoutRequestId: checkoutRequestId.current || crypto.randomUUID(),
       customerName: String(form.get('customerName') ?? ''),
       customerPhone: String(form.get('customerPhone') ?? ''),
@@ -46,14 +54,70 @@ export default function CheckoutPage() {
       items: items.map((item) => ({ variantId: item.variantId, quantity: item.quantity })),
       honeypot: String(form.get('company-website') ?? ''),
     };
+  }
+
+  function handleSendViaZalo(event: React.MouseEvent<HTMLButtonElement>) {
+    const form = event.currentTarget.form;
+    if (!form) return;
+    if (!form.reportValidity()) return;
+
+    const payload = getFormData(form);
+    const orderData: ZaloOrderData = {
+      customerName: payload.customerName,
+      customerPhone: payload.customerPhone,
+      customerEmail: payload.customerEmail,
+      shippingAddress: payload.shippingAddress,
+      paymentMethod: payload.paymentMethod,
+      customerNote: payload.customerNote,
+      items: items.map((item) => ({
+        name: item.productName,
+        variantName: item.variantName,
+        sku: item.sku,
+        quantity: item.quantity,
+        price: item.price,
+      })),
+      total: subtotal,
+    };
+    setZaloOrder(orderData);
+    setIsZaloDialogOpen(true);
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (items.length === 0) return;
+    const payload = getFormData(event.currentTarget);
+    setState({ status: 'submitting' });
 
     try {
       const response = await fetch('/api/public/orders', {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload),
       });
-      const body = await response.json();
+      const body = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setState({ status: 'error', message: ERROR_MESSAGES[body.code] ?? body.message ?? 'Có lỗi xảy ra, vui lòng kiểm tra lại thông tin.' });
+        if (body.code && ERROR_MESSAGES[body.code]) {
+          setState({ status: 'error', message: ERROR_MESSAGES[body.code] });
+          return;
+        }
+        // In current phase (or if cart API is disabled / returns 404), allow direct Zalo order with filled info:
+        const orderData: ZaloOrderData = {
+          customerName: payload.customerName,
+          customerPhone: payload.customerPhone,
+          customerEmail: payload.customerEmail,
+          shippingAddress: payload.shippingAddress,
+          paymentMethod: payload.paymentMethod,
+          customerNote: payload.customerNote,
+          items: items.map((item) => ({
+            name: item.productName,
+            variantName: item.variantName,
+            sku: item.sku,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+          total: subtotal,
+        };
+        setZaloOrder(orderData);
+        setIsZaloDialogOpen(true);
+        setState({ status: 'idle' });
         return;
       }
       clearCart();
@@ -139,9 +203,21 @@ export default function CheckoutPage() {
 
           {state.status === 'error' && <p className="text-sm font-medium text-destructive">{state.message}</p>}
 
-          <StorefrontButton type="submit" variant="accent" disabled={state.status === 'submitting' || items.length === 0} className="w-full">
-            {state.status === 'submitting' ? 'Đang đặt hàng...' : 'Xác nhận đặt hàng'}
-          </StorefrontButton>
+          <div className="flex flex-col gap-2.5">
+            <StorefrontButton type="submit" variant="accent" disabled={state.status === 'submitting' || items.length === 0} className="w-full">
+              {state.status === 'submitting' ? 'Đang đặt hàng...' : 'Xác nhận đặt hàng'}
+            </StorefrontButton>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleSendViaZalo}
+              disabled={items.length === 0}
+              className="w-full cursor-pointer inline-flex items-center justify-center gap-2 border-[#0068FF]/40 text-[#0068FF] hover:bg-[#0068FF]/5"
+            >
+              <MessageCircle className="size-4" />
+              Tạo tin nhắn & Gửi qua Zalo
+            </Button>
+          </div>
         </form>
 
         <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 shadow-xs md:col-span-1">
@@ -161,6 +237,23 @@ export default function CheckoutPage() {
           <p className="text-xs text-muted-foreground">Số tiền chính xác sẽ được xác nhận lại ở trang kế tiếp — giá có thể thay đổi nếu admin cập nhật giá sau khi bạn thêm vào giỏ.</p>
         </div>
       </div>
+
+      {zaloOrder && (
+        <Dialog open={isZaloDialogOpen} onOpenChange={setIsZaloDialogOpen}>
+          <DialogContent className="sm:max-w-xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-lg font-bold">
+                <MessageCircle className="size-5 text-[#0068FF]" />
+                Đơn hàng đã sẵn sàng gửi Zalo
+              </DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground">
+                Toàn bộ thông tin bạn vừa điền và danh sách sản phẩm đã được tổng hợp bên dưới:
+              </DialogDescription>
+            </DialogHeader>
+            <OrderZaloAction order={zaloOrder} />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
