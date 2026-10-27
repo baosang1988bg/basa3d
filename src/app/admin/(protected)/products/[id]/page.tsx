@@ -17,8 +17,9 @@ import {
   deleteVariantAction,
   updateProductAction,
   updateVariantAction,
-  uploadProductImageAction,
 } from '../actions';
+import { setProductCoverImageAction } from '../new/actions';
+import { ProductImageUploader } from '@/components/admin/product-image-picker';
 
 export default async function ProductDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ publishBlocked?: string }> }) {
   const { id } = await params;
@@ -140,8 +141,8 @@ export default async function ProductDetailPage({ params, searchParams }: { para
 
           <form action={createVariantAction.bind(null, id)} className="flex flex-wrap items-end gap-3 pt-2">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="new-sku">SKU mới</Label>
-              <Input id="new-sku" name="sku" required placeholder="SKU-EXAMPLE" className="w-40" />
+              <Label htmlFor="new-sku">SKU (để trống = tự tạo)</Label>
+              <Input id="new-sku" name="sku" placeholder="Tự tạo" className="w-40" />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="new-name">Tên biến thể</Label>
@@ -160,18 +161,25 @@ export default async function ProductDetailPage({ params, searchParams }: { para
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Ảnh sản phẩm ({images.length})</span>
-            <span className="text-xs font-normal text-muted-foreground">Hỗ trợ JPG, PNG, WEBP tối đa 5MB</span>
+            <span className="text-xs font-normal text-muted-foreground">Ảnh đầu tiên là ảnh bìa</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
           {images.length > 0 ? (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-              {images.map((image) => (
+              {images.map((image, index) => (
                 <div key={image.id} className="group relative flex flex-col items-center overflow-hidden rounded-lg border border-border bg-card p-2 shadow-xs transition-shadow hover:shadow-md">
                   <div className="relative aspect-square w-full overflow-hidden rounded-md bg-muted">
                     <Image src={image.url} alt={image.altText ?? product.name} fill className="object-cover" unoptimized />
                   </div>
-                  <form action={deleteProductImageAction.bind(null, id, image.id)} className="mt-2 w-full">
+                  {index === 0 ? (
+                    <span className="mt-2 w-full text-center text-xs font-semibold text-primary">★ Ảnh bìa</span>
+                  ) : (
+                    <form action={setProductCoverImageAction.bind(null, id, image.id)} className="mt-2 w-full">
+                      <Button type="submit" size="sm" variant="ghost" className="w-full text-xs">Đặt làm bìa</Button>
+                    </form>
+                  )}
+                  <form action={deleteProductImageAction.bind(null, id, image.id)} className="mt-1 w-full">
                     <Button type="submit" size="sm" variant="outline" className="w-full text-xs text-destructive hover:bg-destructive/10">Xoá ảnh</Button>
                   </form>
                 </div>
@@ -180,10 +188,8 @@ export default async function ProductDetailPage({ params, searchParams }: { para
           ) : (
             <p className="text-sm text-muted-foreground">Sản phẩm này chưa có hình ảnh. Hãy tải lên ảnh đại diện bên dưới.</p>
           )}
-          <form action={uploadProductImageAction.bind(null, id)} encType="multipart/form-data" className="flex flex-wrap items-center gap-3 rounded-lg border border-dashed border-border bg-muted/20 p-4">
-            <input type="file" name="file" accept="image/jpeg,image/png,image/webp" required className="cursor-pointer text-sm text-muted-foreground file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary-foreground hover:file:bg-primary/90" />
-            <Button type="submit" size="sm">Tải ảnh lên</Button>
-          </form>
+          {/* Phase 52 P3: multi-image, shrunk in the browser, uploaded straight to Storage. */}
+          <ProductImageUploader productId={id} hasImages={images.length > 0} />
         </CardContent>
       </Card>
     </div>

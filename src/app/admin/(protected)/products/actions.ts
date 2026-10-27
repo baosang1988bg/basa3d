@@ -23,6 +23,8 @@ import {
   updateVariant,
   uploadProductImage,
 } from '@/services/product.service';
+import { generateVariantSku, publishProductIfReady } from '@/services/product-onboarding.service';
+import { slugify } from '@/lib/catalog/naming';
 
 // Feature 003: the import publish gate refuses status → ACTIVE with reasons; send the admin back to
 // the page with those reasons instead of the generic error boundary.
@@ -72,7 +74,8 @@ export async function createCategoryAction(formData: FormData) {
   const { actorId } = await requireAdmin();
   const input = categoryInputSchema.parse({
     name: formData.get('name'),
-    slug: formData.get('slug'),
+    // Phase 52: slug is optional — generated from the name when left empty.
+    slug: readFormValue(formData, 'slug') ?? slugify(String(formData.get('name') ?? '')),
     parentId: readFormValue(formData, 'parentId') ?? null,
   });
   await createCategory(input, actorId);
@@ -119,6 +122,23 @@ export async function unarchiveProductAction(productId: string) {
   revalidatePath('/admin/products');
 }
 
+// Product list "Đăng bán" (UX redesign 2026-10-27): DRAFT → ACTIVE only when nothing is missing
+// (licence known, image, price, real category). Missing items / the Feature 003 gate come back as a
+// notice on the list instead of the error page.
+export async function publishProductFromListAction(productId: string) {
+  const { actorId } = await requireAdmin();
+  productId = parseActionId(productId, 'productId');
+  let missing: string[] = [];
+  try {
+    missing = (await publishProductIfReady(productId, actorId)).reasons;
+  } catch (error) {
+    if (error instanceof PublishBlockedError) redirect(`/admin/products?publishBlocked=${error.reasons.join(',')}`);
+    throw error;
+  }
+  revalidatePath('/admin/products');
+  if (missing.length) redirect(`/admin/products?missing=${missing.join(',')}`);
+}
+
 // Hard delete — OWNER only (ADR-0011 boundary #3).
 export async function deleteProductAction(productId: string) {
   const { actorId } = await requireOwner();
@@ -130,9 +150,12 @@ export async function deleteProductAction(productId: string) {
 export async function createVariantAction(productId: string, formData: FormData) {
   const { actorId } = await requireAdmin();
   productId = parseActionId(productId, 'productId');
+  // Phase 52: SKU is optional — generated from the product slug + variant name when left empty.
+  const typedSku = readFormValue(formData, 'sku')?.trim().toUpperCase();
+  const variantName = String(formData.get('name') ?? '');
   const input = productVariantInputSchema.parse({
     productId,
-    sku: formData.get('sku'),
+    sku: typedSku || await generateVariantSku(productId, variantName),
     name: formData.get('name'),
     price: Number(formData.get('price')),
     weightGrams: readFormValue(formData, 'weightGrams') ? Number(formData.get('weightGrams')) : null,

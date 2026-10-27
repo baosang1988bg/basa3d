@@ -18,6 +18,7 @@ let productId: string;
 let variantId: string;
 let warehouseId: string;
 let variantSku: string;
+let categoryName: string;
 
 test.beforeAll(async () => {
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } });
@@ -38,6 +39,9 @@ test.beforeAll(async () => {
     await client.query(`insert into products (id, name, slug, product_type, status) values ($1, 'E2E Product', $2, 'READY_STOCK', 'ACTIVE')`, [productId, `e2e-product-${suffix}`]);
     variantSku = `E2E-VARIANT-${suffix.toUpperCase()}`;
     await client.query(`insert into product_variants (id, product_id, sku, name, price) values ($1, $2, $3, 'E2E Variant', 50000)`, [variantId, productId, variantSku]);
+    // Phase 52: /admin/products/new requires a real category.
+    categoryName = `E2E Category ${suffix}`;
+    await client.query(`insert into categories (name, slug) values ($1, $2)`, [categoryName, `e2e-category-${suffix}`]);
   } finally {
     await client.end();
   }
@@ -71,23 +75,53 @@ async function login(page: Page) {
 }
 
 test('admin can log in and create a product', async ({ page }) => {
+  // Phase 52: guided page — slug/SKU generated, licence chosen explicitly, saved as DRAFT.
   await login(page);
-  await page.goto('/admin/products');
+  await page.goto('/admin/products/new');
 
   const productName = `E2E New Product ${randomUUID().slice(0, 8)}`;
-  const productSlug = `e2e-new-${randomUUID().slice(0, 8)}`;
   await page.getByLabel('Tên sản phẩm').fill(productName);
-  await page.locator('#slug').fill(productSlug);
-  await page.getByLabel('Loại sản phẩm').selectOption('READY_STOCK');
-  await page.getByRole('button', { name: 'Tạo sản phẩm' }).click();
+  await page.getByLabel('Danh mục').selectOption({ label: categoryName });
+  await page.getByRole('radio', { name: /Xưởng tự thiết kế/ }).click();
+  await page.getByRole('radio', { name: /Có sẵn, giao ngay/ }).click();
+  await page.getByLabel('Giá bán niêm yết (đ)').fill('89000');
+  await page.getByLabel('Số lượng đang có trên kệ').fill('4');
+  await page.getByRole('button', { name: 'Lưu nháp' }).click();
+  await expect(page.getByText('Đã lưu sản phẩm (nháp).')).toBeVisible();
 
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
-    await expect.poll(async () => {
-      const row = await client.query('select name from products where slug = $1', [productSlug]);
-      return row.rows[0]?.name;
-    }).toBe(productName);
+    const row = await client.query(
+      `select p.status, p.product_type, p.license_type, v.sku, coalesce(sum(m.quantity), 0)::int as on_hand
+       from products p join product_variants v on v.product_id = p.id left join inventory_movements m on m.product_variant_id = v.id
+       where p.name = $1 group by p.id, v.id`, [productName]);
+    expect(row.rows).toHaveLength(1);
+    expect(row.rows[0]).toMatchObject({ status: 'DRAFT', product_type: 'READY_STOCK', license_type: 'OWN_DESIGN', on_hand: 4 });
+  } finally {
+    await client.end();
+  }
+});
+
+test('staff restock from the product row: +5 once, even when Save is clicked twice', async ({ page }) => {
+  await login(page);
+  await page.goto('/admin/product-inventory');
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    const before = Number((await client.query('select coalesce(sum(quantity), 0) as q from inventory_movements where product_variant_id = $1', [variantId])).rows[0].q);
+    await page.getByLabel('Tìm sản phẩm').fill(variantSku);
+    await page.getByRole('button', { name: 'Nhập kho E2E Product' }).first().click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel('Kho').selectOption(warehouseId);
+    await dialog.getByRole('radio', { name: 'In xong nhập kho' }).click();
+    await dialog.getByLabel('Số lượng').fill('5');
+    const save = dialog.getByRole('button', { name: 'Lưu vào kho' });
+    await save.dblclick();
+    await expect.poll(async () => Number((await client.query('select coalesce(sum(quantity), 0) as q from inventory_movements where product_variant_id = $1', [variantId])).rows[0].q), { timeout: 15_000 }).toBe(before + 5);
+    await page.waitForTimeout(1_000);
+    const rows = await client.query(`select count(*)::int as n from inventory_movements where product_variant_id = $1 and reference_type = 'quick_restock'`, [variantId]);
+    expect(rows.rows[0].n).toBe(1);
   } finally {
     await client.end();
   }
@@ -117,6 +151,8 @@ test('admin can record an inventory movement', async ({ page }) => {
   await login(page);
   await page.goto('/admin/inventory');
 
+  // Phase 52 P4: the raw movement form lives under "Nâng cao" (OWNER only).
+  await page.getByText(/Nâng cao \(OWNER\)/).click();
   await page.locator('select[name="productVariantId"]').selectOption(variantId);
   await page.locator('select[name="warehouseId"]').selectOption(warehouseId);
   await page.locator('select[name="movementType"]').selectOption('PRODUCTION_IN');

@@ -3,6 +3,7 @@ import { query, withTransaction } from '../lib/db';
 import { DomainError } from '../lib/domain-error';
 import { writeAuditLog } from './audit.service';
 import { invalidatesStorefrontCatalog } from '../lib/cache/storefront-cache-tags';
+import { sqlLocalDayStart } from '../lib/business-time';
 
 export type StockLevel = { onHand: number; reserved: number; available: number };
 export function availableStock(onHand: number, reserved: number): number { return onHand - reserved; }
@@ -72,16 +73,33 @@ export async function lockVariantForInventoryWrite(client: PoolClient, variantId
   if (!result.rowCount) throw new DomainError('VARIANT_NOT_FOUND', 'Product variant was not found.', 404);
 }
 
-export async function recordInventoryMovement(input: { warehouseId: string; productVariantId: string; movementType: string; quantity: number; unitCost?: number | null; referenceType?: string | null; referenceId?: string | null; note?: string | null }, actorId: string) {
+export type InventoryMovementWrite = { warehouseId: string; productVariantId: string; movementType: string; quantity: number; unitCost?: number | null; referenceType?: string | null; referenceId?: string | null; note?: string | null };
+
+export async function recordInventoryMovement(input: InventoryMovementWrite, actorId: string) {
   return invalidatesStorefrontCatalog(withTransaction(async (client) => {
     await lockVariantForInventoryWrite(client, input.productVariantId);
-    if (input.quantity < 0) await assertOutboundInventoryMovementAllowed(client, input);
-    const result = await client.query<{ id: string }>(`
-      insert into inventory_movements (warehouse_id, product_variant_id, movement_type, quantity, unit_cost, reference_type, reference_id, note, created_by)
-      values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning id`, [input.warehouseId, input.productVariantId, input.movementType, input.quantity, input.unitCost ?? null, input.referenceType ?? null, input.referenceId ?? null, input.note ?? null, actorId]);
-    if (input.movementType.startsWith('ADJUSTMENT')) await writeAuditLog(client, { actorId, action: 'INVENTORY_ADJUSTED', entityType: 'inventory_movement', entityId: result.rows[0].id, afterData: input });
-    return result.rows[0];
+    return insertInventoryMovementLocked(client, input, actorId);
   }));
+}
+
+// The guarded insert behind recordInventoryMovement, shared with Phase 52's quick-restock service so
+// both paths apply the same Rule #23 outbound checks and audit log. Caller must already hold the
+// variant lock (lockVariantForInventoryWrite) in the same transaction.
+export async function insertInventoryMovementLocked(client: PoolClient, input: InventoryMovementWrite, actorId: string): Promise<{ id: string }> {
+  if (input.quantity < 0) await assertOutboundInventoryMovementAllowed(client, input);
+  const result = await client.query<{ id: string }>(`
+    insert into inventory_movements (warehouse_id, product_variant_id, movement_type, quantity, unit_cost, reference_type, reference_id, note, created_by)
+    values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning id`, [input.warehouseId, input.productVariantId, input.movementType, input.quantity, input.unitCost ?? null, input.referenceType ?? null, input.referenceId ?? null, input.note ?? null, actorId]);
+  if (input.movementType.startsWith('ADJUSTMENT')) await writeAuditLog(client, { actorId, action: 'INVENTORY_ADJUSTED', entityType: 'inventory_movement', entityId: result.rows[0].id, afterData: input });
+  return result.rows[0];
+}
+
+/** On-hand of one variant in one warehouse (sum of its ledger rows). */
+export async function getWarehouseOnHand(client: PoolClient, variantId: string, warehouseId: string): Promise<number> {
+  const result = await client.query<{ on_hand: string }>(
+    'select coalesce(sum(quantity), 0) as on_hand from inventory_movements where product_variant_id = $1 and warehouse_id = $2',
+    [variantId, warehouseId]);
+  return Number(result.rows[0].on_hand);
 }
 
 // Phase 36 S1 (business-rules.md #23): a manual stock-out can never take a warehouse below zero on
@@ -176,4 +194,73 @@ export async function listMaterialMovementsByReference(referenceType: string, re
 export async function assertAvailableStock(client: PoolClient, variantId: string, requestedQuantity: number) {
   const stock = await getStockLevel(variantId, client);
   if (stock.available < requestedQuantity) throw new DomainError('INSUFFICIENT_STOCK', 'Insufficient available stock.', 409);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Phase 52 P4 — /admin/inventory as a read-only ledger with filters.
+// ---------------------------------------------------------------------------------------------
+
+export type InventoryLedgerFilters = {
+  search?: string;
+  movementType?: string;
+  actorId?: string;
+  /** Local calendar dates (Asia/Ho_Chi_Minh), `YYYY-MM-DD`, inclusive. */
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
+};
+
+export type InventoryLedgerRow = {
+  id: string; createdAt: string; movementType: string; quantity: number; unitCost: number | null;
+  note: string | null; referenceType: string | null; referenceId: string | null;
+  productId: string; productName: string; sku: string; variantName: string;
+  warehouseName: string; warehouseCode: string; actorId: string | null; actorName: string | null;
+};
+
+const LEDGER_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+/** A real calendar date (rejects 2026-02-30, which would make the ::date cast fail with a 500). */
+function isCalendarDate(value: string | undefined): value is string {
+  if (!value || !LEDGER_DATE_RE.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+export async function listInventoryLedger(filters: InventoryLedgerFilters = {}) {
+  const page = Number.isFinite(filters.page) ? Math.max(1, Math.floor(filters.page as number)) : 1;
+  const limit = Math.min(100, Math.max(1, filters.limit ?? 50));
+  const values: unknown[] = [];
+  const where: string[] = [];
+  if (filters.search?.trim()) {
+    values.push(`%${filters.search.trim().replace(/[%_\\]/g, '\\$&')}%`);
+    where.push(`(p.name ilike $${values.length} or v.sku ilike $${values.length} or v.name ilike $${values.length})`);
+  }
+  if (filters.movementType) { values.push(filters.movementType); where.push(`m.movement_type::text = $${values.length}`); }
+  if (filters.actorId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(filters.actorId)) { values.push(filters.actorId); where.push(`m.created_by = $${values.length}`); }
+  if (isCalendarDate(filters.from)) { values.push(filters.from); where.push(`m.created_at >= ${sqlLocalDayStart(`$${values.length}::date`)}`); }
+  if (isCalendarDate(filters.to)) { values.push(filters.to); where.push(`m.created_at < ${sqlLocalDayStart(`$${values.length}::date + 1`)}`); }
+  values.push(limit + 1, (page - 1) * limit);
+  const result = await query<InventoryLedgerRow & { unitCost: string | null }>(`
+    select m.id, m.created_at as "createdAt", m.movement_type as "movementType", m.quantity, m.unit_cost as "unitCost",
+      m.note, m.reference_type as "referenceType", m.reference_id as "referenceId",
+      p.id as "productId", p.name as "productName", v.sku, v.name as "variantName",
+      w.name as "warehouseName", w.code as "warehouseCode", m.created_by as "actorId", sp.full_name as "actorName"
+    from inventory_movements m
+    join product_variants v on v.id = m.product_variant_id
+    join products p on p.id = v.product_id
+    join warehouses w on w.id = m.warehouse_id
+    left join staff_profiles sp on sp.id = m.created_by
+    ${where.length ? `where ${where.join(' and ')}` : ''}
+    order by m.created_at desc, m.id
+    limit $${values.length - 1} offset $${values.length}`, values);
+  const rows = result.rows.map((row) => ({ ...row, unitCost: row.unitCost === null ? null : Number(row.unitCost) }));
+  return { page, limit, hasNext: rows.length > limit, items: rows.slice(0, limit) };
+}
+
+/** Staff who have written at least one ledger row — options for the "người ghi" filter. */
+export async function listInventoryActors() {
+  const result = await query<{ id: string; name: string }>(`
+    select sp.id, sp.full_name as name from staff_profiles sp
+    where exists (select 1 from inventory_movements m where m.created_by = sp.id) order by sp.full_name`);
+  return result.rows;
 }

@@ -1,9 +1,69 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { ZodError } from 'zod';
 import { requireAdmin } from '@/lib/auth/require-admin';
-import { vndSchema, uuidSchema, pricingBreakdownSchema } from '@/domain/schemas';
+import { DomainError } from '@/lib/domain-error';
+import { productImagePublicUrl } from '@/lib/storage/product-image-url';
+import { vndSchema, uuidSchema, pricingBreakdownSchema, quickRestockBatchInputSchema, quickRestockInputSchema } from '@/domain/schemas';
 import { updateProduct, updateVariant } from '@/services/product.service';
+import {
+  getQuickRestockContext,
+  recordStockEvent,
+  recordStockEventBatch,
+  type QuickRestockBatchResult,
+  type QuickRestockContext,
+  type QuickRestockResult,
+} from '@/services/quick-restock.service';
+
+// ---------------------------------------------------------------------------------------------
+// Phase 52 — Nhập kho nhanh (docs/exec-plans/active/phase-52-admin-catalog-restock-ux.md, P1).
+// Both actions return a result object instead of throwing so the dialog can show the Vietnamese
+// message (a thrown error reaches the client as a generic message in production builds).
+// ---------------------------------------------------------------------------------------------
+
+export type QuickRestockDialogContext = QuickRestockContext & { coverUrl: string | null };
+export type QuickRestockActionResult =
+  | { ok: true; result: QuickRestockResult }
+  | { ok: false; code: string; message: string };
+
+export async function getQuickRestockContextAction(variantId: string): Promise<QuickRestockDialogContext | null> {
+  await requireAdmin();
+  const context = await getQuickRestockContext(uuidSchema.parse(variantId));
+  return context ? { ...context, coverUrl: productImagePublicUrl(context.coverStoragePath) } : null;
+}
+
+// Phase 52 P4: batch ("in xong cả mẻ") — all lines in one transaction.
+export async function quickRestockBatchAction(payload: unknown): Promise<{ ok: true; result: QuickRestockBatchResult } | { ok: false; code: string; message: string }> {
+  const { actorId } = await requireAdmin();
+  try {
+    const result = await recordStockEventBatch(quickRestockBatchInputSchema.parse(payload), actorId);
+    revalidatePath('/admin/product-inventory');
+    revalidatePath('/admin/products');
+    revalidatePath('/admin/inventory');
+    return { ok: true, result };
+  } catch (error) {
+    if (error instanceof DomainError) return { ok: false, code: error.code, message: error.message };
+    if (error instanceof ZodError) return { ok: false, code: 'VALIDATION_ERROR', message: error.issues[0]?.message ?? 'Dữ liệu không hợp lệ.' };
+    throw error;
+  }
+}
+
+export async function quickRestockAction(payload: unknown): Promise<QuickRestockActionResult> {
+  const { actorId } = await requireAdmin();
+  try {
+    const input = quickRestockInputSchema.parse(payload);
+    const result = await recordStockEvent(input, actorId);
+    revalidatePath('/admin/product-inventory');
+    revalidatePath('/admin/products');
+    revalidatePath('/admin/inventory');
+    return { ok: true, result };
+  } catch (error) {
+    if (error instanceof DomainError) return { ok: false, code: error.code, message: error.message };
+    if (error instanceof ZodError) return { ok: false, code: 'VALIDATION_ERROR', message: error.issues[0]?.message ?? 'Dữ liệu không hợp lệ.' };
+    throw error;
+  }
+}
 
 export async function updateVariantPriceAction(variantId: string, price: number) {
   const { actorId } = await requireAdmin();

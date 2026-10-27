@@ -1,28 +1,17 @@
 'use client';
 
+// Kho & giá sản phẩm (/admin/product-inventory).
+// UX review 2026-10-27 (Phase 52 follow-up): the old page mixed stock and pricing for every product,
+// counted MADE_TO_ORDER products (80–90% of the catalogue, Rule #9: no finished-goods stock) as
+// "Hết hàng – cần in ngay", and repeated the same numbers in KPI cards, pill lists, filter pills and
+// badges. Now: two tabs by how a product is sold; the stock tab is one list of variant rows (stock is
+// per variant, so is "Nhập kho"), sorted by urgency, with the status chips doubling as the summary.
 import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
-import {
-  AlertCircle,
-  AlertTriangle,
-  Boxes,
-  Calculator,
-  Check,
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  ExternalLink,
-  Filter,
-  Loader2,
-  Plus,
-  RotateCcw,
-  Search,
-  Sparkles,
-  Warehouse,
-} from 'lucide-react';
+import { Boxes, Calculator, Check, ExternalLink, Loader2, Package, Pencil, Plus, Printer, Search, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -39,6 +28,9 @@ import {
   type PricingBreakdown,
 } from '@/services/pricing.service';
 import type { ProductInventoryItem } from '@/services/product.service';
+import { QuickRestockButton } from '@/components/admin/quick-restock-dialog';
+import { BatchRestockButton } from '@/components/admin/batch-restock-dialog';
+import type { StockTrackedVariant } from '@/services/quick-restock.service';
 import type { PricingConfigRow } from '@/services/pricing-config.service';
 import {
   applyPricingCalculationAction,
@@ -61,45 +53,57 @@ interface Props {
   categories: { id: string; name: string }[];
   materials: PricingMaterialOption[];
   pricingConfig: PricingConfigRow | null;
+  /** Phase 52 P4: picker data for "Nhập theo mẻ". */
+  batchVariants: StockTrackedVariant[];
+  warehouses: { id: string; name: string; code: string }[];
 }
 
-type StockFilter = 'ALL' | 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
+type Tab = 'STOCK' | 'MADE_TO_ORDER';
+type StockStatus = 'OUT' | 'LOW' | 'OK';
+type StatusFilter = 'ALL' | StockStatus;
+
+/** "Sắp hết" threshold, per variant (units still sellable). */
+const LOW_STOCK_MAX = 5;
+
+const STATUS_META: Record<StockStatus, { label: string; dot: string; text: string; chip: string }> = {
+  OUT: { label: 'Hết hàng', dot: 'bg-rose-500', text: 'text-rose-600 dark:text-rose-400', chip: 'data-[active=true]:border-rose-500 data-[active=true]:bg-rose-500/10' },
+  LOW: { label: 'Sắp hết', dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400', chip: 'data-[active=true]:border-amber-500 data-[active=true]:bg-amber-500/10' },
+  OK: { label: 'Còn hàng', dot: 'bg-emerald-500', text: 'text-foreground', chip: 'data-[active=true]:border-emerald-500 data-[active=true]:bg-emerald-500/10' },
+};
+const STATUS_ORDER: Record<StockStatus, number> = { OUT: 0, LOW: 1, OK: 2 };
+
+function stockStatus(available: number): StockStatus {
+  if (available <= 0) return 'OUT';
+  if (available <= LOW_STOCK_MAX) return 'LOW';
+  return 'OK';
+}
 
 function formatVnd(value: number | null | undefined): string {
   if (value == null) return '—';
   return `${Number(value).toLocaleString('vi-VN')}đ`;
 }
 
-function getVariantStockStatus(available: number) {
-  if (available > 5) {
-    return {
-      label: `Còn hàng (${available} cái)`,
-      badgeClass: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
-    };
-  }
-  if (available > 0) {
-    return {
-      label: `Gần hết (${available} cái)`,
-      badgeClass: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400',
-    };
-  }
-  return {
-    label: `Hết hàng (0 cái)`,
-    badgeClass: 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-400',
-  };
+function priceRange(prices: number[]): string {
+  if (!prices.length) return '—';
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  return min === max ? formatVnd(min) : `${formatVnd(min)} – ${formatVnd(max)}`;
 }
+
+const fold = (value: string) => value.normalize('NFD').replace(/\p{M}/gu, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
 
 export function ProductInventoryManager({
   products,
   categories,
   materials,
   pricingConfig,
+  batchVariants,
+  warehouses,
 }: Props) {
+  const [tab, setTab] = useState<Tab>('STOCK');
   const [search, setSearch] = useState('');
-  const [stockFilter, setStockFilter] = useState<StockFilter>('ALL');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
-  const [typeFilter, setTypeFilter] = useState('ALL');
-  const [expandedProducts, setExpandedProducts] = useState<Record<string, boolean>>({});
 
   // Inline price edit state
   const [editingPriceTarget, setEditingPriceTarget] = useState<string | null>(null);
@@ -118,6 +122,7 @@ export function ProductInventoryManager({
   } | null>(null);
 
   const [calcMaterialId, setCalcMaterialId] = useState<string>('');
+  const effectiveMaterialId = calcMaterialId || materials[0]?.id || '';
   const [calcGrams, setCalcGrams] = useState<string>('50');
   const [calcPrintHours, setCalcPrintHours] = useState<string>('2');
   const [calcPrintMinutes, setCalcPrintMinutes] = useState<string>('30');
@@ -125,88 +130,45 @@ export function ProductInventoryManager({
 
   const [isPending, startTransition] = useTransition();
 
-  // Initialize first material
-  useMemo(() => {
-    if (!calcMaterialId && materials.length > 0) {
-      setCalcMaterialId(materials[0].id);
-    }
-  }, [materials, calcMaterialId]);
+  const stockProducts = useMemo(() => products.filter((p) => p.productType === 'READY_STOCK'), [products]);
+  const orderProducts = useMemo(() => products.filter((p) => p.productType !== 'READY_STOCK'), [products]);
 
-  // Overall statistics oriented around product models (Mẫu: Zoro, Luffy, Sanji...) and actual physical unit count
-  const stats = useMemo(() => {
-    let totalAvailableUnits = 0;
-    let totalOnHandUnits = 0;
-    let totalReservedUnits = 0;
-
-    const inStockModels: ProductInventoryItem[] = [];
-    const lowStockModels: ProductInventoryItem[] = [];
-    const outOfStockModels: ProductInventoryItem[] = [];
-
-    for (const p of products) {
-      totalOnHandUnits += p.totalOnHand;
-      totalReservedUnits += p.totalReserved;
-      if (p.totalAvailable > 0) {
-        totalAvailableUnits += p.totalAvailable;
-      }
-
-      if (p.totalAvailable > 5) {
-        inStockModels.push(p);
-      } else if (p.totalAvailable > 0) {
-        lowStockModels.push(p);
-      } else {
-        outOfStockModels.push(p);
-      }
-    }
-
-    return {
-      totalProducts: products.length,
-      totalAvailableUnits,
-      totalOnHandUnits,
-      totalReservedUnits,
-      inStockModels,
-      lowStockModels,
-      outOfStockModels,
+  const matchesText = useMemo(() => {
+    const needle = fold(search.trim());
+    return (product: ProductInventoryItem) => {
+      if (categoryFilter !== 'ALL' && product.categoryId !== categoryFilter) return false;
+      if (!needle) return true;
+      const haystack = fold([product.name, product.slug, ...product.variants.flatMap((v) => [v.name, v.sku])].join(' '));
+      return needle.split(/\s+/).every((word) => haystack.includes(word));
     };
-  }, [products]);
+  }, [search, categoryFilter]);
 
-  // Filtered product list
-  const filteredProducts = useMemo(() => {
-    const queryTerm = search.trim().toLowerCase();
+  // Stock tab: one row per sellable variant; the chips count rows so "Hết hàng (3)" = 3 rows to restock.
+  const stockRows = useMemo(() => {
+    const rows = stockProducts
+      .filter(matchesText)
+      .flatMap((product) => product.variants
+        .filter((variant) => variant.isActive)
+        .map((variant) => ({ product, variant, status: stockStatus(variant.available) })));
+    return rows.sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]
+      || a.variant.available - b.variant.available
+      || a.product.name.localeCompare(b.product.name, 'vi'));
+  }, [stockProducts, matchesText]);
 
-    return products.filter((p) => {
-      // Category filter
-      if (categoryFilter !== 'ALL' && p.categoryId !== categoryFilter) {
-        return false;
-      }
+  const statusCounts = useMemo(() => {
+    const counts: Record<StockStatus, number> = { OUT: 0, LOW: 0, OK: 0 };
+    for (const row of stockRows) counts[row.status] += 1;
+    return counts;
+  }, [stockRows]);
 
-      // Product type filter
-      if (typeFilter !== 'ALL' && p.productType !== typeFilter) {
-        return false;
-      }
-
-      // Stock status filter by model available units
-      if (stockFilter === 'IN_STOCK' && p.totalAvailable <= 5) return false;
-      if (stockFilter === 'LOW_STOCK' && (p.totalAvailable <= 0 || p.totalAvailable > 5)) return false;
-      if (stockFilter === 'OUT_OF_STOCK' && p.totalAvailable > 0) return false;
-
-      // Text search in product name, slug, or any variant SKU
-      if (queryTerm) {
-        const matchesName = p.name.toLowerCase().includes(queryTerm);
-        const matchesSlug = p.slug.toLowerCase().includes(queryTerm);
-        const matchesSku = p.variants.some(
-          (v) => v.sku.toLowerCase().includes(queryTerm) || v.name.toLowerCase().includes(queryTerm),
-        );
-        if (!matchesName && !matchesSlug && !matchesSku) return false;
-      }
-
-      return true;
-    });
-  }, [products, search, categoryFilter, typeFilter, stockFilter]);
+  const visibleStockRows = statusFilter === 'ALL' ? stockRows : stockRows.filter((row) => row.status === statusFilter);
+  const visibleOrderProducts = useMemo(() => orderProducts.filter(matchesText), [orderProducts, matchesText]);
+  const hasFilters = Boolean(search) || categoryFilter !== 'ALL' || statusFilter !== 'ALL';
 
   // Calculation in Pricing Dialog
   const calculatedBreakdown = useMemo<PricingBreakdown | null>(() => {
     if (!pricingConfig) return null;
-    const material = materials.find((m) => m.id === calcMaterialId);
+    const material = materials.find((m) => m.id === effectiveMaterialId);
     if (!material) return null;
 
     const grams = Number(calcGrams);
@@ -230,14 +192,7 @@ export function ProductInventoryManager({
     } catch {
       return null;
     }
-  }, [pricingConfig, materials, calcMaterialId, calcGrams, calcPrintHours, calcPrintMinutes, calcLaborMinutes]);
-
-  function toggleExpand(productId: string) {
-    setExpandedProducts((prev) => ({
-      ...prev,
-      [productId]: prev[productId] === undefined ? false : !prev[productId],
-    }));
-  }
+  }, [pricingConfig, materials, effectiveMaterialId, calcGrams, calcPrintHours, calcPrintMinutes, calcLaborMinutes]);
 
   function handleStartInlineEdit(targetKey: string, currentPrice: number | null) {
     setEditingPriceTarget(targetKey);
@@ -322,659 +277,275 @@ export function ProductInventoryManager({
 
   function clearAllFilters() {
     setSearch('');
-    setStockFilter('ALL');
+    setStatusFilter('ALL');
     setCategoryFilter('ALL');
-    setTypeFilter('ALL');
   }
 
+  function priceCell(target: { key: string; productId: string; variantId?: string; price: number | null }) {
+    const isEditing = editingPriceTarget === target.key;
+    const isSaving = savingTarget === target.key;
+    if (isEditing) {
+      return (
+        <div className="flex items-center justify-end gap-1">
+          <Input
+            type="number"
+            min={0}
+            value={inlinePriceValue}
+            onChange={(e) => setInlinePriceValue(e.target.value)}
+            className="h-8 w-28 text-right text-sm tabular-nums"
+            autoFocus
+            aria-label="Giá mới (đ)"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSaveInlinePrice(target.productId, target.variantId);
+              if (e.key === 'Escape') handleCancelInlineEdit();
+            }}
+          />
+          <Button size="sm" className="h-8 px-2" disabled={isSaving || isPending} onClick={() => handleSaveInlinePrice(target.productId, target.variantId)} aria-label="Lưu giá">
+            {isSaving ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+          </Button>
+          <Button size="sm" variant="ghost" className="h-8 px-2" onClick={handleCancelInlineEdit} aria-label="Huỷ sửa giá">
+            <X className="size-3.5" />
+          </Button>
+        </div>
+      );
+    }
+    return (
+      <button
+        type="button"
+        onClick={() => handleStartInlineEdit(target.key, target.price)}
+        className="group inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-sm font-medium tabular-nums hover:bg-muted"
+        title="Bấm để sửa giá"
+      >
+        {saveSuccessTarget === target.key ? <Check className="size-3.5 text-emerald-600" /> : null}
+        {formatVnd(target.price)}
+        <Pencil className="size-3 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+      </button>
+    );
+  }
+
+  const tabButton = (value: Tab, icon: React.ReactNode, label: string, count: number) => (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={tab === value}
+      onClick={() => { setTab(value); setStatusFilter('ALL'); }}
+      className={`flex items-center gap-2 border-b-2 px-1 pb-2.5 text-sm font-medium transition-colors ${tab === value ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+    >
+      {icon}
+      {label}
+      <span className="rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums text-muted-foreground">{count}</span>
+    </button>
+  );
+
   return (
-    <div className="flex flex-col gap-6">
-      {/* Top Header */}
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-5">
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Kho sản phẩm &amp; Cấu hình giá</h1>
-          <p className="text-sm text-muted-foreground">
-            Theo dõi số lượng mẫu có sẵn, phát hiện các mẫu gần hết để kịp thời in bổ sung và cấu hình giá nhanh.
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">Kho &amp; giá sản phẩm</h1>
+          <p className="text-sm text-muted-foreground">Hàng có sẵn: xem còn bao nhiêu và nhập kho. Hàng in theo yêu cầu: chỉ quản lý giá.</p>
         </div>
-        <div className="flex items-center gap-2 pt-2 sm:pt-0">
-          <Link
-            href="/admin/inventory"
-            className={buttonVariants({ variant: 'outline', size: 'sm' })}
-          >
-            <Boxes className="mr-1.5 size-4" />
-            Sổ kho biến động
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/admin/inventory" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+            <Boxes className="mr-1.5 size-4" /> Sổ kho
           </Link>
-          <Link
-            href="/admin/products"
-            className={buttonVariants({ variant: 'outline', size: 'sm' })}
-          >
-            <Plus className="mr-1.5 size-4" />
-            Tạo mẫu sản phẩm mới
+          <BatchRestockButton variants={batchVariants} warehouses={warehouses} />
+          <Link href="/admin/products/new" className={buttonVariants({ size: 'sm' })}>
+            <Plus className="mr-1.5 size-4" /> Đăng sản phẩm mới
           </Link>
         </div>
       </div>
 
-      {/* KPI Cards: Updated colors & logic around product models and item count */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {/* Card 1: Số lượng sản phẩm mình có */}
-        <Card className="border-border/70 bg-card shadow-xs transition-shadow hover:shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Số lượng sẵn có
-            </CardTitle>
-            <div className="flex size-7 items-center justify-center rounded-md bg-primary/10 text-primary">
-              <Boxes className="size-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold tracking-tight text-foreground">
-              {stats.totalAvailableUnits} <span className="text-sm font-medium text-muted-foreground">cái / sp</span>
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Tổng số lượng của {stats.inStockModels.length + stats.lowStockModels.length} mẫu có sẵn sàng giao
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Card 2: Mẫu đang đủ hàng */}
-        <Card className="border-border/70 bg-card shadow-xs transition-shadow hover:shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Mẫu đang đủ hàng
-            </CardTitle>
-            <div className="flex size-7 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-600">
-              <CheckCircle2 className="size-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold tracking-tight text-emerald-700 dark:text-emerald-400">
-              {stats.inStockModels.length} <span className="text-sm font-medium text-muted-foreground">mẫu</span>
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Còn từ 6 cái trở lên (như Zoro, Luffy...)
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Card 3: Mấy loại gần hết */}
-        <Card className="border-border/70 bg-card shadow-xs transition-shadow hover:shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Mẫu gần hết hàng
-            </CardTitle>
-            <div className="flex size-7 items-center justify-center rounded-md bg-amber-500/10 text-amber-600">
-              <AlertTriangle className="size-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold tracking-tight text-amber-700 dark:text-amber-400">
-              {stats.lowStockModels.length} <span className="text-sm font-medium text-muted-foreground">mẫu</span>
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Còn từ 1 – 5 cái, cần chuẩn bị in bổ sung
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Card 4: Mấy loại hết */}
-        <Card className="border-border/70 bg-card shadow-xs transition-shadow hover:shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Mẫu đã hết hàng
-            </CardTitle>
-            <div className="flex size-7 items-center justify-center rounded-md bg-rose-500/10 text-rose-600">
-              <AlertCircle className="size-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold tracking-tight text-rose-700 dark:text-rose-400">
-              {stats.outOfStockModels.length} <span className="text-sm font-medium text-muted-foreground">mẫu</span>
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Hết sạch tồn kho (0 cái), cần in ngay
-            </p>
-          </CardContent>
-        </Card>
+      {/* Tabs */}
+      <div role="tablist" aria-label="Hình thức bán" className="flex gap-6 border-b border-border">
+        {tabButton('STOCK', <Package className="size-4" />, 'Hàng có sẵn', stockProducts.length)}
+        {tabButton('MADE_TO_ORDER', <Printer className="size-4" />, 'In theo yêu cầu', orderProducts.length)}
       </div>
 
-      {/* Model Expansion & Quick Action Center (Mở rộng theo từng mẫu: Zoro, Luffy, Sanji...) */}
-      <div className="rounded-xl border border-border/80 bg-muted/20 p-4 shadow-2xs">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <Sparkles className="size-4 text-primary" />
-            <span className="text-sm font-semibold text-foreground">
-              Theo dõi nhanh theo từng mẫu (Zoro, Luffy, Sanji...):
-            </span>
+      {/* Toolbar */}
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
+            <Input
+              placeholder="Tìm theo tên mẫu, màu hoặc SKU…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+              aria-label="Tìm sản phẩm"
+            />
           </div>
-          <span className="text-xs text-muted-foreground">
-            Bấm trực tiếp vào tên mẫu bên dưới để xem nhanh tồn kho và tính giá in
-          </span>
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            aria-label="Danh mục"
+            className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm sm:w-56"
+          >
+            <option value="ALL">Mọi danh mục</option>
+            {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
         </div>
 
-        <div className="mt-3 flex flex-wrap gap-2.5">
-          {/* Low stock pill tags */}
-          {stats.lowStockModels.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] font-semibold text-amber-700 bg-amber-500/10 border border-amber-500/30 rounded-md px-2 py-0.5">
-                Cần in thêm ({stats.lowStockModels.length}):
-              </span>
-              {stats.lowStockModels.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => {
-                    setSearch(m.name);
-                    setStockFilter('ALL');
-                  }}
-                  className="inline-flex items-center gap-1.5 text-xs rounded-md border border-amber-500/30 bg-card px-2.5 py-1 text-foreground hover:bg-amber-500/10 hover:border-amber-500/50 transition-colors shadow-2xs"
-                  title={`Bấm để xem mẫu ${m.name}`}
-                >
-                  <span className="font-medium">{m.name}</span>
-                  <span className="font-bold text-amber-600">({m.totalAvailable} cái)</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Out of stock pill tags */}
-          {stats.outOfStockModels.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] font-semibold text-rose-700 bg-rose-500/10 border border-rose-500/30 rounded-md px-2 py-0.5">
-                Hết sạch ({stats.outOfStockModels.length}):
-              </span>
-              {stats.outOfStockModels.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => {
-                    setSearch(m.name);
-                    setStockFilter('ALL');
-                  }}
-                  className="inline-flex items-center gap-1.5 text-xs rounded-md border border-rose-500/30 bg-card px-2.5 py-1 text-foreground hover:bg-rose-500/10 hover:border-rose-500/50 transition-colors shadow-2xs"
-                  title={`Bấm để xem mẫu ${m.name}`}
-                >
-                  <span className="font-medium">{m.name}</span>
-                  <span className="font-bold text-rose-600">(0 cái)</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* In stock summary if all good */}
-          {stats.lowStockModels.length === 0 && stats.outOfStockModels.length === 0 && (
-            <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">
-              ✨ Tuyệt vời! Tất cả các mẫu sản phẩm ({stats.inStockModels.slice(0, 3).map((m) => m.name).join(', ')}...) đều đang đủ tồn kho sẵn sàng giao ngay.
-            </p>
-          )}
-
-          {(search || stockFilter !== 'ALL' || categoryFilter !== 'ALL' || typeFilter !== 'ALL') && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearAllFilters}
-              className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+        {tab === 'STOCK' ? (
+          <div className="flex flex-wrap items-center gap-2" role="radiogroup" aria-label="Tình trạng tồn">
+            <button
+              type="button" role="radio" aria-checked={statusFilter === 'ALL'} data-active={statusFilter === 'ALL'}
+              onClick={() => setStatusFilter('ALL')}
+              className="rounded-full border border-border px-3 py-1 text-sm transition-colors hover:bg-muted data-[active=true]:border-foreground data-[active=true]:bg-foreground data-[active=true]:text-background"
             >
-              <RotateCcw className="mr-1 size-3" />
-              Đặt lại bộ lọc
-            </Button>
-          )}
-        </div>
+              Tất cả <span className="tabular-nums">{stockRows.length}</span>
+            </button>
+            {(['OUT', 'LOW', 'OK'] as StockStatus[]).map((status) => (
+              <button
+                key={status} type="button" role="radio" aria-checked={statusFilter === status} data-active={statusFilter === status}
+                onClick={() => setStatusFilter(status)}
+                className={`flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-sm transition-colors hover:bg-muted ${STATUS_META[status].chip}`}
+              >
+                <span className={`size-2 rounded-full ${STATUS_META[status].dot}`} />
+                {STATUS_META[status].label} <span className="tabular-nums font-semibold">{statusCounts[status]}</span>
+              </button>
+            ))}
+            <span className="text-xs text-muted-foreground">Sắp hết = còn 1–{LOW_STOCK_MAX} món bán được.</span>
+          </div>
+        ) : null}
       </div>
 
-      {/* Filter and Search Bar */}
-      <Card className="border-border/70 shadow-xs">
-        <CardContent className="flex flex-col gap-4 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            {/* Search */}
-            <div className="relative min-w-[260px] flex-1">
-              <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
-              <Input
-                placeholder="Tìm theo tên mẫu (VD: Zoro, Luffy...) hoặc mã SKU..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 text-sm"
-              />
+      {/* Stock tab — one row per variant, most urgent first */}
+      {tab === 'STOCK' ? (
+        visibleStockRows.length ? (
+          <Card className="gap-0 overflow-hidden p-0">
+            <div className="hidden grid-cols-[minmax(0,1fr)_120px_130px_auto] gap-4 border-b border-border bg-muted/40 px-4 py-2 text-xs font-medium text-muted-foreground md:grid">
+              <span>Sản phẩm</span>
+              <span className="text-right">Còn bán được</span>
+              <span className="text-right">Giá bán</span>
+              <span className="w-[200px]" />
             </div>
-
-            {/* Category Dropdown */}
-            <div className="flex items-center gap-2">
-              <Label className="text-xs whitespace-nowrap text-muted-foreground">Danh mục:</Label>
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-              >
-                <option value="ALL">Tất cả danh mục</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Type Dropdown */}
-            <div className="flex items-center gap-2">
-              <Label className="text-xs whitespace-nowrap text-muted-foreground">Loại hàng:</Label>
-              <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-              >
-                <option value="ALL">Tất cả loại hàng</option>
-                <option value="READY_STOCK">Hàng có sẵn kho (READY_STOCK)</option>
-                <option value="MADE_TO_ORDER">In theo yêu cầu (MADE_TO_ORDER)</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Stock Filter Pills */}
-          <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
-            <span className="flex items-center text-xs font-semibold text-muted-foreground mr-1">
-              <Filter className="mr-1.5 size-3.5" />
-              Lọc theo tình trạng:
-            </span>
-            <Button
-              size="sm"
-              variant={stockFilter === 'ALL' ? 'default' : 'outline'}
-              className="h-7 text-xs font-medium"
-              onClick={() => setStockFilter('ALL')}
-            >
-              Tất cả ({products.length} mẫu)
-            </Button>
-            <Button
-              size="sm"
-              variant={stockFilter === 'IN_STOCK' ? 'default' : 'outline'}
-              className="h-7 text-xs font-medium"
-              onClick={() => setStockFilter('IN_STOCK')}
-            >
-              🟢 Đang đủ hàng ({stats.inStockModels.length})
-            </Button>
-            <Button
-              size="sm"
-              variant={stockFilter === 'LOW_STOCK' ? 'default' : 'outline'}
-              className="h-7 text-xs font-medium"
-              onClick={() => setStockFilter('LOW_STOCK')}
-            >
-              🟡 Gần hết hàng ({stats.lowStockModels.length})
-            </Button>
-            <Button
-              size="sm"
-              variant={stockFilter === 'OUT_OF_STOCK' ? 'default' : 'outline'}
-              className="h-7 text-xs font-medium"
-              onClick={() => setStockFilter('OUT_OF_STOCK')}
-            >
-              🔴 Đã hết hàng ({stats.outOfStockModels.length})
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Main List of Models */}
-      <div className="flex flex-col gap-4">
-        {filteredProducts.length === 0 ? (
-          <Card className="border-border/70 shadow-xs">
-            <CardContent className="flex flex-col items-center justify-center p-12 text-center text-muted-foreground">
-              <Warehouse className="size-12 mb-3 stroke-1 text-muted-foreground/50" />
-              <p className="font-semibold text-base text-foreground">Không tìm thấy mẫu sản phẩm nào phù hợp</p>
-              <p className="text-xs mt-1 text-muted-foreground">
-                Thử thay đổi từ khóa tìm kiếm hoặc chọn &quot;Tất cả mẫu&quot; để hiển thị lại danh sách.
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={clearAllFilters}
-                className="mt-4 text-xs"
-              >
-                Xóa bộ lọc
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          filteredProducts.map((product) => {
-            const isExpanded = expandedProducts[product.id] !== false; // expanded by default
-            const productTargetKey = `p-${product.id}`;
-            const isEditingProductPrice = editingPriceTarget === productTargetKey;
-            const isSavingProductPrice = savingTarget === productTargetKey;
-            const isSuccessProductPrice = saveSuccessTarget === productTargetKey;
-
-            return (
-              <Card key={product.id} className="overflow-hidden border border-border/80 shadow-xs transition-shadow hover:shadow-sm">
-                {/* Product Model Header Row */}
-                <div className="flex flex-col gap-3 bg-muted/25 p-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70">
-                  <div className="flex items-start gap-3">
-                    <button
-                      type="button"
-                      onClick={() => toggleExpand(product.id)}
-                      className="mt-0.5 rounded p-1 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                      title={isExpanded ? 'Thu gọn phân loại' : 'Mở rộng phân loại'}
-                    >
-                      {isExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
-                    </button>
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-bold text-base text-foreground tracking-tight">
-                          {product.name}
-                        </span>
-
-                        {/* Model Level Stock Badge */}
-                        {product.totalAvailable > 5 ? (
-                          <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-semibold text-xs">
-                            🟢 Có sẵn {product.totalAvailable} cái
-                          </Badge>
-                        ) : product.totalAvailable > 0 ? (
-                          <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 font-semibold text-xs">
-                            🟡 Gần hết: còn {product.totalAvailable} cái
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-400 font-semibold text-xs">
-                            🔴 Hết hàng (0 cái)
-                          </Badge>
-                        )}
-
-                        {product.categoryName && (
-                          <Badge variant="secondary" className="text-xs font-normal">
-                            {product.categoryName}
-                          </Badge>
-                        )}
-                        <Badge
-                          variant={product.productType === 'READY_STOCK' ? 'outline' : 'secondary'}
-                          className="text-[11px]"
-                        >
-                          {product.productType === 'READY_STOCK' ? 'Hàng sẵn' : 'Đặt in'}
-                        </Badge>
+            <ul className="divide-y divide-border">
+              {visibleStockRows.map(({ product, variant, status }) => (
+                <li key={variant.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 px-4 py-3 md:grid-cols-[minmax(0,1fr)_120px_130px_auto]">
+                  {/* Product */}
+                  <div className="flex min-w-0 items-start gap-2.5">
+                    <span className={`mt-1.5 size-2.5 shrink-0 rounded-full ${STATUS_META[status].dot}`} title={STATUS_META[status].label} />
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-x-2">
+                        <Link href={`/admin/products/${product.id}`} className="truncate font-medium hover:underline">{product.name}</Link>
+                        {product.status !== 'ACTIVE' ? <Badge variant="outline" className="text-[10px]">{product.status === 'DRAFT' ? 'Nháp' : 'Đã lưu trữ'}</Badge> : null}
                       </div>
-
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
-                        <span>Slug: <code>{product.slug}</code></span>
-                        <span>•</span>
-                        <span>{product.variants.length} phân loại / biến thể</span>
+                      <div className="truncate text-xs text-muted-foreground">
+                        {variant.name} · <span className="font-mono">{variant.sku}</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Stock & Price Summary on Header */}
-                  <div className="flex flex-wrap items-center gap-3 text-sm">
-                    {/* Stock Detail Pill */}
-                    <div className="flex items-center gap-2 bg-background px-3 py-1.5 rounded-lg border border-border/80 text-xs">
-                      <span className="text-muted-foreground">Tồn kho mẫu:</span>
-                      <span className="font-semibold text-foreground">
-                        {product.totalOnHand} thực tồn
-                      </span>
-                      {product.totalReserved > 0 && (
-                        <span className="text-amber-600 font-medium">
-                          ({product.totalReserved} đang giữ)
-                        </span>
-                      )}
-                      <span className="text-muted-foreground">→</span>
-                      <span className={`font-bold ${product.totalAvailable > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {product.totalAvailable} khả dụng
-                      </span>
+                  {/* Sellable */}
+                  <div className="text-right">
+                    <div className={`text-lg font-semibold leading-tight tabular-nums ${STATUS_META[status].text}`}>{variant.available}</div>
+                    <div className="text-[11px] text-muted-foreground tabular-nums">
+                      {variant.onHand} trên kệ{variant.reserved > 0 ? ` · ${variant.reserved} giữ cho đơn` : ''}
                     </div>
+                  </div>
 
-                    {/* Base Price & Quick Edit */}
-                    <div className="flex items-center gap-2 bg-background px-3 py-1.5 rounded-lg border border-border/80">
-                      <span className="text-xs text-muted-foreground">Giá cơ bản:</span>
-                      {isEditingProductPrice ? (
-                        <div className="flex items-center gap-1.5">
-                          <Input
-                            type="number"
-                            min={0}
-                            value={inlinePriceValue}
-                            onChange={(e) => setInlinePriceValue(e.target.value)}
-                            className="h-7 w-28 text-xs font-semibold"
-                            autoFocus
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleSaveInlinePrice(product.id);
-                              if (e.key === 'Escape') handleCancelInlineEdit();
-                            }}
-                          />
-                          <Button
-                            size="sm"
-                            className="h-7 px-2 text-xs"
-                            disabled={isSavingProductPrice || isPending}
-                            onClick={() => handleSaveInlinePrice(product.id)}
-                          >
-                            {isSavingProductPrice ? <Loader2 className="size-3 animate-spin" /> : 'Lưu'}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 px-1.5 text-xs"
-                            onClick={handleCancelInlineEdit}
-                          >
-                            Hủy
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-semibold text-primary">
-                            {formatVnd(product.basePrice)}
-                          </span>
-                          {isSuccessProductPrice && (
-                            <span className="flex items-center text-xs text-emerald-600 font-medium">
-                              <Check className="size-3 mr-0.5" /> Đã lưu
-                            </span>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 px-1.5 text-xs text-muted-foreground hover:text-foreground"
-                            onClick={() => handleStartInlineEdit(productTargetKey, product.basePrice)}
-                          >
-                            Sửa giá
-                          </Button>
-                        </div>
-                      )}
+                  {/* Price */}
+                  <div className="col-span-2 flex items-center justify-between md:col-span-1 md:justify-end">
+                    <span className="text-xs text-muted-foreground md:hidden">Giá bán</span>
+                    {priceCell({ key: `v-${variant.id}`, productId: product.id, variantId: variant.id, price: variant.price })}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="col-span-2 flex items-center justify-end gap-1 md:col-span-1 md:w-[200px]">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 px-2 text-muted-foreground"
+                      title="Tính giá đề xuất"
+                      aria-label={`Tính giá ${product.name} ${variant.name}`}
+                      onClick={() => openCalculator({ productId: product.id, productName: product.name, variantId: variant.id, variantSku: variant.sku, currentPrice: variant.price, weightGrams: variant.weightGrams })}
+                    >
+                      <Calculator className="size-4" />
+                    </Button>
+                    <QuickRestockButton
+                      variants={[{ id: variant.id, sku: variant.sku, name: variant.name }]}
+                      productName={product.name}
+                      className={status === 'OK' ? 'h-8' : 'h-8 border-primary/40'}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        ) : (
+          <EmptyState
+            title={stockProducts.length ? 'Không có dòng nào khớp bộ lọc' : 'Chưa có sản phẩm hàng có sẵn'}
+            hint={stockProducts.length ? 'Thử bỏ bớt bộ lọc.' : 'Khi đăng sản phẩm, chọn “Có sẵn, giao ngay” để quản lý tồn kho ở đây.'}
+            onClear={hasFilters ? clearAllFilters : undefined}
+          />
+        )
+      ) : null}
+
+      {/* Made-to-order tab — price only, no stock (Rule #9) */}
+      {tab === 'MADE_TO_ORDER' ? (
+        visibleOrderProducts.length ? (
+          <Card className="gap-0 overflow-hidden p-0">
+            <div className="hidden grid-cols-[minmax(0,1fr)_150px_170px_auto] gap-4 border-b border-border bg-muted/40 px-4 py-2 text-xs font-medium text-muted-foreground md:grid">
+              <span>Sản phẩm</span>
+              <span className="text-right">Giá cơ bản</span>
+              <span className="text-right">Giá theo màu</span>
+              <span className="w-[88px]" />
+            </div>
+            <ul className="divide-y divide-border">
+              {visibleOrderProducts.map((product) => {
+                const activeVariants = product.variants.filter((v) => v.isActive);
+                return (
+                  <li key={product.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 px-4 py-3 md:grid-cols-[minmax(0,1fr)_150px_170px_auto]">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-x-2">
+                        <Link href={`/admin/products/${product.id}`} className="truncate font-medium hover:underline">{product.name}</Link>
+                        {product.status !== 'ACTIVE' ? <Badge variant="outline" className="text-[10px]">{product.status === 'DRAFT' ? 'Nháp' : 'Đã lưu trữ'}</Badge> : null}
+                      </div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        {product.categoryName ?? 'Chưa có danh mục'} · {activeVariants.length} màu/biến thể
+                      </div>
                     </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-1.5">
+                    <div className="text-right">
+                      {priceCell({ key: `p-${product.id}`, productId: product.id, price: product.basePrice })}
+                    </div>
+                    <div className="col-span-2 flex items-center justify-between text-sm tabular-nums md:col-span-1 md:justify-end">
+                      <span className="text-xs text-muted-foreground md:hidden">Giá theo màu</span>
+                      {priceRange(activeVariants.map((v) => v.price))}
+                    </div>
+                    <div className="col-span-2 flex items-center justify-end gap-1 md:col-span-1 md:w-[88px]">
                       <Button
                         size="sm"
-                        variant="outline"
-                        className="h-8 text-xs font-medium"
-                        onClick={() => openCalculator({
-                          productId: product.id,
-                          productName: product.name,
-                          currentPrice: product.basePrice,
-                        })}
+                        variant="ghost"
+                        className="h-8 px-2 text-muted-foreground"
+                        title="Tính giá đề xuất"
+                        aria-label={`Tính giá ${product.name}`}
+                        onClick={() => openCalculator({ productId: product.id, productName: product.name, currentPrice: product.basePrice })}
                       >
-                        <Calculator className="mr-1 size-3.5 text-primary" />
-                        Tính giá in 3D
+                        <Calculator className="size-4" />
                       </Button>
                       <Link
                         href={`/admin/products/${product.id}`}
-                        className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'h-8 px-2 text-xs' })}
-                        title="Xem toàn bộ cấu hình sản phẩm"
+                        className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'h-8 px-2 text-muted-foreground' })}
+                        title="Mở trang chi tiết"
+                        aria-label={`Mở ${product.name}`}
                       >
-                        <ExternalLink className="size-3.5" />
+                        <ExternalLink className="size-4" />
                       </Link>
                     </div>
-                  </div>
-                </div>
-
-                {/* Variants / Options Breakdown Table */}
-                {isExpanded && (
-                  <div className="p-0">
-                    {product.variants.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-muted-foreground bg-muted/10">
-                        Mẫu này chưa có phân loại phiên bản. Giá bán sẽ áp dụng theo Giá cơ bản.
-                        <Link
-                          href={`/admin/products/${product.id}`}
-                          className="ml-2 font-medium text-primary hover:underline"
-                        >
-                          + Thêm phiên bản tại trang chi tiết
-                        </Link>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                          <thead className="bg-muted/30 text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border/70">
-                            <tr>
-                              <th className="py-2.5 px-4 font-semibold">Mã SKU</th>
-                              <th className="py-2.5 px-4 font-semibold">Phân loại / Phiên bản</th>
-                              <th className="py-2.5 px-4 font-semibold text-center">Tình trạng tồn</th>
-                              <th className="py-2.5 px-4 font-semibold text-right">Thực tồn</th>
-                              <th className="py-2.5 px-4 font-semibold text-right">Đã giữ</th>
-                              <th className="py-2.5 px-4 font-semibold text-right">Khả dụng</th>
-                              <th className="py-2.5 px-4 font-semibold text-right">Giá bán (VND)</th>
-                              <th className="py-2.5 px-4 font-semibold text-right">Thao tác</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-border/60">
-                            {product.variants.map((variant) => {
-                              const variantTargetKey = `v-${variant.id}`;
-                              const isEditingVariantPrice = editingPriceTarget === variantTargetKey;
-                              const isSavingVariantPrice = savingTarget === variantTargetKey;
-                              const isSuccessVariantPrice = saveSuccessTarget === variantTargetKey;
-                              const stockStatus = getVariantStockStatus(variant.available);
-
-                              return (
-                                <tr key={variant.id} className="hover:bg-muted/15 transition-colors">
-                                  {/* SKU */}
-                                  <td className="py-2.5 px-4 font-mono text-xs font-semibold text-foreground">
-                                    {variant.sku}
-                                  </td>
-
-                                  {/* Name */}
-                                  <td className="py-2.5 px-4">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-medium text-foreground">{variant.name}</span>
-                                      {!variant.isActive && (
-                                        <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                                          Tạm ngừng bán
-                                        </Badge>
-                                      )}
-                                      {variant.weightGrams ? (
-                                        <span className="text-[11px] text-muted-foreground font-mono">
-                                          ({variant.weightGrams}g)
-                                        </span>
-                                      ) : null}
-                                    </div>
-                                  </td>
-
-                                  {/* Stock Status Badge */}
-                                  <td className="py-2.5 px-4 text-center">
-                                    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${stockStatus.badgeClass}`}>
-                                      {stockStatus.label}
-                                    </span>
-                                  </td>
-
-                                  {/* On Hand */}
-                                  <td className="py-2.5 px-4 text-right font-medium text-muted-foreground tabular-nums">
-                                    {variant.onHand} cái
-                                  </td>
-
-                                  {/* Reserved */}
-                                  <td className="py-2.5 px-4 text-right font-medium text-amber-600 tabular-nums">
-                                    {variant.reserved > 0 ? `${variant.reserved} cái` : '—'}
-                                  </td>
-
-                                  {/* Available */}
-                                  <td className="py-2.5 px-4 text-right tabular-nums">
-                                    <span className={`font-bold text-sm ${variant.available > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                                      {variant.available} cái
-                                    </span>
-                                  </td>
-
-                                  {/* Price with Inline Edit */}
-                                  <td className="py-2.5 px-4 text-right tabular-nums">
-                                    {isEditingVariantPrice ? (
-                                      <div className="flex items-center justify-end gap-1.5">
-                                        <Input
-                                          type="number"
-                                          min={0}
-                                          value={inlinePriceValue}
-                                          onChange={(e) => setInlinePriceValue(e.target.value)}
-                                          className="h-7 w-28 text-xs font-semibold text-right"
-                                          autoFocus
-                                          onKeyDown={(e) => {
-                                            if (e.key === 'Enter') handleSaveInlinePrice(product.id, variant.id);
-                                            if (e.key === 'Escape') handleCancelInlineEdit();
-                                          }}
-                                        />
-                                        <Button
-                                          size="sm"
-                                          className="h-7 px-2 text-xs"
-                                          disabled={isSavingVariantPrice || isPending}
-                                          onClick={() => handleSaveInlinePrice(product.id, variant.id)}
-                                        >
-                                          {isSavingVariantPrice ? <Loader2 className="size-3 animate-spin" /> : 'Lưu'}
-                                        </Button>
-                                        <Button
-                                          size="sm"
-                                          variant="ghost"
-                                          className="h-7 px-1.5 text-xs"
-                                          onClick={handleCancelInlineEdit}
-                                        >
-                                          ✕
-                                        </Button>
-                                      </div>
-                                    ) : (
-                                      <div className="flex items-center justify-end gap-2">
-                                        {isSuccessVariantPrice && (
-                                          <span className="flex items-center text-xs text-emerald-600 font-medium">
-                                            <Check className="size-3 mr-0.5" /> Đã lưu
-                                          </span>
-                                        )}
-                                        <span className="font-semibold text-primary">
-                                          {formatVnd(variant.price)}
-                                        </span>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-6 px-1.5 text-xs text-muted-foreground hover:text-foreground"
-                                          onClick={() => handleStartInlineEdit(variantTargetKey, variant.price)}
-                                        >
-                                          Sửa
-                                        </Button>
-                                      </div>
-                                    )}
-                                  </td>
-
-                                  {/* Actions */}
-                                  <td className="py-2.5 px-4 text-right">
-                                    <div className="flex items-center justify-end gap-1.5">
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="h-7 px-2 text-xs font-medium"
-                                        onClick={() => openCalculator({
-                                          productId: product.id,
-                                          productName: product.name,
-                                          variantId: variant.id,
-                                          variantSku: variant.sku,
-                                          currentPrice: variant.price,
-                                          weightGrams: variant.weightGrams,
-                                        })}
-                                      >
-                                        <Calculator className="mr-1 size-3 text-primary" />
-                                        Tính giá
-                                      </Button>
-                                      <Link
-                                        href={`/admin/inventory`}
-                                        className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'h-7 px-2 text-xs text-muted-foreground hover:text-foreground' })}
-                                        title="Chuyển đến sổ kho để nhập / xuất tồn kho"
-                                      >
-                                        <Boxes className="size-3.5 mr-1" />
-                                        Nhập/Xuất
-                                      </Link>
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </Card>
-            );
-          })
-        )}
-      </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
+        ) : (
+          <EmptyState
+            title={orderProducts.length ? 'Không có sản phẩm nào khớp bộ lọc' : 'Chưa có sản phẩm in theo yêu cầu'}
+            hint={orderProducts.length ? 'Thử bỏ bớt bộ lọc.' : 'Đăng sản phẩm mới và chọn “In theo yêu cầu”.'}
+            onClear={hasFilters ? clearAllFilters : undefined}
+          />
+        )
+      ) : null}
 
       {/* Pricing Calculator Modal */}
       <Dialog open={calculatorOpen} onOpenChange={setCalculatorOpen}>
@@ -1016,7 +587,7 @@ export function ProductInventoryManager({
                   <Label htmlFor="calc-mat" className="text-xs font-medium">Cuộn nhựa / Loại vật liệu</Label>
                   <select
                     id="calc-mat"
-                    value={calcMaterialId}
+                    value={effectiveMaterialId}
                     onChange={(e) => setCalcMaterialId(e.target.value)}
                     className="h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
                   >
@@ -1168,6 +739,17 @@ export function ProductInventoryManager({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function EmptyState({ title, hint, onClear }: { title: string; hint: string; onClear?: () => void }) {
+  return (
+    <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-6 py-12 text-center">
+      <Package className="size-8 text-muted-foreground/60" />
+      <p className="font-medium">{title}</p>
+      <p className="text-sm text-muted-foreground">{hint}</p>
+      {onClear ? <Button variant="outline" size="sm" className="mt-2" onClick={onClear}>Xoá bộ lọc</Button> : null}
     </div>
   );
 }

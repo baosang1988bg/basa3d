@@ -40,7 +40,7 @@ const PROTECTED_ROUTES: ProtectedRoute[] = [
   { method: 'POST', path: '/api/custom-requests', minRole: 'STAFF' },
   { method: 'PATCH', path: `/api/custom-requests/${PLACEHOLDER_ID}`, minRole: 'STAFF' },
   { method: 'GET', path: `/api/inventory/${PLACEHOLDER_ID}`, minRole: 'STAFF' },
-  { method: 'POST', path: '/api/inventory/movements', minRole: 'STAFF' },
+  { method: 'POST', path: '/api/inventory/movements', minRole: 'OWNER' }, // Phase 52 P4: raw movements are OWNER-only.
   { method: 'POST', path: '/api/materials/movements', minRole: 'STAFF' },
   { method: 'PATCH', path: `/api/orders/${PLACEHOLDER_ID}`, minRole: 'STAFF' },
   { method: 'POST', path: '/api/orders', minRole: 'STAFF' },

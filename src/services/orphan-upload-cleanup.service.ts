@@ -68,3 +68,35 @@ export async function cleanupOrphanUploads(options: { deps?: OrphanCleanupDeps; 
   console.info('[ORPHAN_UPLOAD_CLEANUP]', result);
   return result;
 }
+
+// Phase 52 P3: product images uploaded from "Đăng sản phẩm mới" go straight to Storage (signed upload
+// URL) under `onboarding/<productId>/`; one that was never registered in product_images (tab closed,
+// register failed) is an orphan after the same 24h. Only that prefix is swept, so importer and legacy
+// uploads (`<productId>/…`, Feature 003 renders) are never touched by this job.
+export const PRODUCT_IMAGE_BUCKET = 'product-images';
+
+export async function findOrphanProductImagePaths(limit: number): Promise<string[]> {
+  const result = await query<{ name: string }>(`
+    select o.name
+    from storage.objects o
+    where o.bucket_id = $1
+      and o.name like 'onboarding/%'
+      and o.created_at < now() - ($2::int * interval '1 hour')
+      and not exists (select 1 from product_images pi where pi.storage_path = o.name)
+    order by o.created_at
+    limit $3`, [PRODUCT_IMAGE_BUCKET, ORPHAN_MIN_AGE_HOURS, limit]);
+  return result.rows.map((row) => row.name);
+}
+
+export async function cleanupOrphanProductImages(options: { deps?: OrphanCleanupDeps; deleteLimit?: number } = {}): Promise<OrphanCleanupResult> {
+  return cleanupOrphanUploads({
+    deleteLimit: options.deleteLimit,
+    deps: options.deps ?? {
+      findOrphans: findOrphanProductImagePaths,
+      async remove(paths) {
+        const { error } = await createSupabaseAdminClient().storage.from(PRODUCT_IMAGE_BUCKET).remove(paths);
+        if (error) throw new Error(`storage remove failed: ${error.message}`);
+      },
+    },
+  });
+}

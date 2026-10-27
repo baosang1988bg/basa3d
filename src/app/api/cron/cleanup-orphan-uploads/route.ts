@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { isAuthorizedCronRequest } from '@/lib/cron-auth';
-import { cleanupOrphanUploads } from '@/services/orphan-upload-cleanup.service';
+import { cleanupOrphanProductImages, cleanupOrphanUploads } from '@/services/orphan-upload-cleanup.service';
 import { cleanupExpiredRateLimitAttempts } from '@/lib/rate-limit';
 import { cleanupExpiredScreenshotEstimates } from '@/services/makerworld-screenshot-estimate.service';
 
@@ -13,10 +13,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ code: 'UNAUTHORIZED' }, { status: 401 });
   }
   try {
-    const [uploads, expiredRateLimitRows, expiredScreenshotEstimates] = await Promise.all([
+    const [uploads, expiredRateLimitRows, expiredScreenshotEstimates, productImages] = await Promise.all([
       cleanupOrphanUploads(), cleanupExpiredRateLimitAttempts(), cleanupExpiredScreenshotEstimates(),
+      // Phase 52 P3: unregistered `onboarding/` product images.
+      cleanupOrphanProductImages(),
     ]);
-    return NextResponse.json({ ...uploads, expiredRateLimitRows, expiredScreenshotEstimates }, { headers: { 'cache-control': 'no-store' } });
+    return NextResponse.json({ ...uploads, expiredRateLimitRows, expiredScreenshotEstimates, productImages }, { headers: { 'cache-control': 'no-store' } });
   } catch (error) {
     console.error('[ORPHAN_UPLOAD_CLEANUP_FAILED]', error instanceof Error ? error.message : error);
     return NextResponse.json({ code: 'CLEANUP_FAILED' }, { status: 500 });

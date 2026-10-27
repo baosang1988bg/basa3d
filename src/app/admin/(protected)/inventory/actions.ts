@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { requireAdmin } from '@/lib/auth/require-admin';
+import { requireOwner } from '@/lib/auth/require-admin';
 import { inventoryMovementInputSchema } from '@/domain/schemas';
 import { recordInventoryMovement } from '@/services/inventory.service';
 
@@ -10,8 +10,9 @@ function readFormValue(formData: FormData, key: string): string | undefined {
   return typeof value === 'string' && value !== '' ? value : undefined;
 }
 
+// Phase 52 P4: the raw movement form is OWNER-only ("Nâng cao"); staff use Nhập kho nhanh / Nhập theo mẻ.
 export async function recordMovementAction(formData: FormData) {
-  const { actorId } = await requireAdmin();
+  const { actorId } = await requireOwner();
   const input = inventoryMovementInputSchema.parse({
     warehouseId: formData.get('warehouseId'),
     productVariantId: formData.get('productVariantId'),
@@ -22,4 +23,5 @@ export async function recordMovementAction(formData: FormData) {
   });
   await recordInventoryMovement(input, actorId);
   revalidatePath('/admin/inventory');
+  revalidatePath('/admin/product-inventory');
 }
