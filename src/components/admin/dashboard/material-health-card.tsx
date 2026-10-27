@@ -4,7 +4,8 @@ import type { MaterialHealthOverview } from '@/services/dashboard.service';
 // gauge only needs to draw attention to the watch/low/empty tiers, same 20%/50% cutoffs as the
 // Materials page, see dashboard.service.ts's getMaterialHealth()).
 export function MaterialHealthCard({ materialHealth }: { materialHealth: MaterialHealthOverview }) {
-  const { totalSpools, totalRemainingWeightGrams, watchCount, lowStockCount, emptyCount, byMaterialType } = materialHealth;
+  // Per-material breakdown lives on /admin/materials — the dashboard keeps the gauge + alert only.
+  const { totalSpools, totalRemainingWeightGrams, watchCount, lowStockCount, emptyCount } = materialHealth;
 
   const gaugeTotal = Math.max(1, totalSpools);
   const gaugeSegments = [
@@ -41,19 +42,6 @@ export function MaterialHealthCard({ materialHealth }: { materialHealth: Materia
       ) : (
         <p className="text-xs text-muted-foreground">Không có cuộn nào cần cảnh báo ngay.</p>
       )}
-
-      <div>
-        <p className="mb-1.5 text-xs font-medium text-muted-foreground">Theo loại vật liệu</p>
-        <ul className="flex flex-col gap-1 text-xs">
-          {byMaterialType.map((row) => (
-            <li key={row.materialType} className="flex items-center justify-between">
-              <span>{row.materialType}</span>
-              <span className="text-muted-foreground">{row.count} cuộn · {row.totalWeightKg.toFixed(1)}kg</span>
-            </li>
-          ))}
-          {!byMaterialType.length ? <li className="text-muted-foreground">Chưa có dữ liệu</li> : null}
-        </ul>
-      </div>
     </div>
   );
 }

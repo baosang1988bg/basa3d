@@ -66,6 +66,11 @@ export function RevenueOrdersChart({
           <circle key={points[index].date} cx={p.x} cy={p.y} r={hoverIndex === index ? 4 : 2.5} fill="rgb(var(--chart-2))" />
         ))}
       </svg>
+      {points.every((p) => p.orderCount === 0) ? (
+        <div className="pointer-events-none absolute inset-x-0 top-1/3 grid place-items-center">
+          <p className="rounded-lg border border-border/70 bg-background/90 px-3 py-2 text-xs text-muted-foreground shadow-xs">Chưa có đơn hàng nào trong 14 ngày qua</p>
+        </div>
+      ) : null}
       {hovered ? (
         <div className="pointer-events-none absolute left-2 top-0 rounded-md border border-border bg-popover px-3 py-2 text-xs shadow-md">
           <p className="font-medium">{hovered.dayLabel}</p>

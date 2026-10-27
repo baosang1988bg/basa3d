@@ -22,11 +22,13 @@ export function ExecutiveRevenueChart({ points }: { points: ExecutiveDailyPoint[
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const maxRevenue = Math.max(0, ...points.map((point) => point.revenue));
 
-  if (!points.length || maxRevenue === 0) {
-    return <p className="py-12 text-center text-sm text-muted-foreground">Chưa có doanh thu đơn hàng shop trong 30 ngày qua.</p>;
+  if (!points.length) {
+    return <p className="py-12 text-center text-sm text-muted-foreground">Chưa có dữ liệu.</p>;
   }
-
-  const ticks = niceAxisTicks(maxRevenue);
+  // No revenue yet: still draw the frame (axis + empty day slots) with a note on top, so the owner sees
+  // what will appear here instead of a bare sentence. The placeholder axis is labelled only by the note.
+  const isEmpty = maxRevenue === 0;
+  const ticks = niceAxisTicks(isEmpty ? 4_000_000 : maxRevenue);
   const axisTop = ticks[ticks.length - 1];
   const slot = (WIDTH - PADDING_LEFT) / points.length;
   const barWidth = Math.max(4, Math.min(18, slot - 4));
@@ -47,7 +49,7 @@ export function ExecutiveRevenueChart({ points }: { points: ExecutiveDailyPoint[
             <g key={tick}>
               <line x1={PADDING_LEFT} y1={yOf(tick)} x2={WIDTH} y2={yOf(tick)} className="stroke-border" strokeWidth={1} strokeDasharray={tick === 0 ? undefined : '3 3'} />
               <text x={PADDING_LEFT - 6} y={yOf(tick) + 4} textAnchor="end" className="fill-muted-foreground text-[11px]">
-                {tick === 0 ? '0' : formatVndCompact(tick).replace('₫', '')}
+                {tick === 0 ? '0' : isEmpty ? '' : formatVndCompact(tick).replace('₫', '')}
               </text>
             </g>
           ))}
@@ -80,7 +82,19 @@ export function ExecutiveRevenueChart({ points }: { points: ExecutiveDailyPoint[
         </svg>
       </div>
 
-      {active && activeIndex != null ? (
+      {isEmpty ? (
+        <div className="pointer-events-none absolute inset-0 grid place-items-center">
+          <div className="rounded-lg border border-border/70 bg-background/90 px-4 py-3 text-center shadow-xs backdrop-blur-sm">
+            <p className="text-sm font-medium">Chưa có doanh thu đơn hàng shop trong 30 ngày qua</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Cột doanh thu từng ngày sẽ hiện ở đây khi có đơn.</p>
+            {process.env.NODE_ENV === 'development' ? (
+              <a href="/admin/dashboard?tab=business&demo=normal" className="pointer-events-auto mt-1.5 inline-block text-xs font-medium text-primary underline-offset-2 hover:underline">Xem thử với dữ liệu mẫu (chỉ ở môi trường dev)</a>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {active && activeIndex != null && !isEmpty ? (
         <div
           className={cn(
             'pointer-events-none absolute top-0 rounded-md border border-border bg-popover px-3 py-2 text-xs shadow-md',

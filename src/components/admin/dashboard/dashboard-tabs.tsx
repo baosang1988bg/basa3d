@@ -11,15 +11,15 @@ const TABS: { id: DashboardTab; label: string }[] = [
 // navigation, and the page loads only the active tab's data. The page never renders this for STAFF.
 export function DashboardTabs({ active }: { active: DashboardTab }) {
   return (
-    <nav aria-label="Chế độ xem dashboard" className="flex w-full gap-1 rounded-lg border border-border bg-muted p-1 sm:w-auto">
+    <nav aria-label="Chế độ xem dashboard" className="flex h-8 w-full items-center gap-0.5 rounded-md border border-border/70 bg-muted/40 p-0.5 sm:w-auto">
       {TABS.map((tab) => (
         <Link
           key={tab.id}
           href={`/admin/dashboard?tab=${tab.id}`}
           aria-current={active === tab.id ? 'page' : undefined}
           className={cn(
-            'flex-1 whitespace-nowrap rounded-md px-3 py-1.5 text-center text-sm font-medium transition-colors sm:flex-none',
-            active === tab.id ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+            'flex h-full flex-1 items-center justify-center whitespace-nowrap rounded px-3 text-xs font-medium transition-colors sm:flex-none',
+            active === tab.id ? 'bg-background text-foreground shadow-xs ring-1 ring-border' : 'text-muted-foreground hover:text-foreground',
           )}
         >
           {tab.label}
