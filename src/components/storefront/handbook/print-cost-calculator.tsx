@@ -1,6 +1,7 @@
 'use client';
 
-import { useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { trackHandbookToolUsed } from '@/lib/analytics';
 import { computePrintCost, formatVnd, PRINT_COST_DEFAULTS, PRINT_COST_LIMITS, type PrintCostField, type PrintCostInput } from '@/lib/handbook/print-cost';
 import { handbookFieldClasses, handbookLabelClasses, handbookPanelClasses } from './field-classes';
 
@@ -33,6 +34,14 @@ export function PrintCostCalculator({ children }: { children: ReactNode }) {
   const [input, setInput] = useState<PrintCostInput>(PRINT_COST_DEFAULTS);
   const result = computePrintCost(input);
   const errors = result.ok ? {} : result.errors;
+
+  const hasTrackedRef = useRef(false);
+  useEffect(() => {
+    if (result.ok && !hasTrackedRef.current) {
+      hasTrackedRef.current = true;
+      trackHandbookToolUsed('cost');
+    }
+  }, [result.ok]);
 
   return (
     <div className={handbookPanelClasses}>

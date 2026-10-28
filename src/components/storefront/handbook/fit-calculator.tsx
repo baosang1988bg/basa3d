@@ -1,6 +1,7 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { trackHandbookToolUsed } from '@/lib/analytics';
 import { computeFit, FIT_DIAMETER_MAX_MM, FIT_DIAMETER_MIN_MM, formatUm, type FitMode, type FitOption } from '@/lib/handbook/fit';
 import { cn } from '@/lib/utils';
 import { handbookFieldClasses, handbookLabelClasses, handbookPanelClasses } from './field-classes';
@@ -29,6 +30,14 @@ export function FitCalculator({ options }: { options: FitOption[] }) {
 
   const result = computeFit(mode, raw, option);
   const error = !result.ok && result.reason !== 'empty' ? ERROR_COPY[result.reason] : null;
+
+  const hasTrackedRef = useRef(false);
+  useEffect(() => {
+    if (result.ok && !hasTrackedRef.current) {
+      hasTrackedRef.current = true;
+      trackHandbookToolUsed('fit');
+    }
+  }, [result.ok]);
 
   return (
     <div className={handbookPanelClasses}>

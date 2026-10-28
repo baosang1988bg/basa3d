@@ -8,6 +8,7 @@ import { HANDBOOK_PRESETS } from '../src/data/handbook/presets';
 import type { HandbookBlock } from '../src/data/handbook/types';
 import { computeFit, formatUm, parseDiameterMm, type FitOption } from '../src/lib/handbook/fit';
 import { computePrintCost, formatVnd, parseGramsToMg, parseVnd, PRINT_COST_DEFAULTS, type PrintCostInput } from '../src/lib/handbook/print-cost';
+import { trackHandbookPresetDownload, trackHandbookToolUsed } from '../src/lib/analytics';
 
 // Phase 53 — Cẩm nang 2.0: interactive calculators. Pure tests: no DB, no server.
 
@@ -24,7 +25,15 @@ const option = (id: string): FitOption => {
 // ── Bundle boundary ────────────────────────────────────────────────────────────────────────────
 
 const HANDBOOK_DIR = 'src/components/storefront/handbook';
-const EXPECTED_CLIENT_ISLANDS = ['fit-calculator.tsx', 'handbook-toc.tsx', 'interactive-checklist.tsx', 'material-table.tsx', 'print-cost-calculator.tsx'];
+// Phase 53 islands: fit, toc, checklist, materials, preset download tracker (S8), cost.
+const EXPECTED_CLIENT_ISLANDS = [
+  'fit-calculator.tsx',
+  'handbook-toc.tsx',
+  'interactive-checklist.tsx',
+  'material-table.tsx',
+  'preset-download-link.tsx',
+  'print-cost-calculator.tsx',
+];
 
 test('client islands are exactly the planned set and none imports values from src/data/handbook', () => {
   const clientFiles = readdirSync(HANDBOOK_DIR).filter((name) => /^'use client'/.test(read(`${HANDBOOK_DIR}/${name}`)));
@@ -244,4 +253,45 @@ test('every preset in HANDBOOK_PRESETS exists, parses, follows naming, and conta
     const parsed = JSON.parse(raw);
     assertCleanJson(parsed, preset.file);
   }
+});
+
+// ── S8: Measurement ────────────────────────────────────────────────────────────────────────────
+
+test('trackHandbookToolUsed and trackHandbookPresetDownload push safe events to dataLayer', () => {
+  const events: unknown[] = [];
+  (globalThis as unknown as { window: unknown }).window = {
+    dataLayer: {
+      push: (item: unknown) => events.push(item),
+    },
+    location: { href: 'https://basa3d.example.com/cam-nang?token=secret123' },
+  };
+
+  trackHandbookToolUsed('fit');
+  trackHandbookToolUsed('cost');
+  trackHandbookPresetDownload('basa3d_pla_bambu');
+
+  assert.equal(events.length, 3);
+  const [e1, e2, e3] = events as [
+    ['event', string, Record<string, unknown>],
+    ['event', string, Record<string, unknown>],
+    ['event', string, Record<string, unknown>],
+  ];
+  assert.equal(e1[0], 'event');
+  assert.equal(e1[1], 'handbook_tool_used');
+  assert.equal(e1[2].tool, 'fit');
+  assert.doesNotMatch(String(e1[2].page_location), /secret123/);
+
+  assert.equal(e2[1], 'handbook_tool_used');
+  assert.equal(e2[2].tool, 'cost');
+
+  assert.equal(e3[1], 'handbook_preset_download');
+  assert.equal(e3[2].preset_id, 'basa3d_pla_bambu');
+
+  delete (globalThis as { window?: unknown }).window;
+});
+
+test('both calculators and preset download link wire analytics without violating client boundary rules', () => {
+  assert.match(read(`${HANDBOOK_DIR}/fit-calculator.tsx`), /trackHandbookToolUsed\('fit'\)/);
+  assert.match(read(`${HANDBOOK_DIR}/print-cost-calculator.tsx`), /trackHandbookToolUsed\('cost'\)/);
+  assert.match(read(`${HANDBOOK_DIR}/preset-download-link.tsx`), /trackHandbookPresetDownload\(presetId\)/);
 });

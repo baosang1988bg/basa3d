@@ -419,3 +419,16 @@ export function trackMakerWorldOrderClick(data: {
 export function analyticsErrorCode(status?: number): string {
   return typeof status === 'number' && status > 0 ? `http_${status}` : 'network';
 }
+
+// Phase 53 (S8) — Handbook interactive tools and presets measurement.
+export function trackHandbookToolUsed(tool: 'fit' | 'cost'): void {
+  sendGAEvent('handbook_tool_used', {
+    tool,
+  });
+}
+
+export function trackHandbookPresetDownload(id: string): void {
+  sendGAEvent('handbook_preset_download', {
+    preset_id: clipParam(id),
+  });
+}

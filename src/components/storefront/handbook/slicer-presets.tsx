@@ -1,5 +1,6 @@
 import { Download, Sliders } from 'lucide-react';
 import { HANDBOOK_PRESETS } from '@/data/handbook/presets';
+import { PresetDownloadLink } from './preset-download-link';
 
 const SLICER_INSTRUCTIONS = [
   {
@@ -50,15 +51,15 @@ export function SlicerPresets() {
               </p>
             </div>
             <div className="mt-3 pt-2">
-              <a
+              <PresetDownloadLink
                 href={`/downloads/presets/${preset.file}`}
                 download={preset.file}
-                data-preset-id={preset.id}
+                presetId={preset.id}
                 className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-border bg-secondary px-3 text-xs font-semibold text-secondary-foreground transition-colors hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <Download className="size-3.5" aria-hidden="true" />
                 Tải profile ({preset.file.split('.').pop()?.toUpperCase()})
-              </a>
+              </PresetDownloadLink>
             </div>
           </div>
         ))}
