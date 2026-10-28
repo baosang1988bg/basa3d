@@ -14,6 +14,7 @@ import { PrintCostCalculator } from './print-cost-calculator';
 import { ToleranceTable } from './tolerance-table';
 import { ToolBridge } from './tool-bridge';
 import { TroubleshootingTable } from './troubleshooting-table';
+import { SlicerPresets } from './slicer-presets';
 
 // Server component: renders typed content blocks to HTML. Client islands get their data as props
 // here — this is the only bridge between src/data/handbook and 'use client' code.
@@ -86,6 +87,8 @@ export function HandbookBlocks({ blocks, baoGiaEnabled }: { blocks: HandbookBloc
               </PrintCostCalculator>
             );
           }
+          case 'presets':
+            return <SlicerPresets key={key} />;
           case 'troubleshooting':
             return <TroubleshootingTable key={key} />;
           case 'checklist':

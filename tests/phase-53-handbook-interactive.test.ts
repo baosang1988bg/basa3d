@@ -4,6 +4,7 @@ import test from 'node:test';
 import { HANDBOOK_SECTIONS } from '../src/data/handbook/sections';
 import { HANDBOOK_TOLERANCES } from '../src/data/handbook/tolerances';
 import { HANDBOOK_DEFECTS } from '../src/data/handbook/troubleshooting';
+import { HANDBOOK_PRESETS } from '../src/data/handbook/presets';
 import type { HandbookBlock } from '../src/data/handbook/types';
 import { computeFit, formatUm, parseDiameterMm, type FitOption } from '../src/lib/handbook/fit';
 import { computePrintCost, formatVnd, parseGramsToMg, parseVnd, PRINT_COST_DEFAULTS, type PrintCostInput } from '../src/lib/handbook/print-cost';
@@ -199,5 +200,48 @@ test('every declared defect photo exists in public/, is WebP/AVIF, has real alt 
     }
     assert.notEqual(failed.src, fixed.src, defect.id);
     assert.equal(failed.width * fixed.height, fixed.width * failed.height, `${defect.id} pair aspect ratio`);
+  }
+});
+
+// ── Slicer presets (B3: Filament & Process only; no machine G-code; versioned files) ───────────
+
+test('presets block appears in chapter 04 (slicer) and is rendered by a server component', () => {
+  assert.equal(allBlocks().filter((b) => b.type === 'presets').length, 1);
+  assert.equal(sectionOf('presets'), 'slicer');
+  const source = read(`${HANDBOOK_DIR}/slicer-presets.tsx`);
+  assert.doesNotMatch(source, /^'use client'/m);
+  assert.doesNotMatch(source, /useState|useEffect/);
+});
+
+test('every preset in HANDBOOK_PRESETS exists, parses, follows naming, and contains no machine G-code', () => {
+  const PRESET_FILENAME_RE = /^basa3d_[a-z0-9-]+_(bambu-studio|orcaslicer|prusaslicer)_[a-z0-9-]+_\d+(?:\.\d+)?mm_v\d{4}-\d{2}\.json$/;
+
+  function assertCleanJson(value: unknown, path = 'root'): void {
+    if (value == null) return;
+    if (typeof value === 'string') {
+      assert.doesNotMatch(value, /gcode/i, `Forbidden G-code reference in value at ${path}`);
+      assert.doesNotMatch(value, /\/Users\/|[a-zA-Z]:\\\\/, `Forbidden absolute path in value at ${path}`);
+      assert.doesNotMatch(value, /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/, `Forbidden email in value at ${path}`);
+      return;
+    }
+    if (typeof value === 'object') {
+      for (const [key, val] of Object.entries(value)) {
+        assert.doesNotMatch(key, /gcode/i, `Forbidden G-code reference in key "${key}" at ${path}`);
+        assert.doesNotMatch(key, /\/Users\/|[a-zA-Z]:\\\\/, `Forbidden absolute path in key "${key}" at ${path}`);
+        assert.doesNotMatch(key, /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/, `Forbidden email in key "${key}" at ${path}`);
+        assertCleanJson(val, `${path}.${key}`);
+      }
+    }
+  }
+
+  for (const preset of HANDBOOK_PRESETS) {
+    assert.match(preset.file, PRESET_FILENAME_RE, `${preset.id} filename format`);
+    assert.notEqual(preset.kind, 'machine', `${preset.id} must not be a machine preset (B3)`);
+    assert.ok(preset.kind === 'filament' || preset.kind === 'process', `${preset.id} kind`);
+    const diskPath = `public/downloads/presets/${preset.file}`;
+    assert.ok(existsSync(diskPath), `Preset file missing at ${diskPath}`);
+    const raw = readFileSync(diskPath, 'utf8');
+    const parsed = JSON.parse(raw);
+    assertCleanJson(parsed, preset.file);
   }
 });

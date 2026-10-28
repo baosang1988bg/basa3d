@@ -18,6 +18,8 @@ export type HandbookBlock =
   | { type: 'fit-calculator' }
   /** Phase 53 — visitor's own home-printing cost (never a BaSa3D price; see lib/handbook/print-cost). */
   | { type: 'cost-calculator' }
+  /** Phase 53 — downloadable slicer presets for OrcaSlicer / Bambu Studio / PrusaSlicer (S5). */
+  | { type: 'presets' }
   | { type: 'troubleshooting' }
   | { type: 'checklist' }
   | {
