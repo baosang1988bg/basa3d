@@ -45,7 +45,7 @@ test('each reference block appears exactly once', () => {
 
 test('reference tables have the planned sizes, unique ids and sane ranges', () => {
   assert.equal(HANDBOOK_MATERIALS.length, 7);
-  assert.equal(HANDBOOK_DEFECTS.length, 6);
+  assert.equal(HANDBOOK_DEFECTS.length, 8);
   assert.equal(HANDBOOK_CHECKLIST.length, 7);
   assert.ok(HANDBOOK_TOLERANCES.length >= 4);
   for (const list of [HANDBOOK_MATERIALS, HANDBOOK_TOLERANCES, HANDBOOK_DEFECTS, HANDBOOK_CHECKLIST]) {

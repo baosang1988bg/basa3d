@@ -3,7 +3,7 @@ import type { HandbookSection, HandbookTocItem } from './types';
 // Phase 50 — nine chapters, written in-house (structure inspired by public FDM handbooks; no text
 // copied or translated). Section ids are public anchors (`/cam-nang#vat-lieu`): do not rename.
 // Bump HANDBOOK_UPDATED_AT whenever the content changes — it feeds JSON-LD `dateModified`.
-export const HANDBOOK_UPDATED_AT = '2026-10-26';
+export const HANDBOOK_UPDATED_AT = '2026-10-28';
 export const HANDBOOK_PUBLISHED_AT = '2026-10-26';
 
 export const HANDBOOK_SECTIONS: HandbookSection[] = [
@@ -225,7 +225,7 @@ export const HANDBOOK_SECTIONS: HandbookSection[] = [
     id: 'xu-ly-loi',
     number: '08',
     title: 'Xử lý lỗi in thường gặp',
-    summary: 'Sáu lỗi kinh điển và thứ tự khắc phục từ rẻ đến tốn công.',
+    summary: 'Tám lỗi kinh điển và thứ tự khắc phục từ rẻ đến tốn công.',
     blocks: [
       {
         type: 'p',
