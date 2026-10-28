@@ -11,7 +11,7 @@ import { LanguageSwitcher } from './language-switcher';
 import { BAO_GIA_ENABLED_IN_BROWSER } from '@/config/bao-gia';
 import { SITE_CONFIG } from '@/config/site';
 import { useCart } from '@/lib/cart/cart-context';
-import { trackContactClick } from '@/lib/analytics';
+import { navKeyFromHref, trackContactClick, trackMenuOpen, trackNavigationClick } from '@/lib/analytics';
 import { cn } from '@/lib/utils';
 import { isKnowledgeSectionActive, visibleKnowledgeNavItems } from '@/config/knowledge-nav';
 import { KnowledgeMenu } from './knowledge-menu';
@@ -179,7 +179,11 @@ export function Header({ categories: initialCategories = [] }: HeaderProps = {})
     <>
       <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur supports-backdrop-filter:bg-card/80">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-          <Link href="/home" className="inline-flex shrink-0 cursor-pointer items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+          <Link
+            href="/home"
+            onClick={() => trackNavigationClick({ placement: 'header', nav_key: 'logo', target: '/home' })}
+            className="inline-flex shrink-0 cursor-pointer items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
             {/* Phase 37: logo thật (nền trong suốt, đọc được cả light/dark). priority vì nằm trên mọi trang. */}
             <Image src="/brand/basa3d-logo.webp" alt={t('logoAlt')} width={443} height={192} priority className="h-10 w-auto md:h-12" />
           </Link>
@@ -195,6 +199,7 @@ export function Header({ categories: initialCategories = [] }: HeaderProps = {})
                   <Link
                     key={link.href}
                     href={link.href}
+                    onClick={() => trackNavigationClick({ placement: 'header', nav_key: navKeyFromHref(link.href), target: link.href })}
                     aria-current={isActive ? 'page' : undefined}
                     className={cn(
                       'relative cursor-pointer py-1 text-sm font-medium transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
@@ -255,7 +260,10 @@ export function Header({ categories: initialCategories = [] }: HeaderProps = {})
                       <Link
                         href="/products"
                         role="menuitem"
-                        onClick={() => setIsProductsDropdownOpen(false)}
+                        onClick={() => {
+                          setIsProductsDropdownOpen(false);
+                          trackNavigationClick({ placement: 'header', nav_key: 'products_all', target: '/products' });
+                        }}
                         className={cn(
                           'flex items-center justify-between rounded-xl px-3 py-2 text-sm font-medium transition-colors duration-150 outline-none focus-visible:bg-secondary focus-visible:text-foreground',
                           !activeCategoryId && isActive
@@ -281,7 +289,15 @@ export function Header({ categories: initialCategories = [] }: HeaderProps = {})
                                   key={category.id}
                                   href={`/products?categoryId=${category.id}`}
                                   role="menuitem"
-                                  onClick={() => setIsProductsDropdownOpen(false)}
+                                  onClick={() => {
+                                    setIsProductsDropdownOpen(false);
+                                    trackNavigationClick({
+                                      placement: 'header',
+                                      nav_key: 'category',
+                                      target: `/products?categoryId=${category.id}`,
+                                      category_id: category.id,
+                                    });
+                                  }}
                                   className={cn(
                                     'flex items-center justify-between rounded-xl px-3 py-2 text-sm transition-colors duration-150 outline-none focus-visible:bg-secondary focus-visible:text-foreground',
                                     isSelected
@@ -318,6 +334,7 @@ export function Header({ categories: initialCategories = [] }: HeaderProps = {})
             {SITE_CONFIG.cartEnabled && (
               <Link
                 href="/cart"
+                onClick={() => trackNavigationClick({ placement: 'header', nav_key: 'cart', target: '/cart' })}
                 aria-label={itemCount > 0 ? t('cartAriaLabelWithCount', { count: itemCount }) : t('cartAriaLabelEmpty')}
                 className="relative inline-flex size-8 cursor-pointer items-center justify-center rounded-lg border border-border text-foreground transition-colors duration-150 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
@@ -341,7 +358,10 @@ export function Header({ categories: initialCategories = [] }: HeaderProps = {})
               aria-label={t('openMenu')}
               aria-expanded={isMenuOpen}
               aria-controls="storefront-mobile-menu"
-              onClick={() => setIsMenuOpen(true)}
+              onClick={() => {
+                setIsMenuOpen(true);
+                trackMenuOpen({ placement: 'mobile_menu' });
+              }}
               className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg border border-border text-foreground transition-colors duration-150 hover:bg-secondary md:hidden"
             >
               <Menu className="size-4" />
@@ -398,7 +418,10 @@ export function Header({ categories: initialCategories = [] }: HeaderProps = {})
                     <Link
                       key={item.key}
                       href={item.href}
-                      onClick={() => setIsMenuOpen(false)}
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        trackNavigationClick({ placement: 'mobile_menu', nav_key: item.key, target: item.href });
+                      }}
                       className="block cursor-pointer rounded-lg px-3 py-2 transition-colors duration-150 hover:bg-secondary"
                     >
                       <span className="block text-sm font-medium text-foreground">{t(`knowledgeItems.${item.key}.title`)}</span>
@@ -414,7 +437,10 @@ export function Header({ categories: initialCategories = [] }: HeaderProps = {})
               <div key={link.href} className="flex flex-col">
                 <Link
                   href={link.href}
-                  onClick={() => setIsMenuOpen(false)}
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    trackNavigationClick({ placement: 'mobile_menu', nav_key: navKeyFromHref(link.href), target: link.href });
+                  }}
                   aria-current={isActive ? 'page' : undefined}
                   // Links follow the panel in, one after another; on close they leave together.
                   style={{ transitionDelay: isMenuOpen ? `${120 + index * 40}ms` : '0ms' }}
@@ -438,7 +464,15 @@ export function Header({ categories: initialCategories = [] }: HeaderProps = {})
                       <Link
                         key={cat.id}
                         href={`/products?categoryId=${cat.id}`}
-                        onClick={() => setIsMenuOpen(false)}
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          trackNavigationClick({
+                            placement: 'mobile_menu',
+                            nav_key: 'category',
+                            target: `/products?categoryId=${cat.id}`,
+                            category_id: cat.id,
+                          });
+                        }}
                         className="rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                       >
                         {getCategoryDisplayName(cat, locale)}

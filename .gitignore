@@ -2,9 +2,9 @@ node_modules/
 .next/
 .next-test/
 .next-e2e/
-.env
-.env.local
-.env.*.local
+# Mọi biến thể env (kể cả lỗi gõ như .envv) đều bị ignore; chỉ commit file mẫu.
+.env*
+!.env.example
 coverage/
 playwright-report/
 test-results/

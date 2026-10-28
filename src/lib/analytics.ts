@@ -238,3 +238,184 @@ export function trackQuoteEstimateShown(data: { itemCount: number; pricedCount: 
 export function trackQuoteSubmitted(data: { itemCount: number; totalVnd: number }) {
   sendGAEvent('quote_submitted', { item_count: data.itemCount, currency: 'VND', value: data.totalVnd });
 }
+
+// ---------------------------------------------------------------------------------------------
+// Engagement, discovery & MakerWorld tool events. Event dictionary + rules:
+// docs/marketing/ga4-tracking-guide.md (single source of truth — update it with every change).
+// ---------------------------------------------------------------------------------------------
+
+/** GA4 truncates/rejects event parameter values longer than 100 characters. */
+export const GA_PARAM_MAX_LENGTH = 100;
+
+export function clipParam(value: string, max = GA_PARAM_MAX_LENGTH): string {
+  return value.length > max ? value.slice(0, max) : value;
+}
+
+/**
+ * Free-form text (search box, pasted links) may contain PII. Redact e-mail addresses and digit runs
+ * that look like phone/ID numbers (>= 8 digits, separators allowed), collapse whitespace, clip.
+ */
+export function sanitizeFreeText(raw: string): string {
+  const redacted = raw
+    .replace(/[^\s@]+@[^\s@]+\.[^\s@]+/g, '[email]')
+    .replace(/\+?\d(?:[\s.-]?\d){7,}/g, '[number]')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+  return clipParam(redacted);
+}
+
+/** BaSa3D money rule: integer VND (minor unit = 1 đồng). Anything else is dropped, never rounded. */
+export function toVndValue(value: number | null | undefined): number | undefined {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
+}
+
+// Screen time (active dwell time per route). NOTE: never send `user_engagement` or a param named
+// `engagement_time_msec` — both are reserved/auto-collected by gtag and would double-count
+// GA4's "Average engagement time".
+export function trackScreenTime(data: {
+  page_path: string;
+  page_location: string;
+  screen_time_msec: number;
+  page_title?: string;
+}) {
+  sendGAEvent('screen_time', {
+    page_path: data.page_path,
+    // Explicit: at flush time window.location already points at the NEXT route.
+    page_location: data.page_location,
+    screen_time_msec: Math.round(data.screen_time_msec),
+    ...(data.page_title ? { page_title: clipParam(data.page_title) } : {}),
+  });
+}
+
+// Storefront search & filtering (/products). Fired only for user-initiated navigations.
+export function trackSearch(data: { search_term: string; results_on_page?: number }) {
+  const term = sanitizeFreeText(data.search_term);
+  if (!term) return;
+  sendGAEvent('search', {
+    search_term: term,
+    ...(data.results_on_page != null ? { results_on_page: data.results_on_page } : {}),
+  });
+}
+
+export const PRODUCT_TYPE_FILTERS = ['READY_STOCK', 'MADE_TO_ORDER'] as const;
+export type ProductTypeFilter = (typeof PRODUCT_TYPE_FILTERS)[number];
+
+export function toProductTypeFilter(value: string | null | undefined): ProductTypeFilter | undefined {
+  return PRODUCT_TYPE_FILTERS.find((type) => type === value);
+}
+
+export function trackFilterCategory(data: {
+  /** `'all'` when the category filter was cleared. */
+  category_id: string;
+  /** Always the default-locale (vi) name so reports do not split per language. */
+  category_name?: string;
+  product_type?: ProductTypeFilter;
+  sort?: 'newest' | 'price_asc' | 'price_desc';
+}) {
+  sendGAEvent('filter_category', {
+    category_id: clipParam(data.category_id),
+    ...(data.category_name ? { category_name: clipParam(data.category_name) } : {}),
+    ...(data.product_type ? { product_type: data.product_type } : {}),
+    ...(data.sort ? { sort: data.sort } : {}),
+  });
+}
+
+// Navigation clicks. `nav_key` is a stable, locale-independent identifier (never a translated label).
+export type NavigationPlacement = 'header' | 'footer' | 'mobile_menu' | 'storefront';
+
+export function navKeyFromHref(href: string): string {
+  const path = href.split(/[?#]/)[0].replace(/^\/+|\/+$/g, '');
+  return path ? path.toLowerCase().replace(/[^a-z0-9]+/g, '_') : 'home';
+}
+
+export function trackNavigationClick(data: {
+  placement: NavigationPlacement;
+  nav_key: string;
+  target: string;
+  category_id?: string;
+}) {
+  sendGAEvent('navigation_click', {
+    placement: data.placement,
+    nav_key: data.nav_key,
+    target: clipParam(sanitizeAnalyticsUrl(data.target)),
+    ...(data.category_id ? { category_id: data.category_id } : {}),
+  });
+}
+
+export function trackMenuOpen(data: { placement: NavigationPlacement }) {
+  sendGAEvent('menu_open', { placement: data.placement });
+}
+
+// MakerWorld tool (/tools/makerworld-cn). Never send the pasted URL: it is free-form user input.
+const MAKERWORLD_HOSTS = ['makerworld.com', 'makerworld.com.cn'];
+
+export function getMakerWorldSourceHost(raw: string): string {
+  const input = raw.trim();
+  if (!input) return 'invalid';
+  try {
+    const url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(input) ? input : `https://${input}`);
+    const host = url.hostname.toLowerCase().replace(/^www\./, '');
+    return MAKERWORLD_HOSTS.some((allowed) => host === allowed || host.endsWith(`.${allowed}`)) ? host : 'other';
+  } catch {
+    return 'invalid';
+  }
+}
+
+export function trackMakerWorldResolve(data: {
+  success: boolean;
+  source_host: string;
+  model_id?: string;
+  error_code?: string;
+}) {
+  sendGAEvent('makerworld_resolve_url', {
+    success: data.success,
+    source_host: data.source_host,
+    ...(data.model_id ? { model_id: clipParam(data.model_id) } : {}),
+    ...(data.error_code ? { error_code: data.error_code } : {}),
+  });
+}
+
+export function trackMakerWorldDownload(data: {
+  model_id: string;
+  profile_id?: string;
+  model_title?: string;
+  /** `direct` = 3MF proxied by BaSa3D, `external` = opened makerworld.com in a new tab. */
+  method: 'direct' | 'external';
+  success: boolean;
+  error_code?: string;
+}) {
+  sendGAEvent('makerworld_download_3mf', {
+    model_id: clipParam(data.model_id),
+    method: data.method,
+    success: data.success,
+    ...(data.profile_id ? { profile_id: clipParam(data.profile_id) } : {}),
+    ...(data.model_title ? { model_title: clipParam(data.model_title) } : {}),
+    ...(data.error_code ? { error_code: data.error_code } : {}),
+  });
+}
+
+export function trackMakerWorldPreview3D(data: { model_id: string; profile_id?: string }) {
+  sendGAEvent('makerworld_preview_3d', {
+    model_id: clipParam(data.model_id),
+    ...(data.profile_id ? { profile_id: clipParam(data.profile_id) } : {}),
+  });
+}
+
+export function trackMakerWorldOrderClick(data: {
+  model_id: string;
+  profile_id?: string;
+  estimated_price_vnd?: number | null;
+}) {
+  const value = toVndValue(data.estimated_price_vnd);
+  sendGAEvent('makerworld_order_click', {
+    model_id: clipParam(data.model_id),
+    ...(data.profile_id ? { profile_id: clipParam(data.profile_id) } : {}),
+    ...(value != null ? { currency: 'VND', value } : {}),
+  });
+}
+
+/** Coarse, non-PII error bucket for failed fetches. */
+export function analyticsErrorCode(status?: number): string {
+  return typeof status === 'number' && status > 0 ? `http_${status}` : 'network';
+}

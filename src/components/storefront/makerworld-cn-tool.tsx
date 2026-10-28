@@ -20,6 +20,14 @@ import type { MakerWorldCnModelDetail, MakerWorldCnProfile } from '@/app/api/pub
 import { MakerWorld3dModal } from './makerworld-3d-modal';
 import { MakerWorldOrderModal } from './makerworld-order-modal';
 import { BUILD_INFO } from '@/config/build-info';
+import {
+  analyticsErrorCode,
+  getMakerWorldSourceHost,
+  trackMakerWorldDownload,
+  trackMakerWorldOrderClick,
+  trackMakerWorldPreview3D,
+  trackMakerWorldResolve,
+} from '@/lib/analytics';
 
 const isProduction = BUILD_INFO.channel === 'production' || process.env.NODE_ENV === 'production';
 
@@ -149,6 +157,14 @@ export function MakerWorldCnTool({ initialUrl }: { initialUrl?: string } = {}) {
   const [selectedOrderProfileId, setSelectedOrderProfileId] = useState<string | null>(null);
 
   function handleOpenOrderModal(profileId?: string) {
+    if (detail) {
+      const profile = profileId ? detail.profiles.find((p) => p.profileId === profileId) : undefined;
+      trackMakerWorldOrderClick({
+        model_id: detail.modelId,
+        profile_id: profileId,
+        estimated_price_vnd: profile?.estimatedPriceVnd,
+      });
+    }
     setSelectedOrderProfileId(profileId || null);
     setIsOrderModalOpen(true);
   }
@@ -169,6 +185,10 @@ export function MakerWorldCnTool({ initialUrl }: { initialUrl?: string } = {}) {
     const raw = (targetUrl ?? url).trim();
     if (!raw) return;
 
+    // Never send `raw` itself: it is free-form user input (may carry share tokens or PII).
+    const sourceHost = getMakerWorldSourceHost(raw);
+    let failedStatus: number | undefined;
+
     setLoading(true);
     setError(null);
     setDownloadError(null);
@@ -184,15 +204,18 @@ export function MakerWorldCnTool({ initialUrl }: { initialUrl?: string } = {}) {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        failedStatus = res.status;
         throw new Error(data.message || 'Không thể đọc dữ liệu mẫu từ liên kết này.');
       }
 
+      trackMakerWorldResolve({ success: true, source_host: sourceHost, model_id: data.data?.modelId });
       setDetail(data.data);
       if (data.data) {
         triggerSequentialPricing(data.data);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Đã có lỗi xảy ra khi phân tích liên kết.';
+      trackMakerWorldResolve({ success: false, source_host: sourceHost, error_code: analyticsErrorCode(failedStatus) });
       setError(msg);
       setDetail(null);
     } finally {
@@ -213,10 +236,13 @@ export function MakerWorldCnTool({ initialUrl }: { initialUrl?: string } = {}) {
 
   async function handleDownload(profileId: string) {
     if (!detail) return;
+    const downloadEvent = { model_id: detail.modelId, profile_id: profileId, model_title: detail.title };
     if (!detail.isChinaModel) {
+      trackMakerWorldDownload({ ...downloadEvent, method: 'external', success: true });
       window.open(detail.sourceUrl, '_blank');
       return;
     }
+    let failedStatus: number | undefined;
     setDownloadingProfileId(profileId);
     setDownloadError(null);
 
@@ -231,6 +257,7 @@ export function MakerWorldCnTool({ initialUrl }: { initialUrl?: string } = {}) {
       });
 
       if (!res.ok) {
+        failedStatus = res.status;
         const errJson = await res.json().catch(() => ({}));
         throw new Error(
           errJson.message || 'Tải file thất bại từ server. Bạn có thể mở công cụ dự phòng để tải file.'
@@ -246,7 +273,9 @@ export function MakerWorldCnTool({ initialUrl }: { initialUrl?: string } = {}) {
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(downloadUrl);
+      trackMakerWorldDownload({ ...downloadEvent, method: 'direct', success: true });
     } catch (err: unknown) {
+      trackMakerWorldDownload({ ...downloadEvent, method: 'direct', success: false, error_code: analyticsErrorCode(failedStatus) });
       const msg = err instanceof Error ? err.message : 'Lỗi khi tải file.';
       setDownloadError(msg);
     } finally {
@@ -642,13 +671,19 @@ export function MakerWorldCnTool({ initialUrl }: { initialUrl?: string } = {}) {
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
-                          onClick={() =>
+                          onClick={() => {
+                            if (detail) {
+                              trackMakerWorldPreview3D({
+                                model_id: detail.modelId,
+                                profile_id: p.profileId,
+                              });
+                            }
                             setActive3dProfile({
                               profileId: p.profileId,
                               title: p.title,
                               estimatedPriceVnd: p.estimatedPriceVnd,
-                            })
-                          }
+                            });
+                          }}
                           className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-input bg-background px-2.5 py-2 text-xs font-medium text-foreground transition hover:bg-muted"
                           title="Xem trước hình khối 3D trên trình duyệt"
                         >

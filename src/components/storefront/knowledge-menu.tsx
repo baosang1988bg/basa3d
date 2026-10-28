@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { ChevronDown, BookOpen, Newspaper, Wrench, Layers, Ruler } from 'lucide-react';
 import { Link } from '@/i18n/navigation';
 import type { KnowledgeNavItem, KnowledgeNavKey } from '@/config/knowledge-nav';
+import { trackNavigationClick } from '@/lib/analytics';
 import { cn } from '@/lib/utils';
 
 // Phase 50 — desktop "Kiến thức in 3D ▾" dropdown. Disclosure pattern (button + aria-expanded +
@@ -131,7 +132,10 @@ export function KnowledgeMenu({ items, isActive, pathname }: { items: KnowledgeN
               <li key={item.key}>
                 <Link
                   href={item.href}
-                  onClick={close}
+                  onClick={() => {
+                    close();
+                    trackNavigationClick({ placement: 'header', nav_key: item.key, target: item.href });
+                  }}
                   className={cn(
                     'flex items-center justify-between rounded-xl px-3 py-2 text-sm font-medium transition-colors duration-150 outline-none focus-visible:bg-secondary focus-visible:text-foreground',
                     isCurrent
@@ -163,7 +167,10 @@ export function KnowledgeMenu({ items, isActive, pathname }: { items: KnowledgeN
                   <li key={item.key}>
                     <Link
                       href={item.href}
-                      onClick={close}
+                      onClick={() => {
+                        close();
+                        trackNavigationClick({ placement: 'header', nav_key: item.key, target: item.href });
+                      }}
                       className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-foreground/80 transition-colors duration-150 outline-none hover:bg-secondary hover:text-foreground focus-visible:bg-secondary focus-visible:text-foreground"
                     >
                       <Icon className="size-4 text-muted-foreground" aria-hidden="true" />

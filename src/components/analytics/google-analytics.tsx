@@ -1,6 +1,7 @@
 import Script from 'next/script';
 import { Suspense } from 'react';
 import { PageViewTracker } from './page-view-tracker';
+import { ScreenTimeTracker } from './screen-time-tracker';
 
 // Renders nothing when NEXT_PUBLIC_GA_ID is unset — safe default for dev/local, and for any
 // deployment before the OWNER has created a real GA4 property (phase-7.md decision #7, Non-goals:
@@ -19,6 +20,8 @@ export function GoogleAnalytics() {
           gtag('config', '${gaId}', { send_page_view: false });`}
       </Script>
       <Suspense fallback={null}><PageViewTracker gaId={gaId} /></Suspense>
+      {/* usePathname only — no useSearchParams, so no Suspense/CSR bail-out needed. */}
+      <ScreenTimeTracker gaId={gaId} />
     </>
   );
 }
