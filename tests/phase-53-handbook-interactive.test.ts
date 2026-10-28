@@ -5,10 +5,12 @@ import { HANDBOOK_SECTIONS } from '../src/data/handbook/sections';
 import { HANDBOOK_TOLERANCES } from '../src/data/handbook/tolerances';
 import type { HandbookBlock } from '../src/data/handbook/types';
 import { computeFit, formatUm, parseDiameterMm, type FitOption } from '../src/lib/handbook/fit';
+import { computePrintCost, formatVnd, parseGramsToMg, parseVnd, PRINT_COST_DEFAULTS, type PrintCostInput } from '../src/lib/handbook/print-cost';
 
 // Phase 53 — Cẩm nang 2.0: interactive calculators. Pure tests: no DB, no server.
 
 const read = (path: string) => readFileSync(path, 'utf8');
+const code = (path: string) => read(path).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 const allBlocks = (): HandbookBlock[] => HANDBOOK_SECTIONS.flatMap((section) => section.blocks);
 const sectionOf = (type: HandbookBlock['type']) => HANDBOOK_SECTIONS.find((s) => s.blocks.some((b) => b.type === type))?.id;
 const option = (id: string): FitOption => {
@@ -20,7 +22,7 @@ const option = (id: string): FitOption => {
 // ── Bundle boundary ────────────────────────────────────────────────────────────────────────────
 
 const HANDBOOK_DIR = 'src/components/storefront/handbook';
-const EXPECTED_CLIENT_ISLANDS = ['fit-calculator.tsx', 'handbook-toc.tsx', 'interactive-checklist.tsx', 'material-table.tsx'];
+const EXPECTED_CLIENT_ISLANDS = ['fit-calculator.tsx', 'handbook-toc.tsx', 'interactive-checklist.tsx', 'material-table.tsx', 'print-cost-calculator.tsx'];
 
 test('client islands are exactly the planned set and none imports values from src/data/handbook', () => {
   const clientFiles = readdirSync(HANDBOOK_DIR).filter((name) => /^'use client'/.test(read(`${HANDBOOK_DIR}/${name}`)));
@@ -104,4 +106,63 @@ test('invalid, empty, out-of-range and impossible inputs return a reason instead
 
 test('fit calculator warns against double compensation (CAD clearance + slicer hole compensation)', () => {
   assert.match(read(`${HANDBOOK_DIR}/fit-calculator.tsx`), /Chỉ chọn một trong hai/);
+});
+
+// ── Home-printing cost (B1: never a BaSa3D price; rule #2: integer VND) ────────────────────────
+
+const costWith = (patch: Partial<PrintCostInput>) => computePrintCost({ ...PRINT_COST_DEFAULTS, ...patch });
+
+test('cost calculator sits in the slicer chapter, once, and gets its CTA from the server-side resolver', () => {
+  assert.equal(allBlocks().filter((b) => b.type === 'cost-calculator').length, 1);
+  assert.equal(sectionOf('cost-calculator'), 'slicer');
+  assert.match(read(`${HANDBOOK_DIR}/handbook-blocks.tsx`), /resolveHandbookToolLink\('bao-gia', \{ baoGiaEnabled \}\)/);
+});
+
+test('B1: the cost calculator never touches BaSa3D pricing (DB is the only source of truth)', () => {
+  for (const path of ['src/lib/handbook/print-cost.ts', `${HANDBOOK_DIR}/print-cost-calculator.tsx`]) {
+    const source = code(path);
+    assert.doesNotMatch(source, /from '@\/(services|config\/bao-gia|lib\/(pricing|quote))/, path);
+    assert.doesNotMatch(source, /pricing_config|pricingConfig/i, path);
+  }
+  assert.match(read(`${HANDBOOK_DIR}/print-cost-calculator.tsx`), /không phải giá in của BaSa3D/i);
+});
+
+test('default example: 50 g × 300.000 ₫/kg + 150 W × 2h30 × 3.000 ₫/kWh + 10 %', () => {
+  const result = computePrintCost(PRINT_COST_DEFAULTS);
+  assert.ok(result.ok);
+  assert.equal(result.filamentVnd, 15_000);
+  assert.equal(result.electricityVnd, 1_125); // 0.375 kWh × 3000
+  assert.equal(result.bufferVnd, 1_613); // round(16 125 × 10 %) = round(1612.5)
+  assert.equal(result.totalVnd, 17_738);
+  assert.equal(result.energyWh, 375);
+});
+
+test('every money output is an integer and the total is the exact sum of its lines', () => {
+  for (const patch of [{ grams: '48,62', pricePerKg: '289.999' }, { grams: '0.01' }, { hours: '0', minutes: '7', kwhPrice: '2.871' }, { grams: '9999.99', pricePerKg: '20.000.000', hours: '999', minutes: '59', powerW: '5000', kwhPrice: '20.000', bufferPercent: '100' }]) {
+    const result = costWith(patch);
+    assert.ok(result.ok, JSON.stringify(patch));
+    for (const value of [result.filamentVnd, result.electricityVnd, result.bufferVnd, result.totalVnd]) assert.ok(Number.isSafeInteger(value), JSON.stringify(patch));
+    assert.equal(result.totalVnd, result.filamentVnd + result.electricityVnd + result.bufferVnd);
+  }
+});
+
+test('parsers: VND accepts grouped thousands, grams accept a decimal comma, nothing is guessed', () => {
+  for (const [raw, expected] of [['300000', 300000], ['300.000', 300000], ['300,000', 300000], ['300 000', 300000], ['1.250.000', 1250000], ['0', 0]] as const) {
+    assert.equal(parseVnd(raw), expected, raw);
+  }
+  for (const bad of ['', '3,5', '300.00', '-5', '1e6', '12.3456.789', 'abc', '1234567890']) assert.equal(parseVnd(bad), null, bad);
+  assert.equal(parseGramsToMg('48,62'), 48_620);
+  assert.equal(parseGramsToMg('48.6'), 48_600);
+  for (const bad of ['1.250', '1,250,0', '-1', 'abc', '']) assert.equal(parseGramsToMg(bad), null, bad);
+});
+
+test('invalid and out-of-range fields are reported per field, never thrown', () => {
+  const result = costWith({ grams: 'abc', minutes: '75', bufferPercent: '101', powerW: '' });
+  assert.deepEqual(result, { ok: false, errors: { grams: 'invalid', minutes: 'out-of-range', bufferPercent: 'out-of-range', powerW: 'invalid' } });
+  assert.equal(costWith({ grams: '10001' }).ok, false);
+});
+
+test('formatVnd uses Vietnamese grouping and the ₫ sign', () => {
+  assert.equal(formatVnd(17_738), '17.738 ₫');
+  assert.equal(formatVnd(0), '0 ₫');
 });

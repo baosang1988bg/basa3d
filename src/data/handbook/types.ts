@@ -16,6 +16,8 @@ export type HandbookBlock =
   | { type: 'tolerances' }
   /** Phase 53 — interactive calculator fed by HANDBOOK_TOLERANCES (client island). */
   | { type: 'fit-calculator' }
+  /** Phase 53 — visitor's own home-printing cost (never a BaSa3D price; see lib/handbook/print-cost). */
+  | { type: 'cost-calculator' }
   | { type: 'troubleshooting' }
   | { type: 'checklist' }
   | {

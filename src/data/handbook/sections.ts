@@ -135,6 +135,8 @@ export const HANDBOOK_SECTIONS: HandbookSection[] = [
         title: 'Muốn chi tiết bền hơn?',
         text: 'Thêm vách hiệu quả hơn tăng infill. Từ 2 lên 4 vách thường tăng độ bền rõ rệt trong khi chỉ tốn thêm một ít nhựa.',
       },
+      { type: 'h3', text: 'Một chi tiết tự in tốn bao nhiêu?' },
+      { type: 'cost-calculator' },
       {
         type: 'tool',
         toolId: 'organizer',

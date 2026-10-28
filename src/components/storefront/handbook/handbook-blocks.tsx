@@ -5,7 +5,9 @@ import { ENCLOSURE_LABELS, HANDBOOK_MATERIALS, MATERIAL_TAG_LABELS } from '@/dat
 import { cn } from '@/lib/utils';
 import { HANDBOOK_TOLERANCES } from '@/data/handbook/tolerances';
 import { FitCalculator } from './fit-calculator';
+import { resolveHandbookToolLink } from '@/data/handbook/tool-links';
 import { InteractiveChecklist } from './interactive-checklist';
+import { PrintCostCalculator } from './print-cost-calculator';
 import { MaterialTable } from './material-table';
 import { ToleranceTable } from './tolerance-table';
 import { ToolBridge } from './tool-bridge';
@@ -67,6 +69,10 @@ export function HandbookBlocks({ blocks, baoGiaEnabled }: { blocks: HandbookBloc
           case 'fit-calculator':
             // Trimmed to id/fit/clearanceMm: example/note text stays server-only (smaller RSC payload).
             return <FitCalculator key={key} options={HANDBOOK_TOLERANCES.map(({ id, fit, clearanceMm }) => ({ id, fit, clearanceMm }))} />;
+          case 'cost-calculator': {
+            const link = resolveHandbookToolLink('bao-gia', { baoGiaEnabled });
+            return <PrintCostCalculator key={key} cta={{ href: link.href, label: link.ctaLabel }} />;
+          }
           case 'troubleshooting':
             return <TroubleshootingTable key={key} />;
           case 'checklist':
