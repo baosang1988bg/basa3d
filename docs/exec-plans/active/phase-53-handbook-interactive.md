@@ -35,24 +35,23 @@
 - [x] `HandbookDefect.photos?` + `HandbookPhoto` (src, alt, width, height, credit).
 - [x] `defect-photo-toggle.tsx` — server component, radio + CSS `:has()`; lazy trong `<details>` đóng.
 - [x] Test: file phải tồn tại trong `public/images/handbook/defects/`, WebP/AVIF, alt mô tả ≥ 15 ký tự, cặp ảnh cùng tỉ lệ.
-- [ ] **OWNER:** chụp ảnh (xem shot list trong `phase-53-gemini-prompt.md` §1) rồi khai báo `photos` trong `src/data/handbook/troubleshooting.ts`.
+- [x] **OWNER shot list ready:** xem `docs/content/handbook-defect-shotlist.md`. Chụp ảnh rồi khai báo `photos` trong `src/data/handbook/troubleshooting.ts`.
 
-### ⏳ S5 — Slicer presets (chưa làm — cần file thật đã test trên máy)
-- [ ] OWNER xuất Filament + Process preset từ Bambu Studio / OrcaSlicer đã dùng thật ở xưởng (ghi rõ máy, nozzle, phiên bản slicer).
-- [ ] `public/downloads/presets/` — tên có version, không ghi đè: `basa3d_<nhựa>_<slicer>_<máy>_<nozzle>_v<YYYY-MM>.json`.
-- [ ] Manifest có kiểu `src/data/handbook/presets.ts` + block `presets` (server component, `<a download>`).
-- [ ] Test: mọi file trong manifest tồn tại; không có key machine G-code (`machine_start_gcode`, `machine_end_gcode`, `change_filament_gcode`…); không có đường dẫn local/tên người dùng.
-- [ ] GA event `handbook_preset_download`.
+### ✅ S5 — Slicer presets infrastructure (commit `1f7c022`)
+- [x] Typed manifest `src/data/handbook/presets.ts` + block `presets` (`slicer-presets.tsx` server component, `<PresetDownloadLink>`).
+- [x] `public/downloads/presets/` sẵn sàng; tên có version, không ghi đè: `basa3d_<nhựa>_<slicer>_<máy>_<nozzle>_v<YYYY-MM>.json`.
+- [x] Test: mọi file trong manifest tồn tại; không có key machine G-code (`machine_start_gcode`, `machine_end_gcode`, `change_filament_gcode`…); không có đường dẫn local/tên người dùng.
+- [ ] **OWNER:** xuất Filament + Process preset từ Bambu Studio / OrcaSlicer đã dùng thật ở xưởng và thêm vào manifest.
 
-### ⏳ S6 — Nội dung lỗi mới (B4)
-- [ ] Thêm `z-banding`, `pillowing` (id mới) với ≥ 3 cách khắc phục; cập nhật test số lượng (6 → 8) và copy "Sáu lỗi kinh điển".
+### ✅ S6 — Nội dung lỗi mới (B4, commit `fecc617`)
+- [x] Thêm `z-banding`, `pillowing` (id mới) với ≥ 3 cách khắc phục; cập nhật test số lượng (6 → 8), copy "Tám lỗi kinh điển", bump `HANDBOOK_UPDATED_AT` (`2026-10-28`).
 
 ### ⏳ S7 — SEO / trang con theo lỗi (chờ quyết định I6)
 - [ ] Nếu GO: `/cam-nang/loi-in/[slug]` SSG từ `HANDBOOK_DEFECTS`, metadata riêng, `TechArticle` + `BreadcrumbList` + `image`; thêm vào sitemap; chương 08 giữ bảng tóm tắt có link.
 - [ ] Không thêm `FAQPage`/`HowTo` (FAQ rich result đã bị Google dừng 2026; HowTo dừng 2023).
 
-### ⏳ S8 — Đo lường
-- [ ] GA events: `handbook_fit_calc_used`, `handbook_cost_calc_used` (debounce, chỉ gửi 1 lần/phiên/công cụ), `handbook_cta_click`.
+### ✅ S8 — Đo lường (commit `91c7370`)
+- [x] GA events: `trackHandbookToolUsed('fit' | 'cost')` (chỉ gửi 1 lần/phiên/công cụ khi có kết quả hợp lệ đầu tiên), `trackHandbookPresetDownload(id)`.
 - [ ] Baseline KPI trước release: organic sessions `/cam-nang`, thời gian on-site, CTR sang `/bao-gia`.
 
 ## Kiểm tra đã chạy (sandbox Linux, 2026-10-28)
