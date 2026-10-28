@@ -1,15 +1,12 @@
 'use client';
 
-import { ArrowRight } from 'lucide-react';
-import { useId, useState } from 'react';
-import { storefrontButtonClasses } from '@/components/storefront/button';
-import { Link } from '@/i18n/navigation';
+import { useId, useState, type ReactNode } from 'react';
 import { computePrintCost, formatVnd, PRINT_COST_DEFAULTS, PRINT_COST_LIMITS, type PrintCostField, type PrintCostInput } from '@/lib/handbook/print-cost';
 import { handbookFieldClasses, handbookLabelClasses, handbookPanelClasses } from './field-classes';
 
 // Phase 53 — "chi phí tự in tại nhà". Client island; math in src/lib/handbook/print-cost.ts.
-// B1: shows NO BaSa3D price. The CTA href/label are resolved on the server (bao-gia flag fallback)
-// and passed in, so this island never imports src/data/handbook.
+// B1: shows NO BaSa3D price. The CTA arrives as server-rendered `children` (bao-gia flag fallback
+// resolved on the server), so the island ships no Link/icon code and never imports src/data/handbook.
 
 type FieldSpec = { field: PrintCostField; label: string; suffix: string; inputMode: 'numeric' | 'decimal' };
 
@@ -31,7 +28,7 @@ const errorText = (field: PrintCostField, kind: 'invalid' | 'out-of-range') => {
   return field === 'grams' ? 'Nhập số gram, ví dụ 48,6.' : 'Nhập số nguyên, ví dụ 300.000.';
 };
 
-export function PrintCostCalculator({ cta }: { cta: { href: string; label: string } }) {
+export function PrintCostCalculator({ children }: { children: ReactNode }) {
   const id = useId();
   const [input, setInput] = useState<PrintCostInput>(PRINT_COST_DEFAULTS);
   const result = computePrintCost(input);
@@ -91,13 +88,7 @@ export function PrintCostCalculator({ cta }: { cta: { href: string; label: strin
         Chưa tính khấu hao máy, đầu phun, bàn in và công hậu kỳ. Đây không phải giá in của BaSa3D.
       </p>
 
-      <div className="mt-4 flex flex-col gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm">Không có máy, hoặc không muốn mất công hiệu chỉnh? Để xưởng in giúp bạn.</p>
-        <Link href={cta.href} className={storefrontButtonClasses('primary', 'shrink-0 gap-1.5 text-sm')}>
-          {cta.label}
-          <ArrowRight className="size-4" aria-hidden="true" />
-        </Link>
-      </div>
+      {children}
     </div>
   );
 }

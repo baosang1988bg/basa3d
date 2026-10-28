@@ -128,6 +128,12 @@ test('B1: the cost calculator never touches BaSa3D pricing (DB is the only sourc
   assert.match(read(`${HANDBOOK_DIR}/print-cost-calculator.tsx`), /không phải giá in của BaSa3D/i);
 });
 
+test('cost calculator CTA is server-rendered children: the island imports no Link, icon or button code', () => {
+  const island = code(`${HANDBOOK_DIR}/print-cost-calculator.tsx`);
+  assert.doesNotMatch(island, /from '(lucide-react|@\/i18n\/navigation|@\/components\/storefront\/button)'/);
+  assert.match(island, /\{children\}/);
+});
+
 test('default example: 50 g × 300.000 ₫/kg + 150 W × 2h30 × 3.000 ₫/kWh + 10 %', () => {
   const result = computePrintCost(PRINT_COST_DEFAULTS);
   assert.ok(result.ok);

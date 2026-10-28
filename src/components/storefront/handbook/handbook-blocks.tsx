@@ -1,14 +1,16 @@
-import { AlertTriangle, Lightbulb } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Lightbulb } from 'lucide-react';
+import { storefrontButtonClasses } from '@/components/storefront/button';
 import type { HandbookBlock } from '@/data/handbook/types';
 import { HANDBOOK_CHECKLIST } from '@/data/handbook/checklist';
 import { ENCLOSURE_LABELS, HANDBOOK_MATERIALS, MATERIAL_TAG_LABELS } from '@/data/handbook/materials';
-import { cn } from '@/lib/utils';
 import { HANDBOOK_TOLERANCES } from '@/data/handbook/tolerances';
-import { FitCalculator } from './fit-calculator';
 import { resolveHandbookToolLink } from '@/data/handbook/tool-links';
+import { Link } from '@/i18n/navigation';
+import { cn } from '@/lib/utils';
+import { FitCalculator } from './fit-calculator';
 import { InteractiveChecklist } from './interactive-checklist';
-import { PrintCostCalculator } from './print-cost-calculator';
 import { MaterialTable } from './material-table';
+import { PrintCostCalculator } from './print-cost-calculator';
 import { ToleranceTable } from './tolerance-table';
 import { ToolBridge } from './tool-bridge';
 import { TroubleshootingTable } from './troubleshooting-table';
@@ -70,8 +72,19 @@ export function HandbookBlocks({ blocks, baoGiaEnabled }: { blocks: HandbookBloc
             // Trimmed to id/fit/clearanceMm: example/note text stays server-only (smaller RSC payload).
             return <FitCalculator key={key} options={HANDBOOK_TOLERANCES.map(({ id, fit, clearanceMm }) => ({ id, fit, clearanceMm }))} />;
           case 'cost-calculator': {
+            // CTA rendered here (server) and passed as children: zero client JS for the link.
             const link = resolveHandbookToolLink('bao-gia', { baoGiaEnabled });
-            return <PrintCostCalculator key={key} cta={{ href: link.href, label: link.ctaLabel }} />;
+            return (
+              <PrintCostCalculator key={key}>
+                <div className="mt-4 flex flex-col gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm">Không có máy, hoặc không muốn mất công hiệu chỉnh? Để xưởng in giúp bạn.</p>
+                  <Link href={link.href} className={storefrontButtonClasses('primary', 'shrink-0 gap-1.5 text-sm')}>
+                    {link.ctaLabel}
+                    <ArrowRight className="size-4" aria-hidden="true" />
+                  </Link>
+                </div>
+              </PrintCostCalculator>
+            );
           }
           case 'troubleshooting':
             return <TroubleshootingTable key={key} />;
