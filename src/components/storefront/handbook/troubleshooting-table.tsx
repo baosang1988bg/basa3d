@@ -1,4 +1,5 @@
 import { HANDBOOK_DEFECTS } from '@/data/handbook/troubleshooting';
+import { DefectPhotoToggle } from './defect-photo-toggle';
 
 /**
  * Server component. Native <details> gives expand/collapse without client JS; the fixes stay in the
@@ -16,6 +17,7 @@ export function TroubleshootingTable() {
             </span>
             <span aria-hidden="true" className="mt-1 text-muted-foreground transition-transform duration-150 group-open:rotate-45">+</span>
           </summary>
+          {defect.photos && <DefectPhotoToggle defectId={defect.id} defectName={defect.name} photos={defect.photos} />}
           <ol className="list-decimal space-y-1.5 px-4 pb-4 pl-9 text-sm marker:font-semibold marker:text-primary">
             {defect.fixes.map((fix) => (
               <li key={fix}>{fix}</li>

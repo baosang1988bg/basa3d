@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 import { HANDBOOK_SECTIONS } from '../src/data/handbook/sections';
 import { HANDBOOK_TOLERANCES } from '../src/data/handbook/tolerances';
+import { HANDBOOK_DEFECTS } from '../src/data/handbook/troubleshooting';
 import type { HandbookBlock } from '../src/data/handbook/types';
 import { computeFit, formatUm, parseDiameterMm, type FitOption } from '../src/lib/handbook/fit';
 import { computePrintCost, formatVnd, parseGramsToMg, parseVnd, PRINT_COST_DEFAULTS, type PrintCostInput } from '../src/lib/handbook/print-cost';
@@ -165,4 +166,32 @@ test('invalid and out-of-range fields are reported per field, never thrown', () 
 test('formatVnd uses Vietnamese grouping and the ₫ sign', () => {
   assert.equal(formatVnd(17_738), '17.738 ₫');
   assert.equal(formatVnd(0), '0 ₫');
+});
+
+// ── Defect photos (B2: own workshop photos only; CLS-safe; zero client JS) ─────────────────────
+
+test('defect photo toggle is a server component driven by native radios + CSS :has()', () => {
+  const source = read(`${HANDBOOK_DIR}/defect-photo-toggle.tsx`);
+  assert.doesNotMatch(source, /^'use client'/m);
+  assert.doesNotMatch(source, /useState|useEffect|onClick|onChange|onInput/);
+  assert.match(source, /type="radio"/);
+  assert.match(source, /group-has-\[\.cmp-fixed:checked\]\/cmp:opacity-0/);
+  assert.match(code(`${HANDBOOK_DIR}/troubleshooting-table.tsx`), /\{defect\.photos && <DefectPhotoToggle /);
+});
+
+test('every declared defect photo exists in public/, is WebP/AVIF, has real alt text and a matching pair ratio', () => {
+  for (const defect of HANDBOOK_DEFECTS) {
+    if (!defect.photos) continue;
+    const { failed, fixed, credit } = defect.photos;
+    assert.ok(credit.trim(), `${defect.id} credit`);
+    for (const photo of [failed, fixed]) {
+      assert.match(photo.src, /^\/images\/handbook\/defects\/[a-z0-9-]+\.(webp|avif)$/, photo.src);
+      assert.ok(existsSync(`public${photo.src}`), `missing public${photo.src}`);
+      assert.ok(Number.isInteger(photo.width) && Number.isInteger(photo.height) && photo.width > 0 && photo.height > 0, photo.src);
+      assert.ok(photo.alt.trim().length >= 15, `${photo.src} alt too short`);
+      assert.doesNotMatch(photo.alt, /^(ảnh|hình|image|photo)\b/i, `${photo.src} alt should describe the print, not say "ảnh"`);
+    }
+    assert.notEqual(failed.src, fixed.src, defect.id);
+    assert.equal(failed.width * fixed.height, fixed.width * failed.height, `${defect.id} pair aspect ratio`);
+  }
 });

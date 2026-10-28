@@ -74,6 +74,22 @@ export type HandbookDefect = {
   symptom: string;
   /** Ordered from cheapest/most likely (clean, dry) to slicer changes. */
   fixes: string[];
+  /**
+   * Phase 53 — optional before/after photo pair. B2: only BaSa3D's own workshop photos (no forum or
+   * stock images); same model, angle and framing so the toggle compares like with like. Files live in
+   * public/images/handbook/defects/ (asserted by tests/phase-53-handbook-interactive.test.ts).
+   */
+  photos?: { failed: HandbookPhoto; fixed: HandbookPhoto; credit: string };
+};
+
+export type HandbookPhoto = {
+  /** Public path, e.g. `/images/handbook/defects/stringing-failed.webp`. */
+  src: string;
+  /** Describes what the photo shows (the defect), not "ảnh lỗi". Required for a11y and image SEO. */
+  alt: string;
+  /** Intrinsic pixel size — prevents CLS. Both photos of a pair must share the aspect ratio. */
+  width: number;
+  height: number;
 };
 
 export type HandbookChecklistItem = {
