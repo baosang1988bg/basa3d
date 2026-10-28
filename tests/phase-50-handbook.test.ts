@@ -172,7 +172,8 @@ test('JSON-LD is TechArticle + BreadcrumbList, serialized safely, without HowTo/
 test('client islands never import values from src/data/handbook (would ship all chapters to the browser)', () => {
   const dir = 'src/components/storefront/handbook';
   const clientFiles = readdirSync(dir).filter((name) => /^'use client'/.test(read(`${dir}/${name}`)));
-  assert.deepEqual(clientFiles.sort(), ['handbook-toc.tsx', 'interactive-checklist.tsx', 'material-table.tsx']);
+  // Phase 53 adds islands; tests/phase-53-handbook-interactive.test.ts owns the up-to-date list.
+  for (const name of ['handbook-toc.tsx', 'interactive-checklist.tsx', 'material-table.tsx']) assert.ok(clientFiles.includes(name), name);
   for (const name of clientFiles) {
     const source = read(`${dir}/${name}`);
     const valueImports = source.match(/^import (?!type ).*from '@\/data\/handbook[^']*';$/gm) ?? [];

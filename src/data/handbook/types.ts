@@ -14,6 +14,8 @@ export type HandbookBlock =
   | { type: 'callout'; tone: 'tip' | 'warning'; title: string; text: string }
   | { type: 'materials' }
   | { type: 'tolerances' }
+  /** Phase 53 — interactive calculator fed by HANDBOOK_TOLERANCES (client island). */
+  | { type: 'fit-calculator' }
   | { type: 'troubleshooting' }
   | { type: 'checklist' }
   | {

@@ -203,6 +203,7 @@ export const HANDBOOK_SECTIONS: HandbookSection[] = [
         text: 'Nhựa nóng chảy luôn phình ra một chút so với đường đi lý thuyết, nên hai chi tiết vẽ khít 0 mm sẽ không lắp được. Khe hở dưới đây tính cho mỗi bên, với đầu phun 0.4 mm đã hiệu chỉnh flow.',
       },
       { type: 'tolerances' },
+      { type: 'fit-calculator' },
       {
         type: 'callout',
         tone: 'tip',

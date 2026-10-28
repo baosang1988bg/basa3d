@@ -3,6 +3,8 @@ import type { HandbookBlock } from '@/data/handbook/types';
 import { HANDBOOK_CHECKLIST } from '@/data/handbook/checklist';
 import { ENCLOSURE_LABELS, HANDBOOK_MATERIALS, MATERIAL_TAG_LABELS } from '@/data/handbook/materials';
 import { cn } from '@/lib/utils';
+import { HANDBOOK_TOLERANCES } from '@/data/handbook/tolerances';
+import { FitCalculator } from './fit-calculator';
 import { InteractiveChecklist } from './interactive-checklist';
 import { MaterialTable } from './material-table';
 import { ToleranceTable } from './tolerance-table';
@@ -62,6 +64,9 @@ export function HandbookBlocks({ blocks, baoGiaEnabled }: { blocks: HandbookBloc
             return <MaterialTable key={key} materials={HANDBOOK_MATERIALS} tagLabels={MATERIAL_TAG_LABELS} enclosureLabels={ENCLOSURE_LABELS} />;
           case 'tolerances':
             return <ToleranceTable key={key} />;
+          case 'fit-calculator':
+            // Trimmed to id/fit/clearanceMm: example/note text stays server-only (smaller RSC payload).
+            return <FitCalculator key={key} options={HANDBOOK_TOLERANCES.map(({ id, fit, clearanceMm }) => ({ id, fit, clearanceMm }))} />;
           case 'troubleshooting':
             return <TroubleshootingTable key={key} />;
           case 'checklist':
