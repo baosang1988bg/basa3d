@@ -16,7 +16,7 @@ export const HANDBOOK_DEFECTS: HandbookDefect[] = [
   },
   {
     id: 'warping',
-    name: 'Cong vênh góc',
+    name: 'Cong vênh góc (warping)',
     symptom: 'Góc chi tiết nhấc khỏi bàn khi in cao dần, đáy không phẳng.',
     fixes: [
       'Đóng cửa buồng in / chắn gió quạt trần, điều hoà.',
@@ -27,7 +27,7 @@ export const HANDBOOK_DEFECTS: HandbookDefect[] = [
   },
   {
     id: 'stringing',
-    name: 'Kéo tơ / mạng nhện',
+    name: 'Kéo tơ / mạng nhện (stringing)',
     symptom: 'Sợi nhựa mảnh giăng giữa các trụ hoặc khoảng trống.',
     fixes: [
       'Sấy nhựa — nhựa ẩm là nguyên nhân phổ biến nhất (nghe tiếng lách tách khi in).',
@@ -38,7 +38,7 @@ export const HANDBOOK_DEFECTS: HandbookDefect[] = [
   },
   {
     id: 'under-extrusion',
-    name: 'Thiếu nhựa / tắc đầu phun',
+    name: 'Thiếu nhựa / tắc đầu phun (under-extrusion)',
     symptom: 'Vách mỏng, có lỗ hổng, lớp không liền; tiếng click ở bộ đùn.',
     fixes: [
       'Kiểm tra cuộn nhựa không bị rối, đường dẫn không bị kẹt.',
@@ -49,7 +49,7 @@ export const HANDBOOK_DEFECTS: HandbookDefect[] = [
   },
   {
     id: 'layer-shift',
-    name: 'Lệch lớp',
+    name: 'Lệch lớp (layer shift)',
     symptom: 'Chi tiết bị "bậc thang" lệch ngang tại một độ cao.',
     fixes: [
       'Gỡ vật cản: chi tiết bong, support đổ, dây vướng đầu in.',
@@ -60,7 +60,7 @@ export const HANDBOOK_DEFECTS: HandbookDefect[] = [
   },
   {
     id: 'elephant-foot',
-    name: 'Chân voi',
+    name: 'Chân voi (elephant foot)',
     symptom: 'Vài lớp dưới cùng phình ra, chi tiết lắp ghép bị kẹt.',
     fixes: [
       'Nâng Z-offset một chút — lớp đầu đang bị ép quá mức.',

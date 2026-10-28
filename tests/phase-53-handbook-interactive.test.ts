@@ -6,6 +6,7 @@ import { HANDBOOK_TOLERANCES } from '../src/data/handbook/tolerances';
 import { HANDBOOK_DEFECTS } from '../src/data/handbook/troubleshooting';
 import { HANDBOOK_PRESETS } from '../src/data/handbook/presets';
 import type { HandbookBlock } from '../src/data/handbook/types';
+import { DEFECT_ANCHOR_PREFIX, defectAnchorId, parseDefectHash } from '../src/lib/handbook/defect-anchor';
 import { computeFit, formatUm, parseDiameterMm, type FitOption } from '../src/lib/handbook/fit';
 import { computePrintCost, formatVnd, parseGramsToMg, parseVnd, PRINT_COST_DEFAULTS, type PrintCostInput } from '../src/lib/handbook/print-cost';
 import { trackHandbookPresetDownload, trackHandbookToolUsed } from '../src/lib/analytics';
@@ -25,8 +26,10 @@ const option = (id: string): FitOption => {
 // ── Bundle boundary ────────────────────────────────────────────────────────────────────────────
 
 const HANDBOOK_DIR = 'src/components/storefront/handbook';
-// Phase 53 islands: fit, toc, checklist, materials, preset download tracker (S8), cost.
+// Phase 53 islands: fit, toc, checklist, materials, preset download tracker (S8), cost,
+// defect hash opener (S7 — renders nothing, sets <details open> for #loi-<id> links).
 const EXPECTED_CLIENT_ISLANDS = [
+  'defect-hash-opener.tsx',
   'fit-calculator.tsx',
   'handbook-toc.tsx',
   'interactive-checklist.tsx',
@@ -294,4 +297,58 @@ test('both calculators and preset download link wire analytics without violating
   assert.match(read(`${HANDBOOK_DIR}/fit-calculator.tsx`), /trackHandbookToolUsed\('fit'\)/);
   assert.match(read(`${HANDBOOK_DIR}/print-cost-calculator.tsx`), /trackHandbookToolUsed\('cost'\)/);
   assert.match(read(`${HANDBOOK_DIR}/preset-download-link.tsx`), /trackHandbookPresetDownload\(presetId\)/);
+});
+
+// ── S7: deep links per defect (I6 DEFER — no per-defect pages yet) ───────────────────────────
+
+test('every defect has a unique, URL-safe #loi-<id> anchor that cannot collide with a chapter id', () => {
+  const anchors = HANDBOOK_DEFECTS.map((d) => defectAnchorId(d.id));
+  assert.equal(new Set(anchors).size, anchors.length);
+  const chapterIds = new Set(HANDBOOK_SECTIONS.map((s) => s.id));
+  for (const anchor of anchors) {
+    assert.match(anchor, /^loi-[a-z0-9]+(?:-[a-z0-9]+)*$/, anchor);
+    assert.ok(!chapterIds.has(anchor), `${anchor} collides with a chapter id`);
+    assert.equal(parseDefectHash(`#${anchor}`), anchor);
+  }
+  for (const section of HANDBOOK_SECTIONS) assert.ok(!section.id.startsWith(DEFECT_ANCHOR_PREFIX), `chapter ${section.id} uses the defect prefix`);
+});
+
+test('B4: published defect ids (= shared #loi-<id> URLs) are never renamed or removed', () => {
+  const ids = HANDBOOK_DEFECTS.map((d) => d.id);
+  for (const id of ['bed-adhesion', 'warping', 'stringing', 'under-extrusion', 'layer-shift', 'elephant-foot', 'z-banding', 'pillowing']) {
+    assert.ok(ids.includes(id), `defect id "${id}" was removed or renamed — shared links would break`);
+  }
+});
+
+test('parseDefectHash only accepts well-formed defect anchors (location.hash is external input)', () => {
+  assert.equal(parseDefectHash('#loi-stringing'), 'loi-stringing');
+  assert.equal(parseDefectHash('#loi-z-banding'), 'loi-z-banding');
+  for (const bad of ['', '#', 'loi-stringing', '#xu-ly-loi', '#loi-', '#loi-Stringing', '#loi-a--b', '#loi-a"]', '#loi-%E0%A4%A', '#loi-a b', '#loi-<img>']) {
+    assert.equal(parseDefectHash(bad), null, bad);
+  }
+});
+
+test('troubleshooting table renders the anchors, a permalink and the opener; opener only sets `open`', () => {
+  const table = code(`${HANDBOOK_DIR}/troubleshooting-table.tsx`);
+  assert.match(table, /<details key=\{defect\.id\} id=\{anchor\}/);
+  assert.match(table, /scroll-mt-28/);
+  assert.match(table, /href=\{`#\$\{anchor\}`\}/);
+  assert.match(table, /<DefectHashOpener \/>/);
+  const opener = code(`${HANDBOOK_DIR}/defect-hash-opener.tsx`);
+  assert.match(opener, /parseDefectHash\(window\.location\.hash\)/);
+  assert.match(opener, /instanceof HTMLDetailsElement\) element\.open = true/);
+  assert.doesNotMatch(opener, /querySelector|innerHTML|scrollIntoView/);
+  assert.match(opener, /removeEventListener\('hashchange'/);
+});
+
+test('I6 DEFER is enforced: no per-defect route until the re-entry criteria in the exec plan are met', () => {
+  // Remove this test in the phase that reopens I6 (see phase-53 exec plan, "I6 — tiêu chí mở lại").
+  assert.ok(!existsSync('src/app/[locale]/(storefront)/cam-nang/loi-in'), 'per-defect pages exist but I6 is DEFER');
+});
+
+test('meta description mentions the real number of defects', () => {
+  const page = code('src/app/[locale]/(storefront)/cam-nang/page.tsx');
+  const description = /const DESCRIPTION = '([^']+)'/.exec(page)?.[1] ?? '';
+  assert.match(description, new RegExp(`\\b${HANDBOOK_DEFECTS.length} lỗi`));
+  assert.ok(description.length <= 160, `description is ${description.length} chars`);
 });

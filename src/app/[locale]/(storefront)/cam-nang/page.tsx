@@ -18,7 +18,7 @@ import { serializeJsonLd } from '@/lib/json-ld';
 
 const PATH = '/cam-nang';
 const TITLE = 'Cẩm nang in 3D FDM — BaSa3D';
-const DESCRIPTION = 'Cẩm nang kỹ thuật in 3D FDM tiếng Việt: vật liệu & nhiệt độ in, thiết kế cho in, slicer, lớp đầu, in nhiều màu, dung sai lắp ghép, xử lý lỗi và hậu kỳ.';
+const DESCRIPTION = 'Cẩm nang in 3D FDM tiếng Việt: vật liệu, slicer, dung sai lắp ghép và cách sửa 8 lỗi in thường gặp như cong vênh, kéo tơ, z-banding, lệch lớp.';
 
 export async function generateMetadata({ params }: { params: LocaleParams }): Promise<Metadata> {
   await applyRequestLocale(params);
