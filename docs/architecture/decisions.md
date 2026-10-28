@@ -1011,3 +1011,31 @@ go-live). UAT can stay on Vercel Hobby (internal, no real customers or payments)
 
 **Migration cost.** Additive; switching back to Vercel needs no code change. Runbook:
 `docs/operations/deploy-netlify.md`.
+
+## ADR-0055 — Cẩm nang calculators never show a BaSa3D price; interactive widgets stay tiny islands
+
+**Status.** Accepted 2026-10-28 (Phase 53, `docs/exec-plans/active/phase-53-handbook-interactive.md`).
+
+**Context.** Phase 53 adds interactive calculators to the static `/cam-nang` page (SSG, no DB). BaSa3D
+prices live in `pricing_configs` (rule #1) and are only shown by `/bao-gia` / quotes. A "cost
+calculator" on an SSG page that showed shop prices would be a second, silently drifting price source.
+
+**Decision.**
+1. The cost calculator is a **home-printing cost** estimate: every input (grams, VND/kg, time, watts,
+   VND/kWh, buffer %) is typed by the visitor; defaults are labelled examples. It states "không phải
+   giá in của BaSa3D" and links to `/bao-gia` (fallback `/custom-print`). `src/lib/handbook/print-cost.ts`
+   must not import pricing services/config (guarded by `tests/phase-53-handbook-interactive.test.ts`).
+2. Money math is integer VND (rule #2): inputs become integers (VND, mg, minutes, W) before arithmetic;
+   one `Math.round` per line item; total = exact sum of lines.
+3. Calculator math lives in pure, React-free modules under `src/lib/handbook/`; islands receive trimmed
+   data as props and never import `src/data/handbook` values. CTAs are server-rendered and passed as
+   `children`. Native `<input>/<select>` instead of Base UI wrappers.
+4. Before/after defect photos use a zero-JS radio + CSS `:has()` toggle (server component), not a drag
+   slider: the two photos are different physical prints. Only BaSa3D's own photos (Phase 29 rules).
+5. Drying data is not duplicated into a widget — `MaterialTable` already shows it.
+
+**Measured.** `next build` (sandbox, Linux): `/[locale]/cam-nang` route JS 6.23 kB → 9.37 kB, First
+Load JS 133 kB → 141 kB; route still SSG (●).
+
+**Migration cost.** Additive. Showing real shop prices on `/cam-nang` later would require reading
+`pricing_configs` at build/ISR time — a new decision, not an edit to this calculator.
