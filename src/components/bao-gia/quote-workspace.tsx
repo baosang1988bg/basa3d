@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import {
   UploadCloud,
@@ -12,11 +12,22 @@ import {
   Layers,
   FileCheck,
   CheckCircle2,
+  Loader2,
+  AlertCircle,
+  ClipboardPaste,
+  RotateCcw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatVnd } from '@/components/storefront/format';
 import { storefrontButtonClasses } from '@/components/storefront/button';
 import { QuoteFlow } from './quote-flow';
+import { MakerWorldQuoteResult } from '@/components/storefront/makerworld-quote-result';
+import type { MakerWorldCnModelDetail } from '@/app/api/public/makerworld-cn/resolve/route';
+import {
+  analyticsErrorCode,
+  getMakerWorldSourceHost,
+  trackMakerWorldResolve,
+} from '@/lib/analytics';
 
 export type QuoteTab = 'file' | 'link';
 
@@ -27,21 +38,44 @@ export type SampleItem = {
   priceVnd: number | null;
 };
 
+const MAKERWORLD_SAMPLES = [
+  {
+    label: '🌐 Ace Snail Stand (Quốc tế)',
+    url: 'https://makerworld.com/en/models/2851863#profileId-3334843',
+  },
+  {
+    label: '🇨🇳 Hộp lọc cà phê V60 (China)',
+    url: 'https://makerworld.com.cn/zh/models/700000',
+  },
+  {
+    label: '🇨🇳 R301 Apex Legends (China)',
+    url: 'https://makerworld.com.cn/zh/models/800000',
+  },
+  {
+    label: '🇨🇳 Thìa xúc thực phẩm (China)',
+    url: 'https://makerworld.com.cn/zh/models/2851863',
+  },
+];
+
 interface QuoteWorkspaceProps {
   materials: string[];
   samples: SampleItem[];
   initialTab?: QuoteTab;
+  initialUrl?: string;
 }
 
 export function QuoteWorkspace({
   materials,
   samples,
   initialTab = 'link',
+  initialUrl,
 }: QuoteWorkspaceProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<QuoteTab>(initialTab);
-  const [linkInput, setLinkInput] = useState('');
+  const [linkInput, setLinkInput] = useState(initialUrl ?? '');
   const [linkError, setLinkError] = useState<string | null>(null);
+  const [isAnalyzingLink, setIsAnalyzingLink] = useState(false);
+  const [linkDetail, setLinkDetail] = useState<MakerWorldCnModelDetail | null>(null);
 
   function handleTabChange(tab: QuoteTab) {
     setActiveTab(tab);
@@ -52,24 +86,77 @@ export function QuoteWorkspace({
     }
   }
 
-  function handleAnalyzeLink(e: FormEvent) {
-    e.preventDefault();
-    setLinkError(null);
-    const trimmed = linkInput.trim();
-    if (!trimmed) {
-      router.push('/tools/makerworld-cn');
+  async function handleAnalyze(targetUrl?: string) {
+    const raw = (targetUrl ?? linkInput).trim();
+    if (!raw) {
+      setLinkError('Vui lòng nhập hoặc dán liên kết mẫu 3D từ MakerWorld.');
       return;
     }
 
     try {
-      const parsed = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
+      const parsed = new URL(raw.startsWith('http') ? raw : `https://${raw}`);
       const host = parsed.hostname.toLowerCase();
       if (!host.includes('makerworld.com')) {
         setLinkError('Hiện công cụ hỗ trợ tốt nhất link MakerWorld (makerworld.com hoặc makerworld.com.cn). Bạn vẫn có thể tiếp tục phân tích.');
+      } else {
+        setLinkError(null);
       }
-      router.push(`/tools/makerworld-cn?url=${encodeURIComponent(trimmed)}`);
     } catch {
       setLinkError('Đường dẫn không hợp lệ. Vui lòng kiểm tra lại URL.');
+      return;
+    }
+
+    const sourceHost = getMakerWorldSourceHost(raw);
+    let failedStatus: number | undefined;
+
+    setIsAnalyzingLink(true);
+    setLinkError(null);
+
+    try {
+      const res = await fetch('/api/public/makerworld-cn/resolve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: raw }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        failedStatus = res.status;
+        throw new Error(data.message || 'Không thể đọc dữ liệu mẫu từ liên kết này.');
+      }
+
+      trackMakerWorldResolve({ success: true, source_host: sourceHost, model_id: data.data?.modelId });
+      setLinkDetail(data.data);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Đã có lỗi xảy ra khi phân tích liên kết.';
+      trackMakerWorldResolve({ success: false, source_host: sourceHost, error_code: analyticsErrorCode(failedStatus) });
+      setLinkError(msg);
+      setLinkDetail(null);
+    } finally {
+      setIsAnalyzingLink(false);
+    }
+  }
+
+  useEffect(() => {
+    if (initialUrl && initialUrl.trim()) {
+      handleAnalyze(initialUrl.trim());
+    }
+  }, [initialUrl]);
+
+  function handleFormSubmit(e: FormEvent) {
+    e.preventDefault();
+    handleAnalyze();
+  }
+
+  async function handlePasteClipboard() {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        setLinkInput(text);
+        handleAnalyze(text);
+      }
+    } catch {
+      // Ignore clipboard permission rejections silently
     }
   }
 
@@ -90,7 +177,7 @@ export function QuoteWorkspace({
           aria-controls="panel-bao-gia-link"
           onClick={() => handleTabChange('link')}
           className={cn(
-            'group relative flex flex-col items-start rounded-2xl border p-5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.99] sm:p-6',
+            'group relative flex flex-col items-start rounded-2xl border p-5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.99] sm:p-6 cursor-pointer',
             activeTab === 'link'
               ? 'border-primary bg-primary/[0.06] shadow-sm ring-2 ring-primary/20 dark:bg-primary/[0.10]'
               : 'border-border/80 bg-card hover:border-primary/50 hover:bg-primary/[0.02] hover:shadow-xs'
@@ -158,7 +245,7 @@ export function QuoteWorkspace({
           aria-controls="panel-bao-gia-file"
           onClick={() => handleTabChange('file')}
           className={cn(
-            'group relative flex flex-col items-start rounded-2xl border p-5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.99] sm:p-6',
+            'group relative flex flex-col items-start rounded-2xl border p-5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.99] sm:p-6 cursor-pointer',
             activeTab === 'file'
               ? 'border-primary bg-primary/[0.06] shadow-sm ring-2 ring-primary/20 dark:bg-primary/[0.10]'
               : 'border-border/80 bg-card hover:border-primary/50 hover:bg-primary/[0.02] hover:shadow-xs'
@@ -245,7 +332,7 @@ export function QuoteWorkspace({
             </div>
 
             {/* Link Input Bar */}
-            <form onSubmit={handleAnalyzeLink} className="flex flex-col gap-3">
+            <form onSubmit={handleFormSubmit} className="flex flex-col gap-3">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <div className="relative flex-1">
                   <Link2
@@ -253,115 +340,191 @@ export function QuoteWorkspace({
                     aria-hidden="true"
                   />
                   <input
-                    type="url"
+                    type="text"
                     value={linkInput}
                     onChange={(e) => {
                       setLinkInput(e.target.value);
                       if (linkError) setLinkError(null);
                     }}
                     placeholder="Dán link makerworld.com hoặc makerworld.com.cn (VD: https://makerworld.com/en/models/...)"
-                    className="h-12 w-full rounded-xl border border-input bg-background pl-10 pr-4 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/70 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 shadow-2xs"
+                    disabled={isAnalyzingLink}
+                    className="h-12 w-full rounded-xl border border-input bg-background pl-10 pr-11 text-sm font-medium text-foreground outline-none transition-all placeholder:text-muted-foreground/70 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 shadow-2xs disabled:opacity-60"
                   />
+                  <button
+                    type="button"
+                    onClick={handlePasteClipboard}
+                    title="Dán từ bộ nhớ tạm (Clipboard)"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
+                  >
+                    <ClipboardPaste className="size-4" />
+                  </button>
                 </div>
                 <button
                   type="submit"
+                  disabled={isAnalyzingLink || !linkInput.trim()}
                   className={cn(
                     storefrontButtonClasses('accent'),
-                    'h-12 px-6 text-sm font-semibold whitespace-nowrap shadow-sm'
+                    'h-12 px-6 text-sm font-semibold whitespace-nowrap shadow-sm disabled:opacity-50 cursor-pointer'
                   )}
                 >
-                  <Sparkles className="mr-1.5 size-4" />
-                  Phân tích & Báo giá ngay
+                  {isAnalyzingLink ? (
+                    <>
+                      <Loader2 className="mr-1.5 size-4 animate-spin" />
+                      Đang phân tích…
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="mr-1.5 size-4" />
+                      Phân tích & Báo giá ngay
+                    </>
+                  )}
                 </button>
+              </div>
+
+              {/* Sample Chips */}
+              <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-muted-foreground">
+                <span className="font-medium">Bấm thử mẫu nhanh:</span>
+                {MAKERWORLD_SAMPLES.map((s) => (
+                  <button
+                    key={s.label}
+                    type="button"
+                    onClick={() => {
+                      setLinkInput(s.url);
+                      handleAnalyze(s.url);
+                    }}
+                    disabled={isAnalyzingLink}
+                    className="rounded-lg border border-border/80 bg-background/80 px-2.5 py-1 text-xs text-foreground hover:border-primary/50 hover:bg-background transition cursor-pointer disabled:opacity-50"
+                  >
+                    {s.label}
+                  </button>
+                ))}
               </div>
 
               {linkError ? (
-                <p role="alert" className="text-xs font-medium text-amber-600 dark:text-amber-400">
-                  {linkError}
-                </p>
+                <div role="alert" className="mt-2 flex items-center gap-2 rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-xs font-medium text-destructive">
+                  <AlertCircle className="size-4 shrink-0" />
+                  <span>{linkError}</span>
+                </div>
               ) : null}
             </form>
 
-            {/* Direct Model Repositories Links */}
-            <div className="border-t border-border/60 pt-5">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-                Chưa có link? Khám phá ngay trên kho mẫu:
-              </p>
-              <div className="flex flex-wrap items-center gap-3">
-                <a
-                  href="https://makerworld.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-medium text-foreground shadow-xs transition-all hover:border-primary/50 hover:bg-secondary sm:text-sm"
-                >
-                  <Globe className="size-4 text-primary" aria-hidden="true" />
-                  <span>Duyệt MakerWorld Quốc tế</span>
-                  <ExternalLink className="size-3.5 text-muted-foreground" aria-hidden="true" />
-                </a>
+            {/* Live Quotation Result (renders directly here without redirecting) */}
+            {linkDetail ? (
+              <div className="border-t border-border/60 pt-6">
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex size-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-sm font-bold text-foreground uppercase tracking-wide">
+                      Báo giá bóc tách tự động cho mẫu #{linkDetail.modelId}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLinkDetail(null);
+                      setLinkInput('');
+                    }}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition cursor-pointer"
+                  >
+                    <RotateCcw className="size-3.5" />
+                    <span>Nhập link khác</span>
+                  </button>
+                </div>
 
-                <a
-                  href="https://makerworld.com.cn"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-medium text-foreground shadow-xs transition-all hover:border-primary/50 hover:bg-secondary sm:text-sm"
-                >
-                  <span className="text-base leading-none" aria-hidden="true">🇨🇳</span>
-                  <span>Duyệt MakerWorld Trung Quốc</span>
-                  <ExternalLink className="size-3.5 text-muted-foreground" aria-hidden="true" />
-                </a>
-
-                <button
-                  type="button"
-                  onClick={() => router.push('/tools/makerworld-cn')}
-                  className={cn(
-                    storefrontButtonClasses('secondary'),
-                    'h-10 px-4 text-xs sm:text-sm'
-                  )}
-                >
-                  Mở công cụ MakerWorld chuyên sâu
-                  <ArrowRight className="ml-1.5 size-3.5" />
-                </button>
+                <MakerWorldQuoteResult
+                  detail={linkDetail}
+                  onReset={() => {
+                    setLinkDetail(null);
+                    setLinkInput('');
+                  }}
+                />
               </div>
-            </div>
+            ) : null}
+
+            {/* Direct Model Repositories Links */}
+            {!linkDetail && (
+              <div className="border-t border-border/60 pt-5">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                  Chưa có link? Khám phá ngay trên kho mẫu:
+                </p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <a
+                    href="https://makerworld.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-medium text-foreground shadow-xs transition-all hover:border-primary/50 hover:bg-secondary sm:text-sm"
+                  >
+                    <Globe className="size-4 text-primary" aria-hidden="true" />
+                    <span>Duyệt MakerWorld Quốc tế</span>
+                    <ExternalLink className="size-3.5 text-muted-foreground" aria-hidden="true" />
+                  </a>
+
+                  <a
+                    href="https://makerworld.com.cn"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-medium text-foreground shadow-xs transition-all hover:border-primary/50 hover:bg-secondary sm:text-sm"
+                  >
+                    <span className="text-base leading-none" aria-hidden="true">🇨🇳</span>
+                    <span>Duyệt MakerWorld Trung Quốc</span>
+                    <ExternalLink className="size-3.5 text-muted-foreground" aria-hidden="true" />
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={() => router.push('/tools/makerworld-cn')}
+                    className={cn(
+                      storefrontButtonClasses('secondary'),
+                      'h-10 px-4 text-xs sm:text-sm cursor-pointer'
+                    )}
+                  >
+                    Mở công cụ MakerWorld chuyên sâu
+                    <ArrowRight className="ml-1.5 size-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* 3 Simple Steps Infographic */}
-            <div className="mt-2 grid grid-cols-1 gap-4 pt-4 sm:grid-cols-3">
-              <div className="flex flex-col gap-2 rounded-xl border border-border/70 bg-card/60 p-4 transition-all hover:border-primary/30">
-                <div className="inline-flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xs font-bold shadow-xs">
-                  1
+            {!linkDetail && (
+              <div className="mt-2 grid grid-cols-1 gap-4 pt-4 sm:grid-cols-3">
+                <div className="flex flex-col gap-2 rounded-xl border border-border/70 bg-card/60 p-4 transition-all hover:border-primary/30">
+                  <div className="inline-flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xs font-bold shadow-xs">
+                    1
+                  </div>
+                  <h4 className="font-heading text-sm font-bold text-foreground">
+                    Tìm mẫu ưng ý
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Truy cập MakerWorld Global hoặc MakerWorld China với hàng trăm nghìn mẫu 3D miễn phí, từ đồ trang trí đến phụ kiện tiện ích.
+                  </p>
                 </div>
-                <h4 className="font-heading text-sm font-bold text-foreground">
-                  Tìm mẫu ưng ý
-                </h4>
-                <p className="text-xs text-muted-foreground">
-                  Truy cập MakerWorld Global hoặc MakerWorld China với hàng trăm nghìn mẫu 3D miễn phí, từ đồ trang trí đến phụ kiện tiện ích.
-                </p>
-              </div>
 
-              <div className="flex flex-col gap-2 rounded-xl border border-border/70 bg-card/60 p-4 transition-all hover:border-primary/30">
-                <div className="inline-flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xs font-bold shadow-xs">
-                  2
+                <div className="flex flex-col gap-2 rounded-xl border border-border/70 bg-card/60 p-4 transition-all hover:border-primary/30">
+                  <div className="inline-flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xs font-bold shadow-xs">
+                    2
+                  </div>
+                  <h4 className="font-heading text-sm font-bold text-foreground">
+                    Sao chép liên kết
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Copy link URL trang chi tiết mẫu (trên trình duyệt máy tính hoặc điện thoại) và dán vào ô tìm kiếm ở trên.
+                  </p>
                 </div>
-                <h4 className="font-heading text-sm font-bold text-foreground">
-                  Sao chép liên kết
-                </h4>
-                <p className="text-xs text-muted-foreground">
-                  Copy link URL trang chi tiết mẫu (trên trình duyệt máy tính hoặc điện thoại) và dán vào ô tìm kiếm ở trên.
-                </p>
-              </div>
 
-              <div className="flex flex-col gap-2 rounded-xl border border-border/70 bg-card/60 p-4 transition-all hover:border-primary/30">
-                <div className="inline-flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xs font-bold shadow-xs">
-                  3
+                <div className="flex flex-col gap-2 rounded-xl border border-border/70 bg-card/60 p-4 transition-all hover:border-primary/30">
+                  <div className="inline-flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xs font-bold shadow-xs">
+                    3
+                  </div>
+                  <h4 className="font-heading text-sm font-bold text-foreground">
+                    Báo giá & In ngay
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Hệ thống tự động đọc file cấu hình in (.3mf), hiển thị số lượng bàn in, thời gian in và ước tính chi phí chính xác.
+                  </p>
                 </div>
-                <h4 className="font-heading text-sm font-bold text-foreground">
-                  Báo giá & In ngay
-                </h4>
-                <p className="text-xs text-muted-foreground">
-                  Hệ thống tự động đọc file cấu hình in (.3mf), hiển thị số lượng bàn in, thời gian in và ước tính chi phí chính xác.
-                </p>
               </div>
-            </div>
+            )}
 
             {/* Switch Helper */}
             <div className="flex items-center justify-between border-t border-border/60 pt-4 text-xs sm:text-sm">
@@ -371,7 +534,7 @@ export function QuoteWorkspace({
               <button
                 type="button"
                 onClick={() => handleTabChange('file')}
-                className="font-semibold text-primary hover:underline inline-flex items-center gap-1"
+                className="font-semibold text-primary hover:underline inline-flex items-center gap-1 cursor-pointer"
               >
                 Chuyển sang Tải file từ máy tính <ArrowRight className="size-3.5" />
               </button>
@@ -403,7 +566,7 @@ export function QuoteWorkspace({
           <button
             type="button"
             onClick={() => handleTabChange('link')}
-            className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline self-start sm:self-auto"
+            className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline self-start sm:self-auto cursor-pointer"
           >
             Chưa có file? Tìm & báo giá theo link <ArrowRight className="size-3" />
           </button>

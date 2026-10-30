@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import {
   attachInstantEstimates,
   type MakerWorldCnModelDetail,
@@ -156,7 +156,9 @@ test('attachInstantEstimates gracefully handles missing pricing context without 
 });
 
 test('MakerWorldCnTool hides 3DHubVN backup link in production', () => {
-  const code = readFileSync('src/components/storefront/makerworld-cn-tool.tsx', 'utf8');
+  const code = existsSync('src/components/storefront/makerworld-quote-result.tsx')
+    ? readFileSync('src/components/storefront/makerworld-quote-result.tsx', 'utf8')
+    : readFileSync('src/components/storefront/makerworld-cn-tool.tsx', 'utf8');
   assert.match(code, /const isProduction = BUILD_INFO\.channel === 'production' \|\| process\.env\.NODE_ENV === 'production';/);
   assert.match(code, /\{!isProduction && \(\s*<a[\s\S]*?Dự phòng 3DHubVN[\s\S]*?<\/a>\s*\)\}/);
 });

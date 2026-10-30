@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 export default async function BaoGiaPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ tab?: string }>;
+  searchParams?: Promise<{ tab?: string; url?: string }>;
 }) {
   // D7: off until the estimate model is calibrated (S0).
   if (!isBaoGiaEnabled()) notFound();
@@ -33,6 +33,7 @@ export default async function BaoGiaPage({
 
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const initialTab: QuoteTab = resolvedSearchParams?.tab === 'file' ? 'file' : 'link';
+  const initialUrl = resolvedSearchParams?.url;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
@@ -52,6 +53,7 @@ export default async function BaoGiaPage({
         materials={materials}
         samples={samples}
         initialTab={initialTab}
+        initialUrl={initialUrl}
       />
 
       <section className="mt-14 print:hidden">
