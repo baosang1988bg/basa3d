@@ -4,8 +4,9 @@ import { useEffect, useRef, useState, type FormEvent, type ClipboardEvent, type 
 import NextLink from 'next/link';
 import { StorefrontButton } from '@/components/storefront/button';
 import { formatVnd } from '@/components/storefront/format';
-import { Upload, Link as LinkIcon, X, Image as ImageIcon, File as FileIcon, Loader2, AlertCircle, PackageCheck, Wrench, Printer, ChevronDown } from 'lucide-react';
-import { trackCustomPrintQuote, trackFileUpload } from '@/lib/analytics';
+import { Upload, Link as LinkIcon, X, Image as ImageIcon, File as FileIcon, Loader2, AlertCircle, PackageCheck, Wrench, Printer, ChevronDown, Check, Copy, MessageCircle } from 'lucide-react';
+import { trackCustomPrintQuote, trackFileUpload, trackContactClick } from '@/lib/analytics';
+import { SITE_CONFIG } from '@/config/site';
 import { CURRENT_TOS_VERSION } from '@/lib/copyright/tos-version';
 import type { PublicFileEstimate } from '@/services/file-estimate.service';
 import type { InstantOptionKey } from '@/services/instant-estimate.service';
@@ -16,7 +17,7 @@ import { contactFromFormData } from '@/lib/customer/saved-contact';
 import { useContactFormPrefill, useSavedContact } from '@/lib/customer/use-saved-contact';
 import { RememberContactOption } from '@/components/storefront/remember-contact-option';
 
-type SubmitState = { status: 'idle' | 'submitting' | 'success' | 'error'; message?: string };
+type SubmitState = { status: 'idle' | 'submitting' | 'success' | 'error'; message?: string; requestNumber?: string };
 type UploadState = { status: 'idle' | 'uploading' | 'done' | 'error'; fileName?: string; message?: string };
 type EstimateState = { status: 'idle' | 'loading' | 'done' | 'error'; result?: PublicFileEstimate; message?: string };
 
@@ -91,6 +92,7 @@ const inputClass = 'h-10 rounded-lg border border-input bg-background px-3 text-
  */
 export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill }) {
   const [state, setState] = useState<SubmitState>({ status: 'idle' });
+  const [copied, setCopied] = useState(false);
   const [attachmentPath, setAttachmentPath] = useState(prefill?.attachmentPath ?? '');
   const [uploadClaim, setUploadClaim] = useState(prefill?.uploadClaim ?? '');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -267,15 +269,17 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
         setState({ status: 'error', message: fileProblem && body.message ? body.message : 'Có lỗi xảy ra, vui lòng kiểm tra lại thông tin.' });
         return;
       }
+      const resData = await response.json().catch(() => null);
       savedContact.saveAfterSubmit(contactFromFormData(form));
       trackCustomPrintQuote({ material: payload.requestedMaterial, color: payload.requestedColor, quantity: payload.quantity, hasAttachment: payload.attachmentPath !== null });
-      setState({ status: 'success' });
+      setState({ status: 'success', requestNumber: typeof resData?.requestNumber === 'string' ? resData.requestNumber : undefined });
     } catch {
       setState({ status: 'error', message: 'Không thể kết nối máy chủ, vui lòng thử lại.' });
     }
   }
 
   if (state.status === 'success') {
+    const requestNum = state.requestNumber;
     return (
       <div className="rounded-xl border border-border bg-card p-8 text-center shadow-xs">
         <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
@@ -283,8 +287,52 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <p className="font-heading text-xl font-bold text-foreground">Đã gửi yêu cầu thành công!</p>
-        <p className="mt-2 text-sm text-muted-foreground">BaSa3D sẽ liên hệ qua Zalo/SĐT {RESPONSE_TIME_TEXT} để xác nhận và báo giá chính thức.</p>
+        <p className="font-heading text-xl font-bold text-foreground">
+          Đã gửi yêu cầu thành công{requestNum ? ` (${requestNum})` : ''}!
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          BaSa3D sẽ liên hệ qua Zalo/SĐT {RESPONSE_TIME_TEXT} để xác nhận và báo giá chính thức.
+        </p>
+
+        {copied && (
+          <p className="mt-3 flex items-center justify-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+            <Check className="size-3.5" /> Đã sao chép tin nhắn kèm mã yêu cầu! Bạn chỉ cần dán (Paste) vào Zalo.
+          </p>
+        )}
+
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          {requestNum && (
+            <StorefrontButton
+              variant="secondary"
+              onClick={() => {
+                void navigator.clipboard?.writeText(requestNum);
+                setCopied(true);
+              }}
+            >
+              <span className="inline-flex items-center gap-2">
+                <Copy className="size-4" />
+                {copied ? 'Đã sao chép mã' : 'Sao chép mã yêu cầu'}
+              </span>
+            </StorefrontButton>
+          )}
+          <a
+            href={SITE_CONFIG.zaloUrl}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => {
+              trackContactClick('zalo', 'custom_print_success');
+              const zaloMsg = requestNum
+                ? `Chào BaSa3D, mình vừa gửi yêu cầu đặt in 3D mã ${requestNum} trên website, nhờ xưởng kiểm tra file và báo giá giúp mình nhé!`
+                : 'Chào BaSa3D, mình vừa gửi yêu cầu in 3D trên website, nhờ shop kiểm tra và báo giá giúp mình nhé!';
+              void navigator.clipboard?.writeText(zaloMsg);
+              setCopied(true);
+            }}
+            className="inline-flex items-center gap-2 rounded-lg bg-[#0068FF] px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+          >
+            <MessageCircle className="size-4" />
+            Nhắn Zalo với shop ngay ({SITE_CONFIG.zaloPhone})
+          </a>
+        </div>
       </div>
     );
   }

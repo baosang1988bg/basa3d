@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import NextLink from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react';
-import { AlertCircle, Box, Check, Copy, Eye, Loader2, Printer, Trash2, Upload } from 'lucide-react';
+import { AlertCircle, Box, Check, Copy, Eye, Loader2, MessageCircle, Printer, Trash2, Upload } from 'lucide-react';
 import { StorefrontButton } from '@/components/storefront/button';
 import { formatVnd } from '@/components/storefront/format';
 import { BAO_GIA_MAX_ITEMS, BAO_GIA_RESPONSE_TIME_TEXT } from '@/config/bao-gia';
@@ -239,11 +239,30 @@ export function QuoteFlow({ materials }: { materials: string[] }) {
         <section className="rounded-xl border border-border bg-card p-8 text-center shadow-xs print:hidden" aria-live="polite">
           <p className="font-heading text-xl font-bold text-foreground">Đã nhận yêu cầu {done.requestNumber}</p>
           <p className="mt-2 text-sm text-muted-foreground">Xưởng sẽ gửi báo giá chính thức cho từng món qua Zalo/SĐT {BAO_GIA_RESPONSE_TIME_TEXT}. Bạn có thể nhắn mã này qua Zalo để được hỗ trợ nhanh hơn.</p>
+          {copied && (
+            <p className="mt-3 flex items-center justify-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+              <Check className="size-3.5" /> Đã sao chép tin nhắn kèm mã yêu cầu! Bạn chỉ cần dán (Paste) vào Zalo.
+            </p>
+          )}
           <div className="mt-4 flex flex-wrap justify-center gap-2">
             <StorefrontButton variant="secondary" onClick={() => { void navigator.clipboard?.writeText(done.requestNumber); setCopied(true); }}>
-              <span className="inline-flex items-center gap-2"><Copy className="size-4" />{copied ? 'Đã sao chép' : 'Sao chép mã'}</span>
+              <span className="inline-flex items-center gap-2"><Copy className="size-4" />{copied ? 'Đã sao chép mã' : 'Sao chép mã'}</span>
             </StorefrontButton>
-            <a href={SITE_CONFIG.zaloUrl} target="_blank" rel="noreferrer" onClick={() => trackContactClick('zalo', 'bao-gia')} className="inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90">Mở Zalo</a>
+            <a
+              href={SITE_CONFIG.zaloUrl}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => {
+                trackContactClick('zalo', 'bao-gia');
+                const zaloMsg = `Chào BaSa3D, mình vừa gửi yêu cầu in 3D mã ${done.requestNumber} trên website, nhờ xưởng kiểm tra file và báo giá giúp mình nhé!`;
+                void navigator.clipboard?.writeText(zaloMsg);
+                setCopied(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#0068FF] px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+            >
+              <MessageCircle className="size-4" />
+              Mở Zalo chat
+            </a>
             <StorefrontButton variant="secondary" onClick={() => window.print()}><span className="inline-flex items-center gap-2"><Printer className="size-4" />In bảng ước tính</span></StorefrontButton>
           </div>
         </section>

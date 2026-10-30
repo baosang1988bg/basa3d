@@ -15,18 +15,42 @@ type Variant = {
 
 function ContactToOrder({ productName }: { productName: string }) {
   const t = useTranslations('products');
+  const [copied, setCopied] = useState(false);
+
+  async function handleZaloClick() {
+    trackContactClick('zalo', `product:${productName}`);
+    try {
+      const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
+      const message = `Chào BaSa3D, mình muốn tư vấn đặt in / mua sản phẩm: "${productName}"${currentUrl ? ` (Link: ${currentUrl})` : ''}.`;
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(message);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 4000);
+      }
+    } catch {
+      // Fallback if clipboard API is blocked
+    }
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <a
         href={SITE_CONFIG.zaloUrl}
         target="_blank"
         rel="noreferrer"
-        onClick={() => trackContactClick('zalo', `product:${productName}`)}
+        onClick={handleZaloClick}
         className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-[#0068FF] px-4 py-2.5 text-sm font-semibold text-white transition-opacity duration-150 hover:opacity-90 sm:w-auto"
       >
-        <MessageCircle className="size-4" /> {t('contactToOrderZalo')}
+        <MessageCircle className="size-4" />
+        {copied ? 'Đã copy thông tin · Đang mở Zalo...' : t('contactToOrderZalo')}
       </a>
-      <p className="text-sm text-muted-foreground">{t('contactToOrderHotline', { hotline: SITE_CONFIG.hotline })}</p>
+      {copied ? (
+        <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+          <Check className="size-3.5" /> Đã sao chép tên sản phẩm vào bộ nhớ tạm! Bạn chỉ cần dán (Paste) vào Zalo.
+        </p>
+      ) : (
+        <p className="text-sm text-muted-foreground">{t('contactToOrderHotline', { hotline: SITE_CONFIG.hotline })}</p>
+      )}
     </div>
   );
 }
