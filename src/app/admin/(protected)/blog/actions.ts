@@ -5,6 +5,24 @@ import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/auth/require-admin';
 import { blogCategoryInputSchema, blogPostInputSchema, blogPostUpdateInputSchema } from '@/domain/schemas';
 import { createBlogCategory, createBlogPostWithCover, updateBlogPostWithCover } from '@/services/blog.service';
+import { syncDaily3DNews } from '@/services/ai-news.service';
+
+export async function triggerDailyNewsSyncAction(): Promise<{ success: boolean; message: string; slug?: string }> {
+  const { actorId } = await requireAdmin();
+  try {
+    const result = await syncDaily3DNews({ actorId, force: true });
+    revalidatePath('/admin/blog');
+    revalidatePath('/blog');
+    return {
+      success: true,
+      message: result.message || `Đã tạo bài điểm tin: ${result.slug}`,
+      slug: result.slug,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { success: false, message };
+  }
+}
 
 function readFormValue(formData: FormData, key: string): string | undefined {
   const value = formData.get(key);

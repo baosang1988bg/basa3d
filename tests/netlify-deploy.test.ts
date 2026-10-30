@@ -6,6 +6,7 @@ import test from 'node:test';
 import { resolveBuildInfo, resolveDeployPlatform } from '../src/config/resolve-build-info.mjs';
 import { getClientIp } from '../src/lib/rate-limit.js';
 import { config as netlifyCronConfig, resolveCronTarget } from '../netlify/functions/cleanup-orphan-uploads.mjs';
+import { config as netlifyDailyNewsConfig, resolveCronTarget as resolveDailyNewsTarget } from '../netlify/functions/daily-3d-news.mjs';
 import { failingSecurityHeaders, versionPayloadError } from '../scripts/deploy/smoke-netlify.mjs';
 import { securityHeaders } from '../next.config.mjs';
 
@@ -67,6 +68,11 @@ test('Netlify scheduled cleanup keeps the exact vercel.json cron schedule and pa
   assert.ok(cron, 'vercel.json cron entry missing');
   assert.equal(netlifyCronConfig.schedule, cron.schedule);
   assert.equal(resolveCronTarget({ URL: 'https://basa3d.netlify.app' }), `https://basa3d.netlify.app${cron.path}`);
+
+  const newsCron = vercel.crons.find((entry) => entry.path === '/api/cron/daily-3d-news');
+  assert.ok(newsCron, 'vercel.json daily-3d-news cron entry missing');
+  assert.equal(netlifyDailyNewsConfig.schedule, newsCron.schedule);
+  assert.equal(resolveDailyNewsTarget({ URL: 'https://basa3d.netlify.app' }), `https://basa3d.netlify.app${newsCron.path}`);
 });
 
 test('cron target prefers the canonical site URL and fails closed when nothing is configured', () => {

@@ -1039,3 +1039,28 @@ Load JS 133 kB → 141 kB; route still SSG (●).
 
 **Migration cost.** Additive. Showing real shop prices on `/cam-nang` later would require reading
 `pricing_configs` at build/ISR time — a new decision, not an edit to this calculator.
+
+## ADR-0056 — Daily AI 3D News Cron: Zero-dependency RSS parser, Google Gemini REST synthesis, and idempotent Auto-Draft
+
+**Status.** Accepted 2026-10-30 (Phase 54, `docs/exec-plans/active/phase-54-daily-ai-news.md`).
+
+**Context.** The OWNER requested daily automated 3D printing news and blog updates to drive organic
+search traffic (SEO) and customer engagement without requiring hours of manual daily copywriting.
+
+**Decision.**
+1. **Zero new dependencies (Rule #8):** Use `fast-xml-parser` (already present in `package.json`) to
+   parse RSS 2.0 / Atom feeds (All3DP, 3D Printing Industry, Hackaday). Use native `fetch` with the
+   Google Gemini REST API (`gemini-2.5-flash:generateContent`).
+2. **Idempotency by day:** Slugs follow the pattern `diem-tin-in-3d-YYYY-MM-DD` (Asia/Ho_Chi_Minh).
+   Subsequent cron triggers on the same date safely return `SKIPPED_ALREADY_EXISTS` without duplicate posts.
+3. **Safe default (`DRAFT`):** Generated posts default to status `DRAFT` for quick 30-second admin review
+   and approval, preventing uncurated AI spam penalties. Auto-publishing can be opted into via
+   `AUTO_PUBLISH_DAILY_NEWS=true`.
+4. **Dual deployment scheduling:** Mirroring Phase 51 (`cleanup-orphan-uploads`), schedule runs daily
+   at 06:00 AM VN time (`0 23 * * *` UTC) via `vercel.json` and Netlify Scheduled Function
+   `netlify/functions/daily-3d-news.mts`, guarded by constant-time Bearer token check (`isAuthorizedCronRequest`).
+5. **Instant admin trigger:** A `[Quét tin tức hôm nay]` action button in `/admin/blog` allows the OWNER
+   to trigger an on-demand sync immediately at any time.
+
+**Migration cost.** Additive. No database schema migrations required (reuses Phase 7 `blog_posts`).
+

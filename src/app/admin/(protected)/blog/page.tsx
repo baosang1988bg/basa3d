@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { MarkdownEditor } from '@/components/admin/markdown-editor';
+import { BlogSyncNewsButton } from '@/components/admin/blog-sync-news-button';
 import { listBlogCategories, listBlogPosts } from '@/services/blog.service';
 import { createBlogCategoryAction, createBlogPostAction } from './actions';
 import { requireAdmin } from '@/lib/auth/require-admin';
@@ -21,7 +22,10 @@ export default async function BlogPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">Blog</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Blog</h1>
+        <BlogSyncNewsButton />
+      </div>
 
       <Card>
         <CardHeader><CardTitle>Viết bài mới</CardTitle></CardHeader>

@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
-    { "path": "/api/cron/cleanup-orphan-uploads", "schedule": "0 19 * * *" }
+    { "path": "/api/cron/cleanup-orphan-uploads", "schedule": "0 19 * * *" },
+    { "path": "/api/cron/daily-3d-news", "schedule": "0 23 * * *" }
   ]
 }
