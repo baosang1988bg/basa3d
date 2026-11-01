@@ -3,7 +3,12 @@ import test, { after } from 'node:test';
 import { configureTestEnvironment } from './helpers/test-environment';
 import { getPool, query } from '../src/lib/db.js';
 import {
+  buildMediaCandidates,
   claimManualNewsSync,
+  extractArticleMedia,
+  extractYoutubeIds,
+  fetchArticleMedia,
+  isAllowedSourceImage,
   DEFAULT_GEMINI_MODELS,
   fetchRssFeeds,
   generatedArticleSchema,
@@ -309,6 +314,101 @@ test('sanitizeGeneratedMarkdown keeps source/internal links and strips spam link
   assert.ok(out.includes('tại đây') && out.includes('phish.example'), 'link text / host stays as plain text');
 });
 
+
+// ---------------------------------------------------------------------------------------------
+// Source media (Phase 54.2)
+// ---------------------------------------------------------------------------------------------
+
+const SAMPLE_RSS_MEDIA = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <item>
+      <title>Studio 3e8 Reveals Desktop Metal 3D Printer</title>
+      <link>https://3dprintingindustry.com/news/studio-3e8-256082/?utm_source=rss&amp;utm_medium=rss&amp;ref=keep</link>
+      <pubDate>${NOW_RFC822}</pubDate>
+      <description>Mesa 1 desktop metal printer.</description>
+      <content:encoded><![CDATA[<p>Watch <a href="https://youtu.be/SRKj_QPDHXw">the reveal</a></p><iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ?rel=0"></iframe>]]></content:encoded>
+      <media:content url="https://3dprintingindustry.com/wp-content/uploads/2026/10/mesa-150x100.webp" medium="image" type="image/webp" />
+    </item>
+  </channel>
+</rss>`;
+
+test('parseRssXml extracts the feed image and YouTube ids, and strips utm_* params from links', () => {
+  const [item] = parseRssXml(SAMPLE_RSS_MEDIA);
+  assert.equal(item.link, 'https://3dprintingindustry.com/news/studio-3e8-256082/?ref=keep');
+  assert.equal(item.imageUrl, 'https://3dprintingindustry.com/wp-content/uploads/2026/10/mesa-150x100.webp');
+  assert.deepEqual(item.youtubeIds, ['SRKj_QPDHXw', 'dQw4w9WgXcQ']);
+});
+
+test('extractYoutubeIds handles watch/shorts/nocookie links and ignores channel links', () => {
+  const html = `
+    <a href="https://www.youtube.com/c/3DPrintingIndustryNews/">channel</a>
+    <a href="https://www.youtube.com/watch?feature=share&amp;v=abcdefghijk">watch</a>
+    <a href="https://youtube.com/shorts/ABCDEFGHIJK">short</a>
+    <iframe src="https://www.youtube-nocookie.com/embed/abcdefghijk"></iframe>
+    <a href="https://youtu.be/tooShort">bad</a>`;
+  assert.deepEqual(extractYoutubeIds(html), ['abcdefghijk', 'ABCDEFGHIJK']);
+});
+
+test('extractArticleMedia prefers og:image (resolving relative URLs and entities) over twitter:image', () => {
+  const html = `<head>
+    <meta name="twitter:image" content="https://3dprintingindustry.com/tw.jpg">
+    <meta content="/wp-content/uploads/2026/10/mesa-1920.webp?a=1&amp;b=2" property="og:image" />
+  </head><body><iframe src="https://www.youtube.com/embed/SRKj_QPDHXw"></iframe></body>`;
+  const media = extractArticleMedia(html, 'https://3dprintingindustry.com/news/x/');
+  assert.equal(media.imageUrl, 'https://3dprintingindustry.com/wp-content/uploads/2026/10/mesa-1920.webp?a=1&b=2');
+  assert.deepEqual(media.youtubeIds, ['SRKj_QPDHXw']);
+  assert.equal(extractArticleMedia('<meta name="twitter:image" content="https://a.test/t.jpg">', 'https://a.test/').imageUrl, 'https://a.test/t.jpg');
+});
+
+test('isAllowedSourceImage: https on the article domain (or WP CDN) only', () => {
+  const article = 'https://www.3dprintingindustry.com/news/x/';
+  assert.equal(isAllowedSourceImage('https://3dprintingindustry.com/a.jpg', article), true);
+  assert.equal(isAllowedSourceImage('https://cdn.3dprintingindustry.com/a.jpg', article), true);
+  assert.equal(isAllowedSourceImage('https://i0.wp.com/3dprintingindustry.com/a.jpg', article), true);
+  assert.equal(isAllowedSourceImage('http://3dprintingindustry.com/a.jpg', article), false);
+  assert.equal(isAllowedSourceImage('https://tracker.example/p.gif', article), false);
+  assert.equal(isAllowedSourceImage('https://evil3dprintingindustry.com/a.jpg', article), false);
+});
+
+test('fetchArticleMedia never throws: non-HTML, HTTP errors and network failures yield no media', async () => {
+  const cases: Array<() => Response> = [
+    () => new Response('{}', { headers: { 'content-type': 'application/json' } }),
+    () => new Response('nope', { status: 403 }),
+    () => { throw new TypeError('fetch failed'); },
+  ];
+  for (const make of cases) {
+    const media = await fetchArticleMedia('https://3dprintingindustry.com/news/x/', async () => make());
+    assert.deepEqual(media, { youtubeIds: [] });
+  }
+});
+
+test('buildMediaCandidates: only cited sources, og > feed image, foreign hosts dropped, videos deduped', () => {
+  const items: RawRssItem[] = [
+    { title: 'Cited A', link: 'https://3dprintingindustry.com/news/a/', imageUrl: 'https://3dprintingindustry.com/a-150x100.jpg', youtubeIds: ['AAAAAAAAAAA'] },
+    { title: 'Cited B', link: 'https://hackaday.com/b/', imageUrl: 'https://hackaday.com/b.jpg', youtubeIds: ['AAAAAAAAAAA', 'BBBBBBBBBBB', 'CCCCCCCCCCC'] },
+    { title: 'Not cited', link: 'https://3dprintingindustry.com/news/c/', imageUrl: 'https://3dprintingindustry.com/c.jpg', youtubeIds: ['DDDDDDDDDDD'] },
+  ];
+  const pages = new Map([
+    ['https://3dprintingindustry.com/news/a/', { imageUrl: 'https://3dprintingindustry.com/a-1920.jpg', youtubeIds: [] }],
+    ['https://hackaday.com/b/', { imageUrl: 'https://tracker.example/pixel.gif', youtubeIds: [] }],
+  ]);
+  const content = 'Tin A. Nguồn: [3DPI](https://3dprintingindustry.com/news/a/)\n\nTin B. Nguồn: [Hackaday](https://hackaday.com/b)';
+  const media = buildMediaCandidates(items, pages, content);
+
+  const images = media.filter((m) => m.kind === 'source_image');
+  assert.deepEqual(images.map((m) => m.kind === 'source_image' && m.url), ['https://3dprintingindustry.com/a-1920.jpg', 'https://hackaday.com/b.jpg']);
+  assert.ok(images.every((m) => m.selected));
+  assert.equal(images[0].sourceName, '3D Printing Industry');
+
+  const videos = media.filter((m) => m.kind === 'youtube');
+  assert.deepEqual(videos.map((m) => m.kind === 'youtube' && m.videoId), ['AAAAAAAAAAA', 'BBBBBBBBBBB', 'CCCCCCCCCCC'], 'A is not repeated for source B');
+  assert.deepEqual(videos.map((m) => m.selected), [true, true, false], 'only the first video of each source is pre-selected');
+  assert.ok(!media.some((m) => m.sourceUrl.includes('/news/c/')), 'uncited source contributes nothing');
+  assert.equal(new Set(media.map((m) => m.id)).size, media.length);
+  assert.deepEqual(buildMediaCandidates(items, pages, 'Bài không trích nguồn nào.'), []);
+});
+
 // ---------------------------------------------------------------------------------------------
 // DB-backed (skipped without a local test database)
 // ---------------------------------------------------------------------------------------------
@@ -376,6 +476,31 @@ test('syncDaily3DNews creates a sanitized DRAFT with created_by = null (system a
     assert.equal(row.rows[0].created_by, null);
     assert.equal(row.rows[0].category_slug, 'tin-tuc');
     assert.ok(!row.rows[0].content.includes('casino.example'));
+  } finally {
+    await query('delete from blog_posts where slug = $1', [slug]);
+  }
+});
+
+test('syncDaily3DNews stores media candidates from cited source articles', { skip: !dbAvailable }, async () => {
+  const customDate = '2026-01-05';
+  const slug = `diem-tin-in-3d-${customDate}`;
+  await query('delete from blog_posts where slug = $1', [slug]);
+  const citedLink = 'https://3dprintingindustry.com/news/studio-3e8-256082/?ref=keep';
+  const article = { ...VALID_ARTICLE, content: `${VALID_ARTICLE.content}\n\nNguồn: [3DPI](${citedLink})` };
+  const { impl } = fakeFetch({
+    rss: (url) => (url.includes('/news/')
+      ? new Response('<meta property="og:image" content="https://3dprintingindustry.com/mesa-1920.webp">', { headers: { 'content-type': 'text/html' } })
+      : new Response(SAMPLE_RSS_MEDIA)),
+    gemini: [() => geminiOk(article)],
+  });
+  try {
+    const result = await withGeminiKey(() => syncDaily3DNews({ customDate, fetchImpl: impl, geminiModels: ['m1'], feeds: ['https://3dprintingindustry.com/feed/'] }));
+    assert.equal(result.status, 'CREATED');
+    const row = await query<{ media: Array<{ kind: string; url?: string; videoId?: string; selected: boolean }> }>('select media from blog_posts where slug = $1', [slug]);
+    const media = row.rows[0].media;
+    assert.deepEqual(media.map((m) => m.kind), ['source_image', 'youtube', 'youtube']);
+    assert.equal(media[0].url, 'https://3dprintingindustry.com/mesa-1920.webp');
+    assert.deepEqual(media.filter((m) => m.kind === 'youtube').map((m) => m.selected), [true, false]);
   } finally {
     await query('delete from blog_posts where slug = $1', [slug]);
   }

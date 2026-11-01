@@ -1091,3 +1091,35 @@ points 1, 3 and 4 above where they conflict:
 **Migration cost.** None for the DB. Netlify needs no new env vars; the new background function is
 picked up from `netlify/functions/`. Remove `AUTO_PUBLISH_DAILY_NEWS` / `GEMINI_NEWS_MODEL` from env
 if set (`GEMINI_NEWS_MODEL` is still read as a fallback).
+
+## ADR-0057 — Blog review queue and hotlinked source media
+
+**Status.** Accepted 2026-11-01 (Phase 54.2, `docs/exec-plans/active/phase-54-2-blog-review-media.md`).
+
+**Context.** Daily AI news drafts (ADR-0056) must be reviewed before going public, and the
+publish-by-editing-status flow was buried at the bottom of `/admin/blog`. Text-only digests also
+under-perform: readers expect pictures and video.
+
+**Decision.**
+1. **Review queue page** `/admin/blog/review` ("Duyệt bài" in the admin nav, badge = DRAFT count):
+   draft list, a preview rendered by the SAME component as the public page (`BlogArticleView`),
+   media toggles, **Duyệt & đăng** and **Từ chối & xoá**. Any active staff may decide (`requireAdmin`).
+2. **Publish is a conditional transition** (`update … where status = 'DRAFT'`): concurrent approvals
+   publish once; the loser gets `BLOG_POST_NOT_DRAFT`. Audit `BLOG_POST_PUBLISHED`.
+3. **Reject = delete the DRAFT** (never a published post), audit `BLOG_POST_REJECTED` with the
+   deleted row's title/slug/excerpt. No enum change.
+4. **Source media in `blog_posts.media jsonb`** (bounded array, validated by `src/lib/blog-media.ts`):
+   `source_image` = og:image / RSS media of a *cited* article, **hotlinked** and always rendered as a
+   captioned card ("Ảnh: <nguồn> · Xem bài gốc ↗", `rel="nofollow noopener noreferrer"`,
+   `referrerPolicy="no-referrer"`, hidden if it fails to load); `youtube` = a video referenced by the
+   cited article, embedded via `youtube-nocookie.com`. Images are only accepted from the article's
+   own domain (or `*.wp.com`) over https. Source images are never used as BaSa3D's og:image/JSON-LD.
+5. Article pages are fetched **in parallel with the Gemini call** (6s timeout, 1.5 MB cap), so the
+   cron's 60s budget is unchanged.
+
+**Alternatives rejected.** Downloading source images into `blog-images` (re-hosting copyrighted
+images: DMCA/SEO risk). Putting image URLs into the markdown (would reopen the sanitizer's
+"no images" rule and lose render control). YouTube Data API search (new key/quota, weaker relevance).
+
+**Migration cost.** One additive migration (`20261101000000_blog_post_media.sql`: column + check +
+partial index for drafts). Existing posts get `media = []` and render unchanged.

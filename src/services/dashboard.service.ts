@@ -168,15 +168,18 @@ async function getActionableItems(): Promise<ActionableRecentItems> {
 
 // Small STAFF-safe navigation counts; deliberately independent of dashboard analytics.
 export const getAdminNavBadges = cache(async () => {
-  const [pendingOrders, customRequestsOpen, printJobsActive] = await Promise.all([
+  const [pendingOrders, customRequestsOpen, printJobsActive, blogDrafts] = await Promise.all([
     query<{ count: string }>(`select count(*) from orders where status in ('NEW','CONFIRMED')`),
     query<{ count: string }>(`select count(*) from custom_requests where status in ('NEW','REVIEWING','NEED_INFO','QUOTED')`),
     query<{ count: string }>(`select count(*) from print_jobs where status in ('QUEUED','PRINTING')`),
+    // Phase 54.2: "Duyệt bài" badge (partial index blog_posts_drafts_created_idx).
+    query<{ count: string }>(`select count(*) from blog_posts where status = 'DRAFT'`),
   ]);
   return {
     pendingOrders: Number(pendingOrders.rows[0].count),
     customRequestsOpen: Number(customRequestsOpen.rows[0].count),
     printJobsActive: Number(printJobsActive.rows[0].count),
+    blogDrafts: Number(blogDrafts.rows[0].count),
   };
 });
 

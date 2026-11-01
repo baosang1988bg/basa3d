@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { MarkdownEditor } from '@/components/admin/markdown-editor';
 import { BlogSyncNewsButton } from '@/components/admin/blog-sync-news-button';
-import { listBlogCategories, listBlogPosts } from '@/services/blog.service';
+import { countDraftPosts, listBlogCategories, listBlogPosts } from '@/services/blog.service';
 import { createBlogCategoryAction, createBlogPostAction } from './actions';
 import { requireAdmin } from '@/lib/auth/require-admin';
 
@@ -15,16 +15,22 @@ export default async function BlogPage() {
   // Phase 35 D1: never rely on the layout alone — RSC segment requests can render this page
   // without re-running the layout. requireAdmin() is cache()-memoized, so this is free.
   await requireAdmin();
-  const [{ items: posts }, categories] = await Promise.all([
+  const [{ items: posts }, categories, draftCount] = await Promise.all([
     listBlogPosts({ limit: 100 }),
     listBlogCategories(),
+    countDraftPosts(),
   ]);
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <h1 className="text-2xl font-semibold">Blog</h1>
-        <BlogSyncNewsButton />
+        <div className="flex flex-wrap items-start gap-2">
+          <Link href="/admin/blog/review" className={buttonVariants({ size: 'sm' })}>
+            Duyệt bài{draftCount > 0 ? ` (${draftCount})` : ''}
+          </Link>
+          <BlogSyncNewsButton />
+        </div>
       </div>
 
       <Card>

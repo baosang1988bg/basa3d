@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, useTransition } from 'react';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -46,6 +47,7 @@ export function BlogSyncNewsButton() {
       {statusMessage && (
         <span className={`text-xs ${statusMessage.isError ? 'text-destructive font-medium' : 'text-emerald-600'}`}>
           {statusMessage.text}
+          {!statusMessage.isError ? <> · <Link href="/admin/blog/review" className="underline">Mở trang duyệt →</Link></> : null}
         </span>
       )}
     </div>

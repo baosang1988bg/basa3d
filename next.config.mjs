@@ -14,7 +14,10 @@ const contentSecurityPolicyReportOnly = [
   `script-src 'self' 'sha256-${themeBootstrapSha256}' 'wasm-unsafe-eval' https://www.googletagmanager.com`,
   "worker-src 'self' blob:",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://*.supabase.co https://img.vietqr.io https://*.bblmw.com https://image.makerworld.com",
+  // Phase 54.2: hotlinked news-source preview images + YouTube thumbnails (admin review).
+  "img-src 'self' data: blob: https://*.supabase.co https://img.vietqr.io https://*.bblmw.com https://image.makerworld.com https://3dprintingindustry.com https://*.3dprintingindustry.com https://all3dp.com https://*.all3dp.com https://hackaday.com https://*.hackaday.com https://*.wp.com https://i.ytimg.com",
+  // Phase 54.2: YouTube embeds in blog posts (privacy-enhanced domain only).
+  "frame-src https://www.youtube-nocookie.com",
   "font-src 'self' data:",
   "connect-src 'self' https://*.supabase.co https://www.google-analytics.com https://*.google-analytics.com",
   "frame-ancestors 'none'",

@@ -3,6 +3,7 @@ import Image from 'next/image';
 import type { Metadata } from 'next';
 import { listPublishedPosts } from '@/services/blog.service';
 import { Breadcrumb } from '@/components/storefront/breadcrumb';
+import { SourceImage } from '@/components/blog/source-media';
 
 export const metadata: Metadata = {
   title: 'Blog — BaSa3D',
@@ -32,6 +33,14 @@ export default async function BlogListPage() {
               <div className="aspect-video overflow-hidden bg-muted/50">
                 {post.coverImageUrl ? (
                   <Image src={post.coverImageUrl} alt={post.title} width={400} height={225} className="size-full object-cover" />
+                ) : post.previewImageUrl ? (
+                  // Phase 54.2: no cover → first selected source image (hotlinked), placeholder if it fails.
+                  <SourceImage
+                    src={post.previewImageUrl}
+                    alt={post.title}
+                    className="size-full object-cover"
+                    fallback={<div className="flex size-full items-center justify-center text-sm text-muted-foreground">BaSa3D</div>}
+                  />
                 ) : (
                   <div className="flex size-full items-center justify-center text-sm text-muted-foreground">BaSa3D</div>
                 )}

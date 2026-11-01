@@ -1,10 +1,12 @@
 // Phase 54 (+ 54.1 hardening, docs/exec-plans/active/phase-54-1-ai-news-hardening.md).
 // SERVER-ONLY: reads GEMINI_API_KEY. Never import this module from a 'use client' file.
+import { createHash } from 'node:crypto';
 import { XMLParser } from 'fast-xml-parser';
 import { z } from 'zod';
 import { query, withTransaction } from '../lib/db';
 import { DomainError } from '../lib/domain-error';
 import { blogPostInputSchema } from '../domain/schemas';
+import { blogMediaItemSchema, youtubeVideoIdSchema, type BlogMediaItem } from '../lib/blog-media';
 import { writeAuditLog } from './audit.service';
 import { createBlogCategory, createBlogPost } from './blog.service';
 
@@ -13,6 +15,10 @@ export interface RawRssItem {
   link: string;
   pubDate?: string;
   snippet?: string;
+  /** Phase 54.2: image advertised by the feed itself (media:content / media:thumbnail / enclosure). */
+  imageUrl?: string;
+  /** Phase 54.2: YouTube video ids embedded or linked in the item's HTML body. */
+  youtubeIds?: string[];
 }
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
@@ -81,10 +87,45 @@ function textOf(value: unknown): string {
 function safeHttpUrl(value: string): string {
   try {
     const url = new URL(value.trim());
-    return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : '';
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
+    // Phase 54.2: tracking params (`?utm_source=rss…`) make cited links ugly and break link matching.
+    for (const key of [...url.searchParams.keys()]) if (key.toLowerCase().startsWith('utm_')) url.searchParams.delete(key);
+    return url.toString();
   } catch {
     return '';
   }
+}
+
+const YOUTUBE_ID_PATTERN = /(?:youtube(?:-nocookie)?\.com\/(?:embed\/|shorts\/|live\/|watch\?(?:[^"'\s<>]*?&(?:amp;)?)?v=)|youtu\.be\/)([A-Za-z0-9_-]{11})(?![A-Za-z0-9_-])/g;
+
+/** YouTube video ids referenced in an HTML/text blob (embeds, watch links, youtu.be, shorts). */
+export function extractYoutubeIds(html: string, limit = 5): string[] {
+  const ids: string[] = [];
+  for (const match of html.matchAll(YOUTUBE_ID_PATTERN)) {
+    if (!ids.includes(match[1]) && youtubeVideoIdSchema.safeParse(match[1]).success) ids.push(match[1]);
+    if (ids.length >= limit) break;
+  }
+  return ids;
+}
+
+function attr(node: unknown, name: string): string {
+  return node && typeof node === 'object' ? String((node as Record<string, unknown>)[`@_${name}`] ?? '') : '';
+}
+
+/** First image URL advertised by an RSS/Atom item via Media RSS or an image enclosure. */
+function feedImageUrl(item: Record<string, unknown>): string | undefined {
+  const asList = (value: unknown) => (Array.isArray(value) ? value : value ? [value] : []);
+  const candidates = [
+    ...asList(item['media:content']).filter((m) => attr(m, 'medium') === 'image' || attr(m, 'type').startsWith('image/')),
+    ...asList(item['media:thumbnail']),
+    ...asList((item['media:group'] as Record<string, unknown> | undefined)?.['media:content']),
+    ...asList(item.enclosure).filter((e) => attr(e, 'type').startsWith('image/')),
+  ];
+  for (const candidate of candidates) {
+    const url = safeHttpUrl(attr(candidate, 'url'));
+    if (url) return url;
+  }
+  return undefined;
 }
 
 function clip(value: string, max: number): string {
@@ -113,6 +154,8 @@ export function parseRssXml(xmlText: string): RawRssItem[] {
           link: safeHttpUrl(textOf(item.link)),
           pubDate: item.pubDate ? textOf(item.pubDate) : undefined,
           snippet: stripHtml(textOf(item.description) || textOf(item['content:encoded'])).slice(0, 500),
+          imageUrl: feedImageUrl(item),
+          youtubeIds: extractYoutubeIds(`${textOf(item['content:encoded'])} ${textOf(item.description)}`),
         });
       }
       return items;
@@ -132,6 +175,8 @@ export function parseRssXml(xmlText: string): RawRssItem[] {
           link: safeHttpUrl(String(link ?? '')),
           pubDate: published ? textOf(published) : undefined,
           snippet: stripHtml(textOf(entry.summary) || textOf(entry.content)).slice(0, 500),
+          imageUrl: feedImageUrl(entry),
+          youtubeIds: extractYoutubeIds(`${textOf(entry.content)} ${textOf(entry.summary)}`),
         });
       }
       return items;
@@ -436,6 +481,166 @@ export function sanitizeGeneratedMarkdown(markdown: string, sourceLinks: Iterabl
 }
 
 // ---------------------------------------------------------------------------------------------
+// Source media (Phase 54.2, ADR-0057) — preview images are HOTLINKED, never re-hosted.
+// ---------------------------------------------------------------------------------------------
+
+const ARTICLE_TIMEOUT_MS = 6_000;
+const ARTICLE_MAX_BYTES = 1_500_000;
+const MAX_IMAGES_PER_POST = 6;
+const MAX_VIDEOS_PER_SOURCE = 2;
+const MAX_VIDEOS_PER_POST = 6;
+const EXTRA_IMAGE_HOSTS = /^i[0-3]\.wp\.com$/;
+const SOURCE_NAMES: Record<string, string> = {
+  '3dprintingindustry.com': '3D Printing Industry',
+  'all3dp.com': 'All3DP',
+  'hackaday.com': 'Hackaday',
+  '3dprint.com': '3DPrint.com',
+};
+
+export interface ArticleMedia {
+  imageUrl?: string;
+  youtubeIds: string[];
+}
+
+function bareHost(url: string): string {
+  try {
+    return new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+}
+
+export function sourceNameFor(url: string): string {
+  const host = bareHost(url);
+  return SOURCE_NAMES[host] ?? (host || 'Nguồn');
+}
+
+/** D6: https only, and served from the cited article's own domain (or the WordPress CDN). */
+export function isAllowedSourceImage(imageUrl: string, articleUrl: string): boolean {
+  try {
+    const image = new URL(imageUrl);
+    if (image.protocol !== 'https:') return false;
+    const host = image.hostname.toLowerCase();
+    const articleHost = bareHost(articleUrl);
+    if (!articleHost) return false;
+    return host === articleHost || host.endsWith(`.${articleHost}`) || EXTRA_IMAGE_HOSTS.test(host);
+  } catch {
+    return false;
+  }
+}
+
+/** og:image / twitter:image + YouTube ids from an article page's HTML. */
+export function extractArticleMedia(html: string, pageUrl: string): ArticleMedia {
+  const metas = new Map<string, string>();
+  for (const tag of html.match(/<meta\b[^>]*>/gi) ?? []) {
+    const attrs: Record<string, string> = {};
+    for (const m of tag.matchAll(/([a-zA-Z_:][-\w:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) attrs[m[1].toLowerCase()] = m[2] ?? m[3] ?? '';
+    const key = (attrs.property || attrs.name || '').toLowerCase();
+    if (key && attrs.content && !metas.has(key)) metas.set(key, decodeEntities(attrs.content));
+  }
+  let imageUrl: string | undefined;
+  for (const key of ['og:image:secure_url', 'og:image', 'og:image:url', 'twitter:image', 'twitter:image:src']) {
+    const raw = metas.get(key);
+    if (!raw) continue;
+    try {
+      imageUrl = new URL(raw, pageUrl).toString();
+      break;
+    } catch { /* try next */ }
+  }
+  return { imageUrl, youtubeIds: extractYoutubeIds(html, 3) };
+}
+
+async function readLimitedText(response: Response, maxBytes: number): Promise<string> {
+  if (!response.body) return (await response.text()).slice(0, maxBytes);
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let text = '';
+  let bytes = 0;
+  try {
+    while (bytes < maxBytes) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      text += decoder.decode(value, { stream: true });
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+  return text;
+}
+
+export async function fetchArticleMedia(url: string, fetchImpl: FetchLike = fetch): Promise<ArticleMedia> {
+  try {
+    const response = await fetchImpl(url, {
+      headers: { 'User-Agent': 'BaSa3D-NewsBot/1.0 (+https://basa3d.vn)', Accept: 'text/html' },
+      signal: AbortSignal.timeout(ARTICLE_TIMEOUT_MS),
+    });
+    if (!response.ok || !(response.headers.get('content-type') ?? 'text/html').includes('html')) return { youtubeIds: [] };
+    return extractArticleMedia(await readLimitedText(response, ARTICLE_MAX_BYTES), url);
+  } catch (err) {
+    console.warn(`[AI_NEWS_ARTICLE_MEDIA_FAILED] ${url}`, err instanceof Error ? err.message : err);
+    return { youtubeIds: [] };
+  }
+}
+
+/** D7: fetched while Gemini is writing, so it costs no extra wall-clock time. Never rejects. */
+export async function collectArticleMedia(items: RawRssItem[], fetchImpl: FetchLike = fetch): Promise<Map<string, ArticleMedia>> {
+  const links = [...new Set(items.map((item) => item.link).filter(Boolean))];
+  const results = await Promise.all(links.map(async (link) => [link, await fetchArticleMedia(link, fetchImpl)] as const));
+  return new Map(results);
+}
+
+function mediaId(kind: string, key: string): string {
+  return createHash('sha256').update(`${kind}:${key}`).digest('hex').slice(0, 12);
+}
+
+function citedLinks(markdown: string): Set<string> {
+  const links = new Set<string>();
+  for (const m of markdown.matchAll(/\]\((https?:\/\/[^)\s]+)\)/g)) {
+    const normalized = normalizeLink(m[1]);
+    if (normalized) links.add(normalized);
+  }
+  return links;
+}
+
+/**
+ * Media candidates for the sources the article actually cites (a source that is not cited has no
+ * business illustrating the post). Image: article og:image, else the feed image. Videos: up to 2
+ * per source, deduped. Defaults: every image + the first video of each source are selected; the
+ * reviewer toggles the rest on /admin/blog/review.
+ */
+export function buildMediaCandidates(items: RawRssItem[], articleMedia: Map<string, ArticleMedia>, content: string): BlogMediaItem[] {
+  const cited = citedLinks(content);
+  const seenSources = new Set<string>();
+  const seenVideos = new Set<string>();
+  const images: BlogMediaItem[] = [];
+  const videos: BlogMediaItem[] = [];
+
+  for (const item of items) {
+    const sourceKey = normalizeLink(item.link);
+    if (!sourceKey || !cited.has(sourceKey) || seenSources.has(sourceKey) || !item.link.startsWith('https://')) continue;
+    seenSources.add(sourceKey);
+    const page = articleMedia.get(item.link);
+    const sourceName = sourceNameFor(item.link);
+    const caption = clip(item.title, 300);
+
+    const imageUrl = [page?.imageUrl, item.imageUrl].find((url): url is string => Boolean(url) && isAllowedSourceImage(url as string, item.link));
+    if (imageUrl && images.length < MAX_IMAGES_PER_POST) {
+      images.push({ id: mediaId('img', imageUrl), kind: 'source_image', url: imageUrl, sourceUrl: item.link, sourceName, caption, selected: true });
+    }
+
+    const ids = [...(item.youtubeIds ?? []), ...(page?.youtubeIds ?? [])].filter((id) => !seenVideos.has(id)).slice(0, MAX_VIDEOS_PER_SOURCE);
+    ids.forEach((videoId, idx) => {
+      if (videos.length >= MAX_VIDEOS_PER_POST || seenVideos.has(videoId)) return;
+      seenVideos.add(videoId);
+      videos.push({ id: mediaId('yt', videoId), kind: 'youtube', videoId, sourceUrl: item.link, sourceName, caption, selected: idx === 0 });
+    });
+  }
+
+  return [...images, ...videos].filter((item) => blogMediaItemSchema.safeParse(item).success);
+}
+
+// ---------------------------------------------------------------------------------------------
 // Orchestration
 // ---------------------------------------------------------------------------------------------
 
@@ -490,7 +695,8 @@ export interface SyncDailyNewsResult {
 
 /**
  * 1. Fast path: slug `diem-tin-in-3d-YYYY-MM-DD` exists → SKIPPED (no RSS/Gemini cost).
- * 2. Fetch RSS → 3. Gemini → 4. sanitize + Zod (blogPostInputSchema) → 5. INSERT as DRAFT (D1).
+ * 2. Fetch RSS → 3. Gemini (+ source article media in parallel) → 4. sanitize + Zod
+ *    (blogPostInputSchema) → 5. INSERT as DRAFT (D1) with media candidates for review.
  * The unique constraint on blog_posts.slug is the real idempotency guard (D5): a concurrent run
  * that loses the INSERT race returns SKIPPED instead of a 500.
  */
@@ -522,8 +728,10 @@ export async function syncDaily3DNews(options: {
     throw new DomainError('NO_NEWS_FETCHED', 'Không tìm thấy tin tức mới từ các nguồn RSS.', 502);
   }
 
+  const mediaPromise = collectArticleMedia(items, options.fetchImpl);
   const article = await generateNewsArticleWithGemini(items, { dateStr, fetchImpl: options.fetchImpl, models: options.geminiModels });
   const content = sanitizeGeneratedMarkdown(article.content, items.map((item) => item.link).filter(Boolean));
+  const media = buildMediaCandidates(items, await mediaPromise, content);
   const categoryId = await ensureNewsCategory(actorId);
 
   const input = blogPostInputSchema.parse({
@@ -539,7 +747,8 @@ export async function syncDaily3DNews(options: {
   });
 
   try {
-    const created = await createBlogPost(input, actorId);
+    // `media` is not part of blogPostInputSchema (admin forms never send it) — validated in createBlogPost.
+    const created = await createBlogPost({ ...input, media }, actorId);
     return { status: 'CREATED', slug, postId: created.id, title: input.title, message: 'Đã tạo bài điểm tin ở trạng thái nháp (DRAFT).' };
   } catch (error) {
     if (!isUniqueViolation(error, 'blog_posts_slug_key')) throw error;

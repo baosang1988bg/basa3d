@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
-  BookOpen, Boxes, Calculator, ChevronDown, FileEdit, LayoutDashboard, Layers, Package, Printer,
+  BookOpen, Boxes, Calculator, ChevronDown, ClipboardCheck, FileEdit, LayoutDashboard, Layers, Package, Printer,
   Receipt, ShieldAlert, ShoppingBag, Users,
   Tags, Loader2, Warehouse, FileBox,
 } from 'lucide-react';
@@ -17,6 +17,7 @@ export interface AdminNavBadges {
   pendingOrders?: number;
   customRequestsOpen?: number;
   printJobsActive?: number;
+  blogDrafts?: number;
 }
 
 interface NavItem {
@@ -70,15 +71,26 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/admin/expenses', label: 'Chi tiêu', icon: Receipt, ownerOnly: true },
       { href: '/admin/audit-logs', label: 'Nhật ký hệ thống', icon: ShieldAlert, ownerOnly: true },
       { href: '/admin/blog', label: 'Blog', icon: BookOpen },
+      { href: '/admin/blog/review', label: 'Duyệt bài', icon: ClipboardCheck, badgeKey: 'blogDrafts' },
     ],
   },
 ];
 
 const STORAGE_KEY = 'basa3d_admin_nav_expanded';
 
+const ALL_HREFS = NAV_SECTIONS.flatMap((section) => section.items.map((item) => item.href));
+
+/** Longest matching href wins, so /admin/blog/review highlights "Duyệt bài", not "Blog" too. */
+function resolveActiveHref(pathname: string): string | undefined {
+  return ALL_HREFS
+    .filter((href) => pathname === href || pathname.startsWith(`${href}/`))
+    .sort((a, b) => b.length - a.length)[0];
+}
+
 export function AdminNav({ role, badges = {} }: { role: StaffRole; badges?: AdminNavBadges }) {
   const router = useRouter();
   const pathname = usePathname();
+  const activeHref = resolveActiveHref(pathname);
   const [navigatingHref, setNavigatingHref] = useState<string | null>(null);
 
   // Default: 'Đơn hàng & In' is expanded, others collapsed.
@@ -200,7 +212,7 @@ export function AdminNav({ role, badges = {} }: { role: StaffRole; badges?: Admi
               {isOpen && (
                 <div className="flex flex-col gap-0.5">
                   {visibleItems.map((item) => {
-                    const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                    const isActive = item.href === activeHref;
                     const isNavigatingToThis = navigatingHref === item.href;
                     const badgeCount = item.badgeKey ? badges[item.badgeKey] : undefined;
                     const Icon = item.icon;

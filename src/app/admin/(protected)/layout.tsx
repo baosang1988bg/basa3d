@@ -17,6 +17,7 @@ export default async function ProtectedAdminLayout({ children }: { children: Rea
             pendingOrders: operational.pendingOrders,
             customRequestsOpen: operational.customRequestsOpen,
             printJobsActive: operational.printJobsActive,
+            blogDrafts: operational.blogDrafts,
           }}
         />
         <main className="flex-1 min-w-0 bg-background p-6">{children}</main>

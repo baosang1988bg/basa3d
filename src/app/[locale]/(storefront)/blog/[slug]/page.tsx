@@ -1,10 +1,7 @@
-import Image from 'next/image';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { getPublishedPostBySlug } from '@/services/blog.service';
-import { MARKDOWN_PROSE_CLASSES } from '@/lib/markdown';
+import { BlogArticleView } from '@/components/blog/blog-article-view';
 import { SITE_CONFIG } from '@/config/site';
 import { Breadcrumb } from '@/components/storefront/breadcrumb';
 import { ReadBlogPostTracker } from '@/components/analytics/storefront-trackers';
@@ -54,26 +51,14 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
       <Breadcrumb items={[{ label: 'Trang chủ', href: '/home' }, { label: 'Blog', href: '/blog' }, { label: post.title }]} />
 
-      {post.coverImageUrl && (
-        <div className="aspect-video overflow-hidden rounded-xl bg-muted/50">
-          <Image src={post.coverImageUrl} alt={post.title} width={800} height={450} className="size-full object-cover" priority />
-        </div>
-      )}
-
-      <h1 className="font-heading mt-6 text-2xl font-bold text-foreground md:text-[2rem]">{post.title}</h1>
-      <p className="mt-2 text-sm text-muted-foreground">{new Date(post.publishedAt).toLocaleDateString('vi-VN')}</p>
-
-      <div className={`mt-6 text-base text-foreground ${MARKDOWN_PROSE_CLASSES}`}>
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{post.content}</ReactMarkdown>
-      </div>
-
-      {post.tags.length > 0 && (
-        <div className="mt-8 flex flex-wrap gap-2">
-          {post.tags.map((tag) => (
-            <span key={tag} className="rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground">#{tag}</span>
-          ))}
-        </div>
-      )}
+      <BlogArticleView
+        title={post.title}
+        dateLabel={new Date(post.publishedAt).toLocaleDateString('vi-VN')}
+        coverImageUrl={post.coverImageUrl}
+        content={post.content}
+        tags={post.tags}
+        media={post.media}
+      />
     </article>
   );
 }

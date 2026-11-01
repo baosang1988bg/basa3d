@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
+import type { PoolClient } from 'pg';
 import { query, withTransaction } from '../lib/db';
 import { DomainError } from '../lib/domain-error';
 import { createSupabaseAdminClient } from '../lib/supabase/admin';
 import { writeAuditLog } from './audit.service';
+import { blogMediaListSchema, firstSelectedImageUrl, parseStoredBlogMedia, type BlogMediaItem } from '../lib/blog-media';
 import { pagination } from './product.service';
 
 const BLOG_IMAGE_BUCKET = 'blog-images';
@@ -50,6 +52,8 @@ export async function deleteBlogCoverImage(storagePath: string) {
 export type BlogPostInput = {
   categoryId?: string | null; title: string; slug: string; excerpt?: string | null; content: string;
   tags?: string[]; seoTitle?: string | null; seoDescription?: string | null; status?: string; coverImagePath?: string | null;
+  // Phase 54.2: only the AI news pipeline sets this today; admin forms never send it.
+  media?: BlogMediaItem[];
 };
 
 type BlogCoverFile = { file: Blob; fileName: string } | undefined;
@@ -89,10 +93,11 @@ export async function createBlogPost(input: BlogPostInput, actorId: string | nul
     // plan actually asks for: Post/Category/Tag/Slug/Cover/SEO/Published at, not a scheduler).
     const publishedAt = status === 'PUBLISHED' ? new Date() : null;
     const result = await client.query<{ id: string }>(`
-      insert into blog_posts (category_id, title, slug, excerpt, content, cover_image_path, tags, seo_title, seo_description, status, published_at, created_by)
-      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) returning id`, [
+      insert into blog_posts (category_id, title, slug, excerpt, content, cover_image_path, tags, seo_title, seo_description, status, published_at, created_by, media)
+      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb) returning id`, [
       input.categoryId ?? null, input.title, input.slug, input.excerpt ?? null, input.content, input.coverImagePath ?? null,
       input.tags ?? [], input.seoTitle ?? null, input.seoDescription ?? null, status, publishedAt, actorId,
+      JSON.stringify(blogMediaListSchema.parse(input.media ?? [])),
     ]);
     await writeAuditLog(client, { actorId, action: 'BLOG_POST_CREATED', entityType: 'blog_post', entityId: result.rows[0].id, afterData: input });
     return result.rows[0];
@@ -158,15 +163,19 @@ function resolveCoverImageUrl(storagePath: string | null): string | null {
   return createSupabaseAdminClient().storage.from(BLOG_IMAGE_BUCKET).getPublicUrl(storagePath).data.publicUrl;
 }
 
-type PublishedPostSummary = { id: string; title: string; slug: string; excerpt: string | null; coverImageUrl: string | null; publishedAt: string };
+// previewImageUrl: Phase 54.2 — cover if uploaded, else the first selected (hotlinked) source image.
+type PublishedPostSummary = { id: string; title: string; slug: string; excerpt: string | null; coverImageUrl: string | null; previewImageUrl: string | null; publishedAt: string };
 
 export async function listPublishedPosts(input: { page?: number; limit?: number } = {}) {
   const { page, limit, offset } = pagination(input);
-  const result = await query<{ id: string; title: string; slug: string; excerpt: string | null; coverImagePath: string | null; publishedAt: string }>(`
-    select id, title, slug, excerpt, cover_image_path as "coverImagePath", published_at as "publishedAt"
+  const result = await query<{ id: string; title: string; slug: string; excerpt: string | null; coverImagePath: string | null; publishedAt: string; media: unknown }>(`
+    select id, title, slug, excerpt, cover_image_path as "coverImagePath", published_at as "publishedAt", media
     from blog_posts where status = 'PUBLISHED' and published_at <= now()
     order by published_at desc limit $1 offset $2`, [limit, offset]);
-  const items: PublishedPostSummary[] = result.rows.map((row) => ({ ...row, coverImageUrl: resolveCoverImageUrl(row.coverImagePath) }));
+  const items: PublishedPostSummary[] = result.rows.map(({ media, ...row }) => {
+    const coverImageUrl = resolveCoverImageUrl(row.coverImagePath);
+    return { ...row, coverImageUrl, previewImageUrl: coverImageUrl ?? firstSelectedImageUrl(media) };
+  });
   return { page, limit, items };
 }
 
@@ -179,9 +188,10 @@ export async function listAllPublishedPostSlugs() {
 }
 
 export async function getPublishedPostBySlug(slug: string) {
-  const result = await query<BlogPostDetail>(`
+  const result = await query<BlogPostDetail & { media: unknown }>(`
     select p.id, p.category_id as "categoryId", c.name as "categoryName", p.title, p.slug, p.excerpt, p.content, p.cover_image_path as "coverImagePath",
-      p.tags, p.seo_title as "seoTitle", p.seo_description as "seoDescription", p.status, p.published_at as "publishedAt", p.created_at as "createdAt"
+      p.tags, p.seo_title as "seoTitle", p.seo_description as "seoDescription", p.status, p.published_at as "publishedAt", p.created_at as "createdAt",
+      p.media
     from blog_posts p left join blog_categories c on c.id = p.category_id
     where p.slug = $1 and p.status = 'PUBLISHED' and p.published_at <= now()`, [slug]);
   if (!result.rowCount) return null;
@@ -189,5 +199,94 @@ export async function getPublishedPostBySlug(slug: string) {
   // The `published_at <= now()` filter above guarantees this is non-null for every row this query
   // can return — narrower than BlogPostDetail's general nullable type (a post can be PUBLISHED with
   // published_at unset only transiently, never reachable through this query).
-  return { ...post, publishedAt: post.publishedAt as string, coverImageUrl: resolveCoverImageUrl(post.coverImagePath) };
+  return { ...post, publishedAt: post.publishedAt as string, coverImageUrl: resolveCoverImageUrl(post.coverImagePath), media: parseStoredBlogMedia(post.media) };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Phase 54.2 — review queue (/admin/blog/review). ADR-0057.
+// ---------------------------------------------------------------------------------------------
+
+/** Daily AI news drafts are recognizable by their deterministic slug (ai-news.service). */
+export const AI_NEWS_SLUG_PREFIX = 'diem-tin-in-3d-';
+
+export type DraftReviewSummary = { id: string; title: string; slug: string; createdAt: string; mediaCount: number; isAiNews: boolean };
+
+export async function listDraftPostsForReview(limit = 50): Promise<DraftReviewSummary[]> {
+  const result = await query<{ id: string; title: string; slug: string; createdAt: string; mediaCount: number }>(`
+    select id, title, slug, created_at as "createdAt", jsonb_array_length(media)::int as "mediaCount"
+    from blog_posts where status = 'DRAFT' order by created_at desc limit $1`, [limit]);
+  return result.rows.map((row) => ({ ...row, isAiNews: row.slug.startsWith(AI_NEWS_SLUG_PREFIX) }));
+}
+
+export async function countDraftPosts(): Promise<number> {
+  const result = await query<{ count: string }>(`select count(*) from blog_posts where status = 'DRAFT'`);
+  return Number(result.rows[0]?.count ?? 0);
+}
+
+export async function getBlogPostForReview(id: string) {
+  const post = await getBlogPostById(id);
+  if (!post) return null;
+  const media = await query<{ media: unknown }>('select media from blog_posts where id = $1', [id]);
+  return { ...post, coverImageUrl: resolveCoverImageUrl(post.coverImagePath), media: parseStoredBlogMedia(media.rows[0]?.media) };
+}
+
+async function assertDraftConflict(client: PoolClient, id: string): Promise<never> {
+  const current = await client.query<{ status: string }>('select status from blog_posts where id = $1', [id]);
+  if (!current.rowCount) throw new DomainError('BLOG_POST_NOT_FOUND', 'Bài viết không còn tồn tại.', 404);
+  throw new DomainError('BLOG_POST_NOT_DRAFT', 'Bài viết không còn ở trạng thái nháp (có thể đã được người khác duyệt).', 409);
+}
+
+/**
+ * D8: conditional transition — two reviewers clicking at once publish exactly once; the loser gets
+ * BLOG_POST_NOT_DRAFT instead of a second audit entry. published_at follows the existing rule
+ * (set on the first transition into PUBLISHED, never moved afterwards).
+ */
+export async function publishBlogPostDraft(id: string, actorId: string) {
+  return withTransaction(async (client) => {
+    const updated = await client.query<{ id: string; slug: string; status: string; published_at: Date }>(`
+      update blog_posts set status = 'PUBLISHED', published_at = coalesce(published_at, $2)
+      where id = $1 and status = 'DRAFT' returning id, slug, status, published_at`, [id, new Date()]);
+    if (!updated.rowCount) return assertDraftConflict(client, id);
+    await writeAuditLog(client, {
+      actorId, action: 'BLOG_POST_PUBLISHED', entityType: 'blog_post', entityId: id,
+      beforeData: { status: 'DRAFT' }, afterData: updated.rows[0],
+    });
+    return { id: updated.rows[0].id, slug: updated.rows[0].slug };
+  });
+}
+
+/** D3: rejecting = deleting the DRAFT (never a published post), with an audit trail. */
+export async function rejectBlogDraft(id: string, actorId: string) {
+  const removed = await withTransaction(async (client) => {
+    const deleted = await client.query<{ id: string; title: string; slug: string; excerpt: string | null; cover_image_path: string | null; created_by: string | null; created_at: Date }>(`
+      delete from blog_posts where id = $1 and status = 'DRAFT'
+      returning id, title, slug, excerpt, cover_image_path, created_by, created_at`, [id]);
+    if (!deleted.rowCount) return assertDraftConflict(client, id);
+    await writeAuditLog(client, { actorId, action: 'BLOG_POST_REJECTED', entityType: 'blog_post', entityId: id, beforeData: deleted.rows[0] });
+    return deleted.rows[0];
+  });
+  if (removed.cover_image_path) {
+    await deleteBlogCoverImage(removed.cover_image_path).catch((error) => {
+      console.error('Failed to remove rejected draft cover image.', { storagePath: removed.cover_image_path, error });
+    });
+  }
+  return { id: removed.id, slug: removed.slug };
+}
+
+/** Toggles which attached media are shown. Unknown ids are ignored; the media list itself never changes here. */
+export async function updateBlogPostMediaSelection(id: string, selectedIds: string[], actorId: string) {
+  return withTransaction(async (client) => {
+    const current = await client.query<{ media: unknown }>('select media from blog_posts where id = $1 for update', [id]);
+    if (!current.rowCount) throw new DomainError('BLOG_POST_NOT_FOUND', 'Bài viết không còn tồn tại.', 404);
+    const before = parseStoredBlogMedia(current.rows[0].media);
+    const wanted = new Set(selectedIds);
+    const after = before.map((item) => ({ ...item, selected: wanted.has(item.id) }));
+    await client.query('update blog_posts set media = $2::jsonb where id = $1', [id, JSON.stringify(blogMediaListSchema.parse(after))]);
+    await writeAuditLog(client, {
+      actorId, action: 'BLOG_POST_MEDIA_UPDATED', entityType: 'blog_post', entityId: id,
+      beforeData: { selected: before.filter((m) => m.selected).map((m) => m.id) },
+      afterData: { selected: after.filter((m) => m.selected).map((m) => m.id) },
+    });
+    return { id, selectedCount: after.filter((m) => m.selected).length };
+  });
 }
