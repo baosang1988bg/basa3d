@@ -7,15 +7,9 @@ import {
   BookOpen,
   CheckCircle2,
   Download,
-  Layers,
   Printer,
   RotateCcw,
-  Sparkles,
-  ShieldCheck,
   Package,
-  FileBox,
-  Eye,
-  X,
 } from 'lucide-react';
 import { CustomRequestForm, type CustomRequestPrefill } from '@/app/[locale]/(storefront)/custom-print/custom-request-form';
 import {
@@ -52,12 +46,12 @@ declare global {
   interface Window {
     AFBookHub?: {
       version: string;
-      open: (opts: any) => void;
-      update: (opts: any) => void;
+      open: (opts: Record<string, unknown>) => void;
+      update: (opts: Record<string, unknown>) => void;
       close: () => void;
-      getState?: () => any;
-      getChoiceBase?: () => any;
-      _debug?: () => any;
+      getState?: () => Record<string, unknown>;
+      getChoiceBase?: () => Record<string, unknown>;
+      _debug?: () => unknown;
     };
     __basa3dOrderRequested?: boolean;
   }
@@ -84,7 +78,7 @@ interface ExportResultState {
 /**
  * Resolves the exact user-configured file name from AFBookHub choice payload and DOM input.
  */
-function resolveBookFileName(choice: any): string {
+function resolveBookFileName(choice: Record<string, unknown>): string {
   const domInputVal =
     typeof document !== 'undefined'
       ? (document.querySelector('.afm-fname input') as HTMLInputElement)?.value
@@ -92,13 +86,14 @@ function resolveBookFileName(choice: any): string {
 
   const candidate =
     choice?.fileName ||
-    choice?.state?.fname ||
+    (choice?.state as Record<string, unknown> | undefined)?.fname ||
     domInputVal ||
     choice?.fname ||
     '';
 
   const cleaned = String(candidate)
     .replace(/\.3mf$/i, '')
+    // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001f<>:"/\\|?*&]+/g, ' ')
     .trim();
 
@@ -140,6 +135,7 @@ export default function BookMakerWorkbench() {
       admin: false,
       buttonText: { owned: 'Tải dự án 3MF (Bambu Studio)' },
       foreverText: 'BaSa3D Platform · Đa đĩa in AMS',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       onDownload: async (choice: any) => {
         setLoadingExport(true);
         const baseName = resolveBookFileName(choice);

@@ -95,9 +95,9 @@ export function parseModifierBuffer(data: unknown, type: 'float32' | 'uint32'): 
     return decodeBase64ToTypedArray(data, type);
   }
   if (type === 'float32') {
-    return data instanceof Float32Array ? data : new Float32Array(data as any);
+    return data instanceof Float32Array ? data : new Float32Array(data as ArrayLike<number>);
   }
-  return data instanceof Uint32Array ? data : new Uint32Array(data as any);
+  return data instanceof Uint32Array ? data : new Uint32Array(data as ArrayLike<number>);
 }
 
 /**

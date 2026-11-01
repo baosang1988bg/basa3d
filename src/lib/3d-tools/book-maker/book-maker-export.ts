@@ -194,7 +194,7 @@ export function exportPagesPlate3mf(
   }).join('');
 
   const buildItemsXml = pageParts.map((_, idx) => `<item objectid="${idx + 2}"/>`).join('');
-  const modelXml = `<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:m="http://schemas.microsoft.com/3dmanufacturing/material/2015/02"><resources><m:colorgroup id="1">${distinctColors.map(c => `<m:color color="${c}"/>`).join('')}</m:colorgroup>${meshObjectsXml}</resources><build>${buildItemsXml}</build></model>`;
+  const modelXml = `<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:m="http://schemas.microsoft.com/3dmanufacturing/material/2015/02"><metadata name="Title">${xmlEsc(bookTitle)}</metadata><resources><m:colorgroup id="1">${distinctColors.map(c => `<m:color color="${c}"/>`).join('')}</m:colorgroup>${meshObjectsXml}</resources><build>${buildItemsXml}</build></model>`;
 
   const modelInstancesXml = pageParts.map((_, idx) =>
     `<model_instance><metadata key="object_id" value="${idx + 2}"/><metadata key="instance_id" value="0"/></model_instance>`
@@ -280,7 +280,7 @@ export function exportBookTo3mf(
 
   // Fallback
   const assembled = parts as AssembledBookPart[];
-  const coverParts: BookLayoutPart[] = assembled.filter(p => p.isCover).map((p, i) => ({
+  const coverParts: BookLayoutPart[] = assembled.filter(p => p.isCover).map((p) => ({
     id: p.id,
     name: p.name,
     geometry: p.geometry,
@@ -289,7 +289,7 @@ export function exportBookTo3mf(
     platerId: 1,
     isCoverSubpart: true,
   }));
-  const pageParts: BookLayoutPart[] = assembled.filter(p => !p.isCover).map((p, i) => ({
+  const pageParts: BookLayoutPart[] = assembled.filter(p => !p.isCover).map((p) => ({
     id: p.id,
     name: p.name,
     geometry: p.geometry,

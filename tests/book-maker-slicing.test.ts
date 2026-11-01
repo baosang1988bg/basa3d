@@ -10,8 +10,6 @@ import {
 } from '../src/lib/3d-tools/book-maker/book-maker-geometry';
 import {
   exportBookToBambuMultiPlate3mf,
-  exportCoverFlat3mf,
-  exportPagesPlate3mf,
   exportCompletePackageZip,
 } from '../src/lib/3d-tools/book-maker/book-maker-export';
 import { DEFAULT_BOOK_CONFIG } from '../src/lib/3d-tools/book-maker/book-maker-constants';
@@ -257,7 +255,7 @@ test('exports exactly 8 pages when user selects 8 pages, matching choice payload
     },
   };
 
-  const rawPages = choicePayload.print?.build?.pages ?? choicePayload.state?.pages ?? (choicePayload as any).pages;
+  const rawPages = choicePayload.print?.build?.pages ?? choicePayload.state?.pages ?? (choicePayload as { pages?: number }).pages;
   const pages = typeof rawPages === 'number' && !isNaN(rawPages) ? rawPages : 10;
   assert.equal(pages, 8);
 

@@ -19,6 +19,7 @@ export default tseslint.config(
       '.vnx-data/**',
       '.venv-swarm/**',
       '.swarm/**',
+      'public/**',
     ],
   },
   {

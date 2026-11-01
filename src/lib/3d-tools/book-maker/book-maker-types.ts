@@ -1,3 +1,5 @@
+import type { BufferGeometry } from 'three';
+
 export type BookOrientation = 'V' | 'H';
 
 export interface BookFormatInfo {
@@ -48,7 +50,7 @@ export interface BookDesignModifier {
 export interface BookLayoutPart {
   id: string;
   name: string;
-  geometry: any; // THREE.BufferGeometry
+  geometry: BufferGeometry;
   colorHex: string;
   extruder: number;
   platerId: number;
