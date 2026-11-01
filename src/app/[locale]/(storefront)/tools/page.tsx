@@ -1,12 +1,24 @@
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
-import { Box, Car, CircleUserRound, Cuboid, Download, Grid2X2, Image, KeyRound, Lamp, Layers3, Palette, Puzzle, ScanLine, Scaling, Shapes, Tag, Type, Waves } from 'lucide-react';
+import { BookOpen, Box, Car, CircleUserRound, Cuboid, Download, Grid2X2, Image, KeyRound, Lamp, Layers3, Palette, Puzzle, ScanLine, Scaling, Shapes, Tag, Type, Waves } from 'lucide-react';
 import { Breadcrumb } from '@/components/storefront/breadcrumb';
 import { Link } from '@/i18n/navigation';
 import { storefrontButtonClasses } from '@/components/storefront/button';
 import { applyRequestLocale, type LocaleParams } from '@/i18n/request-locale';
 
-const ICONS = [Tag, Type, Grid2X2, Waves, Puzzle, Box, Image, Shapes, Palette, ScanLine, Scaling, Cuboid, Layers3, CircleUserRound, KeyRound, Car, Lamp, Download];
+const TOOL_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  'keychain-generator': Tag,
+  'organizer': Grid2X2,
+  'jigsaw': Puzzle,
+  'hinge-box': Box,
+  'keychain-blocks': KeyRound,
+  'car-nameplate': Car,
+  'lamp-shade': Lamp,
+  'makerworld-cn': Download,
+  'book-maker': BookOpen,
+};
+
+const ICONS = [Tag, Type, Grid2X2, Waves, Puzzle, Box, Image, Shapes, Palette, ScanLine, Scaling, Cuboid, Layers3, CircleUserRound, KeyRound, Car, Lamp, Download, BookOpen];
 
 export const metadata: Metadata = { title: 'Công cụ thiết kế 3D — BaSa3D' };
 
@@ -15,7 +27,10 @@ export default async function ToolsPage({ params }: { params: LocaleParams }) {
   const t = await getTranslations('tools');
   const tools = t.raw('items') as { name: string; description: string; status: 'available' | 'planned'; slug: string | null }[];
   const sorted = tools
-    .map((tool, index) => ({ tool, icon: ICONS[index] ?? Cuboid }))
+    .map((tool, index) => {
+      const Icon = (tool.slug && TOOL_ICONS[tool.slug]) || ICONS[index] || Cuboid;
+      return { tool, icon: Icon };
+    })
     .sort((a, b) => Number(b.tool.status === 'available') - Number(a.tool.status === 'available'));
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">

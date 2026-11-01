@@ -228,6 +228,50 @@ export function trackJigsawExportToRequest(data: { pieceCount: number }) {
   sendGAEvent('tool_jigsaw_export_to_request', { piece_count: data.pieceCount });
 }
 
+export function trackBookMakerView(): void {
+  sendGAEvent('tool_book_maker_view', { tool_id: 'book-maker' });
+}
+
+export function trackBookMakerConfigChange(data: {
+  formatCode?: string;
+  pageCount?: number;
+  coverType?: string;
+  hasSpinePhoto?: boolean;
+  hasCustomDesign?: boolean;
+}): void {
+  sendGAEvent('tool_book_maker_config_change', {
+    format_code: data.formatCode,
+    page_count: data.pageCount,
+    cover_type: data.coverType,
+    has_spine_photo: Boolean(data.hasSpinePhoto),
+    has_custom_design: Boolean(data.hasCustomDesign),
+  });
+}
+
+export function trackBookMakerExportDownload(data: {
+  formatId: string;
+  pageCount: number;
+  format: '3mf' | 'zip' | 'stl';
+}): void {
+  sendGAEvent('tool_book_maker_export_download', {
+    format_id: data.formatId,
+    page_count: data.pageCount,
+    format: data.format,
+  });
+}
+
+export function trackBookMakerExportToRequest(data: {
+  formatId: string;
+  pageCount: number;
+  estimatedPriceVnd?: number;
+}): void {
+  sendGAEvent('tool_book_maker_export_to_request', {
+    format_id: data.formatId,
+    page_count: data.pageCount,
+    estimated_price_vnd: data.estimatedPriceVnd,
+  });
+}
+
 // Phase 33 S6 — /bao-gia (plan §7). Counts and coarse values only, never file names or contact data.
 export function trackQuoteFileAdded(data: { extension: string; sizeMb: number; fileCount: number }) {
   sendGAEvent('quote_file_added', { file_extension: data.extension, file_size_mb: data.sizeMb, file_count: data.fileCount });

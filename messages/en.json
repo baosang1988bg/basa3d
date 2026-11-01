@@ -365,6 +365,12 @@
         "description": "Extract print profiles, preview plates and download 3MF project files from MakerWorld China.",
         "status": "available",
         "slug": "makerworld-cn"
+      },
+      {
+        "name": "3D Photo Book Studio",
+        "description": "Design custom 3D photo albums for Instax Mini/Square/Wide, Polaroid, 6x9, 10x15. Export multi-plate 3MF projects ready for Bambu Studio AMS.",
+        "status": "available",
+        "slug": "book-maker"
       }
     ]
   },

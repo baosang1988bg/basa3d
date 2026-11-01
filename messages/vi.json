@@ -365,6 +365,12 @@
         "description": "Bóc tách thông số bàn in, xem trước chi tiết và hỗ trợ tải file 3MF từ MakerWorld nội địa Trung Quốc.",
         "status": "available",
         "slug": "makerworld-cn"
+      },
+      {
+        "name": "Sách ảnh 3D (Photo Book)",
+        "description": "Tự thiết kế album sách ảnh in 3D cho ảnh Instax Mini/Square/Wide, Polaroid, 6x9, 10x15. Xuất dự án 3MF đa đĩa chuẩn Bambu Studio AMS.",
+        "status": "available",
+        "slug": "book-maker"
       }
     ]
   },

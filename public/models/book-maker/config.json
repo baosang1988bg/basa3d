@@ -1,0 +1,552 @@
+{
+ "slug": "book-hub",
+ "title": "BOOK HUB",
+ "version": 12,
+ "geometry": "formats.json",
+ "pages": {
+  "min": 2,
+  "max": 20
+ },
+ "defaults": {
+  "dir": "V",
+  "code": "MINI",
+  "pages": 10,
+  "front": "blank",
+  "hinge": "snap"
+ },
+ "materials": {
+  "cover": {
+   "color": "#F28DB2",
+   "rough": 0.5
+  },
+  "page": {
+   "color": "#F3F2EE",
+   "rough": 0.55
+  }
+ },
+ "camera": {
+  "elevation": 34,
+  "fov": 30
+ },
+ "palette": [
+  {
+   "id": "black",
+   "label": "Black",
+   "hex": "#1E1E20"
+  },
+  {
+   "id": "charcoal",
+   "label": "Charcoal",
+   "hex": "#36373B"
+  },
+  {
+   "id": "darkgrey",
+   "label": "Dark grey",
+   "hex": "#4A4A4F"
+  },
+  {
+   "id": "grey",
+   "label": "Grey",
+   "hex": "#8E9095"
+  },
+  {
+   "id": "silver",
+   "label": "Silver",
+   "hex": "#A9ACAF"
+  },
+  {
+   "id": "lightgrey",
+   "label": "Light grey",
+   "hex": "#C9CACC"
+  },
+  {
+   "id": "white",
+   "label": "White",
+   "hex": "#F3F2EE"
+  },
+  {
+   "id": "ivory",
+   "label": "Ivory",
+   "hex": "#EFE6D2"
+  },
+  {
+   "id": "cream",
+   "label": "Cream",
+   "hex": "#F6EDC0"
+  },
+  {
+   "id": "beige",
+   "label": "Beige",
+   "hex": "#E8CFA8"
+  },
+  {
+   "id": "sand",
+   "label": "Sand",
+   "hex": "#D3B98E"
+  },
+  {
+   "id": "tan",
+   "label": "Tan",
+   "hex": "#B98E62"
+  },
+  {
+   "id": "caramel",
+   "label": "Caramel",
+   "hex": "#A9682F"
+  },
+  {
+   "id": "brown",
+   "label": "Brown",
+   "hex": "#7A4E2D"
+  },
+  {
+   "id": "darkbrown",
+   "label": "Dark brown",
+   "hex": "#4A3020"
+  },
+  {
+   "id": "bronze",
+   "label": "Bronze",
+   "hex": "#8C6A3F"
+  },
+  {
+   "id": "gold",
+   "label": "Gold",
+   "hex": "#C9A13B"
+  },
+  {
+   "id": "skinlight",
+   "label": "Skin light",
+   "hex": "#F3D3BC"
+  },
+  {
+   "id": "skin",
+   "label": "Skin",
+   "hex": "#E9B99A"
+  },
+  {
+   "id": "skintan",
+   "label": "Skin tan",
+   "hex": "#C68E6A"
+  },
+  {
+   "id": "skindeep",
+   "label": "Skin deep",
+   "hex": "#8D5A3B"
+  },
+  {
+   "id": "burgundy",
+   "label": "Burgundy",
+   "hex": "#6B1F2E"
+  },
+  {
+   "id": "darkred",
+   "label": "Dark red",
+   "hex": "#8E1B2B"
+  },
+  {
+   "id": "red",
+   "label": "Red",
+   "hex": "#D62839"
+  },
+  {
+   "id": "brightred",
+   "label": "Bright red",
+   "hex": "#EE3124"
+  },
+  {
+   "id": "coral",
+   "label": "Coral",
+   "hex": "#F2735E"
+  },
+  {
+   "id": "salmon",
+   "label": "Salmon",
+   "hex": "#F49A85"
+  },
+  {
+   "id": "peach",
+   "label": "Peach",
+   "hex": "#F6B48F"
+  },
+  {
+   "id": "pumpkin",
+   "label": "Pumpkin",
+   "hex": "#E05E1B"
+  },
+  {
+   "id": "orange",
+   "label": "Orange",
+   "hex": "#F07D2A"
+  },
+  {
+   "id": "amber",
+   "label": "Amber",
+   "hex": "#F5A623"
+  },
+  {
+   "id": "yellow",
+   "label": "Yellow",
+   "hex": "#F2C230"
+  },
+  {
+   "id": "sunflower",
+   "label": "Sunflower",
+   "hex": "#F7D417"
+  },
+  {
+   "id": "lemon",
+   "label": "Lemon",
+   "hex": "#F4E46A"
+  },
+  {
+   "id": "olive",
+   "label": "Olive",
+   "hex": "#7E7B2E"
+  },
+  {
+   "id": "lime",
+   "label": "Lime",
+   "hex": "#9BCB3C"
+  },
+  {
+   "id": "lightgreen",
+   "label": "Light green",
+   "hex": "#A8D88A"
+  },
+  {
+   "id": "grass",
+   "label": "Grass green",
+   "hex": "#4CAF50"
+  },
+  {
+   "id": "green",
+   "label": "Green",
+   "hex": "#2F9E55"
+  },
+  {
+   "id": "darkgreen",
+   "label": "Dark green",
+   "hex": "#1F5E3A"
+  },
+  {
+   "id": "forest",
+   "label": "Forest",
+   "hex": "#20402B"
+  },
+  {
+   "id": "mint",
+   "label": "Mint",
+   "hex": "#9ED9C0"
+  },
+  {
+   "id": "teal",
+   "label": "Teal",
+   "hex": "#138A86"
+  },
+  {
+   "id": "turquoise",
+   "label": "Turquoise",
+   "hex": "#1FA3A3"
+  },
+  {
+   "id": "cyan",
+   "label": "Cyan",
+   "hex": "#2BB6D9"
+  },
+  {
+   "id": "sky",
+   "label": "Sky blue",
+   "hex": "#7EC8E3"
+  },
+  {
+   "id": "ice",
+   "label": "Ice blue",
+   "hex": "#C4E6F2"
+  },
+  {
+   "id": "lightblue",
+   "label": "Light blue",
+   "hex": "#6FA8DC"
+  },
+  {
+   "id": "blue",
+   "label": "Blue",
+   "hex": "#2F6FD6"
+  },
+  {
+   "id": "cobalt",
+   "label": "Cobalt",
+   "hex": "#1C4FB0"
+  },
+  {
+   "id": "navy",
+   "label": "Navy",
+   "hex": "#1E2F5E"
+  },
+  {
+   "id": "indigo",
+   "label": "Indigo",
+   "hex": "#3A3F8F"
+  },
+  {
+   "id": "lavender",
+   "label": "Lavender",
+   "hex": "#B6A4E0"
+  },
+  {
+   "id": "lilac",
+   "label": "Lilac",
+   "hex": "#C8A2D6"
+  },
+  {
+   "id": "purple",
+   "label": "Purple",
+   "hex": "#7B4FC9"
+  },
+  {
+   "id": "violet",
+   "label": "Violet",
+   "hex": "#5B2C8F"
+  },
+  {
+   "id": "plum",
+   "label": "Plum",
+   "hex": "#6E2C5A"
+  },
+  {
+   "id": "magenta",
+   "label": "Magenta",
+   "hex": "#D13C8F"
+  },
+  {
+   "id": "hotpink",
+   "label": "Hot pink",
+   "hex": "#E8458B"
+  },
+  {
+   "id": "pink",
+   "label": "Pink",
+   "hex": "#F28DB2"
+  },
+  {
+   "id": "babypink",
+   "label": "Baby pink",
+   "hex": "#F6C6D6"
+  },
+  {
+   "id": "rose",
+   "label": "Rose",
+   "hex": "#C9566E"
+  }
+ ],
+ "fonts": [
+  {
+   "id": "bubble",
+   "label": "Bubble",
+   "css": "400 100px 'Luckiest Guy', 'Arial Black', sans-serif",
+   "google": "Luckiest+Guy"
+  },
+  {
+   "id": "round",
+   "label": "Round",
+   "css": "700 100px 'Fredoka', 'Arial Black', sans-serif",
+   "google": "Fredoka:wght@700"
+  },
+  {
+   "id": "block",
+   "label": "Block",
+   "css": "400 100px 'Bungee', 'Arial Black', sans-serif",
+   "google": "Bungee"
+  },
+  {
+   "id": "candy",
+   "label": "Candy",
+   "css": "400 100px 'Lilita One', 'Arial Black', sans-serif",
+   "google": "Lilita+One"
+  },
+  {
+   "id": "chunky",
+   "label": "Chunky",
+   "css": "400 100px 'Titan One', 'Arial Black', sans-serif",
+   "google": "Titan+One"
+  },
+  {
+   "id": "sport",
+   "label": "Sport",
+   "css": "400 100px 'Russo One', 'Arial Black', sans-serif",
+   "google": "Russo+One"
+  },
+  {
+   "id": "cartoon",
+   "label": "Cartoon",
+   "css": "400 100px 'Chewy', 'Arial Black', sans-serif",
+   "google": "Chewy"
+  },
+  {
+   "id": "soft",
+   "label": "Soft",
+   "css": "800 100px 'Baloo 2', 'Arial Black', sans-serif",
+   "google": "Baloo+2:wght@800"
+  },
+  {
+   "id": "retro",
+   "label": "Retro",
+   "css": "400 100px 'Righteous', 'Arial Black', sans-serif",
+   "google": "Righteous"
+  },
+  {
+   "id": "heavy",
+   "label": "Heavy",
+   "css": "400 100px 'Archivo Black', 'Arial Black', sans-serif",
+   "google": "Archivo+Black"
+  },
+  {
+   "id": "modern",
+   "label": "Modern",
+   "css": "900 100px 'Montserrat', 'Arial Black', sans-serif",
+   "google": "Montserrat:wght@900"
+  },
+  {
+   "id": "tall",
+   "label": "Tall",
+   "css": "400 100px 'Bebas Neue', 'Arial Black', sans-serif",
+   "google": "Bebas+Neue"
+  },
+  {
+   "id": "slab",
+   "label": "Slab",
+   "css": "400 100px 'Alfa Slab One', 'Arial Black', sans-serif",
+   "google": "Alfa+Slab+One"
+  },
+  {
+   "id": "tech",
+   "label": "Tech",
+   "css": "900 100px 'Orbitron', 'Arial Black', sans-serif",
+   "google": "Orbitron:wght@900"
+  },
+  {
+   "id": "pixel",
+   "label": "Pixel",
+   "css": "400 100px 'Press Start 2P', 'Arial Black', sans-serif",
+   "google": "Press+Start+2P"
+  },
+  {
+   "id": "marker",
+   "label": "Marker",
+   "css": "400 100px 'Permanent Marker', 'Arial Black', sans-serif",
+   "google": "Permanent+Marker"
+  },
+  {
+   "id": "brush",
+   "label": "Brush",
+   "css": "400 100px 'Knewave', 'Arial Black', sans-serif",
+   "google": "Knewave"
+  },
+  {
+   "id": "script",
+   "label": "Script",
+   "css": "400 100px 'Shrikhand', 'Arial Black', sans-serif",
+   "google": "Shrikhand"
+  },
+  {
+   "id": "groovy",
+   "label": "Groovy",
+   "css": "900 100px 'Gluten', 'Arial Black', sans-serif",
+   "google": "Gluten:wght@900"
+  },
+  {
+   "id": "spooky",
+   "label": "Spooky",
+   "css": "400 100px 'Creepster', 'Arial Black', sans-serif",
+   "google": "Creepster"
+  }
+ ],
+ "fontsVisible": 9,
+ "colors": {
+  "cover": {
+   "label": "Cover color",
+   "default": "pink",
+   "swatches": [
+    "pink",
+    "hotpink",
+    "red",
+    "orange",
+    "yellow",
+    "lime",
+    "green",
+    "turquoise",
+    "sky",
+    "blue",
+    "navy",
+    "purple",
+    "black",
+    "white",
+    "brown",
+    "gold"
+   ]
+  },
+  "page": {
+   "label": "Pages color",
+   "default": "white",
+   "swatches": [
+    "white",
+    "ivory",
+    "cream",
+    "lightgrey",
+    "babypink",
+    "ice",
+    "mint",
+    "lemon",
+    "peach",
+    "lavender",
+    "grey",
+    "black"
+   ]
+  },
+  "text": {
+   "label": "Text color",
+   "default": "white",
+   "swatches": [
+    "white",
+    "black",
+    "red",
+    "orange",
+    "yellow",
+    "green",
+    "turquoise",
+    "blue",
+    "navy",
+    "purple",
+    "pink",
+    "gold",
+    "brown",
+    "grey"
+   ]
+  }
+ },
+ "drawColors": [
+  "black",
+  "white",
+  "red",
+  "orange",
+  "yellow",
+  "green",
+  "turquoise",
+  "blue",
+  "purple",
+  "pink",
+  "brown",
+  "gold"
+ ],
+ "lettering": {
+  "defaultFont": "round",
+  "defaultColor": "white",
+  "maxLen": 60,
+  "depth": 0.8
+ },
+ "image": {
+  "maxColors": 6,
+  "defaultColors": 4
+ }
+}

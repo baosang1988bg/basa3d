@@ -49,3 +49,5 @@ docs/rea/*/evidence/
 
 # Local 3D demo cases
 .demo-cases/
+
+cloned-targets/

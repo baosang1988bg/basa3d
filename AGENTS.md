@@ -94,6 +94,12 @@ of `PHASE_START_PROTOCOL.md` directly from a freshly-drafted
 decisions instead of hand-writing the prompt each time. Use it right after
 drafting a phase's decisions, before running `codex-handoff`.
 
+## Launch marketing skill
+`.agents/skills/launch-marketing/SKILL.md` (mirrored at
+`.claude/skills/launch-marketing/`) adapts the practical Go-to-Market mechanics
+(CAC cap, channel strategy for VN, 30-day launch calendar, video hooks) tailored
+for BaSa3D's print service, tools, and `/bao-gia` capabilities.
+
 ## Spec Kit & `/speckit-auto` (feature mới)
 GitHub Spec Kit v1.2.2 is installed for spec-driven feature work: `.specify/` (templates,
 bash scripts, constitution at `.specify/memory/constitution.md` — derived from this file;
