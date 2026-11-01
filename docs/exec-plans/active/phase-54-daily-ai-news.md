@@ -1,6 +1,6 @@
 # Phase 54 — Daily AI 3D News Cron & Auto-Draft (Cập nhật tin tức in 3D hằng ngày)
 
-**Status:** Code implemented & verified (2026-10-30) — sẵn sàng để OWNER cấu hình GEMINI_API_KEY và kiểm tra nghiệm thu  
+**Status:** Code implemented 2026-10-30; hardened in Phase 54.1 (`phase-54-1-ai-news-hardening.md`) — AUTO_PUBLISH đã bị bỏ, model chain đổi — sẵn sàng để OWNER cấu hình GEMINI_API_KEY và kiểm tra nghiệm thu  
 **Owner:** Gemini (kế hoạch & implementation)  
 **Trigger:** Yêu cầu từ OWNER: cập nhật tin tức, xu hướng in 3D hàng ngày cho BaSa3D một cách tự động, hỗ trợ SEO và giữ chân khách hàng.
 

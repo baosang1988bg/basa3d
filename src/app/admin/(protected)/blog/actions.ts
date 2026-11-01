@@ -5,22 +5,31 @@ import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/auth/require-admin';
 import { blogCategoryInputSchema, blogPostInputSchema, blogPostUpdateInputSchema } from '@/domain/schemas';
 import { createBlogCategory, createBlogPostWithCover, updateBlogPostWithCover } from '@/services/blog.service';
-import { syncDaily3DNews } from '@/services/ai-news.service';
+import { claimManualNewsSync, syncDaily3DNews } from '@/services/ai-news.service';
 
+const DAILY_NEWS_ERROR_MESSAGES: Record<string, string> = {
+  GEMINI_NOT_CONFIGURED: 'Chưa cấu hình GEMINI_API_KEY trên server.',
+  GEMINI_AUTH_ERROR: 'GEMINI_API_KEY không hợp lệ hoặc không có quyền truy cập model.',
+  NO_NEWS_FETCHED: 'Không lấy được tin mới từ các nguồn RSS. Vui lòng thử lại sau.',
+  GEMINI_BUDGET_EXHAUSTED: 'Gemini phản hồi quá chậm. Vui lòng thử lại sau.',
+};
+
+// Phase 54.1: no `force` (C1) — a second click on the same day returns SKIPPED instead of a
+// unique-violation error. Cooldown (D2) protects the Gemini quota from repeated clicks.
 export async function triggerDailyNewsSyncAction(): Promise<{ success: boolean; message: string; slug?: string }> {
   const { actorId } = await requireAdmin();
+  const claim = await claimManualNewsSync(actorId);
+  if (!claim.claimed) {
+    return { success: false, message: `Vừa có lượt quét gần đây. Vui lòng thử lại sau ${Math.ceil(claim.retryAfterSeconds / 60)} phút.` };
+  }
   try {
-    const result = await syncDaily3DNews({ actorId, force: true });
-    revalidatePath('/admin/blog');
-    revalidatePath('/blog');
-    return {
-      success: true,
-      message: result.message || `Đã tạo bài điểm tin: ${result.slug}`,
-      slug: result.slug,
-    };
+    const result = await syncDaily3DNews({ actorId });
+    if (result.status === 'CREATED') revalidatePath('/admin/blog');
+    return { success: true, message: result.message, slug: result.slug };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return { success: false, message };
+    const code = (error as { code?: string })?.code ?? 'UNKNOWN';
+    console.error('[DAILY_NEWS_MANUAL_SYNC_FAILED]', { code, message: error instanceof Error ? error.message : String(error) });
+    return { success: false, message: DAILY_NEWS_ERROR_MESSAGES[code] ?? `Không tạo được bài điểm tin (mã lỗi: ${code}).` };
   }
 }
 

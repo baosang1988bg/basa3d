@@ -6,7 +6,8 @@ import test from 'node:test';
 import { resolveBuildInfo, resolveDeployPlatform } from '../src/config/resolve-build-info.mjs';
 import { getClientIp } from '../src/lib/rate-limit.js';
 import { config as netlifyCronConfig, resolveCronTarget } from '../netlify/functions/cleanup-orphan-uploads.mjs';
-import { config as netlifyDailyNewsConfig, resolveCronTarget as resolveDailyNewsTarget } from '../netlify/functions/daily-3d-news.mjs';
+import { config as netlifyDailyNewsConfig, resolveBackgroundTarget as resolveDailyNewsBackground } from '../netlify/functions/daily-3d-news.mjs';
+import { resolveCronTarget as resolveDailyNewsTarget, runDailyNewsBackground } from '../netlify/functions/daily-3d-news-run-background.mjs';
 import { failingSecurityHeaders, versionPayloadError } from '../scripts/deploy/smoke-netlify.mjs';
 import { securityHeaders } from '../next.config.mjs';
 
@@ -73,6 +74,34 @@ test('Netlify scheduled cleanup keeps the exact vercel.json cron schedule and pa
   assert.ok(newsCron, 'vercel.json daily-3d-news cron entry missing');
   assert.equal(netlifyDailyNewsConfig.schedule, newsCron.schedule);
   assert.equal(resolveDailyNewsTarget({ URL: 'https://basa3d.netlify.app' }), `https://basa3d.netlify.app${newsCron.path}`);
+});
+
+// Phase 54.1 D4: the scheduled function (30s limit) only dispatches the background function.
+test('Netlify daily news: scheduled fn targets the background fn, which fails closed without CRON_SECRET', async () => {
+  assert.equal(
+    resolveDailyNewsBackground({ URL: 'https://basa3d.netlify.app', NEXT_PUBLIC_SITE_URL: 'https://basa3d.vn' }),
+    'https://basa3d.netlify.app/.netlify/functions/daily-3d-news-run-background',
+  );
+  assert.equal(resolveDailyNewsBackground({}), null);
+
+  const env = { CRON_SECRET: 'background-test-secret-0123456789', URL: 'https://basa3d.netlify.app' };
+  const calls: string[] = [];
+  const fakeFetch = (async (url: string) => {
+    calls.push(String(url));
+    return new Response('{"status":"CREATED"}', { status: 200 });
+  }) as typeof fetch;
+
+  const noAuth = await runDailyNewsBackground(new Request('https://x/', { method: 'POST' }), env, fakeFetch);
+  assert.equal(noAuth.status, 401);
+  const wrong = await runDailyNewsBackground(new Request('https://x/', { method: 'POST', headers: { authorization: 'Bearer wrong-secret-0123456789' } }), env, fakeFetch);
+  assert.equal(wrong.status, 401);
+  const noSecret = await runDailyNewsBackground(new Request('https://x/', { method: 'POST', headers: { authorization: 'Bearer ' } }), { URL: env.URL }, fakeFetch);
+  assert.equal(noSecret.status, 401);
+  assert.equal(calls.length, 0, 'unauthorized requests must never reach the cron route');
+
+  const ok = await runDailyNewsBackground(new Request('https://x/', { method: 'POST', headers: { authorization: `Bearer ${env.CRON_SECRET}` } }), env, fakeFetch);
+  assert.equal(ok.status, 200);
+  assert.deepEqual(calls, ['https://basa3d.netlify.app/api/cron/daily-3d-news']);
 });
 
 test('cron target prefers the canonical site URL and fails closed when nothing is configured', () => {

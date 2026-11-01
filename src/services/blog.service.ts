@@ -15,7 +15,8 @@ export async function listBlogCategories() {
   return result.rows;
 }
 
-export async function createBlogCategory(input: { name: string; slug: string }, actorId: string) {
+// actorId null = system job (Phase 54.1 D3: daily AI news cron) — audit_logs.actor_id has no FK.
+export async function createBlogCategory(input: { name: string; slug: string }, actorId: string | null) {
   return withTransaction(async (client) => {
     const result = await client.query<{ id: string }>('insert into blog_categories (name, slug) values ($1,$2) returning id', [input.name, input.slug]);
     await writeAuditLog(client, { actorId, action: 'BLOG_CATEGORY_CREATED', entityType: 'blog_category', entityId: result.rows[0].id, afterData: input });
@@ -80,7 +81,7 @@ export async function updateBlogPostWithCover(id: string, input: Partial<BlogPos
   }
 }
 
-export async function createBlogPost(input: BlogPostInput, actorId: string) {
+export async function createBlogPost(input: BlogPostInput, actorId: string | null) {
   return withTransaction(async (client) => {
     const status = input.status ?? 'DRAFT';
     // published_at is set automatically the first time a post becomes PUBLISHED — no separate

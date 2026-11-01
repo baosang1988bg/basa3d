@@ -1064,3 +1064,30 @@ search traffic (SEO) and customer engagement without requiring hours of manual d
 
 **Migration cost.** Additive. No database schema migrations required (reuses Phase 7 `blog_posts`).
 
+
+### ADR-0056 addendum — Phase 54.1 hardening (2026-11-01)
+
+Follow-up review of `e441943` (`docs/exec-plans/active/phase-54-1-ai-news-hardening.md`). Supersedes
+points 1, 3 and 4 above where they conflict:
+1. **Always `DRAFT`.** `AUTO_PUBLISH_DAILY_NEWS` removed — RSS text reaches the prompt, so a human
+   review is the last line against injected spam/phishing links.
+2. **Idempotency = `blog_posts.slug` unique constraint.** The pre-SELECT is only a fast path; a run
+   that loses the INSERT race (`23505 blog_posts_slug_key`) returns `SKIPPED_ALREADY_EXISTS`.
+   No advisory lock around the Gemini call (would hold a transaction open 30–60s through the pooler).
+   The admin button no longer passes `force`.
+3. **AI output is external input.** Validated by `generatedArticleSchema` + `blogPostInputSchema`,
+   then `sanitizeGeneratedMarkdown` keeps only links to the RSS source URLs / BaSa3D and drops
+   images, raw HTML and reference definitions.
+4. **Bounded runtime.** Gemini chain has a 50s total budget (25s per model); 400/401/403 stop the
+   chain, 404/408/429/5xx/timeouts fall back. Key only in `x-goog-api-key`, never in the URL.
+   Default chain `gemini-3.8-flash → gemini-3.5-flash-lite → gemini-2.5-flash`, override with
+   `GEMINI_NEWS_MODELS` (CSV). Route `maxDuration = 60`.
+5. **Netlify:** the scheduled function (30s limit) only dispatches
+   `daily-3d-news-run-background` (15 min), which checks `CRON_SECRET` before calling the route.
+6. **System actor = `null`.** `createBlogPost`/`createBlogCategory` accept `actorId: string | null`.
+7. **Manual trigger cooldown:** 5 minutes, claimed atomically (`pg_advisory_xact_lock`) and
+   recorded as `audit_logs.action = 'DAILY_NEWS_SYNC_TRIGGERED'`.
+
+**Migration cost.** None for the DB. Netlify needs no new env vars; the new background function is
+picked up from `netlify/functions/`. Remove `AUTO_PUBLISH_DAILY_NEWS` / `GEMINI_NEWS_MODEL` from env
+if set (`GEMINI_NEWS_MODEL` is still read as a fallback).
