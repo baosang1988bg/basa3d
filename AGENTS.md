@@ -41,6 +41,13 @@ pinned in `.agents/skills/cad/requirements.txt`.
 Example prompt: "Use the cad skill to draft a 20 mm cube with a centered
 6 mm through-hole along Z, and export STEP and STL for internal review."
 
+## Blender 3D & Product Rendering skill
+`.agents/skills/blender/SKILL.md` (mirrored at `.claude/skills/blender/`) is the
+Blender skill via `ahujasid/mcp-for-blender`. Use it for product mockups,
+photorealistic filament/studio rendering, and organic/aesthetic 3D modeling
+(decor, figurines, reliefs). For parametric CAD, use `.agents/skills/cad/`.
+Configured in `.mcp.json` and `~/.gemini/config/mcp_config.json`.
+
 ## Reverse-engineering skill (REA)
 `.agents/skills/reverse-engineer-anything/` (copied to `.claude/skills/`) is the
 bundled skill of `morluto/rea` (`rea-agents@6.7.0`, MIT). The MCP server is
