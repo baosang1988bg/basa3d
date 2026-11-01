@@ -157,6 +157,7 @@ Report:
 5. follow-up work, if any
 
 ## Git
+- **Branching workflow (quy tắc bắt buộc)**: Mọi tính năng / bugfix / task mới **PHẢI** branch từ branch `dev` (ví dụ: `feat/...`, `fix/...`). Chỉ khi nào hoàn thành và check done (lint, typecheck, test, build xanh) mới được merge vào branch `netlify`.
 Prefer small commits using Conventional Commits, e.g.:
 - `chore: initialize project`
 - `feat: add product catalog schema`
