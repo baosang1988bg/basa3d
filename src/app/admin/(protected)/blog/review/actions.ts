@@ -24,7 +24,8 @@ function toResult(error: unknown): ReviewDecisionResult {
 export async function approveBlogPostAction(id: string): Promise<ReviewDecisionResult> {
   const { actorId } = await requireAdmin();
   try {
-    const result = await publishBlogPostDraft(parseActionId(id), actorId);
+    id = parseActionId(id);
+    const result = await publishBlogPostDraft(id, actorId);
     revalidateBlogViews();
     return { ok: true, message: 'Đã duyệt và đăng bài.', slug: result.slug };
   } catch (error) {
@@ -35,7 +36,8 @@ export async function approveBlogPostAction(id: string): Promise<ReviewDecisionR
 export async function rejectBlogDraftAction(id: string): Promise<ReviewDecisionResult> {
   const { actorId } = await requireAdmin();
   try {
-    await rejectBlogDraft(parseActionId(id), actorId);
+    id = parseActionId(id);
+    await rejectBlogDraft(id, actorId);
     revalidateBlogViews();
     return { ok: true, message: 'Đã từ chối và xoá bản nháp.' };
   } catch (error) {
@@ -47,8 +49,8 @@ const MEDIA_ID_PATTERN = /^[a-f0-9]{12}$/;
 
 export async function updateBlogMediaSelectionAction(id: string, formData: FormData): Promise<void> {
   const { actorId } = await requireAdmin();
-  const postId = parseActionId(id);
+  id = parseActionId(id);
   const selected = formData.getAll('media').filter((value): value is string => typeof value === 'string' && MEDIA_ID_PATTERN.test(value));
-  await updateBlogPostMediaSelection(postId, selected.slice(0, 20), actorId);
+  await updateBlogPostMediaSelection(id, selected.slice(0, 20), actorId);
   revalidatePath('/admin/blog/review');
 }
