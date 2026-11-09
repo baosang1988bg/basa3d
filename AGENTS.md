@@ -117,6 +117,14 @@ Ollama lint fix) behind 2 human approval gates, in its own worktree under `../Ba
 committing locally only — no push, no deploy. See `docs/RUNBOOK_SWARM.md`.
 Never edit `tools/swarm/` through the swarm itself (blocked on purpose).
 
+## Parallel Code & Task Management
+Khi sử dụng **Parallel Code** (`johannesjo/parallel-code`) để quản lý task và chạy song song các agent CLI:
+- Quản lý thẻ task tại file `KANBAN.md` ở thư mục gốc (tự động đồng bộ với Kanban board của app).
+- Mọi nhánh tạo từ thẻ phải xuất phát từ `dev` (`branch: feat/...` hoặc `branch: fix/...`).
+- Mỗi worktree tự động dùng `node_modules` và `.env*` qua symlink; nếu thiếu, chạy `npm run worktree:prepare`.
+- Trước khi đóng task hoặc kéo sang Review, bắt buộc chạy `npm run check:agent` (`lint` + `typecheck` + `test`).
+- Chi tiết xem tại `docs/RUNBOOK_PARALLEL_CODE.md`.
+
 ## Stack
 - Next.js + TypeScript
 - PostgreSQL / Supabase

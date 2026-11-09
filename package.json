@@ -13,7 +13,9 @@
     "test": "tsx tests/helpers/test-runner.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test:db:setup": "tsx scripts/test-db-setup.ts"
+    "test:db:setup": "tsx scripts/test-db-setup.ts",
+    "check:agent": "npm run lint && npm run typecheck && npm test",
+    "worktree:prepare": "bash scripts/worktree-setup.sh"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
