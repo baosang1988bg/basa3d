@@ -61,8 +61,8 @@ import {
   deleteCatalogProductAction,
   mergeCatalogProductsAction,
   quickUpdateCatalogProductAction,
-} from '@/app/admin/(protected)/products/actions';
-import { createProductOnboardingAction, publishProductAction } from '@/app/admin/(protected)/products/new/actions';
+} from '@/app/basaadmin/(protected)/products/actions';
+import { createProductOnboardingAction, publishProductAction } from '@/app/basaadmin/(protected)/products/new/actions';
 
 export type CatalogUiItem = CatalogListItem & {
   coverUrl: string | null;
@@ -252,7 +252,7 @@ export function ProductsCatalogManager({
     if (filters.sort && filters.sort !== 'default') query.set('sort', filters.sort);
     if (value !== 'ALL') query.set('status', value);
     const text = query.toString();
-    return text ? `/admin/products?${text}` : '/admin/products';
+    return text ? `/basaadmin/products?${text}` : '/basaadmin/products';
   }
 
   function toggleSelect(id: string, shiftKey: boolean) {
@@ -516,16 +516,16 @@ export function ProductsCatalogManager({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Link href="/admin/product-inventory" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+          <Link href="/basaadmin/product-inventory" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
             <Boxes className="mr-1.5 size-4" /> Kho &amp; giá
           </Link>
-          <Link href="/admin/stl-import" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+          <Link href="/basaadmin/stl-import" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
             <Sparkles className="mr-1.5 size-4" /> Kho nhập STL
           </Link>
           <Button type="button" variant="outline" size="sm" onClick={() => setQuickCreateOpen(true)}>
             <Plus className="mr-1.5 size-4" /> Thêm nhanh
           </Button>
-          <Link href="/admin/products/new" className={buttonVariants({ size: 'sm' })}>
+          <Link href="/basaadmin/products/new" className={buttonVariants({ size: 'sm' })}>
             <Plus className="mr-1.5 size-4" /> Đăng sản phẩm mới
           </Link>
         </div>
@@ -614,7 +614,7 @@ export function ProductsCatalogManager({
           <Button type="submit" variant="outline" size="sm" className="h-9">Lọc</Button>
           {filters.q || filters.type || filters.category || (filters.source && filters.source !== 'ALL') || (filters.sort && filters.sort !== 'default') ? (
             <Link
-              href={filters.status ? `/admin/products?status=${filters.status}` : '/admin/products'}
+              href={filters.status ? `/basaadmin/products?status=${filters.status}` : '/basaadmin/products'}
               className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'h-9' })}
             >
               Xoá lọc
@@ -933,7 +933,7 @@ export function ProductsCatalogManager({
                         </Button>
 
                         <Link
-                          href={`/admin/products/${item.id}`}
+                          href={`/basaadmin/products/${item.id}`}
                           className={buttonVariants({ size: 'sm', variant: 'ghost' })}
                           title="Mở trang chi tiết (ảnh, biến thể, tính giá)"
                         >
@@ -1253,7 +1253,7 @@ export function ProductsCatalogManager({
                           <Archive className="size-3.5 text-muted-foreground" />
                         </Button>
                       ) : null}
-                      <Link href={`/admin/products/${item.id}`} className={buttonVariants({ size: 'sm', variant: 'ghost' })} title="Trang chi tiết">
+                      <Link href={`/basaadmin/products/${item.id}`} className={buttonVariants({ size: 'sm', variant: 'ghost' })} title="Trang chi tiết">
                         Chi tiết
                       </Link>
                     </div>
@@ -1274,7 +1274,7 @@ export function ProductsCatalogManager({
       )}
 
       <AdminPagination
-        basePath="/admin/products"
+        basePath="/basaadmin/products"
         page={page}
         hasNext={hasNext}
         filters={{
@@ -2057,7 +2057,7 @@ function QuickEditProductDialog({
 
             <DialogFooter className="flex-wrap items-center justify-between gap-2 sm:justify-between">
               <Link
-                href={`/admin/products/${item.id}`}
+                href={`/basaadmin/products/${item.id}`}
                 className={buttonVariants({ variant: 'ghost', size: 'sm' })}
               >
                 Mở trang chi tiết <ExternalLink className="ml-1 size-3.5" />

@@ -17,7 +17,7 @@ import {
   deleteVariantInlineAction,
   saveVariantInlineAction,
   setProductCoverInlineAction,
-} from '@/app/admin/(protected)/products/actions';
+} from '@/app/basaadmin/(protected)/products/actions';
 
 export type DetailVariantRow = {
   id: string;

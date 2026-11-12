@@ -45,7 +45,7 @@ async function waitForServer(timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
-      if ((await fetch(`${baseUrl}/admin/login`)).ok) return;
+      if ((await fetch(`${baseUrl}/basaadmin/login`)).ok) return;
     } catch { /* server is still starting */ }
     await new Promise((resolve) => setTimeout(resolve, 300));
   }

@@ -10,7 +10,7 @@ import { englishPath } from '@/i18n/seo';
 // the next deploy (same reasoning as the storefront home page).
 export const dynamic = 'force-dynamic';
 
-// Only public, indexable routes — never list /admin/* here (phase-7.md decision #6). No
+// Only public, indexable routes — never list admin routes here (phase-7.md decision #6). No
 // per-category route: `/products` only filters by `type` (READY_STOCK/MADE_TO_ORDER) and search,
 // there is no dedicated category URL to list, so category rows aren't emitted here either.
 //
@@ -38,8 +38,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: '/cam-nang', changeFrequency: 'monthly', priority: 0.7 },
     { path: '/blog', changeFrequency: 'daily', priority: 0.6 },
     { path: '/privacy-policy', changeFrequency: 'yearly', priority: 0.2 },
-    { path: '/shipping-policy', changeFrequency: 'yearly', priority: 0.2 },
-    { path: '/return-policy', changeFrequency: 'yearly', priority: 0.2 },
     { path: '/file-confidentiality-policy', changeFrequency: 'yearly', priority: 0.2 },
     ...products.map((product) => ({
       path: `/products/${product.slug}`, changeFrequency: 'weekly' as const, priority: 0.7, lastModified: new Date(product.updatedAt),

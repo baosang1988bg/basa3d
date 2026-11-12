@@ -4,7 +4,6 @@ import { getPublicQuoteByPhoneSuffix, getPublicQuoteByToken } from '@/services/q
 import { formatVnd } from '@/components/storefront/format';
 import { storefrontButtonClasses } from '@/components/storefront/button';
 import { QuoteCountdown } from '@/components/storefront/quote-countdown';
-import { buildVietQrUrl } from '@/lib/vietqr';
 import { createDatabaseRateLimiter, getClientIp } from '@/lib/rate-limit';
 import { ProfileVerificationCard } from '@/components/makerworld/profile-verification-card';
 
@@ -73,7 +72,6 @@ export default async function PublicQuotePage({
   // Phase 36: a REJECTED/EXPIRED quote (e.g. the KIT tier auto-rejected when the customer's ASSEMBLED
   // tier was accepted) must never show a deposit QR — the customer would pay for a closed quote.
   const isClosed = isExpired || quote.status === 'REJECTED' || quote.status === 'EXPIRED';
-  const qrUrl = !isClosed ? buildVietQrUrl(quote.pricing.depositVnd, quote.quoteNumber) : null;
 
   return (
     <Shell>
@@ -176,15 +174,8 @@ export default async function PublicQuotePage({
         </div>
       ) : (
         <div className="mt-6 rounded-xl border border-border bg-card p-6 text-center shadow-xs">
-          <p className="text-sm font-semibold text-foreground">Đặt cọc trước ({formatVnd(quote.pricing.depositVnd)} — 50%)</p>
-          {qrUrl ? (
-            <>
-              <Image src={qrUrl} alt="Mã QR chuyển khoản VietQR" width={220} height={220} unoptimized className="mx-auto mt-3 rounded-lg border border-border" />
-              <p className="mt-2 text-xs text-muted-foreground">Quét mã bằng app ngân hàng — nội dung chuyển khoản đã tự động điền mã báo giá {quote.quoteNumber}.</p>
-            </>
-          ) : (
-            <p className="mt-2 text-sm text-muted-foreground">Vui lòng liên hệ Zalo/hotline BaSa3D để được cung cấp thông tin chuyển khoản.</p>
-          )}
+          <p className="text-sm font-semibold text-foreground">T? v?n &amp; x?c nh?n b?o gi?</p>
+          <p className="mt-2 text-sm text-muted-foreground">Vui l?ng li?n h? Zalo/hotline BaSa3D k?m m? b?o gi? <span className="font-mono font-semibold text-foreground">{quote.quoteNumber}</span> ?? ???c t? v?n v? x?c nh?n th?c hi?n.</p>
         </div>
       )}
     </Shell>

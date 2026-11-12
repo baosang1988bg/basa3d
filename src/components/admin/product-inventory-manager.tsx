@@ -1,6 +1,6 @@
 'use client';
 
-// Kho & giá sản phẩm (/admin/product-inventory).
+// Kho & giá sản phẩm (/basaadmin/product-inventory).
 // UX review 2026-10-27 (Phase 52 follow-up): the old page mixed stock and pricing for every product,
 // counted MADE_TO_ORDER products (80–90% of the catalogue, Rule #9: no finished-goods stock) as
 // "Hết hàng – cần in ngay", and repeated the same numbers in KPI cards, pill lists, filter pills and
@@ -36,7 +36,7 @@ import {
   applyPricingCalculationAction,
   updateProductBasePriceAction,
   updateVariantPriceAction,
-} from '@/app/admin/(protected)/product-inventory/actions';
+} from '@/app/basaadmin/(protected)/product-inventory/actions';
 
 export type PricingMaterialOption = {
   id: string;
@@ -346,11 +346,11 @@ export function ProductInventoryManager({
           <p className="text-sm text-muted-foreground">Hàng có sẵn: xem còn bao nhiêu và nhập kho. Hàng in theo yêu cầu: chỉ quản lý giá.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Link href="/admin/inventory" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+          <Link href="/basaadmin/inventory" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
             <Boxes className="mr-1.5 size-4" /> Sổ kho
           </Link>
           <BatchRestockButton variants={batchVariants} warehouses={warehouses} />
-          <Link href="/admin/products/new" className={buttonVariants({ size: 'sm' })}>
+          <Link href="/basaadmin/products/new" className={buttonVariants({ size: 'sm' })}>
             <Plus className="mr-1.5 size-4" /> Đăng sản phẩm mới
           </Link>
         </div>
@@ -428,7 +428,7 @@ export function ProductInventoryManager({
                     <span className={`mt-1.5 size-2.5 shrink-0 rounded-full ${STATUS_META[status].dot}`} title={STATUS_META[status].label} />
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-x-2">
-                        <Link href={`/admin/products/${product.id}`} className="truncate font-medium hover:underline">{product.name}</Link>
+                        <Link href={`/basaadmin/products/${product.id}`} className="truncate font-medium hover:underline">{product.name}</Link>
                         {product.status !== 'ACTIVE' ? <Badge variant="outline" className="text-[10px]">{product.status === 'DRAFT' ? 'Nháp' : 'Đã lưu trữ'}</Badge> : null}
                       </div>
                       <div className="truncate text-xs text-muted-foreground">
@@ -499,7 +499,7 @@ export function ProductInventoryManager({
                   <li key={product.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 px-4 py-3 md:grid-cols-[minmax(0,1fr)_150px_170px_auto]">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-x-2">
-                        <Link href={`/admin/products/${product.id}`} className="truncate font-medium hover:underline">{product.name}</Link>
+                        <Link href={`/basaadmin/products/${product.id}`} className="truncate font-medium hover:underline">{product.name}</Link>
                         {product.status !== 'ACTIVE' ? <Badge variant="outline" className="text-[10px]">{product.status === 'DRAFT' ? 'Nháp' : 'Đã lưu trữ'}</Badge> : null}
                       </div>
                       <div className="truncate text-xs text-muted-foreground">
@@ -525,7 +525,7 @@ export function ProductInventoryManager({
                         <Calculator className="size-4" />
                       </Button>
                       <Link
-                        href={`/admin/products/${product.id}`}
+                        href={`/basaadmin/products/${product.id}`}
                         className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'h-8 px-2 text-muted-foreground' })}
                         title="Mở trang chi tiết"
                         aria-label={`Mở ${product.name}`}

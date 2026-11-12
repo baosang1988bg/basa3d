@@ -50,7 +50,7 @@ test.afterAll(async () => {
 for (const route of ['orders', 'custom-requests', 'print-jobs']) {
   test(`${route}: invalid status stays inline, preserves input, disables submit while pending`, async ({ page }) => {
     await authenticate(page);
-    await page.goto(`/admin/${route}/${fixture.ids[0]}`);
+    await page.goto(`/basaadmin/${route}/${fixture.ids[0]}`);
     const select = page.locator('select[name="status"]');
     const form = page.locator('form').filter({ has: select });
     // Simulate invalid external input that bypasses the select's normal enum choices.
@@ -60,7 +60,7 @@ for (const route of ['orders', 'custom-requests', 'print-jobs']) {
     });
     let release!: () => void;
     const gate = new Promise<void>((resolve) => { release = resolve; });
-    await page.route('**/admin/**', async (route) => {
+    await page.route('**/basaadmin/**', async (route) => {
       if (route.request().method() === 'POST') await gate;
       await route.continue();
     });
@@ -80,7 +80,7 @@ for (const route of ['orders', 'custom-requests', 'print-jobs']) {
 
 test('business rejection preserves order payment and note; valid retry succeeds', async ({ page }) => {
   await authenticate(page);
-  await page.goto(`/admin/orders/${fixture.ids[1]}`);
+  await page.goto(`/basaadmin/orders/${fixture.ids[1]}`);
   const form = page.locator('form').filter({ has: page.locator('#adminNote') });
   await form.locator('#paymentStatus').selectOption('REFUNDED');
   await form.locator('#adminNote').fill('Keep this note after failure');
@@ -97,7 +97,7 @@ test('business rejection preserves order payment and note; valid retry succeeds'
 
 test('expense cancel requires confirmation; dismiss leaves it unchanged', async ({ page }) => {
   await authenticate(page);
-  await page.goto('/admin/expenses');
+  await page.goto('/basaadmin/expenses');
   const row = page.getByRole('row').filter({ hasText: expenseTitle });
   page.once('dialog', (dialog) => dialog.dismiss());
   await row.getByRole('button', { name: 'Hủy', exact: true }).click();
@@ -110,15 +110,15 @@ test('expense cancel requires confirmation; dismiss leaves it unchanged', async 
 for (const route of ['orders', 'custom-requests', 'print-jobs']) {
   test(`${route}: filter + pagination survive back, forward and refresh`, async ({ page }) => {
     await authenticate(page);
-    await page.goto(`/admin/${route}`);
+    await page.goto(`/basaadmin/${route}`);
     await page.getByRole('link', { name: 'Đang chờ', exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`/admin/${route}\\?filter=pending$`));
+    await expect(page).toHaveURL(new RegExp(`/basaadmin/${route}\\?filter=pending$`));
     await page.getByRole('navigation', { name: 'Phân trang' }).getByRole('link', { name: 'Trang sau' }).click();
-    await expect(page).toHaveURL(new RegExp(`/admin/${route}\\?filter=pending&page=2$`));
+    await expect(page).toHaveURL(new RegExp(`/basaadmin/${route}\\?filter=pending&page=2$`));
     const rows = await page.locator('tbody tr').allTextContents();
     expect(rows).toHaveLength(20);
     await page.goBack();
-    await expect(page).toHaveURL(new RegExp(`/admin/${route}\\?filter=pending$`));
+    await expect(page).toHaveURL(new RegExp(`/basaadmin/${route}\\?filter=pending$`));
     await page.goForward();
     await expect(page).toHaveURL(new RegExp(`filter=pending&page=2$`));
     await page.reload();
@@ -130,7 +130,7 @@ for (const route of ['orders', 'custom-requests', 'print-jobs']) {
 for (const route of ['orders', 'custom-requests', 'print-jobs', 'products', 'materials']) {
   test(`${route}: page 6 exposes records after the old 100-row limit`, async ({ page }) => {
     await authenticate(page);
-    await page.goto(`/admin/${route}?page=6`);
+    await page.goto(`/basaadmin/${route}?page=6`);
     const expected = route === 'print-jobs' ? fixture.ids[104] : route === 'materials' ? `!${fixture.prefix}-105` : `${fixture.prefix}-105`;
     await expect(page.getByRole('row').filter({ hasText: expected })).toBeVisible();
     if (route === 'products') await expect(page.getByRole('row').filter({ hasText: expected })).toContainText('0đ');
@@ -139,7 +139,7 @@ for (const route of ['orders', 'custom-requests', 'print-jobs', 'products', 'mat
 
 test('materials warning tier finds a spool beyond raw row 100 and preserves all filters', async ({ page }) => {
   await authenticate(page);
-  await page.goto(`/admin/materials?materialType=${fixture.prefix}&status=ACTIVE&warningTier=SAP_HET`);
+  await page.goto(`/basaadmin/materials?materialType=${fixture.prefix}&status=ACTIVE&warningTier=SAP_HET`);
   await expect(page.getByRole('row').filter({ hasText: `!${fixture.prefix}-105` })).toBeVisible();
   await page.getByLabel('Trạng thái tồn').selectOption('CON_NHIEU');
   await page.getByRole('button', { name: 'Lọc', exact: true }).click();
@@ -156,7 +156,7 @@ test('materials warning tier finds a spool beyond raw row 100 and preserves all 
 for (const role of ['OWNER', 'STAFF'] as const) {
   test(`dashboard ${role} retains operational data and financial boundary`, async ({ page }) => {
     await authenticate(page, role === 'OWNER' ? owner : staff);
-    await page.goto('/admin/dashboard');
+    await page.goto('/basaadmin/dashboard');
     await expect(page.getByText('Đơn đang chờ xử lý', { exact: true })).toBeVisible();
     if (role === 'OWNER') {
       await expect(page.getByText('Doanh thu hôm nay', { exact: true })).toBeVisible();

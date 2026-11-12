@@ -90,11 +90,11 @@ test.afterAll(async () => {
 });
 
 async function login(page: Page, email: string) {
-  await page.goto('/admin/login');
+  await page.goto('/basaadmin/login');
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Mật khẩu').fill(password);
   await page.getByRole('button', { name: 'Đăng nhập' }).click();
-  await page.waitForURL('**/admin/dashboard');
+  await page.waitForURL('**/basaadmin/dashboard');
 }
 
 async function fillCalculator(page: Page) {
@@ -112,7 +112,7 @@ async function fillCalculator(page: Page) {
 
 test('OWNER creates a Quote via the pricing calculator (manual entry) and the snapshot is persisted', async ({ page }) => {
   await login(page, ownerEmail);
-  await page.goto(`/admin/custom-requests/${customRequestId}`);
+  await page.goto(`/basaadmin/custom-requests/${customRequestId}`);
   // makerworld-profile-verification B7: the quote form mounts ONE pricing tool at a time and
   // defaults to the MakerWorld panel — pick the calculator explicitly.
   await page.getByRole('radio', { name: /Công cụ tính giá/ }).check();
@@ -146,7 +146,7 @@ test('OWNER creates a Quote via the pricing calculator (manual entry) and the sn
 
 test('OWNER prices a Product via the pricing calculator on the edit page (reprice, ADR-0022)', async ({ page }) => {
   await login(page, ownerEmail);
-  await page.goto(`/admin/products/${productId}`);
+  await page.goto(`/basaadmin/products/${productId}`);
 
   await fillCalculator(page);
   await page.getByRole('button', { name: 'Lưu thay đổi' }).click();
@@ -167,11 +167,11 @@ test('OWNER prices a Product via the pricing calculator on the edit page (repric
   }
 });
 
-test('STAFF cannot reach /admin/settings/pricing (OWNER-only, requireOwner() enforced server-side)', async ({ page }) => {
+test('STAFF cannot reach /basaadmin/settings/pricing (OWNER-only, requireOwner() enforced server-side)', async ({ page }) => {
   await login(page, staffEmail);
-  await page.goto('/admin/settings/pricing');
+  await page.goto('/basaadmin/settings/pricing');
   // No error.tsx boundary exists for this route today (same as every other OWNER-only admin page,
-  // e.g. /admin/staff) — requireOwner() throwing surfaces as a generic error render, not the
+  // e.g. /basaadmin/staff) — requireOwner() throwing surfaces as a generic error render, not the
   // pricing-config form. Assert the actual OWNER-only content never renders, rather than asserting
   // a specific status code this app doesn't produce for Server Component throws.
   await expect(page.getByRole('button', { name: 'Lưu cấu hình mới' })).not.toBeVisible();

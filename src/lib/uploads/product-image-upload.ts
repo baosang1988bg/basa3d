@@ -8,7 +8,7 @@ import { createSupabaseUploadClient } from '@/lib/supabase/client';
 import {
   createProductImageUploadTargetsAction,
   registerProductImagesAction,
-} from '@/app/admin/(protected)/products/new/actions';
+} from '@/app/basaadmin/(protected)/products/new/actions';
 import { fitWithin } from './image-fit';
 
 export const PRODUCT_IMAGE_MAX_EDGE = 1600;

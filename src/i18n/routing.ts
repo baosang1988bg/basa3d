@@ -14,7 +14,7 @@ export const isEnglishEnabled = process.env.NEXT_PUBLIC_LANGUAGE_SWITCHER_ENABLE
 const enabledLocales: AppLocale[] = isEnglishEnabled ? [...ALL_LOCALES] : ['vi'];
 
 // VI is the unprefixed default (`/products`), EN is prefixed (`/en/products`) —
-// phase-18.md decision #2/#3. Admin (`/admin/**`) and `/api/**` never go through this routing at
+// phase-18.md decision #2/#3. Admin (`/basaadmin/**`) and `/api/**` never go through this routing at
 // all — they live outside the `[locale]` segment and are excluded by middleware.ts's matcher.
 export const routing = defineRouting({
   locales: enabledLocales,

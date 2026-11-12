@@ -203,7 +203,7 @@ export async function getPublishedPostBySlug(slug: string) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Phase 54.2 — review queue (/admin/blog/review). ADR-0057.
+// Phase 54.2 — review queue (/basaadmin/blog/review). ADR-0057.
 // ---------------------------------------------------------------------------------------------
 
 /** Daily AI news drafts are recognizable by their deterministic slug (ai-news.service). */

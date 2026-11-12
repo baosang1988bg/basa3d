@@ -42,9 +42,9 @@ test('visitor generates an Organizer STL, submits it, and admin can see the requ
   try {
     const db = new Client({ connectionString: process.env.DATABASE_URL }); await db.connect();
     try { await db.query("insert into staff_profiles (id, full_name, role, is_active) values ($1, 'Organizer E2E Admin', 'OWNER', true)", [data.user.id]); } finally { await db.end(); }
-    await page.goto('/admin/login'); await page.getByLabel('Email').fill(email); await page.getByLabel('Mật khẩu').fill(password); await page.getByRole('button', { name: 'Đăng nhập' }).click();
-    await page.waitForURL('**/admin/dashboard');
-    await page.goto(`/admin/custom-requests/${requestId}`); await expect(page.getByText(customerName)).toBeVisible(); await expect(page.getByText('Khay chia ngăn: 2x3, 200x80x40mm')).toBeVisible();
+    await page.goto('/basaadmin/login'); await page.getByLabel('Email').fill(email); await page.getByLabel('Mật khẩu').fill(password); await page.getByRole('button', { name: 'Đăng nhập' }).click();
+    await page.waitForURL('**/basaadmin/dashboard');
+    await page.goto(`/basaadmin/custom-requests/${requestId}`); await expect(page.getByText(customerName)).toBeVisible(); await expect(page.getByText('Khay chia ngăn: 2x3, 200x80x40mm')).toBeVisible();
   } finally {
     const db = new Client({ connectionString: process.env.DATABASE_URL }); await db.connect();
     try { await db.query('delete from staff_profiles where id = $1', [data.user.id]); } finally { await db.end(); }

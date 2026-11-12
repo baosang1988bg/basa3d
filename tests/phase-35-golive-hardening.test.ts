@@ -25,7 +25,7 @@ const isDomainError = (code: string) => (error: unknown) => error instanceof Dom
 
 // ---------------------------------------------------------------- S1
 test('every protected admin page enforces requireAdmin/requireOwner itself (not only the layout)', async () => {
-  const root = path.join(process.cwd(), 'src/app/admin/(protected)');
+  const root = path.join(process.cwd(), 'src/app/basaadmin/(protected)');
   const pages: string[] = [];
   const walk = async (dir: string) => {
     for (const entry of await readdir(dir, { withFileTypes: true })) {
@@ -109,9 +109,11 @@ test('public checkout schema caps the number of cart lines', () => {
   assert.equal(publicCheckoutOrderInputSchema.safeParse({ ...base, items: Array.from({ length: PUBLIC_CHECKOUT_MAX_ITEMS + 1 }, line) }).success, false);
 });
 
-test('public order route refuses requests while the cart is disabled', async () => {
-  const source = await readFile(path.join(process.cwd(), 'src/app/api/public/orders/route.ts'), 'utf8');
-  assert.match(source, /if \(!SITE_CONFIG\.cartEnabled\) return NextResponse\.json\([^)]*\{ status: 404/);
+test('public order route and checkout pages are removed in showcase-only mode', async () => {
+  const { existsSync } = await import('node:fs');
+  assert.equal(existsSync(path.join(process.cwd(), 'src/app/api/public/orders/route.ts')), false);
+  assert.equal(existsSync(path.join(process.cwd(), 'src/app/[locale]/(storefront)/cart/page.tsx')), false);
+  assert.equal(existsSync(path.join(process.cwd(), 'src/app/[locale]/(storefront)/checkout/page.tsx')), false);
 });
 
 test('anonymous checkout rejects DRAFT/ARCHIVED products and inactive variants', { skip: !hasDb }, async () => {

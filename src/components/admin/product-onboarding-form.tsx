@@ -16,7 +16,7 @@ import { PricingCalculatorPanel, type PricingConfigOption, type PricingMaterialO
 import { ProductImagePicker, type PickedImage } from '@/components/admin/product-image-picker';
 import { slugify } from '@/lib/catalog/naming';
 import { ProductImageUploadError, uploadProductImages } from '@/lib/uploads/product-image-upload';
-import { createProductOnboardingAction, publishProductAction } from '@/app/admin/(protected)/products/new/actions';
+import { createProductOnboardingAction, publishProductAction } from '@/app/basaadmin/(protected)/products/new/actions';
 
 type ColorOption = { key: string; label: string; color: string; material: string };
 type VariantRow = { key: string; name: string; color: string | null; material: string | null; priceText: string; stockText: string };
@@ -225,8 +225,8 @@ export function ProductOnboardingForm({
             </div>
           ) : null}
           <div className="flex flex-wrap gap-2 pt-1">
-            <Link href={`/admin/products/${done.productId}`} className={buttonVariants({ size: 'sm' })}>Mở trang chi tiết</Link>
-            <a href="/admin/products/new" className={buttonVariants({ size: 'sm', variant: 'outline' })}>Đăng sản phẩm khác</a>
+            <Link href={`/basaadmin/products/${done.productId}`} className={buttonVariants({ size: 'sm' })}>Mở trang chi tiết</Link>
+            <a href="/basaadmin/products/new" className={buttonVariants({ size: 'sm', variant: 'outline' })}>Đăng sản phẩm khác</a>
           </div>
         </CardContent>
       </Card>
@@ -431,7 +431,7 @@ export function ProductOnboardingForm({
 
       {createdProductId ? (
         <p className="rounded-md border border-sky-500/40 bg-sky-500/10 p-3 text-sm text-sky-800 dark:text-sky-300">
-          Sản phẩm đã được tạo (nháp). Thông tin đã khoá — sửa ở <Link href={`/admin/products/${createdProductId}`} className="font-medium underline">trang chi tiết</Link>; bấm lưu lại chỉ để tải tiếp ảnh / đăng bán.
+          Sản phẩm đã được tạo (nháp). Thông tin đã khoá — sửa ở <Link href={`/basaadmin/products/${createdProductId}`} className="font-medium underline">trang chi tiết</Link>; bấm lưu lại chỉ để tải tiếp ảnh / đăng bán.
         </p>
       ) : null}
       {error ? <p className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-700 dark:text-rose-300" role="alert">{error}</p> : null}

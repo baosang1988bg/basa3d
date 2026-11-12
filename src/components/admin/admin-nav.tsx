@@ -36,42 +36,42 @@ interface NavSection {
 const NAV_SECTIONS: NavSection[] = [
   {
     items: [
-      { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { href: '/basaadmin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     ],
   },
   {
     title: 'Đơn hàng & In',
     items: [
-      { href: '/admin/orders', label: 'Đơn hàng', icon: ShoppingBag, badgeKey: 'pendingOrders' },
-      { href: '/admin/custom-requests', label: 'Custom request', icon: FileEdit, badgeKey: 'customRequestsOpen' },
-      { href: '/admin/print-jobs', label: 'Việc in', icon: Printer, badgeKey: 'printJobsActive' },
+      { href: '/basaadmin/orders', label: 'Đơn hàng', icon: ShoppingBag, badgeKey: 'pendingOrders' },
+      { href: '/basaadmin/custom-requests', label: 'Custom request', icon: FileEdit, badgeKey: 'customRequestsOpen' },
+      { href: '/basaadmin/print-jobs', label: 'Việc in', icon: Printer, badgeKey: 'printJobsActive' },
     ],
   },
   {
     title: 'Sản phẩm & Nhựa',
     items: [
-      { href: '/admin/products', label: 'Sản phẩm', icon: Package },
-      { href: '/admin/product-inventory', label: 'Kho sản phẩm', icon: Warehouse },
-      { href: '/admin/stl-import', label: 'Kho nhập STL', icon: FileBox },
-      { href: '/admin/inventory', label: 'Tồn kho', icon: Boxes },
-      { href: '/admin/materials', label: 'Kho nhựa', icon: Layers },
+      { href: '/basaadmin/products', label: 'Sản phẩm', icon: Package },
+      { href: '/basaadmin/product-inventory', label: 'Kho sản phẩm', icon: Warehouse },
+      { href: '/basaadmin/stl-import', label: 'Kho nhập STL', icon: FileBox },
+      { href: '/basaadmin/inventory', label: 'Tồn kho', icon: Boxes },
+      { href: '/basaadmin/materials', label: 'Kho nhựa', icon: Layers },
     ],
   },
   {
     title: 'Làm giá',
     items: [
-      { href: '/admin/settings/pricing', label: 'Cấu hình giá', icon: Calculator, ownerOnly: true },
-      { href: '/admin/settings/makerworld-prices', label: 'Giá MakerWorld', icon: Tags, ownerOnly: true },
+      { href: '/basaadmin/settings/pricing', label: 'Cấu hình giá', icon: Calculator, ownerOnly: true },
+      { href: '/basaadmin/settings/makerworld-prices', label: 'Giá MakerWorld', icon: Tags, ownerOnly: true },
     ],
   },
   {
     title: 'Hệ thống',
     items: [
-      { href: '/admin/staff', label: 'Nhân viên', icon: Users, ownerOnly: true },
-      { href: '/admin/expenses', label: 'Chi tiêu', icon: Receipt, ownerOnly: true },
-      { href: '/admin/audit-logs', label: 'Nhật ký hệ thống', icon: ShieldAlert, ownerOnly: true },
-      { href: '/admin/blog', label: 'Blog', icon: BookOpen },
-      { href: '/admin/blog/review', label: 'Duyệt bài', icon: ClipboardCheck, badgeKey: 'blogDrafts' },
+      { href: '/basaadmin/staff', label: 'Nhân viên', icon: Users, ownerOnly: true },
+      { href: '/basaadmin/expenses', label: 'Chi tiêu', icon: Receipt, ownerOnly: true },
+      { href: '/basaadmin/audit-logs', label: 'Nhật ký hệ thống', icon: ShieldAlert, ownerOnly: true },
+      { href: '/basaadmin/blog', label: 'Blog', icon: BookOpen },
+      { href: '/basaadmin/blog/review', label: 'Duyệt bài', icon: ClipboardCheck, badgeKey: 'blogDrafts' },
     ],
   },
 ];
@@ -80,7 +80,7 @@ const STORAGE_KEY = 'basa3d_admin_nav_expanded';
 
 const ALL_HREFS = NAV_SECTIONS.flatMap((section) => section.items.map((item) => item.href));
 
-/** Longest matching href wins, so /admin/blog/review highlights "Duyệt bài", not "Blog" too. */
+/** Longest matching href wins, so /basaadmin/blog/review highlights "Duyệt bài", not "Blog" too. */
 function resolveActiveHref(pathname: string): string | undefined {
   return ALL_HREFS
     .filter((href) => pathname === href || pathname.startsWith(`${href}/`))
@@ -158,7 +158,7 @@ export function AdminNav({ role, badges = {} }: { role: StaffRole; badges?: Admi
   async function handleLogout() {
     const supabase = createSupabaseBrowserClient();
     await supabase.auth.signOut();
-    router.push('/admin/login');
+    router.push('/basaadmin/login');
     router.refresh();
   }
 

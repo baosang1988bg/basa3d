@@ -116,7 +116,7 @@ test('catalog actions enforce auth, OWNER-only delete, and clean DomainError han
     },
   });
 
-  const actions = await import('../src/app/admin/(protected)/products/actions');
+  const actions = await import('../src/app/basaadmin/(protected)/products/actions');
 
   // Unauthenticated
   role = null;

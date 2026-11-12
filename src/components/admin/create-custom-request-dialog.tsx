@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { createCustomRequestAction } from '@/app/admin/(protected)/custom-requests/actions';
+import { createCustomRequestAction } from '@/app/basaadmin/(protected)/custom-requests/actions';
 
 const CHANNELS = [
   { value: 'ZALO', label: 'Zalo' },

@@ -10,7 +10,7 @@ export function PublishBlockedNotice({ value }: { value?: string }) {
     <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
       <p className="font-medium">Không thể đưa sản phẩm nhập từ kho STL lên web:</p>
       <ul className="mt-1 list-disc pl-5">{reasons.map((reason) => <li key={reason}>{PUBLISH_BLOCK_LABELS[reason]}</li>)}</ul>
-      <p className="mt-1">Xử lý ở trang <a href="/admin/stl-import" className="underline">Kho nhập STL</a>.</p>
+      <p className="mt-1">Xử lý ở trang <a href="/basaadmin/stl-import" className="underline">Kho nhập STL</a>.</p>
     </div>
   );
 }
