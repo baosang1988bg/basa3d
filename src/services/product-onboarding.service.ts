@@ -13,6 +13,7 @@ import type { PoolClient } from 'pg';
 import { query, withTransaction } from '../lib/db';
 import { DomainError } from '../lib/domain-error';
 import { invalidatesStorefrontCatalog } from '../lib/cache/storefront-cache-tags';
+import { createSupabaseAdminClient } from '../lib/supabase/admin';
 import type { StaffSession } from '../lib/auth/require-admin';
 import { translateImportGateError } from '../lib/stl-import/publish-gate';
 import { buildSku, skuCodeForCategory, slugify, uniqueSlug } from '../lib/catalog/naming';
@@ -688,137 +689,174 @@ export async function mergeCatalogProducts(session: StaffSession, rawInput: unkn
     throw new DomainError('LICENSE_UNKNOWN', 'Cần chọn loại bản quyền trước khi đăng bán ngay.', 409);
   }
 
-  return invalidatesStorefrontCatalog(withTransaction(async (client) => {
-    const category = await client.query<{ slug: string; is_active: boolean }>(
-      'select slug, is_active from categories where id = $1',
-      [input.categoryId],
-    );
-    if (!category.rowCount || !category.rows[0].is_active || category.rows[0].slug === UNCATEGORIZED_SLUG) {
-      throw new DomainError('UNCATEGORIZED', 'Hãy chọn một danh mục thật đang hoạt động.', 400);
-    }
-
-    const sortedSourceIds = [...sourceIds].sort();
-    const lockedSources = await client.query<{ id: string }>(
-      'select id from products where id = any($1::uuid[]) order by id for update',
-      [sortedSourceIds],
-    );
-    if (lockedSources.rowCount !== sortedSourceIds.length) {
-      throw new DomainError('PRODUCT_NOT_FOUND', 'Một số sản phẩm gốc không còn tồn tại.', 404);
-    }
-
-    if (input.publishImmediately && session.role !== 'OWNER') {
-      const hasImported = await client.query('select 1 from product_import_items where product_id = any($1::uuid[]) limit 1', [sortedSourceIds]);
-      if (hasImported.rowCount) {
-        throw new DomainError('FORBIDDEN', 'Chỉ OWNER mới có quyền duyệt sản phẩm nhập từ kho STL lên web.', 403);
+  const copiedStoragePaths: string[] = [];
+  try {
+    return await invalidatesStorefrontCatalog(withTransaction(async (client) => {
+      const category = await client.query<{ slug: string; is_active: boolean }>(
+        'select slug, is_active from categories where id = $1',
+        [input.categoryId],
+      );
+      if (!category.rowCount || !category.rows[0].is_active || category.rows[0].slug === UNCATEGORIZED_SLUG) {
+        throw new DomainError('UNCATEGORIZED', 'Hãy chọn một danh mục thật đang hoạt động.', 400);
       }
-    }
 
-    const basePrice = Math.min(...input.items.map((i) => i.price));
-    let productId = '';
-    let slug = '';
-    for (let attempt = 0; ; attempt += 1) {
-      const taken = await takenValues(client, 'products', 'slug', slugify(input.name));
-      slug = uniqueSlug(input.name, (value) => taken.has(value));
-      await client.query('savepoint merge_product_slug');
-      try {
-        const inserted = await client.query<{ id: string }>(`
-          insert into products (category_id, name, slug, short_description, product_type, status, base_price, is_featured, license_type, license_source_url, license_proof_url)
-          values ($1,$2,$3,$4,$5,'DRAFT',$6,$7,$8,$9,$10) returning id`, [
-          input.categoryId, input.name, slug, input.shortDescription ?? null, input.productType, basePrice,
-          input.isFeatured, input.licenseType, input.licenseSourceUrl ?? null, input.licenseProofUrl ?? null,
-        ]);
-        await client.query('release savepoint merge_product_slug');
-        productId = inserted.rows[0].id;
-        break;
-      } catch (error) {
-        await client.query('rollback to savepoint merge_product_slug');
-        if (!isUniqueViolation(error) || attempt >= 2) throw error;
+      const sortedSourceIds = [...sourceIds].sort();
+      const lockedSources = await client.query<{ id: string }>(
+        'select id from products where id = any($1::uuid[]) order by id for update',
+        [sortedSourceIds],
+      );
+      if (lockedSources.rowCount !== sortedSourceIds.length) {
+        throw new DomainError('PRODUCT_NOT_FOUND', 'Một số sản phẩm gốc không còn tồn tại.', 404);
       }
-    }
 
-    const skuCode = skuCodeForCategory(category.rows[0].slug);
-    const assignedSkus = new Set<string>();
-    const variantPlans = [
-      ...input.items.map((item) => ({ sourceProductId: item.sourceProductId as string | null, name: item.variantName.trim(), price: item.price })),
-      ...(input.comboVariant?.enabled && input.comboVariant.price && input.comboVariant.price > 0
-        ? [{ sourceProductId: null, name: input.comboVariant.name.trim(), price: input.comboVariant.price }]
-        : []),
-    ];
+      if (input.publishImmediately && session.role !== 'OWNER') {
+        const hasImported = await client.query('select 1 from product_import_items where product_id = any($1::uuid[]) limit 1', [sortedSourceIds]);
+        if (hasImported.rowCount) {
+          throw new DomainError('FORBIDDEN', 'Chỉ OWNER mới có quyền duyệt sản phẩm nhập từ kho STL lên web.', 403);
+        }
+      }
 
-    let imageSortOrder = 0;
-    for (const plan of variantPlans) {
-      const skuSlug = `${slug.slice(0, 22)}-${slugify(plan.name)}`;
-      let variantId = '';
-      for (let attempt = 0; !variantId; attempt += 1) {
-        const taken = await takenValues(client, 'product_variants', 'sku', buildSku(skuCode, skuSlug, () => false));
-        const sku = buildSku(skuCode, skuSlug, (value) => taken.has(value) || assignedSkus.has(value));
-        await client.query('savepoint merge_variant_sku');
+      if (input.sourceCleanup === 'DELETE') {
+        const refs = await client.query<{ has_refs: boolean }>(`
+          select exists (
+            select 1 from order_items oi join product_variants pv on pv.id = oi.variant_id where pv.product_id = any($1::uuid[])
+            union all
+            select 1 from cart_items ci join product_variants pv on pv.id = ci.variant_id where pv.product_id = any($1::uuid[])
+            union all
+            select 1 from inventory_movements im join product_variants pv on pv.id = im.product_variant_id where pv.product_id = any($1::uuid[])
+          ) as has_refs
+        `, [sortedSourceIds]);
+        if (refs.rows[0].has_refs) {
+          throw new DomainError('PRODUCT_IN_USE', 'Có sản phẩm gốc đã phát sinh đơn hàng/giỏ hàng/tồn kho — hãy chọn "Lưu trữ" thay vì xoá hẳn.', 409);
+        }
+      }
+
+      // Read each source product's cover image BEFORE deleting/archiving source rows.
+      const coverBySourceId = new Map<string, string>();
+      for (const sourceId of sortedSourceIds) {
+        const srcImg = await client.query<{ storage_path: string }>(
+          'select storage_path from product_images where product_id = $1 order by sort_order, created_at limit 1',
+          [sourceId],
+        );
+        if (srcImg.rowCount) coverBySourceId.set(sourceId, srcImg.rows[0].storage_path);
+      }
+
+      // When deleting source products, remove their product_images rows first so unique storage_path is freed.
+      if (input.sourceCleanup === 'DELETE') {
+        await client.query('delete from product_images where product_id = any($1::uuid[])', [sortedSourceIds]);
+      }
+
+      const basePrice = Math.min(...input.items.map((i) => i.price));
+      let productId = '';
+      let slug = '';
+      for (let attempt = 0; ; attempt += 1) {
+        const taken = await takenValues(client, 'products', 'slug', slugify(input.name));
+        slug = uniqueSlug(input.name, (value) => taken.has(value));
+        await client.query('savepoint merge_product_slug');
         try {
-          const inserted = await client.query<{ id: string }>(
-            `insert into product_variants (product_id, sku, name, attributes, price, is_active)
-             values ($1,$2,$3,$4,$5,true) returning id`,
-            [productId, sku, plan.name, { sample: plan.name }, plan.price],
-          );
-          await client.query('release savepoint merge_variant_sku');
-          variantId = inserted.rows[0].id;
-          assignedSkus.add(sku);
+          const inserted = await client.query<{ id: string }>(`
+            insert into products (category_id, name, slug, short_description, product_type, status, base_price, is_featured, license_type, license_source_url, license_proof_url)
+            values ($1,$2,$3,$4,$5,'DRAFT',$6,$7,$8,$9,$10) returning id`, [
+            input.categoryId, input.name, slug, input.shortDescription ?? null, input.productType, basePrice,
+            input.isFeatured, input.licenseType, input.licenseSourceUrl ?? null, input.licenseProofUrl ?? null,
+          ]);
+          await client.query('release savepoint merge_product_slug');
+          productId = inserted.rows[0].id;
+          break;
         } catch (error) {
-          await client.query('rollback to savepoint merge_variant_sku');
+          await client.query('rollback to savepoint merge_product_slug');
           if (!isUniqueViolation(error) || attempt >= 2) throw error;
         }
       }
 
-      if (plan.sourceProductId) {
-        const srcImg = await client.query<{ storage_path: string }>(
-          'select storage_path from product_images where product_id = $1 order by sort_order, created_at limit 1',
-          [plan.sourceProductId],
-        );
-        if (srcImg.rowCount) {
+      const skuCode = skuCodeForCategory(category.rows[0].slug);
+      const assignedSkus = new Set<string>();
+      const variantPlans = [
+        ...input.items.map((item) => ({ sourceProductId: item.sourceProductId as string | null, name: item.variantName.trim(), price: item.price })),
+        ...(input.comboVariant?.enabled && input.comboVariant.price && input.comboVariant.price > 0
+          ? [{ sourceProductId: null, name: input.comboVariant.name.trim(), price: input.comboVariant.price }]
+          : []),
+      ];
+
+      const hasStorage = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+      const storage = hasStorage ? createSupabaseAdminClient().storage.from(PRODUCT_IMAGE_BUCKET) : null;
+
+      let imageSortOrder = 0;
+      for (const plan of variantPlans) {
+        const skuSlug = `${slug.slice(0, 22)}-${slugify(plan.name)}`;
+        let variantId = '';
+        for (let attempt = 0; !variantId; attempt += 1) {
+          const taken = await takenValues(client, 'product_variants', 'sku', buildSku(skuCode, skuSlug, () => false));
+          const sku = buildSku(skuCode, skuSlug, (value) => taken.has(value) || assignedSkus.has(value));
+          await client.query('savepoint merge_variant_sku');
+          try {
+            const inserted = await client.query<{ id: string }>(
+              `insert into product_variants (product_id, sku, name, attributes, price, is_active)
+               values ($1,$2,$3,$4,$5,true) returning id`,
+              [productId, sku, plan.name, { sample: plan.name }, plan.price],
+            );
+            await client.query('release savepoint merge_variant_sku');
+            variantId = inserted.rows[0].id;
+            assignedSkus.add(sku);
+          } catch (error) {
+            await client.query('rollback to savepoint merge_variant_sku');
+            if (!isUniqueViolation(error) || attempt >= 2) throw error;
+          }
+        }
+
+        const srcPath = plan.sourceProductId ? coverBySourceId.get(plan.sourceProductId) : undefined;
+        if (srcPath) {
+          let targetPath = srcPath;
+          if (input.sourceCleanup !== 'DELETE') {
+            const extMatch = /\.(webp|jpg|jpeg|png)$/i.exec(srcPath);
+            const ext = extMatch ? extMatch[1].toLowerCase() : 'webp';
+            targetPath = `${ONBOARDING_IMAGE_PREFIX}/${productId}/${randomUUID()}.${ext}`;
+            if (storage) {
+              const { error: copyError } = await storage.copy(srcPath, targetPath);
+              if (copyError) {
+                throw new DomainError('IMAGE_COPY_FAILED', 'Không thể sao chép ảnh sang sản phẩm gộp. Thử lại nhé.', 502);
+              }
+              copiedStoragePaths.push(targetPath);
+            }
+          }
           await client.query(
             'insert into product_images (product_id, variant_id, storage_path, alt_text, sort_order) values ($1,$2,$3,$4,$5)',
-            [productId, variantId, srcImg.rows[0].storage_path, plan.name.slice(0, 200), imageSortOrder],
+            [productId, variantId, targetPath, plan.name.slice(0, 200), imageSortOrder],
           );
           imageSortOrder += 1;
         }
       }
-    }
 
-    let finalStatus = 'DRAFT';
-    if (input.publishImmediately) {
-      if (imageSortOrder === 0) {
-        throw new DomainError('NO_IMAGE', 'Các sản phẩm gốc chưa có ảnh — không thể đăng bán ngay, hãy lưu nháp rồi tải ảnh.', 409);
-      }
-      await client.query(`update products set status = 'ACTIVE' where id = $1`, [productId]);
-      finalStatus = 'ACTIVE';
-    }
-
-    if (input.sourceCleanup === 'ARCHIVE') {
-      await client.query(`update products set status = 'ARCHIVED' where id = any($1::uuid[])`, [sortedSourceIds]);
-    } else if (input.sourceCleanup === 'DELETE') {
-      for (const sourceId of sortedSourceIds) {
-        const refs = await client.query<{ has_orders: boolean; has_carts: boolean; has_movements: boolean }>(`
-          select
-            exists (select 1 from order_items oi join product_variants pv on pv.id = oi.variant_id where pv.product_id = $1) as has_orders,
-            exists (select 1 from cart_items ci join product_variants pv on pv.id = ci.variant_id where pv.product_id = $1) as has_carts,
-            exists (select 1 from inventory_movements im join product_variants pv on pv.id = im.product_variant_id where pv.product_id = $1) as has_movements
-        `, [sourceId]);
-        if (refs.rows[0].has_orders || refs.rows[0].has_carts || refs.rows[0].has_movements) {
-          throw new DomainError('PRODUCT_IN_USE', 'Có sản phẩm gốc đã phát sinh đơn hàng/giỏ hàng/tồn kho — hãy chọn "Lưu trữ" thay vì xoá hẳn.', 409);
+      let finalStatus = 'DRAFT';
+      if (input.publishImmediately) {
+        if (imageSortOrder === 0) {
+          throw new DomainError('NO_IMAGE', 'Các sản phẩm gốc chưa có ảnh — không thể đăng bán ngay, hãy lưu nháp rồi tải ảnh.', 409);
         }
-        await client.query('delete from product_images where product_id = $1', [sourceId]);
-        await client.query('delete from product_variants where product_id = $1', [sourceId]);
-        await client.query('delete from products where id = $1', [sourceId]);
+        await client.query(`update products set status = 'ACTIVE' where id = $1`, [productId]);
+        finalStatus = 'ACTIVE';
       }
+
+      if (input.sourceCleanup === 'ARCHIVE') {
+        await client.query(`update products set status = 'ARCHIVED' where id = any($1::uuid[])`, [sortedSourceIds]);
+      } else if (input.sourceCleanup === 'DELETE') {
+        await client.query('delete from product_variants where product_id = any($1::uuid[])', [sortedSourceIds]);
+        await client.query('delete from products where id = any($1::uuid[])', [sortedSourceIds]);
+      }
+
+      await writeAuditLog(client, {
+        actorId: session.actorId,
+        action: 'PRODUCT_MERGED',
+        entityType: 'product',
+        entityId: productId,
+        afterData: { sourceIds: sortedSourceIds, variantCount: variantPlans.length, cleanup: input.sourceCleanup, status: finalStatus },
+      });
+
+      return { productId, slug, name: input.name, status: finalStatus, variantCount: variantPlans.length };
+    }));
+  } catch (error) {
+    if (copiedStoragePaths.length && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      await createSupabaseAdminClient().storage.from(PRODUCT_IMAGE_BUCKET).remove(copiedStoragePaths).catch(() => undefined);
     }
-
-    await writeAuditLog(client, {
-      actorId: session.actorId,
-      action: 'PRODUCT_MERGED',
-      entityType: 'product',
-      entityId: productId,
-      afterData: { sourceIds: sortedSourceIds, variantCount: variantPlans.length, cleanup: input.sourceCleanup, status: finalStatus },
-    });
-
-    return { productId, slug, name: input.name, status: finalStatus, variantCount: variantPlans.length };
-  }));
+    throw error;
+  }
 }
