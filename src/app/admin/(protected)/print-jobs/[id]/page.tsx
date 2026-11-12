@@ -79,6 +79,22 @@ export default async function PrintJobDetailPage({ params }: { params: Promise<{
           <div><p className="text-muted-foreground">Yêu cầu tùy chỉnh</p><p>{printJob.customRequestId ?? '—'}</p></div>
           <div><p className="text-muted-foreground">Máy in</p><p>{printJob.printerName ?? '—'}</p></div>
           <div><p className="text-muted-foreground">Ngày tạo</p><p>{new Date(printJob.createdAt).toLocaleString('vi-VN')}</p></div>
+          {printJob.printFiles?.length ? (
+            <div className="col-span-2 border-t border-border pt-3">
+              <p className="mb-2 font-medium text-foreground">File .3mf để in</p>
+              <div className="flex flex-col gap-2">
+                {printJob.printFiles.map((f, idx) => (
+                  <div key={idx} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs">
+                    <span className="font-medium">{f.itemName} × {f.quantity}</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {f.printLocalPath ? <code className="rounded bg-background px-1.5 py-0.5 font-mono">{f.printLocalPath}</code> : <span className="text-muted-foreground">Chưa gắn file ổ D</span>}
+                      {f.printDriveUrl ? <a href={f.printDriveUrl} target="_blank" rel="noreferrer" className="font-medium text-primary underline">Mở Drive ↗</a> : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 

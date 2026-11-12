@@ -68,6 +68,8 @@ export async function createProductAction(formData: FormData) {
     licenseType: readFormValue(formData, 'licenseType') ?? undefined,
     licenseSourceUrl: readFormValue(formData, 'licenseSourceUrl') ?? null,
     licenseProofUrl: readFormValue(formData, 'licenseProofUrl') ?? null,
+    printLocalPath: readFormValue(formData, 'printLocalPath') ?? null,
+    printDriveUrl: readFormValue(formData, 'printDriveUrl') ?? null,
   });
   await createProduct(input, actorId);
   revalidatePath('/admin/products');
@@ -333,7 +335,7 @@ export async function mergeCatalogProductsAction(
 export async function saveVariantInlineAction(
   productId: string,
   variantId: string,
-  payload: { name: string; price: number; weightGrams?: number | null; isActive: boolean },
+  payload: { name: string; price: number; weightGrams?: number | null; isActive: boolean; printLocalPath?: string | null; printDriveUrl?: string | null },
 ): Promise<CatalogActionResult<{ id: string }>> {
   const { actorId } = await requireAdmin();
   try {
@@ -344,6 +346,8 @@ export async function saveVariantInlineAction(
       price: payload.price,
       weightGrams: payload.weightGrams ?? null,
       isActive: payload.isActive,
+      printLocalPath: payload.printLocalPath,
+      printDriveUrl: payload.printDriveUrl,
     });
     await updateVariant(validVariantId, patch, actorId);
     revalidateAllCatalogPaths(validProductId);
@@ -355,7 +359,7 @@ export async function saveVariantInlineAction(
 
 export async function createVariantInlineAction(
   productId: string,
-  payload: { sku?: string; name: string; price: number; weightGrams?: number | null },
+  payload: { sku?: string; name: string; price: number; weightGrams?: number | null; printLocalPath?: string | null; printDriveUrl?: string | null },
 ): Promise<CatalogActionResult<{ id: string }>> {
   const { actorId } = await requireAdmin();
   try {
@@ -367,6 +371,8 @@ export async function createVariantInlineAction(
       name: payload.name,
       price: payload.price,
       weightGrams: payload.weightGrams ?? null,
+      printLocalPath: payload.printLocalPath ?? null,
+      printDriveUrl: payload.printDriveUrl ?? null,
     });
     const created = await createVariant(input, actorId);
     revalidateAllCatalogPaths(validProductId);

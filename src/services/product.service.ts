@@ -77,18 +77,20 @@ type ProductDetail = {
   productType: string; status: string; basePrice: number | null; costPrice: number | null;
   isFeatured: boolean; categoryId: string | null; seoTitle: string | null; seoDescription: string | null;
   licenseType: string; licenseSourceUrl: string | null; licenseProofUrl: string | null;
+  printLocalPath: string | null; printDriveUrl: string | null;
 };
-type VariantDetail = { id: string; sku: string; name: string; attributes: Record<string, string>; price: number; costPrice: number | null; weightGrams: number | null; isActive: boolean };
+type VariantDetail = { id: string; sku: string; name: string; attributes: Record<string, string>; price: number; costPrice: number | null; weightGrams: number | null; isActive: boolean; printLocalPath: string | null; printDriveUrl: string | null };
 
 export async function getProductById(productId: string) {
   const result = await query<ProductDetail>(`
     select id, name, slug, short_description as "shortDescription", description, product_type as "productType",
       status, base_price as "basePrice", cost_price as "costPrice", is_featured as "isFeatured", category_id as "categoryId",
       seo_title as "seoTitle", seo_description as "seoDescription",
-      license_type as "licenseType", license_source_url as "licenseSourceUrl", license_proof_url as "licenseProofUrl"
+      license_type as "licenseType", license_source_url as "licenseSourceUrl", license_proof_url as "licenseProofUrl",
+      print_local_path as "printLocalPath", print_drive_url as "printDriveUrl"
     from products where id = $1`, [productId]);
   if (!result.rowCount) return null;
-  const variants = await query<VariantDetail>('select id, sku, name, attributes, price, cost_price as "costPrice", weight_grams as "weightGrams", is_active as "isActive" from product_variants where product_id = $1 order by created_at', [productId]);
+  const variants = await query<VariantDetail>('select id, sku, name, attributes, price, cost_price as "costPrice", weight_grams as "weightGrams", is_active as "isActive", print_local_path as "printLocalPath", print_drive_url as "printDriveUrl" from product_variants where product_id = $1 order by created_at', [productId]);
   return { ...result.rows[0], variants: variants.rows };
 }
 
@@ -100,11 +102,12 @@ export async function getProductById(productId: string) {
 export async function createProduct(input: Record<string, unknown>, actorId: string) {
   return invalidatesStorefrontCatalog(withTransaction(async (client) => {
     const result = await client.query<{ id: string }>(`
-      insert into products (category_id, name, slug, short_description, description, product_type, status, base_price, cost_price, is_featured, is_customizable, seo_title, seo_description, pricing_breakdown, pricing_config_id, license_type, license_source_url, license_proof_url)
-      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) returning id`, [
+      insert into products (category_id, name, slug, short_description, description, product_type, status, base_price, cost_price, is_featured, is_customizable, seo_title, seo_description, pricing_breakdown, pricing_config_id, license_type, license_source_url, license_proof_url, print_local_path, print_drive_url)
+      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) returning id`, [
       input.categoryId ?? null, input.name, input.slug, input.shortDescription ?? null, input.description ?? null, input.productType, input.status ?? 'DRAFT', input.basePrice ?? null, input.costPrice ?? null, input.isFeatured ?? false, input.isCustomizable ?? false, input.seoTitle ?? null, input.seoDescription ?? null,
       input.pricingBreakdown ? JSON.stringify(input.pricingBreakdown) : null, input.pricingConfigId ?? null,
       input.licenseType ?? 'OWN_DESIGN', input.licenseSourceUrl ?? null, input.licenseProofUrl ?? null,
+      input.printLocalPath ?? null, input.printDriveUrl ?? null,
     ]);
     await writeAuditLog(client, { actorId, action: 'PRODUCT_CREATED', entityType: 'product', entityId: result.rows[0].id, afterData: input });
     return result.rows[0];
@@ -115,23 +118,23 @@ function isForeignKeyViolation(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && (error as { code?: string }).code === '23503';
 }
 
-export async function createVariant(input: { productId: string; sku: string; name: string; attributes?: Record<string, string>; price: number; costPrice?: number | null; weightGrams?: number | null; isActive?: boolean }, actorId: string) {
+export async function createVariant(input: { productId: string; sku: string; name: string; attributes?: Record<string, string>; price: number; costPrice?: number | null; weightGrams?: number | null; isActive?: boolean; printLocalPath?: string | null; printDriveUrl?: string | null }, actorId: string) {
   return invalidatesStorefrontCatalog(withTransaction(async (client) => {
     const result = await client.query<{ id: string }>(`
-      insert into product_variants (product_id, sku, name, attributes, price, cost_price, weight_grams, is_active)
-      values ($1,$2,$3,$4,$5,$6,$7,$8) returning id`, [
-      input.productId, input.sku, input.name, input.attributes ?? {}, input.price, input.costPrice ?? null, input.weightGrams ?? null, input.isActive ?? true,
+      insert into product_variants (product_id, sku, name, attributes, price, cost_price, weight_grams, is_active, print_local_path, print_drive_url)
+      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning id`, [
+      input.productId, input.sku, input.name, input.attributes ?? {}, input.price, input.costPrice ?? null, input.weightGrams ?? null, input.isActive ?? true, input.printLocalPath ?? null, input.printDriveUrl ?? null,
     ]);
     await writeAuditLog(client, { actorId, action: 'VARIANT_CREATED', entityType: 'product_variant', entityId: result.rows[0].id, afterData: input });
     return result.rows[0];
   }));
 }
 
-export async function updateVariant(variantId: string, patch: { name?: string; attributes?: Record<string, string>; price?: number; costPrice?: number | null; weightGrams?: number | null; isActive?: boolean }, actorId: string) {
+export async function updateVariant(variantId: string, patch: { name?: string; attributes?: Record<string, string>; price?: number; costPrice?: number | null; weightGrams?: number | null; isActive?: boolean; printLocalPath?: string | null; printDriveUrl?: string | null }, actorId: string) {
   return invalidatesStorefrontCatalog(withTransaction(async (client) => {
-    const before = await client.query('select name, attributes, price, cost_price, weight_grams, is_active from product_variants where id = $1 for update', [variantId]);
+    const before = await client.query('select name, attributes, price, cost_price, weight_grams, is_active, print_local_path, print_drive_url from product_variants where id = $1 for update', [variantId]);
     if (!before.rowCount) throw new DomainError('VARIANT_NOT_FOUND', 'Product variant was not found.', 404);
-    const fields = { name: 'name', attributes: 'attributes', price: 'price', costPrice: 'cost_price', weightGrams: 'weight_grams', isActive: 'is_active' } as const;
+    const fields = { name: 'name', attributes: 'attributes', price: 'price', costPrice: 'cost_price', weightGrams: 'weight_grams', isActive: 'is_active', printLocalPath: 'print_local_path', printDriveUrl: 'print_drive_url' } as const;
     const sets: string[] = [];
     const values: unknown[] = [];
     for (const [key, column] of Object.entries(fields) as [keyof typeof patch, string][]) {
@@ -163,11 +166,11 @@ export async function deleteVariant(variantId: string, actorId: string) {
   }));
 }
 
-export async function updateProduct(productId: string, patch: { categoryId?: string | null; name?: string; slug?: string; shortDescription?: string | null; description?: string | null; productType?: string; status?: string; basePrice?: number | null; costPrice?: number | null; isFeatured?: boolean; isCustomizable?: boolean; seoTitle?: string | null; seoDescription?: string | null; pricingBreakdown?: unknown | null; pricingConfigId?: string | null; licenseType?: string; licenseSourceUrl?: string | null; licenseProofUrl?: string | null }, actorId: string) {
+export async function updateProduct(productId: string, patch: { categoryId?: string | null; name?: string; slug?: string; shortDescription?: string | null; description?: string | null; productType?: string; status?: string; basePrice?: number | null; costPrice?: number | null; isFeatured?: boolean; isCustomizable?: boolean; seoTitle?: string | null; seoDescription?: string | null; pricingBreakdown?: unknown | null; pricingConfigId?: string | null; licenseType?: string; licenseSourceUrl?: string | null; licenseProofUrl?: string | null; printLocalPath?: string | null; printDriveUrl?: string | null }, actorId: string) {
   return invalidatesStorefrontCatalog(withTransaction(async (client) => {
-    const before = await client.query('select category_id, name, slug, short_description, description, product_type, status, base_price, cost_price, is_featured, is_customizable, seo_title, seo_description, license_type, license_source_url, license_proof_url from products where id = $1 for update', [productId]);
+    const before = await client.query('select category_id, name, slug, short_description, description, product_type, status, base_price, cost_price, is_featured, is_customizable, seo_title, seo_description, license_type, license_source_url, license_proof_url, print_local_path, print_drive_url from products where id = $1 for update', [productId]);
     if (!before.rowCount) throw new DomainError('PRODUCT_NOT_FOUND', 'Product was not found.', 404);
-    const fields = { categoryId: 'category_id', name: 'name', slug: 'slug', shortDescription: 'short_description', description: 'description', productType: 'product_type', status: 'status', basePrice: 'base_price', costPrice: 'cost_price', isFeatured: 'is_featured', isCustomizable: 'is_customizable', seoTitle: 'seo_title', seoDescription: 'seo_description', pricingBreakdown: 'pricing_breakdown', pricingConfigId: 'pricing_config_id', licenseType: 'license_type', licenseSourceUrl: 'license_source_url', licenseProofUrl: 'license_proof_url' } as const;
+    const fields = { categoryId: 'category_id', name: 'name', slug: 'slug', shortDescription: 'short_description', description: 'description', productType: 'product_type', status: 'status', basePrice: 'base_price', costPrice: 'cost_price', isFeatured: 'is_featured', isCustomizable: 'is_customizable', seoTitle: 'seo_title', seoDescription: 'seo_description', pricingBreakdown: 'pricing_breakdown', pricingConfigId: 'pricing_config_id', licenseType: 'license_type', licenseSourceUrl: 'license_source_url', licenseProofUrl: 'license_proof_url', printLocalPath: 'print_local_path', printDriveUrl: 'print_drive_url' } as const;
     const sets: string[] = [];
     const values: unknown[] = [];
     for (const [key, column] of Object.entries(fields) as [keyof typeof patch, string][]) {

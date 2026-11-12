@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, ImageOff, Loader2, Plus, Star, Trash2, X } from 'lucide-react';
+import { Check, Copy, ExternalLink, ImageOff, Loader2, Plus, Star, Trash2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,6 +26,8 @@ export type DetailVariantRow = {
   price: number;
   weightGrams: number | null;
   isActive: boolean;
+  printLocalPath: string | null;
+  printDriveUrl: string | null;
 };
 
 export type DetailImageRow = {
@@ -58,14 +60,16 @@ export function ProductDetailVariantsAndImages({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
 
-  const [drafts, setDrafts] = useState<Record<string, { name: string; priceText: string; weightText: string; isActive: boolean }>>(() => {
-    const init: Record<string, { name: string; priceText: string; weightText: string; isActive: boolean }> = {};
+  const [drafts, setDrafts] = useState<Record<string, { name: string; priceText: string; weightText: string; isActive: boolean; printLocalPath: string; printDriveUrl: string }>>(() => {
+    const init: Record<string, { name: string; priceText: string; weightText: string; isActive: boolean; printLocalPath: string; printDriveUrl: string }> = {};
     for (const v of variants) {
       init[v.id] = {
         name: v.name,
         priceText: String(v.price),
         weightText: v.weightGrams != null ? String(v.weightGrams) : '',
         isActive: v.isActive,
+        printLocalPath: v.printLocalPath ?? '',
+        printDriveUrl: v.printDriveUrl ?? '',
       };
     }
     return init;
@@ -77,6 +81,8 @@ export function ProductDetailVariantsAndImages({
     priceText: String(v.price),
     weightText: v.weightGrams != null ? String(v.weightGrams) : '',
     isActive: v.isActive,
+    printLocalPath: v.printLocalPath ?? '',
+    printDriveUrl: v.printDriveUrl ?? '',
   };
 
   // New variant form
@@ -93,7 +99,7 @@ export function ProductDetailVariantsAndImages({
     return map;
   }, [images]);
 
-  function updateDraft(variant: DetailVariantRow, patch: Partial<{ name: string; priceText: string; weightText: string; isActive: boolean }>) {
+  function updateDraft(variant: DetailVariantRow, patch: Partial<{ name: string; priceText: string; weightText: string; isActive: boolean; printLocalPath: string; printDriveUrl: string }>) {
     const cur = effectiveDraft(variant);
     setDrafts((prev) => ({ ...prev, [variant.id]: { ...cur, ...patch } }));
   }
@@ -113,6 +119,8 @@ export function ProductDetailVariantsAndImages({
         price,
         weightGrams: weight,
         isActive: d.isActive,
+        printLocalPath: d.printLocalPath.trim() || null,
+        printDriveUrl: d.printDriveUrl.trim() || null,
       });
       if (!res.ok) { setNotice({ tone: 'error', text: res.error }); return; }
       setSavedId(variant.id);
@@ -219,8 +227,9 @@ export function ProductDetailVariantsAndImages({
             return (
               <div
                 key={variant.id}
-                className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3 sm:flex-row sm:items-center"
+                className="flex flex-col gap-2.5 rounded-xl border border-border bg-card p-3"
               >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 {/* Variant image preview + quick selector */}
                 <div className="flex items-center gap-2.5 sm:w-52 shrink-0">
                   <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
@@ -310,6 +319,57 @@ export function ProductDetailVariantsAndImages({
                       >
                         <Trash2 className="size-3.5" />
                       </Button>
+                    ) : null}
+                  </div>
+                </div>
+
+                </div>
+                {/* Print file (.3mf local D:\ + Google Drive backup) */}
+                <div className="grid w-full gap-2 border-t border-border/60 pt-2 sm:grid-cols-2">
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      value={d.printLocalPath}
+                      disabled={isBusy}
+                      onChange={(e) => updateDraft(variant, { printLocalPath: e.target.value })}
+                      placeholder="File .3mf ổ D: D:\data3D\..."
+                      aria-label={`Đường dẫn .3mf ổ D cho ${variant.name}`}
+                      className="h-7 flex-1 font-mono text-xs"
+                    />
+                    {d.printLocalPath ? (
+                      <Button
+                        type="button"
+                        size="icon-xs"
+                        variant="ghost"
+                        title="Copy đường dẫn file"
+                        onClick={() => {
+                          void navigator.clipboard?.writeText(d.printLocalPath);
+                          setNotice({ tone: 'ok', text: `Đã copy đường dẫn: ${d.printLocalPath}` });
+                        }}
+                      >
+                        <Copy className="size-3" />
+                      </Button>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      type="url"
+                      value={d.printDriveUrl}
+                      disabled={isBusy}
+                      onChange={(e) => updateDraft(variant, { printDriveUrl: e.target.value })}
+                      placeholder="Link Drive backup: https://drive.google.com/..."
+                      aria-label={`Link Drive .3mf cho ${variant.name}`}
+                      className="h-7 flex-1 text-xs"
+                    />
+                    {d.printDriveUrl ? (
+                      <a
+                        href={d.printDriveUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Mở file trên Google Drive"
+                        className="inline-flex size-6 items-center justify-center rounded border border-border hover:bg-muted"
+                      >
+                        <ExternalLink className="size-3" />
+                      </a>
                     ) : null}
                   </div>
                 </div>

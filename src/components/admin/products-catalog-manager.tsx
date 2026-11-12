@@ -1815,6 +1815,8 @@ function QuickEditProductDialog({
   const [licenseSourceUrl, setLicenseSourceUrl] = useState('');
   const [licenseProofUrl, setLicenseProofUrl] = useState('');
   const [licenseReviewed, setLicenseReviewed] = useState(false);
+  const [printLocalPath, setPrintLocalPath] = useState('');
+  const [printDriveUrl, setPrintDriveUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -1831,6 +1833,8 @@ function QuickEditProductDialog({
     setLicenseSourceUrl(item.licenseSourceUrl ?? '');
     setLicenseProofUrl(item.licenseProofUrl ?? '');
     setLicenseReviewed(Boolean(item.importLicenseReviewed));
+    setPrintLocalPath(item.printLocalPath ?? '');
+    setPrintDriveUrl(item.printDriveUrl ?? '');
     setError(null);
   }, [item]);
 
@@ -1859,6 +1863,8 @@ function QuickEditProductDialog({
         licenseType,
         licenseSourceUrl: licenseSourceUrl.trim() || null,
         licenseProofUrl: licenseProofUrl.trim() || null,
+        printLocalPath: printLocalPath.trim() || null,
+        printDriveUrl: printDriveUrl.trim() || null,
         ...(item.imported ? { licenseReviewed } : {}),
       });
       if (!res.ok) {
@@ -2032,6 +2038,18 @@ function QuickEditProductDialog({
                     Đã kiểm tra bản quyền STL (bắt buộc trước khi duyệt lên web)
                   </label>
                 ) : null}
+              </div>
+
+              <div className="grid gap-3 rounded-lg border border-border p-3 sm:grid-cols-2">
+                <div className="sm:col-span-2 text-xs font-semibold">File .3mf để in (nội bộ xưởng)</div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="qe-local-3mf">Đường dẫn ổ D</Label>
+                  <Input id="qe-local-3mf" value={printLocalPath} onChange={(e) => setPrintLocalPath(e.target.value)} placeholder="D:\data3D\..." disabled={busy} className="font-mono text-xs" />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="qe-drive-3mf">Link Google Drive backup</Label>
+                  <Input id="qe-drive-3mf" type="url" value={printDriveUrl} onChange={(e) => setPrintDriveUrl(e.target.value)} placeholder="https://drive.google.com/..." disabled={busy} className="text-xs" />
+                </div>
               </div>
 
               {error ? <p role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-2.5 text-xs text-destructive">{error}</p> : null}

@@ -91,13 +91,15 @@ export default async function ProductDetailPage({
         productId={id}
         productName={product.name}
         role={role}
-        variants={product.variants.map((v: { id: string; sku: string; name: string; price: number; weightGrams: number | null; isActive: boolean }) => ({
+        variants={product.variants.map((v: { id: string; sku: string; name: string; price: number; weightGrams: number | null; isActive: boolean; printLocalPath: string | null; printDriveUrl: string | null }) => ({
           id: v.id,
           sku: v.sku,
           name: v.name,
           price: v.price,
           weightGrams: v.weightGrams,
           isActive: v.isActive,
+          printLocalPath: v.printLocalPath,
+          printDriveUrl: v.printDriveUrl,
         }))}
         images={images.map((img) => ({
           id: img.id,
@@ -199,6 +201,17 @@ export default async function ProductDetailPage({
                   <span className="text-xs text-muted-foreground">Nguồn STL: {importMeta.sourceRelPath}</span>
                 </div>
               ) : null}
+            </div>
+            <div className="sm:col-span-2 grid gap-4 rounded-lg border border-border p-3 sm:grid-cols-2">
+              <div className="sm:col-span-2 text-sm font-semibold">File .3mf để in (nội bộ xưởng, không hiện ngoài web)</div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="printLocalPath">Đường dẫn file ổ D / máy xưởng</Label>
+                <Input id="printLocalPath" name="printLocalPath" defaultValue={product.printLocalPath ?? ''} placeholder="VD: D:\data3D\Clicker\Cat_v8.3mf" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="printDriveUrl">Link Google Drive backup</Label>
+                <Input id="printDriveUrl" name="printDriveUrl" type="url" defaultValue={product.printDriveUrl ?? ''} placeholder="https://drive.google.com/..." />
+              </div>
             </div>
             <div className="sm:col-span-2"><Button type="submit">Lưu thông tin chung</Button></div>
           </form>

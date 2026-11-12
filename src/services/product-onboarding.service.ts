@@ -347,6 +347,7 @@ export type CatalogListItem = {
   categoryId: string | null; categoryName: string | null; categorySlug: string | null; coverStoragePath: string | null;
   variantCount: number; minPrice: number | null; maxPrice: number | null; imported: boolean;
   licenseType: string; licenseSourceUrl: string | null; licenseProofUrl: string | null;
+  printLocalPath: string | null; printDriveUrl: string | null;
   importItemId: string | null; importReviewStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   importLicenseReviewed: boolean | null; importSourceRelPath: string | null; importWarnings: string[];
   updatedAt: string; missing: PublishReadinessReason[];
@@ -390,6 +391,7 @@ export async function listCatalogProducts(filters: {
     id: string; name: string; slug: string; status: string; productType: string; basePrice: string | null;
     shortDescription: string | null; isFeatured: boolean; licenseType: string;
     licenseSourceUrl: string | null; licenseProofUrl: string | null;
+    printLocalPath: string | null; printDriveUrl: string | null;
     categoryId: string | null; categoryName: string | null; categorySlug: string | null; coverStoragePath: string | null;
     imageCount: string; variantCount: string; pricedVariants: string; minPrice: string | null; maxPrice: string | null;
     importItemId: string | null; importReviewStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
@@ -398,6 +400,7 @@ export async function listCatalogProducts(filters: {
     select p.id, p.name, p.slug, p.status, p.product_type as "productType", p.base_price as "basePrice",
       p.short_description as "shortDescription", p.is_featured as "isFeatured", p.license_type as "licenseType",
       p.license_source_url as "licenseSourceUrl", p.license_proof_url as "licenseProofUrl",
+      p.print_local_path as "printLocalPath", p.print_drive_url as "printDriveUrl",
       p.category_id as "categoryId", c.name as "categoryName", c.slug as "categorySlug",
       (select pi.storage_path from product_images pi where pi.product_id = p.id order by pi.sort_order, pi.created_at limit 1) as "coverStoragePath",
       (select count(*) from product_images pi where pi.product_id = p.id) as "imageCount",
@@ -425,6 +428,7 @@ export async function listCatalogProducts(filters: {
       variantCount: Number(row.variantCount), minPrice: row.minPrice === null ? null : Number(row.minPrice),
       maxPrice: row.maxPrice === null ? null : Number(row.maxPrice), imported: Boolean(row.importItemId),
       licenseType: row.licenseType, licenseSourceUrl: row.licenseSourceUrl, licenseProofUrl: row.licenseProofUrl,
+      printLocalPath: row.printLocalPath, printDriveUrl: row.printDriveUrl,
       importItemId: row.importItemId, importReviewStatus: row.importReviewStatus,
       importLicenseReviewed: row.importLicenseReviewed, importSourceRelPath: row.importSourceRelPath, importWarnings,
       updatedAt: row.updatedAt,
@@ -555,6 +559,8 @@ export async function quickUpdateCatalogProduct(session: StaffSession, rawInput:
     if (input.licenseType !== undefined) addSet('license_type', input.licenseType);
     if (input.licenseSourceUrl !== undefined) addSet('license_source_url', input.licenseSourceUrl);
     if (input.licenseProofUrl !== undefined) addSet('license_proof_url', input.licenseProofUrl);
+    if (input.printLocalPath !== undefined) addSet('print_local_path', input.printLocalPath);
+    if (input.printDriveUrl !== undefined) addSet('print_drive_url', input.printDriveUrl);
 
     const runProductUpdate = async () => {
       if (!sets.length) return { id: product.id, name: product.name, status: product.status };
@@ -731,14 +737,29 @@ export async function mergeCatalogProducts(session: StaffSession, rawInput: unkn
         }
       }
 
-      // Read each source product's cover image BEFORE deleting/archiving source rows.
+      // Read each source product's cover image & print file paths BEFORE deleting/archiving source rows.
       const coverBySourceId = new Map<string, string>();
+      const printFilesBySourceId = new Map<string, { localPath: string | null; driveUrl: string | null }>();
       for (const sourceId of sortedSourceIds) {
         const srcImg = await client.query<{ storage_path: string }>(
           'select storage_path from product_images where product_id = $1 order by sort_order, created_at limit 1',
           [sourceId],
         );
         if (srcImg.rowCount) coverBySourceId.set(sourceId, srcImg.rows[0].storage_path);
+
+        const srcFiles = await client.query<{ print_local_path: string | null; print_drive_url: string | null; source_rel_path: string | null }>(
+          `select p.print_local_path, p.print_drive_url, imp.source_rel_path
+           from products p left join product_import_items imp on imp.product_id = p.id
+           where p.id = $1`,
+          [sourceId],
+        );
+        if (srcFiles.rowCount) {
+          const row = srcFiles.rows[0];
+          printFilesBySourceId.set(sourceId, {
+            localPath: row.print_local_path || row.source_rel_path || null,
+            driveUrl: row.print_drive_url || null,
+          });
+        }
       }
 
       // When deleting source products, remove their product_images rows first so unique storage_path is freed.
@@ -791,10 +812,11 @@ export async function mergeCatalogProducts(session: StaffSession, rawInput: unkn
           const sku = buildSku(skuCode, skuSlug, (value) => taken.has(value) || assignedSkus.has(value));
           await client.query('savepoint merge_variant_sku');
           try {
+            const srcPrintFiles = plan.sourceProductId ? printFilesBySourceId.get(plan.sourceProductId) : undefined;
             const inserted = await client.query<{ id: string }>(
-              `insert into product_variants (product_id, sku, name, attributes, price, is_active)
-               values ($1,$2,$3,$4,$5,true) returning id`,
-              [productId, sku, plan.name, { sample: plan.name }, plan.price],
+              `insert into product_variants (product_id, sku, name, attributes, price, is_active, print_local_path, print_drive_url)
+               values ($1,$2,$3,$4,$5,true,$6,$7) returning id`,
+              [productId, sku, plan.name, { sample: plan.name }, plan.price, srcPrintFiles?.localPath ?? null, srcPrintFiles?.driveUrl ?? null],
             );
             await client.query('release savepoint merge_variant_sku');
             variantId = inserted.rows[0].id;
