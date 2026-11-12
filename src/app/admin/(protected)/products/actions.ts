@@ -3,6 +3,8 @@
 import { parseActionId } from '@/lib/action-args';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { ZodError } from 'zod';
+import { DomainError } from '@/lib/domain-error';
 import { PublishBlockedError } from '@/lib/stl-import/publish-gate';
 import { requireAdmin, requireOwner } from '@/lib/auth/require-admin';
 import {
@@ -23,7 +25,7 @@ import {
   updateVariant,
   uploadProductImage,
 } from '@/services/product.service';
-import { generateVariantSku, publishProductIfReady } from '@/services/product-onboarding.service';
+import { bulkCatalogAction, generateVariantSku, publishProductIfReady, quickUpdateCatalogProduct, type BulkCatalogResult } from '@/services/product-onboarding.service';
 import { slugify } from '@/lib/catalog/naming';
 
 // Feature 003: the import publish gate refuses status → ACTIVE with reasons; send the admin back to
@@ -83,10 +85,12 @@ export async function createCategoryAction(formData: FormData) {
 }
 
 export async function updateProductAction(productId: string, formData: FormData) {
-  const { actorId } = await requireAdmin();
+  const session = await requireAdmin();
   productId = parseActionId(productId, 'productId');
   const pricingBreakdownRaw = readFormValue(formData, 'pricingBreakdown');
   const patch = productUpdateInputSchema.parse({
+    categoryId: readFormValue(formData, 'categoryId'),
+    productType: readFormValue(formData, 'productType'),
     name: readFormValue(formData, 'name'),
     slug: readFormValue(formData, 'slug'),
     shortDescription: readFormValue(formData, 'shortDescription') ?? null,
@@ -102,9 +106,35 @@ export async function updateProductAction(productId: string, formData: FormData)
     licenseSourceUrl: readFormValue(formData, 'licenseSourceUrl') ?? null,
     licenseProofUrl: readFormValue(formData, 'licenseProofUrl') ?? null,
   });
-  await updateOrExplain(productId, patch, actorId, `/admin/products/${productId}`);
+  const hasLicenseReviewedField = formData.has('hasImportLicenseField');
+  const licenseReviewed = formData.get('licenseReviewed') === 'on';
+  try {
+    if (hasLicenseReviewedField) {
+      await quickUpdateCatalogProduct(session, {
+        productId,
+        categoryId: patch.categoryId,
+        productType: patch.productType,
+        name: patch.name,
+        shortDescription: patch.shortDescription,
+        status: patch.status,
+        basePrice: patch.basePrice,
+        isFeatured: patch.isFeatured,
+        licenseType: patch.licenseType,
+        licenseSourceUrl: patch.licenseSourceUrl,
+        licenseProofUrl: patch.licenseProofUrl,
+        licenseReviewed,
+        syncSingleVariantPrice: false,
+      });
+    }
+    await updateOrExplain(productId, patch, session.actorId, `/admin/products/${productId}`);
+  } catch (error) {
+    if (error instanceof PublishBlockedError) redirect(`/admin/products/${productId}?publishBlocked=${error.reasons.join(',')}`);
+    if (error instanceof DomainError) redirect(`/admin/products/${productId}?saveError=${encodeURIComponent(error.message)}`);
+    throw error;
+  }
   revalidatePath(`/admin/products/${productId}`);
   revalidatePath('/admin/products');
+  revalidatePath('/admin/stl-import');
 }
 
 // STAFF-allowed soft archive (ADR-0011 boundary #3) — same updateProduct call, just status.
@@ -143,8 +173,91 @@ export async function publishProductFromListAction(productId: string) {
 export async function deleteProductAction(productId: string) {
   const { actorId } = await requireOwner();
   productId = parseActionId(productId, 'productId');
-  await deleteProduct(productId, actorId);
+  try {
+    await deleteProduct(productId, actorId);
+  } catch (error) {
+    if (error instanceof DomainError) {
+      redirect(`/admin/products/${productId}?saveError=${encodeURIComponent(error.message)}`);
+    }
+    throw error;
+  }
   revalidatePath('/admin/products');
+  revalidatePath('/admin/product-inventory');
+  revalidatePath('/admin/stl-import');
+  redirect('/admin/products');
+}
+
+export type CatalogActionResult<T> = { ok: true; data: T } | { ok: false; code: string; error: string };
+
+function toCatalogFailure(error: unknown): { ok: false; code: string; error: string } {
+  if (error instanceof DomainError) return { ok: false, code: error.code, error: error.message };
+  if (error instanceof ZodError) {
+    return { ok: false, code: 'VALIDATION_ERROR', error: error.issues[0]?.message ?? 'D? li?u ch?a h?p l?.' };
+  }
+  throw error;
+}
+
+function revalidateAllCatalogPaths(productId?: string) {
+  revalidatePath('/admin/products');
+  revalidatePath('/admin/product-inventory');
+  revalidatePath('/admin/stl-import');
+  if (productId) revalidatePath(`/admin/products/${productId}`);
+}
+
+export async function quickUpdateCatalogProductAction(
+  payload: unknown,
+): Promise<CatalogActionResult<{ id: string; name: string; status: string }>> {
+  const session = await requireAdmin();
+  try {
+    const data = await quickUpdateCatalogProduct(session, payload);
+    revalidateAllCatalogPaths(data.id);
+    return { ok: true, data };
+  } catch (error) {
+    return toCatalogFailure(error);
+  }
+}
+
+export async function bulkCatalogActionAction(
+  payload: unknown,
+): Promise<CatalogActionResult<BulkCatalogResult>> {
+  const session = await requireAdmin();
+  try {
+    const data = await bulkCatalogAction(session, payload);
+    revalidateAllCatalogPaths();
+    return { ok: true, data };
+  } catch (error) {
+    return toCatalogFailure(error);
+  }
+}
+
+export async function deleteCatalogProductAction(
+  productId: string,
+): Promise<CatalogActionResult<{ id: string }>> {
+  const { actorId } = await requireOwner();
+  try {
+    const validId = parseActionId(productId, 'productId');
+    const data = await deleteProduct(validId, actorId);
+    revalidateAllCatalogPaths(validId);
+    return { ok: true, data };
+  } catch (error) {
+    return toCatalogFailure(error);
+  }
+}
+
+export async function createCategoryInlineAction(
+  payload: { name: string; slug?: string },
+): Promise<CatalogActionResult<{ id: string; name: string; slug: string }>> {
+  const { actorId } = await requireAdmin();
+  try {
+    const name = String(payload.name ?? '').trim();
+    const slug = (payload.slug?.trim() || slugify(name));
+    const input = categoryInputSchema.parse({ name, slug, parentId: null });
+    const created = await createCategory(input, actorId);
+    revalidateAllCatalogPaths();
+    return { ok: true, data: { id: created.id, name: input.name, slug: input.slug } };
+  } catch (error) {
+    return toCatalogFailure(error);
+  }
 }
 
 export async function createVariantAction(productId: string, formData: FormData) {

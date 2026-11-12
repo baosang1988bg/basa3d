@@ -668,6 +668,7 @@ export const productUpdateInputSchema = z.object({
   slug: z.string().trim().min(1).max(160).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).optional(),
   shortDescription: z.string().trim().max(500).nullable().optional(),
   description: z.string().trim().max(20_000).nullable().optional(),
+  productType: productTypeSchema.optional(),
   status: productStatusSchema.optional(),
   basePrice: vndSchema.nullable().optional(),
   costPrice: vndSchema.nullable().optional(),
@@ -913,3 +914,40 @@ export const stlImportItemRefSchema = z.object({ itemId: uuidSchema, expectedIte
 // makes the decision STALE instead of publishing content nobody reviewed.
 export const stlImportDecisionRefSchema = stlImportItemRefSchema.extend({ expectedProductUpdatedAt: microsecondTimestampSchema.nullable() }).strict();
 export const stlImportBulkDecisionSchema = z.object({ items: z.array(stlImportDecisionRefSchema).min(1).max(100) }).strict();
+
+
+// /admin/products catalog quick-edit & bulk management
+const httpUrlSchema = z.string().trim().url().max(2_000).regex(/^https?:\/\//i, 'URL phải bắt đầu bằng http:// hoặc https://');
+const catalogProductIdsSchema = z.array(uuidSchema).min(1).max(100);
+
+export const catalogQuickEditSchema = z.object({
+  productId: uuidSchema,
+  name: nonEmptyText.max(200).optional(),
+  categoryId: uuidSchema.nullable().optional(),
+  productType: productTypeSchema.optional(),
+  basePrice: vndSchema.nullable().optional(),
+  shortDescription: z.string().trim().max(500).nullable().optional(),
+  isFeatured: z.boolean().optional(),
+  status: productStatusSchema.optional(),
+  licenseType: productLicenseTypeSchema.optional(),
+  licenseSourceUrl: httpUrlSchema.nullable().optional(),
+  licenseProofUrl: httpUrlSchema.nullable().optional(),
+  licenseReviewed: z.boolean().optional(),
+  syncSingleVariantPrice: z.boolean().default(true),
+}).strict();
+
+export const catalogBulkActionSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('SET_CATEGORY'), productIds: catalogProductIdsSchema, categoryId: uuidSchema }).strict(),
+  z.object({ action: z.literal('SET_STATUS'), productIds: catalogProductIdsSchema, status: z.enum(['DRAFT', 'ARCHIVED']) }).strict(),
+  z.object({ action: z.literal('SET_FEATURED'), productIds: catalogProductIdsSchema, isFeatured: z.boolean() }).strict(),
+  z.object({ action: z.literal('PUBLISH'), productIds: catalogProductIdsSchema, confirmLicenseReviewed: z.boolean().optional() }).strict(),
+  z.object({
+    action: z.literal('APPLY_LICENSE'),
+    productIds: catalogProductIdsSchema,
+    licenseType: productLicenseTypeSchema,
+    licenseSourceUrl: httpUrlSchema.nullable().optional(),
+    licenseReviewed: z.boolean().optional(),
+    publish: z.boolean().default(false),
+  }).strict(),
+  z.object({ action: z.literal('DELETE'), productIds: catalogProductIdsSchema }).strict(),
+]);

@@ -1,6 +1,8 @@
 import Image from 'next/image';
+import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
 import { notFound } from 'next/navigation';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,7 +11,9 @@ import { requireAdmin } from '@/lib/auth/require-admin';
 import { PublishBlockedNotice } from '@/components/admin/publish-blocked-notice';
 import { listMaterials } from '@/services/inventory.service';
 import { getCurrentPricingConfig } from '@/services/pricing-config.service';
-import { getProductById, listProductImages } from '@/services/product.service';
+import { getCategoryDisplayName } from '@/lib/categories';
+import { getProductById, listCategories, listProductImages } from '@/services/product.service';
+import { getProductImportMeta } from '@/services/product-onboarding.service';
 import {
   createVariantAction,
   deleteProductAction,
@@ -21,19 +25,29 @@ import {
 import { setProductCoverImageAction } from '../new/actions';
 import { ProductImageUploader } from '@/components/admin/product-image-picker';
 
-export default async function ProductDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ publishBlocked?: string }> }) {
+export default async function ProductDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ publishBlocked?: string; saveError?: string }> }) {
   const { id } = await params;
-  const { publishBlocked } = await searchParams;
-  const [{ role }, product, images, materials, pricingConfig] = await Promise.all([
-    requireAdmin(), getProductById(id), listProductImages(id), listMaterials(), getCurrentPricingConfig(),
+  const { publishBlocked, saveError } = await searchParams;
+  const [{ role }, product, images, materials, pricingConfig, { items: categories }, importMeta] = await Promise.all([
+    requireAdmin(), getProductById(id), listProductImages(id), listMaterials(), getCurrentPricingConfig(), listCategories({ limit: 100 }), getProductImportMeta(id),
   ]);
   if (!product) notFound();
 
   return (
     <div className="flex flex-col gap-6">
       <PublishBlockedNotice value={publishBlocked} />
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">{product.name}</h1>
+      {saveError ? (
+        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          {saveError}
+        </div>
+      ) : null}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <Link href="/admin/products" className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'w-fit -ml-2' })}>
+            <ArrowLeft className="mr-1 size-4" /> Danh sách sản phẩm
+          </Link>
+          <h1 className="text-2xl font-semibold">{product.name}</h1>
+        </div>
         {role === 'OWNER' ? (
           <form action={deleteProductAction.bind(null, id)}>
             <Button type="submit" variant="destructive" size="sm">Xoá hẳn sản phẩm</Button>
@@ -54,11 +68,27 @@ export default async function ProductDetailPage({ params, searchParams }: { para
               <Input id="slug" name="slug" defaultValue={product.slug} />
             </div>
             <div className="flex flex-col gap-1.5">
+              <Label htmlFor="categoryId">Danh mục</Label>
+              <select id="categoryId" name="categoryId" defaultValue={product.categoryId ?? ''} className="h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm">
+                <option value="">— Chưa chọn danh mục —</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>{getCategoryDisplayName(category, 'vi')}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="productType">Hình thức bán</Label>
+              <select id="productType" name="productType" defaultValue={product.productType} className="h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm">
+                <option value="MADE_TO_ORDER">In theo yêu cầu</option>
+                <option value="READY_STOCK">Có sẵn, giao ngay</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
               <Label htmlFor="status">Trạng thái</Label>
-              <select id="status" name="status" defaultValue={product.status} className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm">
-                <option value="DRAFT">DRAFT</option>
-                <option value="ACTIVE">ACTIVE</option>
-                <option value="ARCHIVED">ARCHIVED</option>
+              <select id="status" name="status" defaultValue={product.status} className="h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm">
+                <option value="DRAFT">Nháp (DRAFT)</option>
+                <option value="ACTIVE">Đang bán (ACTIVE)</option>
+                <option value="ARCHIVED">Đã lưu trữ (ARCHIVED)</option>
               </select>
             </div>
             <div className="flex flex-col gap-1.5">
@@ -105,6 +135,16 @@ export default async function ProductDetailPage({ params, searchParams }: { para
                 <Label htmlFor="licenseProofUrl">Link bằng chứng license</Label>
                 <Input id="licenseProofUrl" name="licenseProofUrl" type="url" defaultValue={product.licenseProofUrl ?? ''} placeholder="Link ảnh chụp màn hình license" />
               </div>
+              {importMeta ? (
+                <div className="col-span-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-sm">
+                  <input type="hidden" name="hasImportLicenseField" value="1" />
+                  <label className="flex items-center gap-2 font-medium">
+                    <input name="licenseReviewed" type="checkbox" className="size-4" defaultChecked={importMeta.licenseReviewed} />
+                    Đã kiểm tra bản quyền STL (trạng thái duyệt: {importMeta.reviewStatus})
+                  </label>
+                  <span className="text-xs text-muted-foreground">Nguồn STL: {importMeta.sourceRelPath}</span>
+                </div>
+              ) : null}
             </div>
             <div className="col-span-2"><Button type="submit">Lưu thay đổi</Button></div>
           </form>

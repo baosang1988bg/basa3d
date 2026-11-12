@@ -163,11 +163,11 @@ export async function deleteVariant(variantId: string, actorId: string) {
   }));
 }
 
-export async function updateProduct(productId: string, patch: { categoryId?: string | null; name?: string; slug?: string; shortDescription?: string | null; description?: string | null; status?: string; basePrice?: number | null; costPrice?: number | null; isFeatured?: boolean; isCustomizable?: boolean; seoTitle?: string | null; seoDescription?: string | null; pricingBreakdown?: unknown | null; pricingConfigId?: string | null; licenseType?: string; licenseSourceUrl?: string | null; licenseProofUrl?: string | null }, actorId: string) {
+export async function updateProduct(productId: string, patch: { categoryId?: string | null; name?: string; slug?: string; shortDescription?: string | null; description?: string | null; productType?: string; status?: string; basePrice?: number | null; costPrice?: number | null; isFeatured?: boolean; isCustomizable?: boolean; seoTitle?: string | null; seoDescription?: string | null; pricingBreakdown?: unknown | null; pricingConfigId?: string | null; licenseType?: string; licenseSourceUrl?: string | null; licenseProofUrl?: string | null }, actorId: string) {
   return invalidatesStorefrontCatalog(withTransaction(async (client) => {
-    const before = await client.query('select category_id, name, slug, short_description, description, status, base_price, cost_price, is_featured, is_customizable, seo_title, seo_description, license_type, license_source_url, license_proof_url from products where id = $1 for update', [productId]);
+    const before = await client.query('select category_id, name, slug, short_description, description, product_type, status, base_price, cost_price, is_featured, is_customizable, seo_title, seo_description, license_type, license_source_url, license_proof_url from products where id = $1 for update', [productId]);
     if (!before.rowCount) throw new DomainError('PRODUCT_NOT_FOUND', 'Product was not found.', 404);
-    const fields = { categoryId: 'category_id', name: 'name', slug: 'slug', shortDescription: 'short_description', description: 'description', status: 'status', basePrice: 'base_price', costPrice: 'cost_price', isFeatured: 'is_featured', isCustomizable: 'is_customizable', seoTitle: 'seo_title', seoDescription: 'seo_description', pricingBreakdown: 'pricing_breakdown', pricingConfigId: 'pricing_config_id', licenseType: 'license_type', licenseSourceUrl: 'license_source_url', licenseProofUrl: 'license_proof_url' } as const;
+    const fields = { categoryId: 'category_id', name: 'name', slug: 'slug', shortDescription: 'short_description', description: 'description', productType: 'product_type', status: 'status', basePrice: 'base_price', costPrice: 'cost_price', isFeatured: 'is_featured', isCustomizable: 'is_customizable', seoTitle: 'seo_title', seoDescription: 'seo_description', pricingBreakdown: 'pricing_breakdown', pricingConfigId: 'pricing_config_id', licenseType: 'license_type', licenseSourceUrl: 'license_source_url', licenseProofUrl: 'license_proof_url' } as const;
     const sets: string[] = [];
     const values: unknown[] = [];
     for (const [key, column] of Object.entries(fields) as [keyof typeof patch, string][]) {
@@ -239,19 +239,38 @@ export async function deleteProductImage(imageId: string, actorId: string) {
 
 // Hard delete — OWNER only (enforced by the route handler, ADR-0011 boundary #3).
 export async function deleteProduct(productId: string, actorId: string) {
-  return invalidatesStorefrontCatalog(withTransaction(async (client) => {
+  let deletedPaths: string[] = [];
+  const deleted = await invalidatesStorefrontCatalog(withTransaction(async (client) => {
     try {
       // Feature 003: lock the import item first (item → product), the order every import path uses.
       await client.query('select id from product_import_items where product_id = $1 for update', [productId]);
-      const result = await client.query('delete from products where id = $1 returning id', [productId]);
-      if (!result.rowCount) throw new DomainError('PRODUCT_NOT_FOUND', 'Product was not found.', 404);
-      await writeAuditLog(client, { actorId, action: 'PRODUCT_DELETED', entityType: 'product', entityId: productId });
+      const locked = await client.query<{ id: string; name: string }>('select id, name from products where id = $1 for update', [productId]);
+      if (!locked.rowCount) throw new DomainError('PRODUCT_NOT_FOUND', 'Không tìm thấy sản phẩm.', 404);
+      const refs = await client.query<{ has_orders: boolean; has_carts: boolean; has_movements: boolean }>(`
+        select
+          exists (select 1 from order_items oi join product_variants pv on pv.id = oi.variant_id where pv.product_id = $1) as has_orders,
+          exists (select 1 from cart_items ci join product_variants pv on pv.id = ci.variant_id where pv.product_id = $1) as has_carts,
+          exists (select 1 from inventory_movements im join product_variants pv on pv.id = im.product_variant_id where pv.product_id = $1) as has_movements
+      `, [productId]);
+      if (refs.rows[0].has_orders || refs.rows[0].has_carts || refs.rows[0].has_movements) {
+        throw new DomainError('PRODUCT_IN_USE', 'Sản phẩm đã có đơn hàng, giỏ hàng hoặc lịch sử tồn kho — không thể xoá hẳn, hãy chuyển sang Lưu trữ.', 409);
+      }
+      const images = await client.query<{ storage_path: string }>('delete from product_images where product_id = $1 returning storage_path', [productId]);
+      deletedPaths = images.rows.map((row) => row.storage_path);
+      await client.query('delete from product_variants where product_id = $1', [productId]);
+      const result = await client.query<{ id: string }>('delete from products where id = $1 returning id', [productId]);
+      await writeAuditLog(client, { actorId, action: 'PRODUCT_DELETED', entityType: 'product', entityId: productId, beforeData: locked.rows[0] });
       return result.rows[0];
     } catch (error) {
-      if (isForeignKeyViolation(error)) throw new DomainError('PRODUCT_HAS_VARIANTS', 'Product has existing variants and cannot be hard-deleted — archive it or delete the variants first.', 409);
+      if (error instanceof DomainError) throw error;
+      if (isForeignKeyViolation(error)) throw new DomainError('PRODUCT_IN_USE', 'Sản phẩm đang được tham chiếu ở dữ liệu khác — hãy chuyển sang Lưu trữ.', 409);
       throw error;
     }
   }));
+  if (deletedPaths.length && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    await createSupabaseAdminClient().storage.from(PRODUCT_IMAGE_BUCKET).remove(deletedPaths).catch(() => undefined);
+  }
+  return deleted;
 }
 
 export type ProductInventoryVariant = {
