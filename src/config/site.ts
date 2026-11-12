@@ -21,8 +21,9 @@ export const SITE_CONFIG = {
   // https://m.me/<fanpage-username> and the contact CTA will pick it up automatically.
   messengerUrl: process.env.NEXT_PUBLIC_MESSENGER_URL || '',
   facebookUrl: process.env.NEXT_PUBLIC_FACEBOOK_URL || '',
-  tiktokUrl: process.env.NEXT_PUBLIC_TIKTOK_URL || '',
-  instagramUrl: process.env.NEXT_PUBLIC_INSTAGRAM_URL || '',
+  tiktokUrl: process.env.NEXT_PUBLIC_TIKTOK_URL || 'https://www.tiktok.com/@basain3d',
+  threadsUrl: process.env.NEXT_PUBLIC_THREADS_URL || 'https://www.threads.com/@basa.in3d',
+  instagramUrl: process.env.NEXT_PUBLIC_INSTAGRAM_URL || 'https://www.instagram.com/basa.in3d',
   email: process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'basa3d.vn@gmail.com',
   address: 'Hồ Chí Minh, Việt Nam',
   // Blog link temporarily hidden while no published articles exist. Flip
