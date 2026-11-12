@@ -194,3 +194,8 @@ select it.
 - Category `chua-phan-loai` ("Chưa phân loại", `is_active = false`) is seeded by the migration.
 - Category `keycap` ("Keycap", active) is seeded by `20261022000100_keycap_category.sql` — target of the `KeyCap3D` rule in `scripts/stl-import/category-map.json` (SKU `KCP`).
 - `products.license_type` gains the documented value `UNKNOWN` (still no CHECK — Phase 29 decision; Zod validates).
+
+### Print file links on `products` & `product_variants` (ADR-0058, `20261112000000_product_print_files.sql`)
+- `print_local_path text` (nullable): local `.3mf`/STL file path on the workshop PC (e.g. `D:\...`).
+- `print_drive_url text` (nullable): Google Drive backup URL for the print file.
+- Surfaced in `/admin/products/[id]` (per product & per variant) and `/admin/print-jobs/[id]` (variant takes precedence over product default).
