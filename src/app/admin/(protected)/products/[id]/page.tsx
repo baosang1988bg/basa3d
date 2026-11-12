@@ -1,50 +1,120 @@
-import Image from 'next/image';
+import Link from 'next/link';
+import { ArrowLeft, ExternalLink, ImageOff } from 'lucide-react';
 import { notFound } from 'next/navigation';
-import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PricingCalculatorPanel } from '@/components/admin/pricing-calculator-panel';
-import { requireAdmin } from '@/lib/auth/require-admin';
+import { ProductDetailVariantsAndImages } from '@/components/admin/product-detail-variants-manager';
 import { PublishBlockedNotice } from '@/components/admin/publish-blocked-notice';
+import { requireAdmin } from '@/lib/auth/require-admin';
+import { getCategoryDisplayName } from '@/lib/categories';
 import { listMaterials } from '@/services/inventory.service';
 import { getCurrentPricingConfig } from '@/services/pricing-config.service';
-import { getProductById, listProductImages } from '@/services/product.service';
-import {
-  createVariantAction,
-  deleteProductAction,
-  deleteProductImageAction,
-  deleteVariantAction,
-  updateProductAction,
-  updateVariantAction,
-} from '../actions';
-import { setProductCoverImageAction } from '../new/actions';
-import { ProductImageUploader } from '@/components/admin/product-image-picker';
+import { getProductById, listCategories, listProductImages } from '@/services/product.service';
+import { getProductImportMeta } from '@/services/product-onboarding.service';
+import { deleteProductAction, updateProductAction } from '../actions';
 
-export default async function ProductDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ publishBlocked?: string }> }) {
+const STATUS_BADGE: Record<string, { label: string; className: string }> = {
+  ACTIVE: { label: 'Đang bán', className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' },
+  DRAFT: { label: 'Nháp', className: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400' },
+  ARCHIVED: { label: 'Đã lưu trữ', className: 'border-border bg-muted text-muted-foreground' },
+};
+
+export default async function ProductDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ publishBlocked?: string; saveError?: string }>;
+}) {
   const { id } = await params;
-  const { publishBlocked } = await searchParams;
-  const [{ role }, product, images, materials, pricingConfig] = await Promise.all([
-    requireAdmin(), getProductById(id), listProductImages(id), listMaterials(), getCurrentPricingConfig(),
+  const { publishBlocked, saveError } = await searchParams;
+  const [{ role }, product, images, materials, pricingConfig, { items: categories }, importMeta] = await Promise.all([
+    requireAdmin(),
+    getProductById(id),
+    listProductImages(id),
+    listMaterials(),
+    getCurrentPricingConfig(),
+    listCategories({ limit: 100 }),
+    getProductImportMeta(id),
   ]);
   if (!product) notFound();
 
+  const cover = images[0]?.url ?? null;
+  const badge = STATUS_BADGE[product.status] ?? STATUS_BADGE.DRAFT;
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 pb-12">
       <PublishBlockedNotice value={publishBlocked} />
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">{product.name}</h1>
-        {role === 'OWNER' ? (
-          <form action={deleteProductAction.bind(null, id)}>
-            <Button type="submit" variant="destructive" size="sm">Xoá hẳn sản phẩm</Button>
-          </form>
-        ) : null}
+      {saveError ? (
+        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          {saveError}
+        </div>
+      ) : null}
+
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted">
+            {cover ? <img src={cover} alt="" className="size-full object-cover" /> : <ImageOff className="size-6 text-muted-foreground/50" />}
+          </div>
+          <div className="min-w-0">
+            <Link href="/admin/products" className={buttonVariants({ variant: 'ghost', size: 'sm', className: '-ml-2 mb-0.5 h-7 px-2 text-xs' })}>
+              <ArrowLeft className="mr-1 size-3.5" /> Danh sách sản phẩm
+            </Link>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="truncate text-2xl font-semibold">{product.name}</h1>
+              <Badge variant="outline" className={badge.className}>{badge.label}</Badge>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {product.status === 'ACTIVE' ? (
+            <Link href={`/vi/products/${product.slug}`} target="_blank" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+              Xem trên web <ExternalLink className="ml-1.5 size-3.5" />
+            </Link>
+          ) : null}
+          {role === 'OWNER' ? (
+            <form action={deleteProductAction.bind(null, id)}>
+              <Button type="submit" variant="destructive" size="sm">Xoá hẳn sản phẩm</Button>
+            </form>
+          ) : null}
+        </div>
       </div>
 
+      {/* Variants & Images (most used for multi-variant merged products!) */}
+      <ProductDetailVariantsAndImages
+        productId={id}
+        productName={product.name}
+        role={role}
+        variants={product.variants.map((v: { id: string; sku: string; name: string; price: number; weightGrams: number | null; isActive: boolean; printLocalPath: string | null; printDriveUrl: string | null }) => ({
+          id: v.id,
+          sku: v.sku,
+          name: v.name,
+          price: v.price,
+          weightGrams: v.weightGrams,
+          isActive: v.isActive,
+          printLocalPath: v.printLocalPath,
+          printDriveUrl: v.printDriveUrl,
+        }))}
+        images={images.map((img) => ({
+          id: img.id,
+          url: img.url,
+          altText: img.altText,
+          sortOrder: img.sortOrder,
+          variantId: img.variantId,
+        }))}
+      />
+
+      {/* General product info */}
       <Card>
-        <CardHeader><CardTitle>Thông tin sản phẩm</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Thông tin chung &amp; SEO</CardTitle></CardHeader>
         <CardContent>
-          <form action={updateProductAction.bind(null, id)} className="grid grid-cols-2 gap-4">
+          <form action={updateProductAction.bind(null, id)} className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="name">Tên</Label>
               <Input id="name" name="name" defaultValue={product.name} />
@@ -54,21 +124,37 @@ export default async function ProductDetailPage({ params, searchParams }: { para
               <Input id="slug" name="slug" defaultValue={product.slug} />
             </div>
             <div className="flex flex-col gap-1.5">
+              <Label htmlFor="categoryId">Danh mục</Label>
+              <select id="categoryId" name="categoryId" defaultValue={product.categoryId ?? ''} className="h-9 rounded-lg border border-input bg-background px-2.5 text-sm">
+                <option value="">— Chưa chọn danh mục —</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>{getCategoryDisplayName(category, 'vi')}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="productType">Hình thức bán</Label>
+              <select id="productType" name="productType" defaultValue={product.productType} className="h-9 rounded-lg border border-input bg-background px-2.5 text-sm">
+                <option value="MADE_TO_ORDER">In theo yêu cầu</option>
+                <option value="READY_STOCK">Có sẵn, giao ngay</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
               <Label htmlFor="status">Trạng thái</Label>
-              <select id="status" name="status" defaultValue={product.status} className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm">
-                <option value="DRAFT">DRAFT</option>
-                <option value="ACTIVE">ACTIVE</option>
-                <option value="ARCHIVED">ARCHIVED</option>
+              <select id="status" name="status" defaultValue={product.status} className="h-9 rounded-lg border border-input bg-background px-2.5 text-sm">
+                <option value="DRAFT">Nháp (DRAFT)</option>
+                <option value="ACTIVE">Đang bán (ACTIVE)</option>
+                <option value="ARCHIVED">Đã lưu trữ (ARCHIVED)</option>
               </select>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="basePrice">Giá cơ bản (VND)</Label>
               <Input id="basePrice" name="basePrice" type="number" min={0} defaultValue={product.basePrice ?? ''} />
             </div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <PricingCalculatorPanel materials={materials} config={pricingConfig} priceInputIds={['basePrice']} defaultPrinterProfileId="BAMBU_P2S" />
             </div>
-            <div className="col-span-2 flex flex-col gap-1.5">
+            <div className="sm:col-span-2 flex flex-col gap-1.5">
               <Label htmlFor="shortDescription">Mô tả ngắn</Label>
               <Input id="shortDescription" name="shortDescription" defaultValue={product.shortDescription ?? ''} />
             </div>
@@ -80,15 +166,15 @@ export default async function ProductDetailPage({ params, searchParams }: { para
               <Label htmlFor="seoTitle">SEO title</Label>
               <Input id="seoTitle" name="seoTitle" maxLength={200} defaultValue={product.seoTitle ?? ''} />
             </div>
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
               <Label htmlFor="seoDescription">SEO description</Label>
               <Input id="seoDescription" name="seoDescription" maxLength={500} defaultValue={product.seoDescription ?? ''} />
             </div>
-            <div className="col-span-2 grid grid-cols-3 gap-4 rounded-lg border border-border p-3">
-              <div className="col-span-3 text-sm font-semibold">Bản quyền &amp; nguồn model</div>
+            <div className="sm:col-span-2 grid gap-4 rounded-lg border border-border p-3 sm:grid-cols-3">
+              <div className="sm:col-span-3 text-sm font-semibold">Bản quyền &amp; nguồn model</div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="licenseType">Loại license</Label>
-                <select id="licenseType" name="licenseType" defaultValue={product.licenseType} className="h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <select id="licenseType" name="licenseType" defaultValue={product.licenseType} className="h-9 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   <option value="OWN_DESIGN">Tự thiết kế</option>
                   <option value="CC_BY">CC BY</option>
                   <option value="CC0">CC0 / Public Domain</option>
@@ -105,91 +191,30 @@ export default async function ProductDetailPage({ params, searchParams }: { para
                 <Label htmlFor="licenseProofUrl">Link bằng chứng license</Label>
                 <Input id="licenseProofUrl" name="licenseProofUrl" type="url" defaultValue={product.licenseProofUrl ?? ''} placeholder="Link ảnh chụp màn hình license" />
               </div>
-            </div>
-            <div className="col-span-2"><Button type="submit">Lưu thay đổi</Button></div>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle>Biến thể ({product.variants.length})</CardTitle></CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          {product.variants.map((variant: { id: string; sku: string; name: string; price: number; isActive: boolean }) => (
-            <form key={variant.id} action={updateVariantAction.bind(null, id, variant.id)} className="flex flex-wrap items-end gap-3 border-b border-border pb-3">
-              <div className="flex flex-col gap-1.5">
-                <Label>SKU</Label>
-                <p className="text-sm">{variant.sku}</p>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor={`name-${variant.id}`}>Tên</Label>
-                <Input id={`name-${variant.id}`} name="name" defaultValue={variant.name} className="w-40" />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor={`price-${variant.id}`}>Giá</Label>
-                <Input id={`price-${variant.id}`} name="price" type="number" min={0} defaultValue={variant.price} className="w-32" />
-              </div>
-              <div className="flex items-center gap-2">
-                <input id={`active-${variant.id}`} name="isActive" type="checkbox" className="size-4" defaultChecked={variant.isActive} />
-                <Label htmlFor={`active-${variant.id}`}>Đang bán</Label>
-              </div>
-              <Button type="submit" size="sm" variant="outline">Lưu</Button>
-              {role === 'OWNER' ? (
-                <Button type="submit" size="sm" variant="destructive" formAction={deleteVariantAction.bind(null, id, variant.id)}>Xoá hẳn</Button>
-              ) : null}
-            </form>
-          ))}
-
-          <form action={createVariantAction.bind(null, id)} className="flex flex-wrap items-end gap-3 pt-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="new-sku">SKU (để trống = tự tạo)</Label>
-              <Input id="new-sku" name="sku" placeholder="Tự tạo" className="w-40" />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="new-name">Tên biến thể</Label>
-              <Input id="new-name" name="name" required className="w-40" />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="new-price">Giá</Label>
-              <Input id="new-price" name="price" type="number" min={0} required className="w-32" />
-            </div>
-            <Button type="submit" size="sm">Thêm biến thể</Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Ảnh sản phẩm ({images.length})</span>
-            <span className="text-xs font-normal text-muted-foreground">Ảnh đầu tiên là ảnh bìa</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-6">
-          {images.length > 0 ? (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-              {images.map((image, index) => (
-                <div key={image.id} className="group relative flex flex-col items-center overflow-hidden rounded-lg border border-border bg-card p-2 shadow-xs transition-shadow hover:shadow-md">
-                  <div className="relative aspect-square w-full overflow-hidden rounded-md bg-muted">
-                    <Image src={image.url} alt={image.altText ?? product.name} fill className="object-cover" unoptimized />
-                  </div>
-                  {index === 0 ? (
-                    <span className="mt-2 w-full text-center text-xs font-semibold text-primary">★ Ảnh bìa</span>
-                  ) : (
-                    <form action={setProductCoverImageAction.bind(null, id, image.id)} className="mt-2 w-full">
-                      <Button type="submit" size="sm" variant="ghost" className="w-full text-xs">Đặt làm bìa</Button>
-                    </form>
-                  )}
-                  <form action={deleteProductImageAction.bind(null, id, image.id)} className="mt-1 w-full">
-                    <Button type="submit" size="sm" variant="outline" className="w-full text-xs text-destructive hover:bg-destructive/10">Xoá ảnh</Button>
-                  </form>
+              {importMeta ? (
+                <div className="sm:col-span-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-sm">
+                  <input type="hidden" name="hasImportLicenseField" value="1" />
+                  <label className="flex items-center gap-2 font-medium">
+                    <input name="licenseReviewed" type="checkbox" className="size-4" defaultChecked={importMeta.licenseReviewed} />
+                    Đã kiểm tra bản quyền STL (trạng thái duyệt: {importMeta.reviewStatus})
+                  </label>
+                  <span className="text-xs text-muted-foreground">Nguồn STL: {importMeta.sourceRelPath}</span>
                 </div>
-              ))}
+              ) : null}
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">Sản phẩm này chưa có hình ảnh. Hãy tải lên ảnh đại diện bên dưới.</p>
-          )}
-          {/* Phase 52 P3: multi-image, shrunk in the browser, uploaded straight to Storage. */}
-          <ProductImageUploader productId={id} hasImages={images.length > 0} />
+            <div className="sm:col-span-2 grid gap-4 rounded-lg border border-border p-3 sm:grid-cols-2">
+              <div className="sm:col-span-2 text-sm font-semibold">File .3mf để in (nội bộ xưởng, không hiện ngoài web)</div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="printLocalPath">Đường dẫn file ổ D / máy xưởng</Label>
+                <Input id="printLocalPath" name="printLocalPath" defaultValue={product.printLocalPath ?? ''} placeholder="VD: D:\data3D\Clicker\Cat_v8.3mf" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="printDriveUrl">Link Google Drive backup</Label>
+                <Input id="printDriveUrl" name="printDriveUrl" type="url" defaultValue={product.printDriveUrl ?? ''} placeholder="https://drive.google.com/..." />
+              </div>
+            </div>
+            <div className="sm:col-span-2"><Button type="submit">Lưu thông tin chung</Button></div>
+          </form>
         </CardContent>
       </Card>
     </div>

@@ -9,14 +9,25 @@ type GalleryImage = { url: string; altText: string | null };
 // Phase 43: thumbnails used to be display-only. Now they switch the main image, which cross-fades
 // (all images stay stacked in one square, only opacity changes — no layout shift, no reload of an
 // image already seen). The first image is `priority`: it is the product page's LCP element.
-export function ProductGallery({ images, productName, noImageLabel, thumbnailLabels }: {
+export function ProductGallery({
+  images,
+  productName,
+  noImageLabel,
+  thumbnailLabels,
+  activeIndex: controlledIndex,
+  onActiveIndexChange,
+}: {
   images: GalleryImage[];
   productName: string;
   noImageLabel: string;
   /** One accessible label per image ("Xem ảnh 2"), translated on the server. */
   thumbnailLabels: string[];
+  activeIndex?: number;
+  onActiveIndexChange?: (index: number) => void;
 }) {
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [uncontrolledIndex, setUncontrolledIndex] = useState(0);
+  const activeIndex = controlledIndex ?? uncontrolledIndex;
+  const setActiveIndex = onActiveIndexChange ?? setUncontrolledIndex;
 
   if (images.length === 0) {
     return (

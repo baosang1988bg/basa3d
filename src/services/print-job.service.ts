@@ -118,10 +118,11 @@ export type PrintJobDetail = PrintJobSummary & {
   startedAt: Date | null;
   completedAt: Date | null;
   note: string | null;
+  printFiles?: { itemName: string; quantity: number; printLocalPath: string | null; printDriveUrl: string | null }[];
 };
 
 export async function getPrintJobById(id: string): Promise<PrintJobDetail | null> {
-  const result = await query<PrintJobDetail>(`
+  const result = await query<Omit<PrintJobDetail, 'printFiles'>>(`
     select
       pj.id, pj.order_id as "orderId", pj.custom_request_id as "customRequestId", pj.quote_id as "quoteId",
       pj.material_id as "materialId", pj.spool_id as "spoolId", pj.printer_name as "printerName",
@@ -152,7 +153,26 @@ export async function getPrintJobById(id: string): Promise<PrintJobDetail | null
     left join materials m on m.id = pj.material_id
     left join filament_spools fs on fs.id = pj.spool_id
     where pj.id = $1`, [id]);
-  return result.rows[0] ?? null;
+  const row = result.rows[0];
+  if (!row) return null;
+  let printFiles: { itemName: string; quantity: number; printLocalPath: string | null; printDriveUrl: string | null }[] = [];
+  if (row.orderId) {
+    const filesRes = await query<{ itemName: string; quantity: number; printLocalPath: string | null; printDriveUrl: string | null }>(`
+      select
+        oi.product_name_snapshot || case when oi.variant_name_snapshot is not null and oi.variant_name_snapshot <> '' then ' (' || oi.variant_name_snapshot || ')' else '' end as "itemName",
+        oi.quantity,
+        coalesce(pv.print_local_path, p.print_local_path, imp.source_rel_path) as "printLocalPath",
+        coalesce(pv.print_drive_url, p.print_drive_url) as "printDriveUrl"
+      from order_items oi
+      left join product_variants pv on pv.id = oi.variant_id
+      left join products p on p.id = pv.product_id
+      left join product_import_items imp on imp.product_id = p.id
+      where oi.order_id = $1
+      order by oi.created_at
+    `, [row.orderId]);
+    printFiles = filesRes.rows;
+  }
+  return { ...row, printFiles };
 }
 
 // Phase 36 S1: material/spool may only change before the next attempt books filament. Once a job is

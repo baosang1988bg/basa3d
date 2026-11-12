@@ -1123,3 +1123,30 @@ images: DMCA/SEO risk). Putting image URLs into the markdown (would reopen the s
 
 **Migration cost.** One additive migration (`20261101000000_blog_post_media.sql`: column + check +
 partial index for drafts). Existing posts get `media = []` and render unchanged.
+
+## ADR-0058 — Admin catalog quick actions, multi-variant merge, and dual print-file links (.3mf)
+
+**Status.** Accepted 2026-11-12 (branch `feat/admin-products-quick-actions`).
+
+**Context.** Reviewing imported STL/3MF drafts one-by-one was slow, multi-item sets (e.g. 8 animal
+clickers) needed to be merged into a single multi-variant product with per-variant pricing and images,
+and print operators needed quick access to both the local `.3mf` file (`D:\...`) and a Google Drive
+backup link.
+
+**Decision.**
+1. **`/admin/products` quick actions:** Card Grid (`Lưới thẻ`) default view with draft triage pills,
+   4 readiness indicators, 1-tap inline name edit, inline license selector, 1-click `Duyệt & Đăng` /
+   `Về nháp`, bulk status actions, and safe `deleteProduct` (blocks when referenced by orders/quotes/print
+   jobs, cleans up unreferenced variants/images).
+2. **Merge into multi-variant product (`mergeCatalogProducts`):** Groups selected products into one
+   parent product with cover picker/upload, copies storage images when keeping/archiving sources to avoid
+   `product_images_storage_path_key` conflicts, and inherits `print_local_path` (or
+   `product_import_items.source_rel_path`) + `print_drive_url` onto each variant. Storefront
+   `ProductDetailShowcase` syncs variant selection with price, SKU, and gallery image, while `ProductCard`
+   displays a `minPrice – maxPrice` range when variants differ in price.
+3. **Dual print-file links:** Added nullable `print_local_path` and `print_drive_url` to both `products`
+   and `product_variants` (`20261112000000_product_print_files.sql`), editable in `/admin/products/[id]`
+   and shown on `/admin/print-jobs/[id]` (variant overrides product default).
+
+**Migration cost.** One additive migration (`20261112000000_product_print_files.sql`, nullable `text`
+columns with `add column if not exists`, no backfill). Apply to hosted Supabase before deploying.
