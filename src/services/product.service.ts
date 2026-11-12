@@ -463,3 +463,17 @@ export async function listProductInventory(input: {
   return items;
 }
 
+
+export async function assignProductImageVariant(productId: string, imageId: string, variantId: string | null, actorId: string) {
+  return invalidatesStorefrontCatalog(withTransaction(async (client) => {
+    const img = await client.query<{ id: string }>('select id from product_images where id = $1 and product_id = $2 for update', [imageId, productId]);
+    if (!img.rowCount) throw new DomainError('PRODUCT_IMAGE_NOT_FOUND', 'Không tìm thấy ảnh thuộc sản phẩm này.', 404);
+    if (variantId) {
+      const v = await client.query('select 1 from product_variants where id = $1 and product_id = $2', [variantId, productId]);
+      if (!v.rowCount) throw new DomainError('VARIANT_NOT_FOUND', 'Biến thể không thuộc sản phẩm này.', 404);
+    }
+    await client.query('update product_images set variant_id = $2 where id = $1', [imageId, variantId]);
+    await writeAuditLog(client, { actorId, action: 'PRODUCT_IMAGE_UPDATED', entityType: 'product_image', entityId: imageId, afterData: { productId, variantId } });
+    return { id: imageId, variantId };
+  }));
+}

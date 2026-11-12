@@ -2185,6 +2185,8 @@ function MergeProductsDialog({
   const [comboEnabled, setComboEnabled] = useState(false);
   const [comboName, setComboName] = useState('Combo cả bộ');
   const [comboPriceText, setComboPriceText] = useState('');
+  const [coverSourceId, setCoverSourceId] = useState<string | null>(null);
+  const [customCoverImages, setCustomCoverImages] = useState<PickedImage[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -2211,6 +2213,8 @@ function MergeProductsDialog({
     setComboEnabled(false);
     setComboName(`Combo cả bộ ${items.length} mẫu`);
     setComboPriceText(String(Math.round((sum * 0.9) / 1000) * 1000));
+    setCoverSourceId(items.find((i) => i.coverUrl)?.id ?? null);
+    setCustomCoverImages([]);
     setError(null);
   }, [open, items, categories, isOwner]);
 
@@ -2251,12 +2255,26 @@ function MergeProductsDialog({
         isFeatured: false,
         publishImmediately: isOwner && publishImmediately && licenseType !== 'UNKNOWN',
         sourceCleanup,
+        coverSourceProductId: customCoverImages.length ? null : coverSourceId,
         items: mappedItems,
         comboVariant: comboEnabled ? { enabled: true, name: comboName.trim(), price: comboPrice } : { enabled: false },
       });
       if (!res.ok) {
         setError(res.error);
         return;
+      }
+      const readyCover = customCoverImages.filter((i) => i.blob && !i.error);
+      if (readyCover.length) {
+        try {
+          await uploadProductImages(
+            res.data.productId,
+            readyCover.map((i) => ({ key: i.key, blob: i.blob as Blob })),
+            readyCover[0].key,
+            {},
+          );
+        } catch {
+          // Non-fatal: product is created, user can upload cover on detail page
+        }
       }
       onMerged(
         res.data.status === 'ACTIVE'
@@ -2355,6 +2373,18 @@ function MergeProductsDialog({
             />
           </div>
 
+          <div className="rounded-lg border border-border p-3">
+            <p className="mb-2 text-xs font-medium">Ảnh bìa riêng cho sản phẩm chung (tuỳ chọn — nếu bỏ trống sẽ lấy ảnh có gắn ★ Bìa bên dưới)</p>
+            <ProductImagePicker
+              images={customCoverImages}
+              onImagesChange={setCustomCoverImages}
+              coverKey={customCoverImages[0]?.key ?? null}
+              onCoverChange={() => undefined}
+              allowCover={false}
+              disabled={busy}
+            />
+          </div>
+
           <div className="rounded-lg border border-border">
             <div className="flex items-center justify-between border-b border-border bg-muted/40 px-3 py-2 text-xs font-medium">
               <span>Các mẫu biến thể ({rows.length})</span>
@@ -2368,6 +2398,20 @@ function MergeProductsDialog({
                   <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-muted">
                     {row.coverUrl ? <img src={row.coverUrl} alt="" className="size-full object-cover" /> : <ImageOff className="size-4 text-muted-foreground" />}
                   </div>
+                  {row.coverUrl && !customCoverImages.length ? (
+                    <button
+                      type="button"
+                      onClick={() => setCoverSourceId(row.sourceProductId)}
+                      title="Chọn ảnh này làm ảnh bìa sản phẩm chung"
+                      className={`shrink-0 rounded-md border px-1.5 py-1 text-[10px] font-medium transition-colors ${
+                        coverSourceId === row.sourceProductId
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-border bg-background text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      ★ Bìa
+                    </button>
+                  ) : null}
                   <Input
                     value={row.variantName}
                     onChange={(e) => setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, variantName: e.target.value } : r)))}

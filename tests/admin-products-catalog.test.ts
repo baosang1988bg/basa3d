@@ -93,6 +93,7 @@ test('catalog actions enforce auth, OWNER-only delete, and clean DomainError han
   mock.module('next/navigation', { namedExports: { redirect: (url: string) => { throw new Error(`REDIRECT:${url}`); } } });
   mock.module('../src/services/product.service.ts', {
     namedExports: {
+      assignProductImageVariant: async () => ({ id: ID, variantId: null }),
       createCategory: async () => ({ id: ID }),
       createProduct: async () => ({ id: ID }),
       createVariant: async () => ({ id: ID }),
@@ -107,6 +108,7 @@ test('catalog actions enforce auth, OWNER-only delete, and clean DomainError han
   mock.module('../src/services/product-onboarding.service.ts', {
     namedExports: {
       generateVariantSku: async () => 'SKU-1',
+      setProductCoverImage: async () => undefined,
       publishProductIfReady: async () => ({ published: true, reasons: [] }),
       quickUpdateCatalogProduct: async () => { calls.push('quickUpdate'); if (serviceError) throw serviceError; return { id: ID, name: 'Test', status: 'ACTIVE' }; },
       bulkCatalogAction: async () => { calls.push('bulk'); if (serviceError) throw serviceError; return { done: [ID], blocked: [] }; },

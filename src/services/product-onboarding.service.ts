@@ -781,7 +781,8 @@ export async function mergeCatalogProducts(session: StaffSession, rawInput: unkn
       const hasStorage = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
       const storage = hasStorage ? createSupabaseAdminClient().storage.from(PRODUCT_IMAGE_BUCKET) : null;
 
-      let imageSortOrder = 0;
+      const hasChosenCover = Boolean(input.coverSourceProductId && coverBySourceId.has(input.coverSourceProductId));
+      let imageSortOrder = hasChosenCover ? 1 : 0;
       for (const plan of variantPlans) {
         const skuSlug = `${slug.slice(0, 22)}-${slugify(plan.name)}`;
         let variantId = '';
@@ -821,15 +822,15 @@ export async function mergeCatalogProducts(session: StaffSession, rawInput: unkn
           }
           await client.query(
             'insert into product_images (product_id, variant_id, storage_path, alt_text, sort_order) values ($1,$2,$3,$4,$5)',
-            [productId, variantId, targetPath, plan.name.slice(0, 200), imageSortOrder],
+            [productId, variantId, targetPath, plan.name.slice(0, 200), hasChosenCover && plan.sourceProductId === input.coverSourceProductId ? 0 : imageSortOrder],
           );
-          imageSortOrder += 1;
+          if (!(hasChosenCover && plan.sourceProductId === input.coverSourceProductId)) imageSortOrder += 1;
         }
       }
 
       let finalStatus = 'DRAFT';
       if (input.publishImmediately) {
-        if (imageSortOrder === 0) {
+        if (imageSortOrder === 0 && !hasChosenCover) {
           throw new DomainError('NO_IMAGE', 'Các sản phẩm gốc chưa có ảnh — không thể đăng bán ngay, hãy lưu nháp rồi tải ảnh.', 409);
         }
         await client.query(`update products set status = 'ACTIVE' where id = $1`, [productId]);

@@ -963,6 +963,7 @@ export const mergeCatalogProductsSchema = z.object({
   isFeatured: z.boolean().default(false),
   publishImmediately: z.boolean().default(false),
   sourceCleanup: z.enum(['ARCHIVE', 'DELETE', 'KEEP']).default('ARCHIVE'),
+  coverSourceProductId: uuidSchema.nullable().optional(),
   items: z.array(z.object({
     sourceProductId: uuidSchema,
     variantName: nonEmptyText.max(200),

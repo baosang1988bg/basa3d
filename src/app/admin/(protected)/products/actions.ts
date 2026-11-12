@@ -15,6 +15,7 @@ import {
   variantUpdateInputSchema,
 } from '@/domain/schemas';
 import {
+  assignProductImageVariant,
   createCategory,
   createProduct,
   createVariant,
@@ -25,7 +26,7 @@ import {
   updateVariant,
   uploadProductImage,
 } from '@/services/product.service';
-import { bulkCatalogAction, generateVariantSku, mergeCatalogProducts, publishProductIfReady, quickUpdateCatalogProduct, type BulkCatalogResult, type MergeCatalogResult } from '@/services/product-onboarding.service';
+import { bulkCatalogAction, generateVariantSku, mergeCatalogProducts, publishProductIfReady, quickUpdateCatalogProduct, setProductCoverImage, type BulkCatalogResult, type MergeCatalogResult } from '@/services/product-onboarding.service';
 import { slugify } from '@/lib/catalog/naming';
 
 // Feature 003: the import publish gate refuses status → ACTIVE with reasons; send the admin back to
@@ -324,6 +325,118 @@ export async function mergeCatalogProductsAction(
     const data = await mergeCatalogProducts(session, payload);
     revalidateAllCatalogPaths(data.productId);
     return { ok: true, data };
+  } catch (error) {
+    return toCatalogFailure(error);
+  }
+}
+
+export async function saveVariantInlineAction(
+  productId: string,
+  variantId: string,
+  payload: { name: string; price: number; weightGrams?: number | null; isActive: boolean },
+): Promise<CatalogActionResult<{ id: string }>> {
+  const { actorId } = await requireAdmin();
+  try {
+    const validProductId = parseActionId(productId, 'productId');
+    const validVariantId = parseActionId(variantId, 'variantId');
+    const patch = variantUpdateInputSchema.parse({
+      name: payload.name,
+      price: payload.price,
+      weightGrams: payload.weightGrams ?? null,
+      isActive: payload.isActive,
+    });
+    await updateVariant(validVariantId, patch, actorId);
+    revalidateAllCatalogPaths(validProductId);
+    return { ok: true, data: { id: validVariantId } };
+  } catch (error) {
+    return toCatalogFailure(error);
+  }
+}
+
+export async function createVariantInlineAction(
+  productId: string,
+  payload: { sku?: string; name: string; price: number; weightGrams?: number | null },
+): Promise<CatalogActionResult<{ id: string }>> {
+  const { actorId } = await requireAdmin();
+  try {
+    const validProductId = parseActionId(productId, 'productId');
+    const typedSku = payload.sku?.trim().toUpperCase();
+    const input = productVariantInputSchema.parse({
+      productId: validProductId,
+      sku: typedSku || await generateVariantSku(validProductId, payload.name),
+      name: payload.name,
+      price: payload.price,
+      weightGrams: payload.weightGrams ?? null,
+    });
+    const created = await createVariant(input, actorId);
+    revalidateAllCatalogPaths(validProductId);
+    return { ok: true, data: { id: created.id } };
+  } catch (error) {
+    return toCatalogFailure(error);
+  }
+}
+
+export async function deleteVariantInlineAction(
+  productId: string,
+  variantId: string,
+): Promise<CatalogActionResult<{ id: string }>> {
+  const { actorId } = await requireOwner();
+  try {
+    const validProductId = parseActionId(productId, 'productId');
+    const validVariantId = parseActionId(variantId, 'variantId');
+    await deleteVariant(validVariantId, actorId);
+    revalidateAllCatalogPaths(validProductId);
+    return { ok: true, data: { id: validVariantId } };
+  } catch (error) {
+    return toCatalogFailure(error);
+  }
+}
+
+export async function assignImageVariantAction(
+  productId: string,
+  imageId: string,
+  variantId: string | null,
+): Promise<CatalogActionResult<{ id: string; variantId: string | null }>> {
+  const { actorId } = await requireAdmin();
+  try {
+    const validProductId = parseActionId(productId, 'productId');
+    const validImageId = parseActionId(imageId, 'imageId');
+    const validVariantId = variantId ? parseActionId(variantId, 'variantId') : null;
+    const data = await assignProductImageVariant(validProductId, validImageId, validVariantId, actorId);
+    revalidateAllCatalogPaths(validProductId);
+    return { ok: true, data };
+  } catch (error) {
+    return toCatalogFailure(error);
+  }
+}
+
+export async function setProductCoverInlineAction(
+  productId: string,
+  imageId: string,
+): Promise<CatalogActionResult<{ id: string }>> {
+  await requireAdmin();
+  try {
+    const validProductId = parseActionId(productId, 'productId');
+    const validImageId = parseActionId(imageId, 'imageId');
+    await setProductCoverImage(validProductId, validImageId);
+    revalidateAllCatalogPaths(validProductId);
+    return { ok: true, data: { id: validImageId } };
+  } catch (error) {
+    return toCatalogFailure(error);
+  }
+}
+
+export async function deleteImageInlineAction(
+  productId: string,
+  imageId: string,
+): Promise<CatalogActionResult<{ id: string }>> {
+  const { actorId } = await requireAdmin();
+  try {
+    const validProductId = parseActionId(productId, 'productId');
+    const validImageId = parseActionId(imageId, 'imageId');
+    await deleteProductImage(validImageId, actorId);
+    revalidateAllCatalogPaths(validProductId);
+    return { ok: true, data: { id: validImageId } };
   } catch (error) {
     return toCatalogFailure(error);
   }
