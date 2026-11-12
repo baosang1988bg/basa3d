@@ -256,7 +256,12 @@ export async function deleteProduct(productId: string, actorId: string) {
         throw new DomainError('PRODUCT_IN_USE', 'Sản phẩm đã có đơn hàng, giỏ hàng hoặc lịch sử tồn kho — không thể xoá hẳn, hãy chuyển sang Lưu trữ.', 409);
       }
       const images = await client.query<{ storage_path: string }>('delete from product_images where product_id = $1 returning storage_path', [productId]);
-      deletedPaths = images.rows.map((row) => row.storage_path);
+      const rawPaths = images.rows.map((row) => row.storage_path);
+      if (rawPaths.length) {
+        const stillUsed = await client.query<{ storage_path: string }>('select distinct storage_path from product_images where storage_path = any($1::text[])', [rawPaths]);
+        const usedSet = new Set(stillUsed.rows.map((r) => r.storage_path));
+        deletedPaths = rawPaths.filter((p) => !usedSet.has(p));
+      }
       await client.query('delete from product_variants where product_id = $1', [productId]);
       const result = await client.query<{ id: string }>('delete from products where id = $1 returning id', [productId]);
       await writeAuditLog(client, { actorId, action: 'PRODUCT_DELETED', entityType: 'product', entityId: productId, beforeData: locked.rows[0] });

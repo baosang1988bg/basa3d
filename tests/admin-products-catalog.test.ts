@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import test, { after, before, mock } from 'node:test';
 import { configureTestEnvironment } from './helpers/test-environment';
 import { cleanupImported, createStaff, deleteStaff, seedImportedProduct, type ImportedFixture } from './helpers/stl-import-fixtures';
-import { catalogBulkActionSchema, catalogQuickEditSchema, productUpdateInputSchema } from '../src/domain/schemas';
+import { catalogBulkActionSchema, catalogQuickEditSchema, mergeCatalogProductsSchema, productUpdateInputSchema } from '../src/domain/schemas';
 import { DomainError } from '../src/lib/domain-error';
 import { getPool } from '../src/lib/db';
 import type { StaffSession } from '../src/lib/auth/require-admin';
@@ -48,6 +48,23 @@ test('catalogQuickEditSchema and catalogBulkActionSchema validate inputs and rej
   });
   assert.equal(bulk.action, 'APPLY_LICENSE');
   assert.throws(() => catalogBulkActionSchema.parse({ action: 'DELETE', productIds: [] }));
+
+  const id2 = '00000000-0000-4000-8000-000000000002';
+  const merged = mergeCatalogProductsSchema.parse({
+    name: 'Clicker Động Vật Mini',
+    categoryId: ID,
+    licenseType: 'OWN_DESIGN',
+    items: [
+      { sourceProductId: ID, variantName: 'Mèo v8', price: 25_000 },
+      { sourceProductId: id2, variantName: 'Ếch v9', price: 36_000 },
+    ],
+    comboVariant: { enabled: true, name: 'Combo 2 mẫu', price: 55_000 },
+  });
+  assert.equal(merged.items.length, 2);
+  assert.throws(() => mergeCatalogProductsSchema.parse({
+    name: 'Single', categoryId: ID, licenseType: 'OWN_DESIGN',
+    items: [{ sourceProductId: ID, variantName: 'Only 1', price: 25_000 }],
+  }));
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -93,6 +110,7 @@ test('catalog actions enforce auth, OWNER-only delete, and clean DomainError han
       publishProductIfReady: async () => ({ published: true, reasons: [] }),
       quickUpdateCatalogProduct: async () => { calls.push('quickUpdate'); if (serviceError) throw serviceError; return { id: ID, name: 'Test', status: 'ACTIVE' }; },
       bulkCatalogAction: async () => { calls.push('bulk'); if (serviceError) throw serviceError; return { done: [ID], blocked: [] }; },
+      mergeCatalogProducts: async () => { calls.push('merge'); if (serviceError) throw serviceError; return { productId: ID, slug: 'merged', name: 'Merged', status: 'ACTIVE', variantCount: 2 }; },
     },
   });
 

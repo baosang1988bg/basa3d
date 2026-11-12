@@ -951,3 +951,26 @@ export const catalogBulkActionSchema = z.discriminatedUnion('action', [
   }).strict(),
   z.object({ action: z.literal('DELETE'), productIds: catalogProductIdsSchema }).strict(),
 ]);
+
+export const mergeCatalogProductsSchema = z.object({
+  name: nonEmptyText.max(200),
+  categoryId: uuidSchema,
+  productType: productTypeSchema.default('MADE_TO_ORDER'),
+  shortDescription: z.string().trim().max(500).nullable().optional(),
+  licenseType: productLicenseTypeSchema,
+  licenseSourceUrl: httpUrlSchema.nullable().optional(),
+  licenseProofUrl: httpUrlSchema.nullable().optional(),
+  isFeatured: z.boolean().default(false),
+  publishImmediately: z.boolean().default(false),
+  sourceCleanup: z.enum(['ARCHIVE', 'DELETE', 'KEEP']).default('ARCHIVE'),
+  items: z.array(z.object({
+    sourceProductId: uuidSchema,
+    variantName: nonEmptyText.max(200),
+    price: vndSchema.refine((v) => v > 0, 'Giá biến thể phải lớn hơn 0.'),
+  }).strict()).min(2, 'Cần chọn ít nhất 2 sản phẩm để gộp.').max(30, 'Tối đa 30 mẫu trong 1 sản phẩm.'),
+  comboVariant: z.object({
+    enabled: z.boolean().default(false),
+    name: nonEmptyText.max(200).default('Combo cả bộ'),
+    price: vndSchema.optional(),
+  }).strict().optional(),
+}).strict();

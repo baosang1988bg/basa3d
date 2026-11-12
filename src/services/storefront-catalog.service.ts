@@ -26,7 +26,7 @@ export type StorefrontProductDetail = {
   productType: string; basePrice: number | null; categoryId: string | null;
   seoTitle: string | null; seoDescription: string | null;
   variants: { id: string; sku: string; name: string; attributes: Record<string, string>; price: number; weightGrams: number | null; inStock: boolean }[];
-  images: { url: string; altText: string | null; sortOrder: number }[];
+  images: { url: string; altText: string | null; sortOrder: number; variantId: string | null }[];
 };
 
 // Batched equivalent of inventory.service `getStockLevel`, parameterised over an array of variant
@@ -121,11 +121,11 @@ export const getStorefrontProductBySlug = cache(async (slug: string): Promise<St
     ...variant, inStock: product.productType === 'MADE_TO_ORDER' || (availableByVariant.get(variant.id) ?? 0) > 0,
   }));
 
-  const imageRows = await query<{ storagePath: string; altText: string | null; sortOrder: number }>(
-    'select storage_path as "storagePath", alt_text as "altText", sort_order as "sortOrder" from product_images where product_id = $1 order by sort_order', [product.id],
+  const imageRows = await query<{ storagePath: string; altText: string | null; sortOrder: number; variantId: string | null }>(
+    'select storage_path as "storagePath", alt_text as "altText", sort_order as "sortOrder", variant_id as "variantId" from product_images where product_id = $1 order by sort_order', [product.id],
   );
   const images = imageRows.rows.map((row) => ({
-    url: toPublicImageUrl(row.storagePath), altText: row.altText, sortOrder: row.sortOrder,
+    url: toPublicImageUrl(row.storagePath), altText: row.altText, sortOrder: row.sortOrder, variantId: row.variantId,
   }));
 
   return { ...product, variants, images };

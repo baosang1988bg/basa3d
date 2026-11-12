@@ -25,7 +25,7 @@ import {
   updateVariant,
   uploadProductImage,
 } from '@/services/product.service';
-import { bulkCatalogAction, generateVariantSku, publishProductIfReady, quickUpdateCatalogProduct, type BulkCatalogResult } from '@/services/product-onboarding.service';
+import { bulkCatalogAction, generateVariantSku, mergeCatalogProducts, publishProductIfReady, quickUpdateCatalogProduct, type BulkCatalogResult, type MergeCatalogResult } from '@/services/product-onboarding.service';
 import { slugify } from '@/lib/catalog/naming';
 
 // Feature 003: the import publish gate refuses status → ACTIVE with reasons; send the admin back to
@@ -314,4 +314,17 @@ export async function deleteProductImageAction(productId: string, imageId: strin
   imageId = parseActionId(imageId, 'imageId');
   await deleteProductImage(imageId, actorId);
   revalidatePath(`/admin/products/${productId}`);
+}
+
+export async function mergeCatalogProductsAction(
+  payload: unknown,
+): Promise<CatalogActionResult<MergeCatalogResult>> {
+  const session = await requireAdmin();
+  try {
+    const data = await mergeCatalogProducts(session, payload);
+    revalidateAllCatalogPaths(data.productId);
+    return { ok: true, data };
+  } catch (error) {
+    return toCatalogFailure(error);
+  }
 }

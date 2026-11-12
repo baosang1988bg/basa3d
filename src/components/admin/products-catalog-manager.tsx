@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ExternalLink,
   ImageOff,
+  Layers,
   LayoutGrid,
   List,
   Loader2,
@@ -58,6 +59,7 @@ import {
   bulkCatalogActionAction,
   createCategoryInlineAction,
   deleteCatalogProductAction,
+  mergeCatalogProductsAction,
   quickUpdateCatalogProductAction,
 } from '@/app/admin/(protected)/products/actions';
 import { createProductOnboardingAction, publishProductAction } from '@/app/admin/(protected)/products/new/actions';
@@ -229,6 +231,7 @@ export function ProductsCatalogManager({
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [quickEditItem, setQuickEditItem] = useState<CatalogUiItem | null>(null);
   const [bulkLicenseOpen, setBulkLicenseOpen] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ mode: 'single'; item: CatalogUiItem } | { mode: 'bulk'; items: CatalogUiItem[] } | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -1338,6 +1341,18 @@ export function ProductsCatalogManager({
               </Button>
             </div>
 
+            {selectedIds.size >= 2 ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={isPending}
+                onClick={() => setMergeOpen(true)}
+              >
+                <Layers className="mr-1 size-3.5" /> Gộp thành 1 SP
+              </Button>
+            ) : null}
+
             <Button
               type="button"
               size="sm"
@@ -1427,6 +1442,21 @@ export function ProductsCatalogManager({
         onClose={() => setQuickEditItem(null)}
         onSaved={(msg) => {
           setQuickEditItem(null);
+          setNotice({ tone: 'ok', title: msg });
+          router.refresh();
+        }}
+      />
+
+      {/* Merge Selected Products into 1 Multi-Variant Product */}
+      <MergeProductsDialog
+        open={mergeOpen}
+        onOpenChange={setMergeOpen}
+        items={selectedItems}
+        categories={realCategories}
+        isOwner={isOwner}
+        onMerged={(msg) => {
+          setMergeOpen(false);
+          setSelectedIds(new Set());
           setNotice({ tone: 'ok', title: msg });
           router.refresh();
         }}
@@ -2122,6 +2152,301 @@ function BulkLicenseDialog({
               Áp dụng &amp; Đăng bán
             </Button>
           ) : null}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MergeProductsDialog({
+  open,
+  onOpenChange,
+  items,
+  categories,
+  isOwner,
+  onMerged,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  items: CatalogUiItem[];
+  categories: CatalogCategoryOption[];
+  isOwner: boolean;
+  onMerged: (message: string) => void;
+}) {
+  const [name, setName] = useState('');
+  const [categoryId, setCategoryId] = useState('');
+  const [productType, setProductType] = useState<'MADE_TO_ORDER' | 'READY_STOCK'>('MADE_TO_ORDER');
+  const [licenseType, setLicenseType] = useState('OWN_DESIGN');
+  const [licenseSourceUrl, setLicenseSourceUrl] = useState('');
+  const [shortDescription, setShortDescription] = useState('');
+  const [sourceCleanup, setSourceCleanup] = useState<'ARCHIVE' | 'DELETE' | 'KEEP'>('ARCHIVE');
+  const [publishImmediately, setPublishImmediately] = useState(true);
+  const [rows, setRows] = useState<{ sourceProductId: string; variantName: string; priceText: string; coverUrl: string | null }[]>([]);
+  const [comboEnabled, setComboEnabled] = useState(false);
+  const [comboName, setComboName] = useState('Combo cả bộ');
+  const [comboPriceText, setComboPriceText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || items.length === 0) return;
+    const firstCat = items.find((i) => i.categoryId && i.categorySlug !== 'chua-phan-loai')?.categoryId ?? categories[0]?.id ?? '';
+    setCategoryId(firstCat);
+    setName('');
+    setProductType('MADE_TO_ORDER');
+    const firstKnownLic = items.find((i) => i.licenseType && i.licenseType !== 'UNKNOWN')?.licenseType ?? 'OWN_DESIGN';
+    setLicenseType(firstKnownLic);
+    setLicenseSourceUrl(items.find((i) => i.licenseSourceUrl)?.licenseSourceUrl ?? '');
+    setShortDescription('');
+    setSourceCleanup('ARCHIVE');
+    setPublishImmediately(isOwner);
+    const mapped = items.map((item) => ({
+      sourceProductId: item.id,
+      variantName: item.name,
+      priceText: String(item.basePrice ?? item.minPrice ?? 25000),
+      coverUrl: item.coverUrl,
+    }));
+    setRows(mapped);
+    const sum = mapped.reduce((acc, r) => acc + (Number(r.priceText) || 0), 0);
+    setComboEnabled(false);
+    setComboName(`Combo cả bộ ${items.length} mẫu`);
+    setComboPriceText(String(Math.round((sum * 0.9) / 1000) * 1000));
+    setError(null);
+  }, [open, items, categories, isOwner]);
+
+  const parsedPrices = rows.map((r) => Number(digitsOnly(r.priceText)) || 0).filter((p) => p > 0);
+  const minPrice = parsedPrices.length ? Math.min(...parsedPrices) : null;
+  const maxPrice = parsedPrices.length ? Math.max(...parsedPrices) : null;
+
+  async function handleMerge() {
+    setError(null);
+    if (!name.trim()) { setError('Nhập tên sản phẩm gộp (VD: Clicker Động Vật Mini).'); return; }
+    if (!categoryId) { setError('Chọn danh mục cho sản phẩm.'); return; }
+    if (rows.length < 2) { setError('Cần ít nhất 2 mẫu để gộp.'); return; }
+    const mappedItems = rows.map((r) => ({
+      sourceProductId: r.sourceProductId,
+      variantName: r.variantName.trim(),
+      price: Number(digitsOnly(r.priceText)),
+    }));
+    if (mappedItems.some((r) => !r.variantName || !Number.isSafeInteger(r.price) || r.price <= 0)) {
+      setError('Mỗi mẫu cần có tên biến thể và giá > 0.');
+      return;
+    }
+    const comboPrice = comboEnabled ? Number(digitsOnly(comboPriceText)) : undefined;
+    if (comboEnabled && (!comboName.trim() || !Number.isSafeInteger(comboPrice) || (comboPrice ?? 0) <= 0)) {
+      setError('Nhập tên và giá hợp lệ cho biến thể Combo.');
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const res = await mergeCatalogProductsAction({
+        name: name.trim(),
+        categoryId,
+        productType,
+        shortDescription: shortDescription.trim() || null,
+        licenseType,
+        licenseSourceUrl: licenseSourceUrl.trim() || null,
+        licenseProofUrl: null,
+        isFeatured: false,
+        publishImmediately: isOwner && publishImmediately && licenseType !== 'UNKNOWN',
+        sourceCleanup,
+        items: mappedItems,
+        comboVariant: comboEnabled ? { enabled: true, name: comboName.trim(), price: comboPrice } : { enabled: false },
+      });
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      onMerged(
+        res.data.status === 'ACTIVE'
+          ? `Đã gộp ${res.data.variantCount} mẫu thành "${res.data.name}" và đăng bán lên web (/vi/products/${res.data.slug}).`
+          : `Đã gộp ${res.data.variantCount} mẫu thành bản nháp "${res.data.name}".`,
+      );
+    } catch {
+      setError('Mất kết nối tới máy chủ. Thử lại nhé.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => { if (!busy) onOpenChange(next); }}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Gộp {items.length} mẫu thành 1 sản phẩm nhiều biến thể</DialogTitle>
+          <DialogDescription>
+            Mỗi mẫu giữ nguyên ảnh và giá riêng. Khách mở trang sản phẩm có thể chọn từng mẫu để xem ảnh và giá tương ứng.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <Label htmlFor="mg-name">Tên sản phẩm chung *</Label>
+              <Input
+                id="mg-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="VD: Clicker Động Vật Mini"
+                disabled={busy}
+                autoFocus
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="mg-cat">Danh mục *</Label>
+              <select
+                id="mg-cat"
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+                disabled={busy}
+                className="h-9 rounded-lg border border-input bg-background px-2.5 text-sm"
+              >
+                <option value="">— Chọn danh mục —</option>
+                {categories.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="mg-type">Hình thức bán</Label>
+              <select
+                id="mg-type"
+                value={productType}
+                onChange={(e) => setProductType(e.target.value as 'MADE_TO_ORDER' | 'READY_STOCK')}
+                disabled={busy}
+                className="h-9 rounded-lg border border-input bg-background px-2.5 text-sm"
+              >
+                <option value="MADE_TO_ORDER">In theo yêu cầu</option>
+                <option value="READY_STOCK">Có sẵn, giao ngay</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="mg-lic">Bản quyền</Label>
+              <select
+                id="mg-lic"
+                value={licenseType}
+                onChange={(e) => setLicenseType(e.target.value)}
+                disabled={busy}
+                className="h-9 rounded-lg border border-input bg-background px-2.5 text-sm"
+              >
+                {LICENSE_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="mg-url">Link nguồn model (tuỳ chọn)</Label>
+              <Input
+                id="mg-url"
+                type="url"
+                value={licenseSourceUrl}
+                onChange={(e) => setLicenseSourceUrl(e.target.value)}
+                placeholder="https://makerworld.com/..."
+                disabled={busy}
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="mg-short">Mô tả ngắn</Label>
+            <Input
+              id="mg-short"
+              value={shortDescription}
+              onChange={(e) => setShortDescription(e.target.value)}
+              placeholder="VD: Bộ sưu tập clicker mini nhiều mẫu dễ thương, chọn từng mẫu bên dưới."
+              disabled={busy}
+            />
+          </div>
+
+          <div className="rounded-lg border border-border">
+            <div className="flex items-center justify-between border-b border-border bg-muted/40 px-3 py-2 text-xs font-medium">
+              <span>Các mẫu biến thể ({rows.length})</span>
+              <span className="tabular-nums text-muted-foreground">
+                Giá hiển thị: {minPrice != null ? (minPrice === maxPrice ? formatVnd(minPrice) : `${formatVnd(minPrice)} – ${formatVnd(maxPrice)}`) : '—'}
+              </span>
+            </div>
+            <div className="max-h-60 divide-y divide-border overflow-y-auto">
+              {rows.map((row, idx) => (
+                <div key={row.sourceProductId} className="flex items-center gap-2.5 px-3 py-2">
+                  <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-muted">
+                    {row.coverUrl ? <img src={row.coverUrl} alt="" className="size-full object-cover" /> : <ImageOff className="size-4 text-muted-foreground" />}
+                  </div>
+                  <Input
+                    value={row.variantName}
+                    onChange={(e) => setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, variantName: e.target.value } : r)))}
+                    placeholder="Tên mẫu biến thể"
+                    className="h-8 flex-1 text-sm"
+                    disabled={busy}
+                  />
+                  <Input
+                    inputMode="numeric"
+                    value={row.priceText}
+                    onChange={(e) => setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, priceText: digitsOnly(e.target.value) } : r)))}
+                    className="h-8 w-28 text-right text-sm tabular-nums"
+                    disabled={busy}
+                    aria-label={`Giá ${row.variantName}`}
+                  />
+                  <span className="text-xs text-muted-foreground">đ</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-3 text-sm">
+            <label className="flex items-center gap-2 font-medium">
+              <input
+                type="checkbox"
+                checked={comboEnabled}
+                onChange={(e) => setComboEnabled(e.target.checked)}
+                className="size-4 accent-primary"
+                disabled={busy}
+              />
+              Thêm biến thể Combo cả bộ
+            </label>
+            {comboEnabled ? (
+              <div className="flex flex-1 flex-wrap items-center gap-2">
+                <Input value={comboName} onChange={(e) => setComboName(e.target.value)} className="h-8 min-w-[160px] flex-1 text-sm" disabled={busy} />
+                <Input inputMode="numeric" value={comboPriceText} onChange={(e) => setComboPriceText(digitsOnly(e.target.value))} className="h-8 w-28 text-right text-sm tabular-nums" disabled={busy} />
+                <span className="text-xs text-muted-foreground">đ</span>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="mg-cleanup">Sau khi gộp, xử lý {items.length} sản phẩm lẻ gốc</Label>
+              <select
+                id="mg-cleanup"
+                value={sourceCleanup}
+                onChange={(e) => setSourceCleanup(e.target.value as 'ARCHIVE' | 'DELETE' | 'KEEP')}
+                disabled={busy}
+                className="h-9 rounded-lg border border-input bg-background px-2.5 text-sm"
+              >
+                <option value="ARCHIVE">Chuyển sang Lưu trữ (khuyên dùng)</option>
+                {isOwner ? <option value="DELETE">Xoá hẳn các bản lẻ gốc</option> : null}
+                <option value="KEEP">Giữ nguyên các bản lẻ</option>
+              </select>
+            </div>
+            {isOwner ? (
+              <label className="flex items-end gap-2 pb-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={publishImmediately}
+                  onChange={(e) => setPublishImmediately(e.target.checked)}
+                  className="size-4 accent-primary"
+                  disabled={busy || licenseType === 'UNKNOWN'}
+                />
+                Đăng bán sản phẩm gộp lên web ngay
+              </label>
+            ) : null}
+          </div>
+
+          {error ? <p role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-2.5 text-xs text-destructive">{error}</p> : null}
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="secondary" disabled={busy} onClick={() => onOpenChange(false)}>Huỷ</Button>
+          <Button type="button" disabled={busy} onClick={() => void handleMerge()}>
+            <Layers className="mr-1.5 size-4" />
+            {busy ? 'Đang gộp…' : isOwner && publishImmediately && licenseType !== 'UNKNOWN' ? 'Gộp & Đăng bán' : 'Gộp thành Nháp'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
