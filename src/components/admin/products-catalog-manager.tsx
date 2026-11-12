@@ -218,9 +218,11 @@ export function ProductsCatalogManager({
   const itemIds = useMemo(() => visibleItems.map((item) => item.id), [visibleItems]);
   const allOnPageSelected = itemIds.length > 0 && itemIds.every((id) => selectedIds.has(id));
 
-  // Inline quick price edit
+  // Inline quick price & name edit
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [inlinePriceValue, setInlinePriceValue] = useState('');
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const [inlineNameValue, setInlineNameValue] = useState('');
   const [busyRowId, setBusyRowId] = useState<string | null>(null);
 
   // Modals
@@ -306,6 +308,17 @@ export function ProductsCatalogManager({
     } finally {
       setBusyRowId(null);
     }
+  }
+
+  function handleSaveInlineName(item: CatalogUiItem) {
+    const trimmed = inlineNameValue.trim();
+    if (!trimmed) {
+      setNotice({ tone: 'error', title: 'Tên sản phẩm không được để trống.' });
+      return;
+    }
+    setEditingNameId(null);
+    if (trimmed === item.name) return;
+    void runRowUpdate(item, { name: trimmed }, `Đã đổi tên → "${trimmed}".`);
   }
 
   function handleSaveInlinePrice(item: CatalogUiItem) {
@@ -718,13 +731,41 @@ export function ProductsCatalogManager({
 
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setQuickEditItem(item)}
-                            className="truncate text-left font-medium hover:underline"
-                          >
-                            {item.name}
-                          </button>
+                          {editingNameId === item.id ? (
+                            <div className="flex min-w-0 flex-1 items-center gap-1">
+                              <Input
+                                autoFocus
+                                value={inlineNameValue}
+                                maxLength={200}
+                                onChange={(e) => setInlineNameValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') { e.preventDefault(); handleSaveInlineName(item); }
+                                  if (e.key === 'Escape') setEditingNameId(null);
+                                }}
+                                className="h-7 min-w-[180px] flex-1 text-sm font-medium"
+                                aria-label="Sửa tên sản phẩm nhanh"
+                              />
+                              <Button type="button" size="icon-xs" onClick={() => handleSaveInlineName(item)} title="Lưu tên">
+                                <Check className="size-3" />
+                              </Button>
+                              <Button type="button" size="icon-xs" variant="ghost" onClick={() => setEditingNameId(null)} title="Huỷ">
+                                <X className="size-3" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingNameId(item.id);
+                                setInlineNameValue(item.name);
+                              }}
+                              className="group inline-flex max-w-full items-center gap-1 truncate rounded px-1 py-0.5 text-left font-medium hover:bg-muted"
+                              title="Bấm để sửa tên nhanh"
+                            >
+                              <span className="truncate">{item.name}</span>
+                              <Pencil className="size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                            </button>
+                          )}
                           <Badge variant="outline" className={`text-[11px] ${badge.className}`}>{badge.label}</Badge>
                           {item.imported ? (
                             <Badge variant="outline" className="text-[10px] text-muted-foreground">STL</Badge>
@@ -1032,13 +1073,41 @@ export function ProductsCatalogManager({
 
                   {/* Body */}
                   <div className="flex flex-1 flex-col gap-2 p-3">
-                    <button
-                      type="button"
-                      onClick={() => setQuickEditItem(item)}
-                      className="line-clamp-2 text-left text-sm font-semibold leading-snug hover:underline"
-                    >
-                      {item.name}
-                    </button>
+                    {editingNameId === item.id ? (
+                      <div className="flex items-center gap-1">
+                        <Input
+                          autoFocus
+                          value={inlineNameValue}
+                          maxLength={200}
+                          onChange={(e) => setInlineNameValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') { e.preventDefault(); handleSaveInlineName(item); }
+                            if (e.key === 'Escape') setEditingNameId(null);
+                          }}
+                          className="h-7 flex-1 text-xs font-semibold"
+                          aria-label="Sửa tên sản phẩm nhanh"
+                        />
+                        <Button type="button" size="icon-xs" onClick={() => handleSaveInlineName(item)} title="Lưu tên">
+                          <Check className="size-3" />
+                        </Button>
+                        <Button type="button" size="icon-xs" variant="ghost" onClick={() => setEditingNameId(null)} title="Huỷ">
+                          <X className="size-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingNameId(item.id);
+                          setInlineNameValue(item.name);
+                        }}
+                        className="group flex items-start justify-between gap-1 rounded px-1 py-0.5 text-left text-sm font-semibold leading-snug hover:bg-muted"
+                        title="Bấm để sửa tên nhanh"
+                      >
+                        <span className="line-clamp-2">{item.name}</span>
+                        <Pencil className="mt-0.5 size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                      </button>
+                    )}
 
                     <div className="flex items-center justify-between gap-2 text-xs">
                       {editingPriceId === item.id ? (
