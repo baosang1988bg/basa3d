@@ -28,3 +28,11 @@ coverage
 /.swarm
 /.venv-swarm
 /.env.swarm
+
+# Local research, reverse-engineering & test fixtures (not needed for build)
+/cloned-targets
+/.demo-cases
+/test-import-sample
+/.stl-import
+/.stl-import-test
+/scratch
