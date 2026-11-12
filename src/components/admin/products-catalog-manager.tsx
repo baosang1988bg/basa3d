@@ -123,14 +123,6 @@ const LICENSE_OPTIONS = [
   { value: 'UNKNOWN', label: 'Chưa xác định (chỉ lưu nháp)' },
 ] as const;
 
-const SHORT_MISSING: Record<PublishReadinessReason, string> = {
-  LICENSE_UNKNOWN: 'bản quyền',
-  NO_IMAGE: 'ảnh',
-  NO_PRICE: 'giá',
-  UNCATEGORIZED: 'danh mục',
-  NOT_FOUND: 'sản phẩm',
-};
-
 const WARNING_LABELS: Record<string, string> = {
   UNIT_TOO_SMALL: 'Nghi sai đơn vị (nhỏ)',
   UNIT_TOO_LARGE: 'Nghi sai đơn vị (lớn)',
@@ -179,8 +171,9 @@ export function ProductsCatalogManager({
   );
   const total = statusCounts.ACTIVE + statusCounts.DRAFT + statusCounts.ARCHIVED;
 
-  // View mode (List vs Card Grid like Local Catalog)
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  // View mode (Card Grid default like D:\3D_Catalog, switchable to List)
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [draftTriage, setDraftTriage] = useState<'ALL' | 'READY' | 'NEEDS_LICENSE' | 'NEEDS_INFO'>('ALL');
   useEffect(() => {
     try {
       const saved = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
@@ -194,10 +187,35 @@ export function ProductsCatalogManager({
     try { localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode); } catch { /* ignore */ }
   }
 
+  const triageCounts = useMemo(() => {
+    let ready = 0;
+    let needsLicense = 0;
+    let needsInfo = 0;
+    for (const item of items) {
+      if (item.status !== 'DRAFT') continue;
+      const onlyLicenseOrStl = item.missing.every((r) => r === 'LICENSE_UNKNOWN') && (item.missing.includes('LICENSE_UNKNOWN') || needsStlApproval(item));
+      if (item.missing.length === 0 && !needsStlApproval(item)) ready += 1;
+      else if (onlyLicenseOrStl) needsLicense += 1;
+      else needsInfo += 1;
+    }
+    return { ready, needsLicense, needsInfo };
+  }, [items]);
+
+  const visibleItems = useMemo(() => {
+    if (draftTriage === 'ALL') return items;
+    return items.filter((item) => {
+      if (item.status !== 'DRAFT') return false;
+      const onlyLicenseOrStl = item.missing.every((r) => r === 'LICENSE_UNKNOWN') && (item.missing.includes('LICENSE_UNKNOWN') || needsStlApproval(item));
+      if (draftTriage === 'READY') return item.missing.length === 0 && !needsStlApproval(item);
+      if (draftTriage === 'NEEDS_LICENSE') return onlyLicenseOrStl;
+      return item.missing.some((r) => r !== 'LICENSE_UNKNOWN');
+    });
+  }, [items, draftTriage]);
+
   // Selection with Shift+click range
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const lastClickedIdRef = useRef<string | null>(null);
-  const itemIds = useMemo(() => items.map((item) => item.id), [items]);
+  const itemIds = useMemo(() => visibleItems.map((item) => item.id), [visibleItems]);
   const allOnPageSelected = itemIds.length > 0 && itemIds.every((id) => selectedIds.has(id));
 
   // Inline quick price edit
@@ -306,9 +324,18 @@ export function ProductsCatalogManager({
   }
 
   function handleQuickPublishClick(item: CatalogUiItem) {
-    // If missing metadata or STL hasn't been license-reviewed yet, open Quick Edit focused on completing it.
-    if (item.missing.length > 0 || needsStlApproval(item)) {
+    // If missing image/price/category/licenseType, open Quick Edit to complete.
+    if (item.missing.length > 0) {
       setQuickEditItem(item);
+      return;
+    }
+    // If STL-imported and OWNER clicks "Duyệt & Đăng", confirm licenseReviewed + approve + publish in 1 click.
+    if (needsStlApproval(item)) {
+      if (!isOwner) {
+        setNotice({ tone: 'warn', title: 'Chỉ OWNER mới có quyền duyệt sản phẩm nhập từ kho STL lên web.' });
+        return;
+      }
+      void runRowUpdate(item, { licenseReviewed: true, status: 'ACTIVE' }, `Đã duyệt bản quyền & đăng bán "${item.name}".`);
       return;
     }
     void runRowUpdate(item, { status: 'ACTIVE' }, `Đã đăng bán "${item.name}" lên web.`);
@@ -580,30 +607,47 @@ export function ProductsCatalogManager({
         </div>
       </form>
 
+      {/* Triage pills on Drafts (inspired by D:\3D_Catalog) */}
+      {items.some((i) => i.status === 'DRAFT') ? (
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Lọc nhanh bản nháp">
+          {([
+            ['ALL', 'Tất cả trên trang', items.length],
+            ['READY', 'Sẵn sàng đăng', triageCounts.ready],
+            ['NEEDS_LICENSE', 'Chờ bản quyền / duyệt STL', triageCounts.needsLicense],
+            ['NEEDS_INFO', 'Thiếu ảnh / giá / danh mục', triageCounts.needsInfo],
+          ] as const).map(([key, label, cnt]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setDraftTriage(key)}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                draftTriage === key
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-border bg-card text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <span>{label}</span>
+              <span className="tabular-nums opacity-80">{cnt}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       {/* Toolbar (Select page + View switcher — inspired by D:\3D_Catalog) */}
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
         <div className="flex flex-wrap items-center gap-3">
-          {items.length > 0 ? (
+          {visibleItems.length > 0 ? (
             <Button type="button" variant="outline" size="sm" onClick={toggleSelectPage} className="h-8">
               <Check className="mr-1.5 size-3.5" />
-              {allOnPageSelected ? 'Bỏ chọn trang này' : `Chọn trang này (${items.length})`}
+              {allOnPageSelected ? 'Bỏ chọn trang này' : `Chọn trang này (${visibleItems.length})`}
             </Button>
           ) : null}
           <span>
-            Hiển thị <strong className="text-foreground tabular-nums">{items.length}</strong> mục
+            Hiển thị <strong className="text-foreground tabular-nums">{visibleItems.length}</strong> mục
             {selectedIds.size > 0 ? <> · Đã chọn <strong className="text-primary tabular-nums">{selectedIds.size}</strong></> : ' · Mẹo: giữ Shift khi tick để chọn dải'}
           </span>
         </div>
         <div className="inline-flex items-center rounded-lg border border-border bg-card p-0.5" role="group" aria-label="Kiểu hiển thị">
-          <button
-            type="button"
-            onClick={() => switchView('list')}
-            className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-              viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <List className="size-3.5" /> Danh sách
-          </button>
           <button
             type="button"
             onClick={() => switchView('grid')}
@@ -613,19 +657,29 @@ export function ProductsCatalogManager({
           >
             <LayoutGrid className="size-3.5" /> Lưới thẻ
           </button>
+          <button
+            type="button"
+            onClick={() => switchView('list')}
+            className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+              viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <List className="size-3.5" /> Danh sách
+          </button>
         </div>
       </div>
 
       {/* Items */}
-      {items.length ? (
+      {visibleItems.length ? (
         viewMode === 'list' ? (
           <Card className="gap-0 overflow-hidden p-0">
             <ul className="divide-y divide-border">
-              {items.map((item) => {
+              {visibleItems.map((item) => {
                 const selected = selectedIds.has(item.id);
                 const badge = STATUS_BADGE[item.status] ?? STATUS_BADGE.DRAFT;
                 const stlNeedsApproval = needsStlApproval(item);
                 const isBusy = busyRowId === item.id;
+                const readyNow = item.status === 'DRAFT' && item.missing.length === 0 && (!stlNeedsApproval || isOwner);
 
                 return (
                   <li
@@ -673,7 +727,7 @@ export function ProductsCatalogManager({
                           </button>
                           <Badge variant="outline" className={`text-[11px] ${badge.className}`}>{badge.label}</Badge>
                           {item.imported ? (
-                            <Badge variant="outline" className="text-[10px] text-muted-foreground">Nhập từ kho STL</Badge>
+                            <Badge variant="outline" className="text-[10px] text-muted-foreground">STL</Badge>
                           ) : null}
                           {item.isFeatured ? (
                             <Badge variant="secondary" className="gap-1 text-[10px] text-amber-600 dark:text-amber-400">
@@ -691,7 +745,6 @@ export function ProductsCatalogManager({
                           <span>·</span>
                           <span>{item.variantCount} biến thể</span>
                           <span>·</span>
-                          {/* Inline category quick select */}
                           <select
                             aria-label={`Đổi danh mục cho ${item.name}`}
                             value={item.categoryId ?? ''}
@@ -708,30 +761,36 @@ export function ProductsCatalogManager({
                               <option key={cat.id} value={cat.id}>{cat.label}</option>
                             ))}
                           </select>
+                          {item.status === 'DRAFT' ? (
+                            <select
+                              aria-label={`Chọn bản quyền cho ${item.name}`}
+                              value={item.licenseType || 'UNKNOWN'}
+                              disabled={isBusy}
+                              onChange={(e) => void runRowUpdate(item, { licenseType: e.target.value }, `Đã cập nhật bản quyền "${item.name}".`)}
+                              className={`h-6 max-w-[180px] rounded border px-1.5 text-xs ${
+                                item.licenseType === 'UNKNOWN'
+                                  ? 'border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                                  : 'border-border bg-background text-foreground'
+                              }`}
+                            >
+                              {LICENSE_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
+                          ) : null}
                         </div>
 
                         {item.status === 'DRAFT' ? (
-                          item.missing.length > 0 ? (
-                            <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-                              Còn thiếu: {item.missing.map((r) => SHORT_MISSING[r]).join(', ')}
-                              {stlNeedsApproval ? ' · chưa xác nhận bản quyền STL' : ''}
-                            </p>
-                          ) : stlNeedsApproval ? (
-                            <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-                              Cần xác nhận đã kiểm tra bản quyền STL để đăng bán
-                            </p>
-                          ) : (
-                            <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-400">
-                              Đủ thông tin — sẵn sàng đăng bán
-                            </p>
-                          )
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                            <ReadinessPills item={item} onFix={() => setQuickEditItem(item)} />
+                          </div>
                         ) : null}
                       </div>
                     </div>
 
-                    {/* Inline quick price */}
-                    <div className="flex items-center justify-between gap-3 lg:justify-end">
-                      <div className="min-w-[140px] text-sm font-medium tabular-nums lg:text-right">
+                    {/* Inline quick price + Actions */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 lg:justify-end">
+                      <div className="min-w-[120px] text-sm font-medium tabular-nums lg:text-right">
                         {editingPriceId === item.id ? (
                           <div className="flex items-center justify-end gap-1">
                             <Input
@@ -769,7 +828,6 @@ export function ProductsCatalogManager({
                         )}
                       </div>
 
-                      {/* Quick actions */}
                       <div className="flex flex-wrap items-center justify-end gap-1">
                         {item.status === 'DRAFT' ? (
                           <Button
@@ -777,10 +835,11 @@ export function ProductsCatalogManager({
                             size="sm"
                             disabled={isBusy}
                             onClick={() => handleQuickPublishClick(item)}
-                            title={item.missing.length || stlNeedsApproval ? 'Bổ sung nhanh & duyệt đăng bán' : 'Đăng bán ngay lên web'}
+                            className={readyNow ? 'bg-emerald-600 text-white hover:bg-emerald-700' : ''}
+                            title={readyNow ? 'Duyệt & đăng bán ngay lên web' : 'Bổ sung nhanh thông tin còn thiếu'}
                           >
                             {isBusy ? <Loader2 className="mr-1 size-3.5 animate-spin" /> : <ShieldCheck className="mr-1 size-3.5" />}
-                            {item.missing.length || stlNeedsApproval ? 'Duyệt nhanh' : 'Đăng bán'}
+                            {readyNow ? 'Duyệt & Đăng' : 'Sửa & Duyệt'}
                           </Button>
                         ) : null}
 
@@ -796,6 +855,16 @@ export function ProductsCatalogManager({
                               aria-label="Nổi bật"
                             >
                               <Star className={`size-3.5 ${item.isFeatured ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'}`} />
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={isBusy}
+                              onClick={() => void runRowUpdate(item, { status: 'DRAFT' }, `Đã đưa "${item.name}" về Nháp.`)}
+                              title="Chuyển về Nháp (ẩn khỏi web để chỉnh sửa)"
+                            >
+                              <RotateCcw className="mr-1 size-3.5" /> Về nháp
                             </Button>
                             <Link
                               href={`/vi/products/${item.slug}`}
@@ -826,20 +895,6 @@ export function ProductsCatalogManager({
                         >
                           Chi tiết
                         </Link>
-
-                        {item.status === 'ACTIVE' ? (
-                          <Button
-                            type="button"
-                            size="icon-sm"
-                            variant="ghost"
-                            disabled={isBusy}
-                            onClick={() => void runRowUpdate(item, { status: 'DRAFT' }, `Đã đưa "${item.name}" về Nháp.`)}
-                            title="Chuyển về Nháp (ẩn khỏi web)"
-                            aria-label="Về nháp"
-                          >
-                            <RotateCcw className="size-3.5 text-muted-foreground" />
-                          </Button>
-                        ) : null}
 
                         {item.status === 'ARCHIVED' ? (
                           <Button
@@ -889,19 +944,25 @@ export function ProductsCatalogManager({
           </Card>
         ) : (
           /* Card Grid view (inspired by D:\3D_Catalog\catalog.html) */
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {items.map((item) => {
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {visibleItems.map((item) => {
               const selected = selectedIds.has(item.id);
               const badge = STATUS_BADGE[item.status] ?? STATUS_BADGE.DRAFT;
               const stlNeedsApproval = needsStlApproval(item);
               const isBusy = busyRowId === item.id;
+              const readyNow = item.status === 'DRAFT' && item.missing.length === 0 && (!stlNeedsApproval || isOwner);
+              const cardBorderClass = selected
+                ? 'border-primary ring-2 ring-primary/30'
+                : item.status === 'DRAFT'
+                  ? readyNow
+                    ? 'border-emerald-500/45'
+                    : 'border-amber-500/35'
+                  : 'border-border';
 
               return (
                 <article
                   key={item.id}
-                  className={`flex flex-col overflow-hidden rounded-xl border bg-card transition-colors ${
-                    selected ? 'border-primary ring-2 ring-primary/30' : 'border-border'
-                  }`}
+                  className={`group flex flex-col overflow-hidden rounded-xl border bg-card transition-colors ${cardBorderClass}`}
                 >
                   {/* Thumbnail + Overlay controls */}
                   <div className="relative aspect-[4/3] overflow-hidden bg-muted">
@@ -912,7 +973,12 @@ export function ProductsCatalogManager({
                       title="Bấm để sửa nhanh"
                     >
                       {item.coverUrl ? (
-                        <img src={item.coverUrl} alt={item.name} className="size-full object-cover" loading="lazy" />
+                        <img
+                          src={item.coverUrl}
+                          alt={item.name}
+                          className="size-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
+                          loading="lazy"
+                        />
                       ) : (
                         <div className="flex size-full flex-col items-center justify-center gap-1 text-xs text-muted-foreground">
                           <ImageOff className="size-6 opacity-60" />
@@ -935,6 +1001,9 @@ export function ProductsCatalogManager({
                         />
                       </label>
                       <Badge variant="outline" className={`bg-background/90 text-[11px] ${badge.className}`}>{badge.label}</Badge>
+                      {item.imported ? (
+                        <Badge variant="outline" className="bg-background/90 text-[10px] text-muted-foreground">STL</Badge>
+                      ) : null}
                     </div>
 
                     <div className="absolute right-2 top-2 flex items-center gap-1">
@@ -963,18 +1032,13 @@ export function ProductsCatalogManager({
 
                   {/* Body */}
                   <div className="flex flex-1 flex-col gap-2 p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setQuickEditItem(item)}
-                        className="line-clamp-2 text-left text-sm font-medium leading-snug hover:underline"
-                      >
-                        {item.name}
-                      </button>
-                      {item.imported ? (
-                        <Badge variant="outline" className="shrink-0 text-[10px] text-muted-foreground">STL</Badge>
-                      ) : null}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setQuickEditItem(item)}
+                      className="line-clamp-2 text-left text-sm font-semibold leading-snug hover:underline"
+                    >
+                      {item.name}
+                    </button>
 
                     <div className="flex items-center justify-between gap-2 text-xs">
                       {editingPriceId === item.id ? (
@@ -1000,16 +1064,23 @@ export function ProductsCatalogManager({
                             setEditingPriceId(item.id);
                             setInlinePriceValue(item.basePrice != null ? String(item.basePrice) : '');
                           }}
-                          className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 font-semibold tabular-nums hover:bg-muted/80"
+                          className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 font-semibold text-emerald-700 tabular-nums hover:bg-emerald-500/20 dark:text-emerald-400"
                           title="Bấm để sửa giá nhanh"
                         >
                           {priceLabel(item)}
-                          <Pencil className="size-2.5 text-muted-foreground" />
+                          <Pencil className="size-2.5 opacity-70" />
                         </button>
                       )}
                       <span className="text-muted-foreground">{item.productType === 'READY_STOCK' ? 'Có sẵn' : 'In theo YC'} · {item.variantCount} BT</span>
                     </div>
 
+                    {item.status === 'DRAFT' ? (
+                      <div className="flex flex-wrap gap-1">
+                        <ReadinessPills item={item} onFix={() => setQuickEditItem(item)} />
+                      </div>
+                    ) : null}
+
+                    {/* Inline category */}
                     <select
                       aria-label={`Đổi danh mục cho ${item.name}`}
                       value={item.categoryId ?? ''}
@@ -1027,16 +1098,26 @@ export function ProductsCatalogManager({
                       ))}
                     </select>
 
-                    {item.status === 'DRAFT' ? (
-                      <p className={`text-[11px] ${item.missing.length || stlNeedsApproval ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
-                        {item.missing.length
-                          ? `Thiếu: ${item.missing.map((r) => SHORT_MISSING[r]).join(', ')}`
-                          : stlNeedsApproval
-                            ? 'Chờ tick bản quyền & duyệt STL'
-                            : 'Đủ thông tin — sẵn sàng đăng bán'}
-                      </p>
+                    {/* Inline quick license on DRAFT when missing/unreviewed */}
+                    {item.status === 'DRAFT' && (item.licenseType === 'UNKNOWN' || stlNeedsApproval) ? (
+                      <select
+                        aria-label={`Chọn bản quyền cho ${item.name}`}
+                        value={item.licenseType || 'UNKNOWN'}
+                        disabled={isBusy}
+                        onChange={(e) => void runRowUpdate(item, { licenseType: e.target.value }, `Đã cập nhật bản quyền "${item.name}".`)}
+                        className={`h-8 w-full rounded-lg border px-2.5 text-xs ${
+                          item.licenseType === 'UNKNOWN'
+                            ? 'border-amber-500/50 bg-amber-500/10 text-amber-800 dark:text-amber-300'
+                            : 'border-input bg-background text-foreground'
+                        }`}
+                      >
+                        {LICENSE_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
                     ) : null}
 
+                    {/* Card footer actions */}
                     <div className="mt-auto flex flex-wrap gap-1.5 pt-1">
                       {item.status === 'DRAFT' ? (
                         <Button
@@ -1044,22 +1125,34 @@ export function ProductsCatalogManager({
                           size="sm"
                           disabled={isBusy}
                           onClick={() => handleQuickPublishClick(item)}
-                          className="flex-1"
+                          className={`flex-1 ${readyNow ? 'bg-emerald-600 text-white hover:bg-emerald-700' : ''}`}
                         >
-                          <ShieldCheck className="mr-1 size-3.5" />
-                          {item.missing.length || stlNeedsApproval ? 'Duyệt nhanh' : 'Đăng bán'}
+                          {isBusy ? <Loader2 className="mr-1 size-3.5 animate-spin" /> : <ShieldCheck className="mr-1 size-3.5" />}
+                          {readyNow ? 'Duyệt & Đăng' : 'Sửa & Duyệt'}
                         </Button>
                       ) : item.status === 'ACTIVE' ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          disabled={isBusy}
-                          onClick={() => void runRowUpdate(item, { status: 'DRAFT' }, `Đã đưa "${item.name}" về Nháp.`)}
-                          className="flex-1"
-                        >
-                          <RotateCcw className="mr-1 size-3.5" /> Về nháp
-                        </Button>
+                        <>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={isBusy}
+                            onClick={() => void runRowUpdate(item, { status: 'DRAFT' }, `Đã đưa "${item.name}" về Nháp.`)}
+                            className="flex-1"
+                            title="Đưa sản phẩm đang bán về Nháp"
+                          >
+                            <RotateCcw className="mr-1 size-3.5" /> Về nháp
+                          </Button>
+                          <Link
+                            href={`/vi/products/${item.slug}`}
+                            target="_blank"
+                            className={buttonVariants({ size: 'icon-sm', variant: 'outline' })}
+                            title="Xem trên web"
+                            aria-label="Xem trên web"
+                          >
+                            <ExternalLink className="size-3.5" />
+                          </Link>
+                        </>
                       ) : (
                         <Button
                           type="button"
@@ -1075,7 +1168,20 @@ export function ProductsCatalogManager({
                       <Button type="button" size="sm" variant="outline" onClick={() => setQuickEditItem(item)}>
                         Sửa
                       </Button>
-                      <Link href={`/admin/products/${item.id}`} className={buttonVariants({ size: 'sm', variant: 'ghost' })}>
+                      {item.status !== 'ARCHIVED' ? (
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="ghost"
+                          disabled={isBusy}
+                          onClick={() => void runRowUpdate(item, { status: 'ARCHIVED' }, `Đã lưu trữ "${item.name}".`)}
+                          title="Lưu trữ"
+                          aria-label="Lưu trữ"
+                        >
+                          <Archive className="size-3.5 text-muted-foreground" />
+                        </Button>
+                      ) : null}
+                      <Link href={`/admin/products/${item.id}`} className={buttonVariants({ size: 'sm', variant: 'ghost' })} title="Trang chi tiết">
                         Chi tiết
                       </Link>
                     </div>
@@ -1312,6 +1418,40 @@ export function ProductsCatalogManager({
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function ReadinessPills({ item, onFix }: { item: CatalogUiItem; onFix: () => void }) {
+  const hasImage = !item.missing.includes('NO_IMAGE');
+  const hasPrice = !item.missing.includes('NO_PRICE');
+  const hasCat = !item.missing.includes('UNCATEGORIZED');
+  const hasLicense = !item.missing.includes('LICENSE_UNKNOWN') && !needsStlApproval(item);
+
+  const pills: { label: string; ok: boolean }[] = [
+    { label: 'Ảnh', ok: hasImage },
+    { label: 'Giá', ok: hasPrice },
+    { label: 'Danh mục', ok: hasCat },
+    { label: item.imported && !item.importLicenseReviewed ? 'Duyệt STL' : 'Bản quyền', ok: hasLicense },
+  ];
+
+  return (
+    <>
+      {pills.map((p) => (
+        <button
+          key={p.label}
+          type="button"
+          onClick={onFix}
+          className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
+            p.ok
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+              : 'border-amber-500/40 bg-amber-500/10 text-amber-800 hover:bg-amber-500/20 dark:text-amber-300'
+          }`}
+          title={p.ok ? `${p.label}: đạt` : `Bấm để bổ sung ${p.label.toLowerCase()}`}
+        >
+          {p.ok ? '✓' : '!'} {p.label}
+        </button>
+      ))}
+    </>
   );
 }
 
