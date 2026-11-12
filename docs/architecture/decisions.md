@@ -1123,3 +1123,44 @@ images: DMCA/SEO risk). Putting image URLs into the markdown (would reopen the s
 
 **Migration cost.** One additive migration (`20261101000000_blog_post_media.sql`: column + check +
 partial index for drafts). Existing posts get `media = []` and render unchanged.
+
+## ADR-0058 — Showcase-only storefront, `/basaadmin` route, and structured Zalo consult handoff
+
+**Status.** Accepted 2026-11-12 (branch `refactor/showcase-only`).
+
+**Context.** To operate BaSa3D as a product showcase and reference-estimate website without
+triggering Vietnam Ministry of Industry and Trade (Bộ Công Thương) online-selling e-commerce
+registration requirements, the public storefront must not expose online ordering, shopping cart,
+checkout, shipping/return policy pages, or online payment/VietQR transfer QR codes. At the same
+time, internal operations (`/admin/*`, DB schema, inventory/order/print-job services) must remain
+intact for staff managing Zalo/offline orders, and the admin URL should not sit at the predictable
+`/admin` path.
+
+**Decision.**
+1. **Remove public e-commerce routes and modules:**
+   - Removed `/cart`, `/checkout`, `/order-confirmation/[orderNumber]`, `/shipping-policy`,
+     `/return-policy`, `/api/public/orders*`, `src/lib/cart/`, `src/lib/vietqr.ts`, and
+     `src/lib/checkout/`.
+   - Removed `cartEnabled`, `bankId`, `bankAccountNumber`, `bankAccountName` from `SITE_CONFIG`,
+     `CartProvider` from the storefront layout, and the cart icon from `Header`.
+   - Removed VietQR deposit rendering from `/quotes/[quoteNumber]`, replacing it with a
+     Zalo/hotline consultation notice.
+   - `/products/[slug]` preserves variant selection (`radiogroup`), variant-synced gallery
+     images (`ProductDetailShowcase`), and reference price display; only quantity and add-to-cart
+     controls were removed.
+2. **Keep internal operations under `/basaadmin` (Option A):**
+   - Moved `src/app/admin` to `src/app/basaadmin` and updated internal admin links, server-action
+     redirects, `revalidatePath`, and Supabase middleware (`/basaadmin/login`, `/basaadmin/dashboard`).
+   - `src/middleware.ts` returns `404` for `/admin` and `/admin/*`.
+   - `src/app/robots.ts` no longer lists `/admin` (or `/basaadmin`) to avoid leaking the admin URL;
+     `src/app/basaadmin/layout.tsx` sets `robots: { index: false, follow: false }` metadata instead.
+3. **Standardize Zalo consultation handoff (`src/lib/zalo-consult.ts` + `ZaloConsultButton`):**
+   - `/products/[slug]`, `/tools/*` (`KeychainOrderModal`, `MakerWorldOrderModal`), and future
+     estimate tools route through `dispatchZaloConsult(payload)` which formats a structured,
+     CSKH-friendly summary (source, model/product title, specs, reference price range, URL, note)
+     and copies it to clipboard before opening Zalo.
+   - `dispatchZaloConsult` acts as the single extension point for future automation (Zalo OA,
+     webhook, or CRM lead intake) without changing individual tool or product UIs.
+
+**Migration cost.** None for the database; all internal tables and services remain intact so
+e-commerce can be restored from git history or automated later.

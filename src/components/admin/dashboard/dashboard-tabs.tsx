@@ -15,7 +15,7 @@ export function DashboardTabs({ active }: { active: DashboardTab }) {
       {TABS.map((tab) => (
         <Link
           key={tab.id}
-          href={`/admin/dashboard?tab=${tab.id}`}
+          href={`/basaadmin/dashboard?tab=${tab.id}`}
           aria-current={active === tab.id ? 'page' : undefined}
           className={cn(
             'flex h-full flex-1 items-center justify-center whitespace-nowrap rounded px-3 text-xs font-medium transition-colors sm:flex-none',

@@ -22,7 +22,7 @@ mock.module('../src/services/dashboard.service.ts', { namedExports: {
   // Phase 41: the business tab is covered by tests/phase-41-dashboard-tabs.test.ts.
   getExecutiveBusinessMetrics: async () => { throw new Error('operations-tab tests must not reach the executive reader'); },
 } });
-const { default: DashboardPage } = await import('../src/app/admin/(protected)/dashboard/page');
+const { default: DashboardPage } = await import('../src/app/basaadmin/(protected)/dashboard/page');
 
 test('OWNER starts both independent reads before either completes and renders both datasets', async () => {
   role = 'OWNER';

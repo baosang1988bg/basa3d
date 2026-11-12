@@ -50,8 +50,6 @@ export function Footer() {
           <p className="text-sm font-semibold text-foreground">{t('policiesTitle')}</p>
           <ul className="mt-2 space-y-1 text-sm">
             <li><Link href="/privacy-policy" className={FOOTER_LINK_CLASS}>{t('privacyPolicy')}</Link></li>
-            <li><Link href="/shipping-policy" className={FOOTER_LINK_CLASS}>{t('shippingPolicy')}</Link></li>
-            <li><Link href="/return-policy" className={FOOTER_LINK_CLASS}>{t('returnPolicy')}</Link></li>
             <li><Link href="/file-confidentiality-policy" className={FOOTER_LINK_CLASS}>{t('fileConfidentialityPolicy')}</Link></li>
           </ul>
         </div>

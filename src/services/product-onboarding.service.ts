@@ -330,8 +330,8 @@ export async function getPublishReadiness(productId: string): Promise<PublishRea
 }
 
 // ---------------------------------------------------------------------------------------------
-// /admin/products — the catalogue list (UX redesign 2026-10-27): what's live, what's a draft and
-// what each draft still lacks. Stock and quick pricing live on /admin/product-inventory.
+// /basaadmin/products — the catalogue list (UX redesign 2026-10-27): what's live, what's a draft and
+// what each draft still lacks. Stock and quick pricing live on /basaadmin/product-inventory.
 // ---------------------------------------------------------------------------------------------
 
 export type CatalogStatusFilter = 'ACTIVE' | 'DRAFT' | 'ARCHIVED';

@@ -1,5 +1,5 @@
 import { formatPhoneNumber } from '@/lib/format';
- 
+
 function sanitizePhoneNumber(val?: string): string {
   if (!val || val === '0333638698' || val === '0333698638') return '0333 698 638';
   return formatPhoneNumber(val);
@@ -25,10 +25,6 @@ export const SITE_CONFIG = {
   instagramUrl: process.env.NEXT_PUBLIC_INSTAGRAM_URL || '',
   email: process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'basa3d.vn@gmail.com',
   address: 'Hồ Chí Minh, Việt Nam',
-  // Cart temporarily hidden (2026-09) — customers are directed to contact Zalo/hotline directly
-  // instead of ordering through the storefront cart. Flip NEXT_PUBLIC_CART_ENABLED=true to
-  // restore add-to-cart, the cart icon, and the /cart and /checkout routes.
-  cartEnabled: process.env.NEXT_PUBLIC_CART_ENABLED === 'true',
   // Blog link temporarily hidden while no published articles exist. Flip
   // NEXT_PUBLIC_BLOG_ENABLED=true to restore the /blog link in navigation.
   blogEnabled: process.env.NEXT_PUBLIC_BLOG_ENABLED === 'true',
@@ -36,11 +32,4 @@ export const SITE_CONFIG = {
   // rebuild) to restore the Header VI/EN toggle, the Organizer toggle, `/en/*` routing, EN sitemap
   // entries and hreflang. Routing reads the same env var via isEnglishEnabled in src/i18n/routing.ts.
   languageSwitcherEnabled: process.env.NEXT_PUBLIC_LANGUAGE_SWITCHER_ENABLED === 'true',
-  // VietQR static transfer QR (phase-5.md decision #4) — bankId is the short bank code VietQR
-  // accepts (e.g. "MBBank", "VCB", "TCB"), not the account holder's own name. Left unset in a
-  // fresh env, the bank-transfer QR is simply not rendered (see order-confirmation page) rather
-  // than showing a QR pointing at a fake/placeholder account.
-  bankId: process.env.NEXT_PUBLIC_BANK_ID || '',
-  bankAccountNumber: process.env.NEXT_PUBLIC_BANK_ACCOUNT_NUMBER || '',
-  bankAccountName: process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || '',
 };

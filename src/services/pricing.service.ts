@@ -1,6 +1,6 @@
 // Phase 9: cost-plus pricing engine (docs/product/catalog-spec.md §4 + Phase 9 addendum).
 // Deliberately a pure calculator — no DB query, no transaction. Callers (quote.service,
-// product.service, the /admin pricing routes/actions) resolve material unit costs and the current
+// product.service, the /basaadmin pricing routes/actions) resolve material unit costs and the current
 // pricing_configs row first, then call computePricingBreakdown. This keeps the formula itself
 // testable without a database and stops it from ever opening a transaction that could nest inside
 // a caller's own withTransaction (phase-9.md decision #1).

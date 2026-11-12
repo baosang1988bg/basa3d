@@ -20,6 +20,7 @@ import { calculateMeshVolumeCm3, estimateMeshWeightGrams, estimatePrintMinutes }
 import { uploadCustomRequestFile } from '@/lib/uploads/upload-custom-request-file';
 import { trackKeychainExportToRequest } from '@/lib/analytics';
 import { SITE_CONFIG } from '@/config/site';
+import { ZaloConsultButton } from '@/components/storefront/zalo-consult-button';
 import type { KeychainModel } from '@/lib/keychain/keychain-engine';
 
 export interface KeychainOrderModalProps {
@@ -505,7 +506,22 @@ export function KeychainOrderModal({
               ) : null}
 
               {/* Actions Footer */}
-              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end border-t border-border pt-4">
+              <div className="flex flex-col gap-3 border-t border-border pt-4">
+                <ZaloConsultButton
+                  label="M? Zalo t? v?n ngay (t? copy th?ng s?)"
+                  payload={() => ({
+                    source: 'tool',
+                    title: `M?c kh?a ch? "${text.trim() || 'T?y ch?nh'}"`,
+                    specs: [
+                      { label: 'M?u s?c', value: colorDescription },
+                      { label: '?? d?y ?? / ch?', value: `${baseThicknessMm}mm / ${textThicknessMm}mm` },
+                      { label: 'L? m?c kh?a', value: includeKeyringHole ? `C? (${keyringHoleDiameterMm}mm)` : 'Kh?ng' },
+                    ],
+                    estimatedPriceVnd: price ? { min: price.minPriceVnd, max: price.maxPriceVnd } : null,
+                    note,
+                  })}
+                />
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
                 <button
                   type="button"
                   onClick={onClose}
@@ -539,6 +555,7 @@ export function KeychainOrderModal({
                     </>
                   )}
                 </button>
+              </div>
               </div>
             </form>
           )}

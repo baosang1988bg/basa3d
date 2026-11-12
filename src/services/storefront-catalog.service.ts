@@ -17,7 +17,7 @@ function toPublicImageUrl(storagePath: string): string {
 
 export type StorefrontProductSummary = {
   id: string; name: string; slug: string; shortDescription: string | null;
-  productType: string; basePrice: number | null; categoryId: string | null;
+  productType: string; basePrice: number | null; minPrice: number | null; maxPrice: number | null; categoryId: string | null;
   imageUrl: string | null; inStock: boolean;
 };
 
@@ -26,7 +26,7 @@ export type StorefrontProductDetail = {
   productType: string; basePrice: number | null; categoryId: string | null;
   seoTitle: string | null; seoDescription: string | null;
   variants: { id: string; sku: string; name: string; attributes: Record<string, string>; price: number; weightGrams: number | null; inStock: boolean }[];
-  images: { url: string; altText: string | null; sortOrder: number }[];
+  images: { url: string; altText: string | null; sortOrder: number; variantId: string | null }[];
 };
 
 // Batched equivalent of inventory.service `getStockLevel`, parameterised over an array of variant
@@ -69,10 +69,10 @@ export async function listStorefrontProducts(input: { page?: number; limit?: num
   values.push(limit, offset);
   const rows = await query<{
     id: string; name: string; slug: string; shortDescription: string | null; productType: string;
-    basePrice: number | null; categoryId: string | null; imageStoragePath: string | null; variantIds: string[];
+    basePrice: number | null; minPrice: string | number | null; maxPrice: string | number | null; categoryId: string | null; imageStoragePath: string | null; variantIds: string[];
   }>(`
     select p.id, p.name, p.slug, p.short_description as "shortDescription", p.product_type as "productType",
-      p.base_price as "basePrice", p.category_id as "categoryId",
+      p.base_price as "basePrice", min(v.price) as "minPrice", max(v.price) as "maxPrice", p.category_id as "categoryId",
       (select storage_path from product_images pi where pi.product_id = p.id order by pi.sort_order limit 1) as "imageStoragePath",
       coalesce(array_agg(v.id) filter (where v.id is not null), '{}') as "variantIds"
     from products p left join product_variants v on v.product_id = p.id and v.is_active = true
@@ -86,7 +86,10 @@ export async function listStorefrontProducts(input: { page?: number; limit?: num
     page, limit,
     items: rows.rows.map((row) => ({
       id: row.id, name: row.name, slug: row.slug, shortDescription: row.shortDescription,
-      productType: row.productType, basePrice: row.basePrice, categoryId: row.categoryId,
+      productType: row.productType, basePrice: row.basePrice,
+      minPrice: row.minPrice != null ? Number(row.minPrice) : null,
+      maxPrice: row.maxPrice != null ? Number(row.maxPrice) : null,
+      categoryId: row.categoryId,
       imageUrl: row.imageStoragePath ? toPublicImageUrl(row.imageStoragePath) : null,
       inStock: row.productType === 'MADE_TO_ORDER' || (stockFlags.get(row.id) ?? false),
     })) satisfies StorefrontProductSummary[],
@@ -105,7 +108,7 @@ export async function listAllActiveProductSlugs() {
 export const getStorefrontProductBySlug = cache(async (slug: string): Promise<StorefrontProductDetail | null> => {
   const productResult = await query<{
     id: string; name: string; slug: string; shortDescription: string | null; description: string | null;
-    productType: string; basePrice: number | null; categoryId: string | null;
+    productType: string; basePrice: number | null; minPrice: number | null; maxPrice: number | null; categoryId: string | null;
     seoTitle: string | null; seoDescription: string | null;
   }>(`select id, name, slug, short_description as "shortDescription", description, product_type as "productType", base_price as "basePrice", category_id as "categoryId",
       seo_title as "seoTitle", seo_description as "seoDescription"
@@ -121,11 +124,11 @@ export const getStorefrontProductBySlug = cache(async (slug: string): Promise<St
     ...variant, inStock: product.productType === 'MADE_TO_ORDER' || (availableByVariant.get(variant.id) ?? 0) > 0,
   }));
 
-  const imageRows = await query<{ storagePath: string; altText: string | null; sortOrder: number }>(
-    'select storage_path as "storagePath", alt_text as "altText", sort_order as "sortOrder" from product_images where product_id = $1 order by sort_order', [product.id],
+  const imageRows = await query<{ storagePath: string; altText: string | null; sortOrder: number; variantId: string | null }>(
+    'select storage_path as "storagePath", alt_text as "altText", sort_order as "sortOrder", variant_id as "variantId" from product_images where product_id = $1 order by sort_order', [product.id],
   );
   const images = imageRows.rows.map((row) => ({
-    url: toPublicImageUrl(row.storagePath), altText: row.altText, sortOrder: row.sortOrder,
+    url: toPublicImageUrl(row.storagePath), altText: row.altText, sortOrder: row.sortOrder, variantId: row.variantId,
   }));
 
   return { ...product, variants, images };

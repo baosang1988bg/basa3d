@@ -32,7 +32,7 @@ mock.module('../src/services/dashboard.service.ts', { namedExports: {
   getFinancialMetrics: async () => { calls.financial++; return financial; },
   getExecutiveBusinessMetrics: async () => { calls.executive++; return executive; },
 } });
-const { default: DashboardPage } = await import('../src/app/admin/(protected)/dashboard/page');
+const { default: DashboardPage } = await import('../src/app/basaadmin/(protected)/dashboard/page');
 
 async function render(asRole: 'OWNER' | 'STAFF', searchParams?: { tab?: string | string[]; demo?: string }) {
   role = asRole;

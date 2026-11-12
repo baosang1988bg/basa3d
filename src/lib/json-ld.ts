@@ -1,6 +1,6 @@
 // Phase 35 D2: JSON-LD goes into a raw <script> via dangerouslySetInnerHTML, and JSON.stringify does
 // not escape `</script>` — a product name or blog title containing it would break out of the tag
-// (stored XSS on the storefront origin, which is also the /admin origin). Escape every character
+// (stored XSS on the storefront origin, which is also the /basaadmin origin). Escape every character
 // that can end or confuse an HTML script block. The output is still valid JSON for crawlers.
 const UNSAFE_CHARS: Record<string, string> = {
   '<': '\\u003c',
