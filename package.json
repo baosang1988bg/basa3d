@@ -14,7 +14,12 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test:db:setup": "tsx scripts/test-db-setup.ts",
-    "check:agent": "npm run lint && npm run typecheck && npm test",
+    "test:e2e": "playwright test",
+    "check:arch": "node scripts/check-arch.mjs",
+    "check:agent": "npm run lint && npm run typecheck && npm run check:arch && npm test",
+    "check:full": "npm run check:agent && npm run test:e2e",
+    "agent:init": "bash scripts/agent-init.sh",
+    "hooks:install": "git config core.hooksPath .githooks",
     "worktree:prepare": "bash scripts/worktree-setup.sh"
   },
   "dependencies": {

@@ -97,8 +97,8 @@ choose the same thing" is a valid, useful answer here, not a non-answer.
 
 ## Lưu prompt
 
-Lưu file mới `docs/exec-plans/active/phase-<N>-gemini-prompt.md` (đúng
-convention đã có từ Phase 3/4), đồng thời dán prompt trong 1 code block ở
+Lưu file mới `docs/exec-plans/prompts/phase-<N>-gemini-prompt.md` (prompt tách
+khỏi `active/` để thư mục đó chỉ chứa plan đang làm — xem `PROGRESS.md`), đồng thời dán prompt trong 1 code block ở
 chat để user copy nguyên khối ngay, không cần mở file.
 
 ## Sau khi Gemini trả lời

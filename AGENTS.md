@@ -1,7 +1,7 @@
 # BaSa3D Engineering Instructions
 
 ## Mission
-BaSa3D is a small 3D-printing business platform: product catalog, e-commerce, custom print requests, quoting, production tracking, and inventory.
+BaSa3D is a small 3D-printing business platform (Next.js app + Supabase/Postgres): product catalog, e-commerce, custom print requests, quoting, production tracking, and inventory.
 
 ## Owner profile
 The owner is a mobile developer transitioning into web/full-stack development. Prefer boring, explicit, maintainable solutions over framework cleverness.
@@ -22,6 +22,22 @@ KPIs). Read the relevant section there when a `docs/` summary isn't enough —
 don't re-derive decisions that are already made there.
 
 If a business rule is unclear, do not silently invent one. Record the assumption in `docs/architecture/decisions.md` or the relevant domain doc.
+
+## Session lifecycle (all agents — details: `docs/agent-harness.md`)
+- **Session start (before touching code):** read `PROGRESS.md` → read your one exec-plan in
+  `docs/exec-plans/active/` → `git log --oneline -10` → `npm run check:agent` to confirm a green
+  baseline. If the baseline is red, report it before changing anything.
+- **WIP = 1:** one active task per agent. Never start a second plan while yours is unfinished;
+  never edit another agent's branch. Plan too big for one session → split it.
+- **Definition of Done:** runtime evidence, not confidence. Layer 1 `npm run check:agent`
+  (lint + typecheck + unit) → Layer 2 `npm run check:arch` (business invariants) → Layer 3
+  `npm run test:e2e` when the change crosses domain boundaries (checkout, inventory, quote, admin).
+  Do not proceed to layer N+1 while layer N fails. Do not tick a checkbox without evidence.
+- **Session end (before closing):** update `PROGRESS.md` (Current State + In Progress + one
+  handoff-log line), tick evidence into your exec-plan, commit atomically (one logical change,
+  repo consistent after every commit, docs updated in the same commit). Running low on context?
+  Do not rush — stop, write the handoff, commit a clean checkpoint.
+- `docs/exec-plans/prompts/` holds handoff/challenge/review prompts; `active/` holds plans only.
 
 ## Review/quality-gate skills
 `.agents/skills/{database-review,security-review,e2e-testing,release-check}/SKILL.md`

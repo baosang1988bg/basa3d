@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# BaSa3D pre-push gate (cài 1 lần mỗi clone: `npm run hooks:install`).
+# Chạy các lớp kiểm tra NHANH (không cần DB). Test đầy đủ chạy trong CI (.github/workflows/agent-check.yml).
+# Bỏ qua khẩn cấp: `git push --no-verify` — và ghi lý do vào PROGRESS.md.
+set -euo pipefail
+
+echo "▶ pre-push: lint → typecheck → check:arch"
+npm run --silent lint
+npm run --silent typecheck
+npm run --silent check:arch
+echo "✅ pre-push gate passed"

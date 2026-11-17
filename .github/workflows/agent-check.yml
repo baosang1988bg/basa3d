@@ -1,0 +1,33 @@
+# Harness verification gate: the same `npm run check:agent` every agent runs locally.
+# Unit tests only — no TEST_DATABASE_URL here, so DB-backed tests and E2E stay local
+# (they need a disposable local Postgres/Supabase; see tests/helpers/test-environment.ts).
+# This repo is PUBLIC: this workflow uses no secrets.
+
+name: Agent Check
+
+on:
+  pull_request:
+    branches: [dev, netlify, main]
+  push:
+    branches: [dev]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: lint + typecheck + check:arch + unit tests
+        run: npm run check:agent

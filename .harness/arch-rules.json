@@ -1,0 +1,50 @@
+{
+  "$comment": "Registry luật kiến trúc/nghiệp vụ cho `npm run check:arch` (scripts/check-arch.mjs). Mỗi lỗi mới bắt được khi code review → thêm 1 rule ở đây (review-to-automation). Field: id, scope{dirs,ext,onlyIfFileMatches?,exclude?}, forbid (regex, flags 'im', test từng dòng), what/why/fix/source.",
+  "rules": [
+    {
+      "id": "money-integer-columns",
+      "scope": { "dirs": ["supabase/migrations"], "ext": [".sql"] },
+      "forbid": "((^[ \\t]*|[,(][ \\t]*|\\badd\\s+column\\s+(if\\s+not\\s+exists\\s+)?)\"?[a-z_]*(price|amount|total|cost|fee|vnd|subtotal|discount|revenue|refund)[a-z_]*\"?\\s+(numeric|decimal|real|double\\s+precision|float\\d*|money)\\b|\\balter\\s+column\\s+\"?[a-z_]*(price|amount|total|cost|fee|vnd|subtotal|discount|revenue|refund)[a-z_]*\"?\\s+(set\\s+data\\s+)?type\\s+(numeric|decimal|real|double\\s+precision|float\\d*|money)\\b)",
+      "what": "Cột tiền dùng kiểu thập phân/float.",
+      "why": "AGENTS.md rule 2: tiền lưu bằng số nguyên đơn vị nhỏ nhất (VND = 1). Float/decimal gây lệch tổng khi cộng dồn đơn hàng.",
+      "fix": "Đổi sang `bigint` (hoặc `integer`) và thêm `check (<col> >= 0)` nếu không được âm.",
+      "source": "AGENTS.md#engineering-rules rule 2"
+    },
+    {
+      "id": "ledger-no-mutation",
+      "scope": { "dirs": ["src", "supabase/migrations", "scripts"], "ext": [".ts", ".tsx", ".sql", ".mjs"] },
+      "forbid": "(\\bupdate\\s+\"?(inventory_movements|material_movements|audit_logs)\\b|\\bdelete\\s+from\\s+\"?(inventory_movements|material_movements|audit_logs)\\b|drop\\s+trigger[^;]*(inventory_movements|material_movements|audit_logs)_no_update|\\.from\\(['\"](inventory_movements|material_movements|audit_logs)['\"]\\)\\s*\\.(update|delete|upsert)\\()",
+      "what": "Sửa/xoá trực tiếp bảng sổ cái (inventory_movements, material_movements, audit_logs).",
+      "why": "AGENTS.md rule 3: tồn kho là chuỗi movement bất biến. Trigger `prevent_ledger_mutation` đã chặn ở DB; code làm vậy sẽ lỗi runtime hoặc là dấu hiệu đang lách luật.",
+      "fix": "Ghi một movement bù trừ (ADJUSTMENT_IN/ADJUSTMENT_OUT có note + created_by) qua src/services/inventory.service.ts.",
+      "source": "AGENTS.md#engineering-rules rule 3; supabase/migrations/20260830000000_initial_domain_schema.sql"
+    },
+    {
+      "id": "ledger-writes-in-services-only",
+      "scope": { "dirs": ["src"], "ext": [".ts", ".tsx"], "exclude": ["src/services/"] },
+      "forbid": "insert\\s+into\\s+\"?(inventory_movements|material_movements)\\b",
+      "what": "Ghi movement tồn kho/vật tư ngoài tầng service.",
+      "why": "Mọi ghi movement phải khoá row variant trước trong cùng transaction (xem comment trong inventory.service.ts) để chống oversell. Ghi rải rác ở route/action sẽ bỏ qua khoá đó.",
+      "fix": "Gọi hàm trong src/services/inventory.service.ts (hoặc order.service.ts) thay vì viết SQL insert trực tiếp.",
+      "source": "AGENTS.md rule 3 + 'Do not couple UI directly to Supabase tables'"
+    },
+    {
+      "id": "client-no-server-modules",
+      "scope": { "dirs": ["src"], "ext": [".ts", ".tsx"], "onlyIfFileMatches": "^\\s*['\"]use client['\"]" },
+      "forbid": "^\\s*import\\s+(?!type\\b)[^;]*from\\s+['\"](pg|@/lib/db|@/lib/supabase/admin|@/lib/supabase/server|server-only)['\"]",
+      "what": "Client Component import module chỉ dành cho server (pg, db, supabase admin/server).",
+      "why": "AGENTS.md rule 5: authorization ở server. Kéo module server vào bundle client có thể lộ service-role key hoặc bỏ qua kiểm tra quyền.",
+      "fix": "Chuyển truy vấn vào Server Component / Server Action / route handler; client chỉ nhận dữ liệu qua props hoặc `import type`.",
+      "source": "AGENTS.md#engineering-rules rule 5"
+    },
+    {
+      "id": "no-public-service-role",
+      "scope": { "dirs": ["src", "scripts", "e2e"], "ext": [".ts", ".tsx", ".mjs", ".js"] },
+      "forbid": "NEXT_PUBLIC_[A-Z_]*(SERVICE_ROLE|SECRET|PRIVATE)",
+      "what": "Biến môi trường bí mật bị đặt tiền tố NEXT_PUBLIC_.",
+      "why": "Next.js nhúng mọi biến NEXT_PUBLIC_* vào bundle trình duyệt — secret sẽ công khai (repo này PUBLIC).",
+      "fix": "Bỏ tiền tố NEXT_PUBLIC_, chỉ đọc biến đó trong code server.",
+      "source": "AGENTS.md 'Do not store secrets in git' + rule 5"
+    }
+  ]
+}
