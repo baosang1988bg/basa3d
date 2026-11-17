@@ -122,7 +122,7 @@ test('setStaffActive refuses a non-boolean before touching the database (last-OW
 });
 
 test('every exported server action parses its positional id/boolean args right after the auth check', async () => {
-  const root = 'src/app/admin/(protected)';
+  const root = 'src/app/basaadmin/(protected)';
   const files: string[] = [];
   async function walk(dir: string) {
     for (const entry of await readdir(dir, { withFileTypes: true })) {

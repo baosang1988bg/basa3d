@@ -110,7 +110,7 @@ test('2 STL → configure → print → submit → admin creates 2 quotes → 2 
   await loginAsOwner(page);
   const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 16);
   for (const item of items) {
-    await page.goto(`/admin/custom-requests/${request.id}?item=${item.id}#quote-form`);
+    await page.goto(`/basaadmin/custom-requests/${request.id}?item=${item.id}#quote-form`);
     await expect(page.getByText(/Đang báo giá cho món #\d/)).toBeVisible();
     await expect(page.locator('#subtotal')).not.toHaveValue('');
     await page.locator('#validUntil').fill(tomorrow);

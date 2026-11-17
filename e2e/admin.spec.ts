@@ -39,7 +39,7 @@ test.beforeAll(async () => {
     await client.query(`insert into products (id, name, slug, product_type, status) values ($1, 'E2E Product', $2, 'READY_STOCK', 'ACTIVE')`, [productId, `e2e-product-${suffix}`]);
     variantSku = `E2E-VARIANT-${suffix.toUpperCase()}`;
     await client.query(`insert into product_variants (id, product_id, sku, name, price) values ($1, $2, $3, 'E2E Variant', 50000)`, [variantId, productId, variantSku]);
-    // Phase 52: /admin/products/new requires a real category.
+    // Phase 52: /basaadmin/products/new requires a real category.
     categoryName = `E2E Category ${suffix}`;
     await client.query(`insert into categories (name, slug) values ($1, $2)`, [categoryName, `e2e-category-${suffix}`]);
   } finally {
@@ -67,17 +67,17 @@ test.afterAll(async () => {
 });
 
 async function login(page: Page) {
-  await page.goto('/admin/login');
+  await page.goto('/basaadmin/login');
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Mật khẩu').fill(password);
   await page.getByRole('button', { name: 'Đăng nhập' }).click();
-  await page.waitForURL('**/admin/dashboard');
+  await page.waitForURL('**/basaadmin/dashboard');
 }
 
 test('admin can log in and create a product', async ({ page }) => {
   // Phase 52: guided page — slug/SKU generated, licence chosen explicitly, saved as DRAFT.
   await login(page);
-  await page.goto('/admin/products/new');
+  await page.goto('/basaadmin/products/new');
 
   const productName = `E2E New Product ${randomUUID().slice(0, 8)}`;
   await page.getByLabel('Tên sản phẩm').fill(productName);
@@ -105,7 +105,7 @@ test('admin can log in and create a product', async ({ page }) => {
 
 test('staff restock from the product row: +5 once, even when Save is clicked twice', async ({ page }) => {
   await login(page);
-  await page.goto('/admin/product-inventory');
+  await page.goto('/basaadmin/product-inventory');
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
@@ -129,7 +129,7 @@ test('staff restock from the product row: +5 once, even when Save is clicked twi
 
 test('admin can update an existing product', async ({ page }) => {
   await login(page);
-  await page.goto(`/admin/products/${productId}`);
+  await page.goto(`/basaadmin/products/${productId}`);
 
   const updatedName = `E2E Updated Product ${randomUUID().slice(0, 8)}`;
   await page.locator('#name').fill(updatedName);
@@ -149,7 +149,7 @@ test('admin can update an existing product', async ({ page }) => {
 
 test('admin can record an inventory movement', async ({ page }) => {
   await login(page);
-  await page.goto('/admin/inventory');
+  await page.goto('/basaadmin/inventory');
 
   // Phase 52 P4: the raw movement form lives under "Nâng cao" (OWNER only).
   await page.getByText(/Nâng cao \(OWNER\)/).click();

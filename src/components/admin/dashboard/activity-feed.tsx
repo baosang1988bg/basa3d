@@ -30,11 +30,11 @@ export function ActivityFeed({ items, now }: { items: ActionableRecentItems; now
   const rows = [
     ...items.pendingOrders.map((order) => ({
       kind: 'orders' as const, id: order.id, code: order.orderCode, who: order.customerName, createdAt: order.createdAt,
-      status: ORDER_STATUS[order.status] ?? order.status, href: `/admin/orders/${order.id}`, extra: null as string | null,
+      status: ORDER_STATUS[order.status] ?? order.status, href: `/basaadmin/orders/${order.id}`, extra: null as string | null,
     })),
     ...items.openCustomRequests.map((request) => ({
       kind: 'requests' as const, id: request.id, code: request.requestCode, who: request.customerName, createdAt: request.createdAt,
-      status: REQUEST_STATUS[request.status] ?? request.status, href: `/admin/custom-requests/${request.id}`, extra: CHANNEL[request.sourceChannel] ?? request.sourceChannel,
+      status: REQUEST_STATUS[request.status] ?? request.status, href: `/basaadmin/custom-requests/${request.id}`, extra: CHANNEL[request.sourceChannel] ?? request.sourceChannel,
     })),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   const visible = filter === 'all' ? rows : rows.filter((row) => row.kind === filter);

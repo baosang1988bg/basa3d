@@ -20,6 +20,7 @@ import { CURRENT_TOS_VERSION } from '@/lib/copyright/tos-version';
 import { useContactStatePrefill, useSavedContact } from '@/lib/customer/use-saved-contact';
 import { RememberContactOption } from '@/components/storefront/remember-contact-option';
 import type { MakerWorldCnModelDetail } from '@/services/makerworld-cn-pricing.service';
+import { ZaloConsultButton } from '@/components/storefront/zalo-consult-button';
 
 function formatPrintTime(minutes: number): string {
   if (!minutes || minutes <= 0) return 'Chưa rõ';
@@ -604,7 +605,22 @@ export function MakerWorldOrderModal({
               ) : null}
 
               {/* Actions Footer */}
-              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end border-t border-border pt-4">
+              <div className="flex flex-col gap-3 border-t border-border pt-4">
+                <ZaloConsultButton
+                  label="M? Zalo t? v?n ngay (t? copy th?ng s?)"
+                  payload={() => ({
+                    source: 'makerworld',
+                    title: detail.title,
+                    specs: [
+                      { label: 'Profile in', value: selectedProfile?.title || selectedProfileId },
+                      { label: 'H?nh th?c', value: isMultiPlate ? (tier === 'ASSEMBLED' ? 'L?p ho?n thi?n' : 'B? Kit t? l?p') : 'Ti?u chu?n' },
+                      { label: 'Link MakerWorld', value: detail.sourceUrl },
+                    ],
+                    estimatedPriceVnd: unitPrice > 0 ? { min: totalPrice } : null,
+                    note,
+                  })}
+                />
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
                 <button
                   type="button"
                   onClick={onClose}
@@ -633,6 +649,7 @@ export function MakerWorldOrderModal({
                     </>
                   )}
                 </button>
+              </div>
               </div>
             </form>
           )}

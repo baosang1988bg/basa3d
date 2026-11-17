@@ -31,9 +31,9 @@ test('publicSiteUrl: configured origin wins, trailing slash/path dropped, junk f
 
 test('customer-facing links are built from publicSiteUrl(), never a hard-coded domain', () => {
   for (const path of [
-    'src/app/[locale]/(storefront)/order-confirmation/[orderNumber]/page.tsx',
+    // order-confirmation page was removed by the showcase-only refactor (b201f57).
     'src/components/admin/copy-zalo-quote-button.tsx',
-    'src/app/admin/(protected)/custom-requests/[id]/page.tsx',
+    'src/app/basaadmin/(protected)/custom-requests/[id]/page.tsx',
   ]) {
     const source = read(path);
     assert.doesNotMatch(source, /https:\/\/basa3d\.vn\/(quotes|order-confirmation)/, path);
@@ -67,11 +67,11 @@ test('public blog pages read through the cache, and every blog admin write inval
     assert.doesNotMatch(source, /from '@\/services\/blog\.service'/, `${path} must not query the service directly`);
     assert.match(source, /getCachedPublished/, path);
   }
-  const actions = read('src/app/admin/(protected)/blog/actions.ts');
+  const actions = read('src/app/basaadmin/(protected)/blog/actions.ts');
   const writes = actions.match(/await (createBlogPostWithCover|updateBlogPostWithCover|createBlogPost|updateBlogPost)\(/g) ?? [];
   const invalidations = actions.match(/invalidateBlogCache\(\)/g) ?? [];
   assert.ok(writes.length > 0 && invalidations.length >= writes.length, `${writes.length} writes, ${invalidations.length} invalidations`);
-  assert.match(read('src/app/admin/(protected)/blog/review/actions.ts'), /invalidateBlogCache\(\)/);
+  assert.match(read('src/app/basaadmin/(protected)/blog/review/actions.ts'), /invalidateBlogCache\(\)/);
 });
 
 test('privacy policy names the processors the code really uses, and the footer no longer over-promises', () => {

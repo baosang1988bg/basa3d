@@ -18,9 +18,9 @@ mock.module('../src/services/quote.service.ts', { namedExports: { acceptQuote: w
 // Phase 33 S7: custom-requests/actions also imports the item re-verify service.
 mock.module('../src/services/custom-request-items.service.ts', { namedExports: { reverifyCustomRequestItem: write } });
 mock.module('../src/services/print-job.service.ts', { namedExports: { updatePrintJobStatus: write, assignPrintJobMaterial: write, assignPrintJobSpool: write, recordPrintJobActuals: write } });
-const orders = await import('../src/app/admin/(protected)/orders/actions');
-const requests = await import('../src/app/admin/(protected)/custom-requests/actions');
-const jobs = await import('../src/app/admin/(protected)/print-jobs/actions');
+const orders = await import('../src/app/basaadmin/(protected)/orders/actions');
+const requests = await import('../src/app/basaadmin/(protected)/custom-requests/actions');
+const jobs = await import('../src/app/basaadmin/(protected)/print-jobs/actions');
 const ID = '00000000-0000-4000-8000-000000000001'; // Phase 36: action ids are parsed as UUIDs
 function form(values: Record<string, string>) { const data = new FormData(); for (const [key, value] of Object.entries(values)) data.set(key, value); return data; }
 
@@ -55,7 +55,7 @@ test('authentication remains outside handled domain errors', async () => {
 test('valid status keeps actor/role and success invalidation', async () => {
   assert.deepEqual(await requests.updatePrintJobStatusAction(ID, form({ status: 'PRINTING' })), { saved: true });
   assert.deepEqual(writes.at(-1), [ID, 'PRINTING', 'actor', { role: 'STAFF', overrideReason: undefined }]);
-  assert.ok(revalidated.includes('/admin/print-jobs'));
+  assert.ok(revalidated.includes('/basaadmin/print-jobs'));
 });
 test('malformed quote JSON is handled without a write', async () => {
   const before = writes.length;
@@ -74,7 +74,7 @@ test('Phase 36: a non-UUID id is refused before any write, even by direct action
     }
   };
   await refused(orders.updateOrderStatusAction('not-a-uuid', form({ status: 'CONFIRMED' })));
-  await refused(requests.acceptQuoteAction(ID, '../../admin'));
+  await refused(requests.acceptQuoteAction(ID, '../../basaadmin'));
   await refused(jobs.assignPrintJobSpoolAction("x' or 1=1", form({ spoolId: ID })));
   assert.equal(writes.length, before);
 });

@@ -18,6 +18,7 @@ mock.module('../src/services/product.service.ts', { namedExports: {
   createCategory: record('createCategory'), createProduct: record('createProduct'), createVariant: record('createVariant'),
   deleteProduct: record('deleteProduct'), deleteProductImage: record('deleteProductImage'), deleteVariant: record('deleteVariant'),
   updateProduct: record('updateProduct'), updateVariant: record('updateVariant'), uploadProductImage: record('uploadProductImage'),
+  assignProductImageVariant: record('assignProductImageVariant'),
 } });
 const NEW_ID = '00000000-0000-4000-8000-0000000000c0';
 mock.module('../src/services/product-onboarding.service.ts', { namedExports: {
@@ -27,9 +28,14 @@ mock.module('../src/services/product-onboarding.service.ts', { namedExports: {
   duplicateProduct: record('duplicateProduct', { productId: NEW_ID, slug: 'x', variants: [], replayed: false }),
   generateVariantSku: record('generateVariantSku', 'SKU-1'),
   publishProductIfReady: record('publishProductIfReady', { published: true, reasons: [] }),
+  bulkCatalogAction: record('bulkCatalogAction', { done: [], blocked: [] }),
+  mergeCatalogProducts: record('mergeCatalogProducts'),
+  quickUpdateCatalogProduct: record('quickUpdateCatalogProduct'),
+  setProductCoverImage: record('setProductCoverImage'),
 } });
 
-const actions = await import('../src/app/admin/(protected)/products/actions');
+// Admin moved from /admin to /basaadmin (merge of origin/dev, 2026-11).
+const actions = await import('../src/app/basaadmin/(protected)/products/actions');
 const ID = '00000000-0000-4000-8000-000000000001';
 const ID_2 = '00000000-0000-4000-8000-000000000002';
 
@@ -67,21 +73,21 @@ test('D4: duplicate validates both ids, then opens the copy', async () => {
   await assert.rejects(actions.duplicateProductAction('nope', ID_2), (error: unknown) => error instanceof DomainError && error.code === 'INVALID_ACTION_ARGUMENT');
   await assert.rejects(actions.duplicateProductAction(ID, 'nope'), (error: unknown) => error instanceof DomainError && error.code === 'INVALID_ACTION_ARGUMENT');
   assert.equal(calls.length, before, 'no service call for malformed arguments');
-  assert.equal(await redirectUrl(actions.duplicateProductAction(ID, ID_2)), `/admin/products/${NEW_ID}?duplicated=1`);
+  assert.equal(await redirectUrl(actions.duplicateProductAction(ID, ID_2)), `/basaadmin/products/${NEW_ID}?duplicated=1`);
   assert.deepEqual(lastCall('duplicateProduct')!.args, [{ sourceProductId: ID, requestId: ID_2 }, 'actor']);
 });
 
 test('D5: bulk actions dedupe ids, report counts, and only echo a whitelisted status', async () => {
   const url = await redirectUrl(actions.bulkArchiveProductsAction(form({ ids: [ID, ID_2, ID], status: 'ACTIVE' })));
   assert.deepEqual(lastCall('bulkArchiveProducts')!.args, [[ID, ID_2], 'actor']);
-  assert.equal(url, '/admin/products?bulk=archived&done=2&skipped=1&status=ACTIVE');
+  assert.equal(url, '/basaadmin/products?bulk=archived&done=2&skipped=1&status=ACTIVE');
   const published = await redirectUrl(actions.bulkPublishProductsAction(form({ ids: [ID], status: 'https://evil.example' })));
-  assert.equal(published, '/admin/products?bulk=published&done=1&skipped=0');
+  assert.equal(published, '/basaadmin/products?bulk=published&done=1&skipped=0');
 });
 
 test('D5: nothing ticked, a malformed id, or more than the cap never reaches the service', async () => {
   const before = calls.length;
-  assert.equal(await redirectUrl(actions.bulkPublishProductsAction(form({}))), '/admin/products?bulk=published&done=0&skipped=0');
+  assert.equal(await redirectUrl(actions.bulkPublishProductsAction(form({}))), '/basaadmin/products?bulk=published&done=0&skipped=0');
   await assert.rejects(actions.bulkPublishProductsAction(form({ ids: [ID, 'x'] })), (error: unknown) => error instanceof DomainError && error.code === 'INVALID_ACTION_ARGUMENT');
   const tooMany = Array.from({ length: 101 }, (_, index) => `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`);
   await assert.rejects(actions.bulkArchiveProductsAction(form({ ids: tooMany })), (error: unknown) => error instanceof DomainError && error.code === 'TOO_MANY_ITEMS');

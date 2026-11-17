@@ -80,11 +80,11 @@ test.afterAll(async () => {
 });
 
 async function login(page: Page, email: string) {
-  await page.goto('/admin/login');
+  await page.goto('/basaadmin/login');
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Mật khẩu').fill(password);
   await page.getByRole('button', { name: 'Đăng nhập' }).click();
-  await page.waitForURL('**/admin/dashboard');
+  await page.waitForURL('**/basaadmin/dashboard');
 }
 
 test('OWNER dashboard shows financial KPIs, the 14-day chart, and operational widgets, at desktop and mobile widths', async ({ page }) => {
@@ -136,35 +136,35 @@ test('STAFF dashboard shows operational metrics but never revenue/order-total fi
 test('order/custom-request/print-job detail pages render a ProcessStepper matching the real status', async ({ page }) => {
   await login(page, ownerEmail);
 
-  await page.goto(`/admin/orders/${orderId}`);
+  await page.goto(`/basaadmin/orders/${orderId}`);
   const orderStepper = page.locator('ol').first();
   await expect(orderStepper.getByText('Mới')).toBeVisible();
   await expect(orderStepper.locator('li').first()).toContainText('Mới');
 
-  await page.goto(`/admin/custom-requests/${customRequestId}`);
+  await page.goto(`/basaadmin/custom-requests/${customRequestId}`);
   await expect(page.getByText('Đang xem xét')).toBeVisible();
 
-  await page.goto(`/admin/print-jobs/${printJobId}`);
+  await page.goto(`/basaadmin/print-jobs/${printJobId}`);
   await expect(page.getByText('Đang in')).toBeVisible();
 });
 
 test('status filter tabs update the URL and filtered results, and an invalid filter value falls back safely', async ({ page }) => {
   await login(page, ownerEmail);
 
-  await page.goto('/admin/orders');
+  await page.goto('/basaadmin/orders');
   await expect(page.getByRole('link', { name: 'Tất cả' })).toHaveClass(/bg-primary/);
 
   await page.getByRole('link', { name: 'Đang chờ' }).click();
-  await page.waitForURL('**/admin/orders?filter=pending');
+  await page.waitForURL('**/basaadmin/orders?filter=pending');
   await expect(page.getByRole('link', { name: 'Đang chờ' })).toHaveClass(/bg-primary/);
   await expect(page.getByText(orderNumber)).toBeVisible();
 
   await page.getByRole('link', { name: 'Hoàn tất' }).click();
-  await page.waitForURL('**/admin/orders?filter=completed');
+  await page.waitForURL('**/basaadmin/orders?filter=completed');
   await expect(page.getByText(new RegExp(`ORD-E2EDASH`))).toHaveCount(0);
 
   // Unknown filter value must fail safely (fall back to "Tất cả"), not crash the page.
-  await page.goto('/admin/orders?filter=not-a-real-filter');
+  await page.goto('/basaadmin/orders?filter=not-a-real-filter');
   await expect(page.getByRole('heading', { name: 'Đơn hàng' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Tất cả' })).toHaveClass(/bg-primary/);
 });

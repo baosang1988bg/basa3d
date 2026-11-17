@@ -5,7 +5,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle2, Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { ReviewDecisionResult } from '@/app/admin/(protected)/blog/review/actions';
+import type { ReviewDecisionResult } from '@/app/basaadmin/(protected)/blog/review/actions';
 
 export function BlogReviewDecision({ title, approve, reject }: {
   title: string;
@@ -28,7 +28,7 @@ export function BlogReviewDecision({ title, approve, reject }: {
       const outcome = await (kind === 'approve' ? approve() : reject());
       setResult(outcome);
       setRunning(null);
-      if (outcome.ok) router.replace('/admin/blog/review');
+      if (outcome.ok) router.replace('/basaadmin/blog/review');
     });
   };
 

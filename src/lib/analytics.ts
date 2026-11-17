@@ -120,7 +120,7 @@ export function trackCustomPrintQuote(data: { technology?: string | null; materi
 }
 
 export function trackContactClick(
-  channel: 'zalo' | 'hotline' | 'messenger' | 'email' | 'facebook' | 'tiktok' | 'instagram',
+  channel: 'zalo' | 'hotline' | 'messenger' | 'email' | 'facebook' | 'tiktok' | 'threads' | 'instagram',
   placement: string
 ): void {
   sendGAEvent('click_contact_channel', { channel, placement });

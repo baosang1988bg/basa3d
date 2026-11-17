@@ -1,5 +1,5 @@
 import { formatPhoneNumber } from '@/lib/format';
- 
+
 function sanitizePhoneNumber(val?: string): string {
   if (!val || val === '0333638698' || val === '0333698638') return '0333 698 638';
   return formatPhoneNumber(val);
@@ -21,8 +21,9 @@ export const SITE_CONFIG = {
   // https://m.me/<fanpage-username> and the contact CTA will pick it up automatically.
   messengerUrl: process.env.NEXT_PUBLIC_MESSENGER_URL || '',
   facebookUrl: process.env.NEXT_PUBLIC_FACEBOOK_URL || '',
-  tiktokUrl: process.env.NEXT_PUBLIC_TIKTOK_URL || '',
-  instagramUrl: process.env.NEXT_PUBLIC_INSTAGRAM_URL || '',
+  tiktokUrl: process.env.NEXT_PUBLIC_TIKTOK_URL || 'https://www.tiktok.com/@basain3d',
+  threadsUrl: process.env.NEXT_PUBLIC_THREADS_URL || 'https://www.threads.com/@basa.in3d',
+  instagramUrl: process.env.NEXT_PUBLIC_INSTAGRAM_URL || 'https://www.instagram.com/basa.in3d',
   email: process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'basa3d.vn@gmail.com',
   address: 'Hồ Chí Minh, Việt Nam',
   // Phase 56: seller identity shown in the footer (name of the registered business / household
@@ -42,11 +43,4 @@ export const SITE_CONFIG = {
   // rebuild) to restore the Header VI/EN toggle, the Organizer toggle, `/en/*` routing, EN sitemap
   // entries and hreflang. Routing reads the same env var via isEnglishEnabled in src/i18n/routing.ts.
   languageSwitcherEnabled: process.env.NEXT_PUBLIC_LANGUAGE_SWITCHER_ENABLED === 'true',
-  // VietQR static transfer QR (phase-5.md decision #4) — bankId is the short bank code VietQR
-  // accepts (e.g. "MBBank", "VCB", "TCB"), not the account holder's own name. Left unset in a
-  // fresh env, the bank-transfer QR is simply not rendered (see order-confirmation page) rather
-  // than showing a QR pointing at a fake/placeholder account.
-  bankId: process.env.NEXT_PUBLIC_BANK_ID || '',
-  bankAccountNumber: process.env.NEXT_PUBLIC_BANK_ACCOUNT_NUMBER || '',
-  bankAccountName: process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || '',
 };

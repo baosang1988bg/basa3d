@@ -7,8 +7,8 @@ function env(name: 'NEXT_PUBLIC_SUPABASE_URL' | 'NEXT_PUBLIC_SUPABASE_ANON_KEY')
   return value;
 }
 
-// Refreshes the Supabase session cookie on every /admin request (access tokens expire in ~1h)
-// and redirects unauthenticated visitors to /admin/login. This is a UX convenience only — every
+// Refreshes the Supabase session cookie on every /basaadmin request (access tokens expire in ~1h)
+// and redirects unauthenticated visitors to /basaadmin/login. This is a UX convenience only — every
 // API route handler still calls requireAdmin()/requireOwner() itself; middleware is not the
 // security boundary (AGENTS.md rule 5).
 export async function updateSession(request: NextRequest): Promise<NextResponse> {
@@ -29,13 +29,13 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  const isLoginPage = request.nextUrl.pathname === '/admin/login';
+  const isLoginPage = request.nextUrl.pathname === '/basaadmin/login';
   if (!user && !isLoginPage) {
-    const redirectUrl = new URL('/admin/login', request.url);
+    const redirectUrl = new URL('/basaadmin/login', request.url);
     return NextResponse.redirect(redirectUrl);
   }
   if (user && isLoginPage) {
-    return NextResponse.redirect(new URL('/admin/dashboard', request.url));
+    return NextResponse.redirect(new URL('/basaadmin/dashboard', request.url));
   }
 
   return response;

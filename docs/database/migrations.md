@@ -18,3 +18,6 @@
   and unique partial index `inventory_movements_quick_restock_key (reference_type, reference_id, product_variant_id)
   where reference_type = 'quick_restock'`. No backfill; brief `SHARE` lock on `inventory_movements` while building
   (table small, `lock_timeout 5s`). **Apply to hosted Supabase manually after review.**
+- `20261112000000_product_print_files.sql` (ADR-0058) — additive: nullable `print_local_path text` and
+  `print_drive_url text` columns on `products` and `product_variants` (`add column if not exists`). No backfill.
+  **Apply to hosted Supabase manually after review.**

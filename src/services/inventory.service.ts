@@ -197,7 +197,7 @@ export async function assertAvailableStock(client: PoolClient, variantId: string
 }
 
 // ---------------------------------------------------------------------------------------------
-// Phase 52 P4 — /admin/inventory as a read-only ledger with filters.
+// Phase 52 P4 — /basaadmin/inventory as a read-only ledger with filters.
 // ---------------------------------------------------------------------------------------------
 
 export type InventoryLedgerFilters = {

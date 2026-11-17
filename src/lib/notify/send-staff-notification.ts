@@ -120,7 +120,7 @@ export function resolveTelegramSiteUrl(explicitOrigin?: string | null): string {
 // individually secured, so email payloads must not become a PII leak surface.
 export function buildStaffNotificationEmail(event: StaffNotificationEvent) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
-  const link = `${siteUrl}/admin/${ADMIN_PATH_SEGMENT[event.type]}/${event.id}`;
+  const link = `${siteUrl}/basaadmin/${ADMIN_PATH_SEGMENT[event.type]}/${event.id}`;
   const label = EVENT_LABEL[event.type];
   const subject = `${label}: ${event.code}`;
   const text = `${label}.\nMã: ${event.code}\n\nXem chi tiết (yêu cầu đăng nhập): ${link}`;
@@ -130,7 +130,7 @@ export function buildStaffNotificationEmail(event: StaffNotificationEvent) {
 
 export function buildStaffNotificationTelegram(event: StaffNotificationEvent): string {
   const siteUrl = resolveTelegramSiteUrl(event.origin);
-  const link = `${siteUrl}/admin/${ADMIN_PATH_SEGMENT[event.type]}/${event.id}`;
+  const link = `${siteUrl}/basaadmin/${ADMIN_PATH_SEGMENT[event.type]}/${event.id}`;
   const label = escapeTelegramHtml(EVENT_LABEL[event.type]);
   const code = escapeTelegramHtml(event.code);
 
@@ -183,7 +183,7 @@ export interface TelegramInlineButton {
 
 export function buildTelegramInlineKeyboard(event: StaffNotificationEvent): { inline_keyboard: TelegramInlineButton[][] } | undefined {
   const siteUrl = resolveTelegramSiteUrl(event.origin);
-  const adminLink = `${siteUrl}/admin/${ADMIN_PATH_SEGMENT[event.type]}/${event.id}`;
+  const adminLink = `${siteUrl}/basaadmin/${ADMIN_PATH_SEGMENT[event.type]}/${event.id}`;
   const rows: TelegramInlineButton[][] = [];
 
   if (isValidHttpUrl(adminLink)) {

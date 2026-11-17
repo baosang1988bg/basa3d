@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState, useTransition } from 'react';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { triggerDailyNewsSyncAction } from '@/app/admin/(protected)/blog/actions';
+import { triggerDailyNewsSyncAction } from '@/app/basaadmin/(protected)/blog/actions';
 
 export function BlogSyncNewsButton() {
   const [isPending, startTransition] = useTransition();
@@ -47,7 +47,7 @@ export function BlogSyncNewsButton() {
       {statusMessage && (
         <span className={`text-xs ${statusMessage.isError ? 'text-destructive font-medium' : 'text-emerald-600'}`}>
           {statusMessage.text}
-          {!statusMessage.isError ? <> · <Link href="/admin/blog/review" className="underline">Mở trang duyệt →</Link></> : null}
+          {!statusMessage.isError ? <> · <Link href="/basaadmin/blog/review" className="underline">Mở trang duyệt →</Link></> : null}
         </span>
       )}
     </div>

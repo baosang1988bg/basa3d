@@ -24,7 +24,7 @@ mock.module('../src/services/stl-import.service.ts', { namedExports: {
   quickEditImportItem: record('quickEdit'), requestRerender: record('rerender'),
   approveImportItems: record('approve'), rejectImportItems: record('reject'),
 } });
-const actions = await import('../src/app/admin/(protected)/stl-import/actions');
+const actions = await import('../src/app/basaadmin/(protected)/stl-import/actions');
 
 const ITEM = { itemId: '00000000-0000-4000-8000-000000000001', expectedItemUpdatedAt: '2026-10-21T00:00:00.000000Z' };
 

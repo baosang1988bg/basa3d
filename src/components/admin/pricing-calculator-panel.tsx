@@ -199,7 +199,7 @@ export function PricingCalculatorPanel({
     return (
       <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
         Chưa có cấu hình giá (điện/nhân công/máy/margin) — vào{' '}
-        <a href="/admin/settings/pricing" className="font-medium text-primary hover:underline">Cài đặt giá</a>{' '}
+        <a href="/basaadmin/settings/pricing" className="font-medium text-primary hover:underline">Cài đặt giá</a>{' '}
         để tạo trước khi dùng công cụ tính giá đề xuất.
       </div>
     );

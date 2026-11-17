@@ -26,7 +26,7 @@ import {
   getQuickRestockContextAction,
   quickRestockAction,
   type QuickRestockDialogContext,
-} from '@/app/admin/(protected)/product-inventory/actions';
+} from '@/app/basaadmin/(protected)/product-inventory/actions';
 
 export type QuickRestockVariantOption = { id: string; sku: string; name: string };
 

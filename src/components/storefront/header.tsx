@@ -4,13 +4,12 @@ import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { useLocale, useTranslations } from 'next-intl';
 import { getCategoryDisplayName } from '@/lib/categories';
-import { Menu, X, ShoppingCart, MessageCircle, ChevronDown, Package } from 'lucide-react';
+import { Menu, X, MessageCircle, ChevronDown, Package } from 'lucide-react';
 import { Link, usePathname } from '@/i18n/navigation';
 import { ThemeToggle } from './theme-toggle';
 import { LanguageSwitcher } from './language-switcher';
 import { BAO_GIA_ENABLED_IN_BROWSER } from '@/config/bao-gia';
 import { SITE_CONFIG } from '@/config/site';
-import { useCart } from '@/lib/cart/cart-context';
 import { navKeyFromHref, trackContactClick, trackMenuOpen, trackNavigationClick } from '@/lib/analytics';
 import { cn } from '@/lib/utils';
 import { isKnowledgeSectionActive, visibleKnowledgeNavItems } from '@/config/knowledge-nav';
@@ -40,27 +39,11 @@ function isNavLinkActive(pathname: string, href: string): boolean {
   return pathname.startsWith(href);
 }
 
-// Phase 43: re-mounting the badge (new `key`) replays its pop; only real increases after the stored
-// cart has loaded count, so reading the cart on page load never animates.
-function useCartBadgeBump(itemCount: number, isReady: boolean): number {
-  const [bump, setBump] = useState(0);
-  const lastCount = useRef<number | null>(null);
-  useEffect(() => {
-    if (!isReady) return;
-    if (lastCount.current !== null && itemCount > lastCount.current) setBump((value) => value + 1);
-    lastCount.current = itemCount;
-  }, [itemCount, isReady]);
-  return bump;
-}
-
 export function Header({ categories: initialCategories = [] }: HeaderProps = {}) {
   const [categories, setCategories] = useState<StorefrontCategoryNavItem[]>(initialCategories);
   const [isProductsDropdownOpen, setIsProductsDropdownOpen] = useState(false);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-  const { itemCount, isReady } = useCart();
-  const badgeBump = useCartBadgeBump(itemCount, isReady);
   const pathname = usePathname();
   const t = useTranslations('nav');
   const locale = useLocale();
@@ -331,27 +314,6 @@ export function Header({ categories: initialCategories = [] }: HeaderProps = {})
             </a>
             {SITE_CONFIG.languageSwitcherEnabled && <LanguageSwitcher />}
             <ThemeToggle />
-            {SITE_CONFIG.cartEnabled && (
-              <Link
-                href="/cart"
-                onClick={() => trackNavigationClick({ placement: 'header', nav_key: 'cart', target: '/cart' })}
-                aria-label={itemCount > 0 ? t('cartAriaLabelWithCount', { count: itemCount }) : t('cartAriaLabelEmpty')}
-                className="relative inline-flex size-8 cursor-pointer items-center justify-center rounded-lg border border-border text-foreground transition-colors duration-150 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              >
-                <ShoppingCart className="size-4" />
-                {itemCount > 0 && (
-                  <span
-                    key={badgeBump}
-                    className={cn(
-                      'absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#D97706] px-1 text-[10px] font-bold text-white dark:bg-[#F59E0B] dark:text-[#0F172A]',
-                      badgeBump > 0 && 'motion-safe:animate-badge-pop',
-                    )}
-                  >
-                    {itemCount > 99 ? '99+' : itemCount}
-                  </span>
-                )}
-              </Link>
-            )}
             <button
               ref={menuButtonRef}
               type="button"

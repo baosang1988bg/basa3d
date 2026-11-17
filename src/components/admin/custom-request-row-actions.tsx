@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { CustomRequestSummary } from '@/services/custom-request.service';
 import { nextCustomRequestStatuses } from '@/domain/custom-request-status';
-import { deleteCustomRequestAction, updateCustomRequestAction } from '@/app/admin/(protected)/custom-requests/actions';
+import { deleteCustomRequestAction, updateCustomRequestAction } from '@/app/basaadmin/(protected)/custom-requests/actions';
 
 const CHANNELS = ['ZALO', 'FACEBOOK', 'WEBSITE', 'TIKTOK', 'INSTAGRAM', 'OTHER'];
 
@@ -55,7 +55,7 @@ export function CustomRequestRowActions({
     <>
       <div className="flex items-center justify-end gap-1.5">
         <Link
-          href={`/admin/custom-requests/${item.id}`}
+          href={`/basaadmin/custom-requests/${item.id}`}
           className={buttonVariants({
             size: 'sm',
             variant: 'default',

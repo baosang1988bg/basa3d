@@ -607,7 +607,7 @@ function citedLinks(markdown: string): Set<string> {
  * Media candidates for the sources the article actually cites (a source that is not cited has no
  * business illustrating the post). Image: article og:image, else the feed image. Videos: up to 2
  * per source, deduped. Defaults: every image + the first video of each source are selected; the
- * reviewer toggles the rest on /admin/blog/review.
+ * reviewer toggles the rest on /basaadmin/blog/review.
  */
 export function buildMediaCandidates(items: RawRssItem[], articleMedia: Map<string, ArticleMedia>, content: string): BlogMediaItem[] {
   const cited = citedLinks(content);

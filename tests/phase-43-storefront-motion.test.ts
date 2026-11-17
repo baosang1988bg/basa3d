@@ -49,10 +49,6 @@ test('mobile drawer sits outside the backdrop-blurred header, stays mounted, and
   assert.match(header, /event\.key === 'Escape'/);
 });
 
-test('cart badge only pops after the stored cart has loaded', () => {
-  assert.match(code('src/lib/cart/cart-context.tsx'), /isReady: isInitialized/);
-  assert.match(code('src/components/storefront/header.tsx'), /if \(!isReady\) return;/);
-});
 
 test('home FAQ is an animated accordion, not <details> (ui-ux rule I30)', () => {
   assert.doesNotMatch(code('src/app/[locale]/(storefront)/page.tsx'), /<details|<summary/);

@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { createQuickTestCustomRequestAction } from '@/app/admin/(protected)/custom-requests/actions';
+import { createQuickTestCustomRequestAction } from '@/app/basaadmin/(protected)/custom-requests/actions';
 
 export function CustomRequestHeaderActions({ isOwner }: { isOwner: boolean }) {
   const [error, setError] = useState<string | null>(null);

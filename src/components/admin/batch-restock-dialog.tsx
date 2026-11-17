@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { QUICK_RESTOCK_INTENT_LABELS, planStockEvent, type QuickRestockIntentValue } from '@/lib/inventory/quick-restock-plan';
-import { quickRestockBatchAction } from '@/app/admin/(protected)/product-inventory/actions';
+import { quickRestockBatchAction } from '@/app/basaadmin/(protected)/product-inventory/actions';
 import type { StockTrackedVariant } from '@/services/quick-restock.service';
 
 type Line = { variantId: string; quantityText: string; unitCostText: string };

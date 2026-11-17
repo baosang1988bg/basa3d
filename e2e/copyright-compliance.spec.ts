@@ -28,7 +28,7 @@ test('admin sees IP risk badges and must acknowledge risk before creating a quot
     const index = entry.indexOf('=');
     return { name: entry.slice(0, index), value: entry.slice(index + 1), url: 'http://localhost:3412' };
   }));
-  await page.goto('/admin/custom-requests');
+  await page.goto('/basaadmin/custom-requests');
   await page.getByLabel('Tên khách hàng').fill(customerName);
   await page.getByLabel('Số điện thoại').fill('0900000029');
   await page.getByLabel('Số lượng').fill('1');

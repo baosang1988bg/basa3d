@@ -5,13 +5,18 @@ import { isEnglishEnabled, routing } from './i18n/routing';
 
 // Next.js only runs a single middleware file per project, so the pre-existing admin-auth
 // middleware (Supabase session refresh + login redirect) and next-intl's locale routing have to
-// live in the same function. `/admin/*` keeps its original Supabase behavior; storefront pages
-// use next-intl. This file lives beside src/app so Next.js includes it in the middleware manifest.
+// live in the same function. `/basaadmin/*` keeps its original Supabase behavior; `/admin/*`
+// is blocked with 404; storefront pages use next-intl.
 const intlMiddleware = createIntlMiddleware(routing);
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  if (pathname.startsWith('/admin')) return updateSession(request);
+  if (pathname === '/admin' || pathname.startsWith('/admin/')) {
+    return new NextResponse(null, { status: 404 });
+  }
+  if (pathname === '/basaadmin' || pathname.startsWith('/basaadmin/')) {
+    return updateSession(request);
+  }
 
   if (pathname === '/') {
     const url = request.nextUrl.clone();

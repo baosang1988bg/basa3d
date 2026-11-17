@@ -29,7 +29,7 @@ import { quoteModelSnapshotSchema } from '@/domain/schemas';
 import type { QuoteModelSnapshot } from '@/services/quote.service';
 import { ProfileVerificationCard } from '@/components/makerworld/profile-verification-card';
 import { PRINT_SERVICE_POLICY } from '@/lib/copyright/print-service-policy';
-import { savePricePresetAction } from '@/app/admin/(protected)/settings/makerworld-prices/actions';
+import { savePricePresetAction } from '@/app/basaadmin/(protected)/settings/makerworld-prices/actions';
 
 export type MakerWorldQuoteMaterialOption = AutoMatchMaterialOption & {
   costPerSpool: number | null;

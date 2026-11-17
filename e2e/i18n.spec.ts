@@ -32,14 +32,14 @@ test('/en pages outside the translated content slice show the untranslated-conte
   await expect(page.getByText('This page is currently only available in Vietnamese.')).toBeVisible();
 });
 
-test('/admin/dashboard has no locale prefix and redirects unauthenticated visitors to /admin/login', async ({ page }) => {
-  const response = await page.goto('/admin/dashboard');
+test('/basaadmin/dashboard has no locale prefix and redirects unauthenticated visitors to /basaadmin/login', async ({ page }) => {
+  const response = await page.goto('/basaadmin/dashboard');
   await expect(page).toHaveURL(/\/admin\/login$/);
   expect(response?.status()).toBe(200);
 });
 
-test('/en/admin is not a route — admin never goes through locale routing', async ({ page }) => {
-  const response = await page.goto('/en/admin/dashboard');
+test('/en/basaadmin is not a route — admin never goes through locale routing', async ({ page }) => {
+  const response = await page.goto('/en/basaadmin/dashboard');
   expect(response?.status()).toBe(404);
 });
 

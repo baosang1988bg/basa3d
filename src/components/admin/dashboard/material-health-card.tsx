@@ -4,7 +4,7 @@ import type { MaterialHealthOverview } from '@/services/dashboard.service';
 // gauge only needs to draw attention to the watch/low/empty tiers, same 20%/50% cutoffs as the
 // Materials page, see dashboard.service.ts's getMaterialHealth()).
 export function MaterialHealthCard({ materialHealth }: { materialHealth: MaterialHealthOverview }) {
-  // Per-material breakdown lives on /admin/materials — the dashboard keeps the gauge + alert only.
+  // Per-material breakdown lives on /basaadmin/materials — the dashboard keeps the gauge + alert only.
   const { totalSpools, totalRemainingWeightGrams, watchCount, lowStockCount, emptyCount } = materialHealth;
 
   const gaugeTotal = Math.max(1, totalSpools);

@@ -20,6 +20,12 @@ export default tseslint.config(
       '.venv-swarm/**',
       '.swarm/**',
       'public/**',
+      // Cloned reference targets — third-party code for reverse-engineering study.
+      'cloned-targets/**',
+      // Local scratch/debug scripts — not production code.
+      'scratch/**',
+      // Catalog pipeline Python scripts — not TypeScript.
+      'tools/catalog/**',
     ],
   },
   {

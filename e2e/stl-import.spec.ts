@@ -4,7 +4,7 @@ import { configureTestEnvironment } from '../tests/helpers/test-environment';
 import { mintStaffAccount, type MintedStaffAccount } from '../tests/helpers/rbac-accounts';
 import { cleanupImported, seedImportedProduct, type ImportedFixture } from '../tests/helpers/stl-import-fixtures';
 
-// Feature 003: OWNER reviews an imported draft on /admin/stl-import, ticks the licence check,
+// Feature 003: OWNER reviews an imported draft on /basaadmin/stl-import, ticks the licence check,
 // approves it, and the product is on the public storefront. Needs the local Supabase test stack
 // (TEST_SUPABASE_*) for the staff login, like the other admin E2E specs.
 configureTestEnvironment();
@@ -31,7 +31,7 @@ test('OWNER ticks the licence check, approves an imported draft and it appears o
     const index = entry.indexOf('=');
     return { name: entry.slice(0, index), value: entry.slice(index + 1), url: 'http://localhost:3412' };
   }));
-  await page.goto(`/admin/stl-import?status=PENDING&q=${fixture.tag}`);
+  await page.goto(`/basaadmin/stl-import?status=PENDING&q=${fixture.tag}`);
   const card = page.locator('article').filter({ hasText: fixture.sourceRelPath });
   await expect(card.getByText('Chưa kiểm tra bản quyền')).toBeVisible();
 

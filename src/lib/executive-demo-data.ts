@@ -1,5 +1,5 @@
 // Phase 41 — fake "Kinh doanh & Tài chính" numbers for checking the UI on `npm run dev`
-// (`/admin/dashboard?demo=normal`). Never touches the database.
+// (`/basaadmin/dashboard?demo=normal`). Never touches the database.
 //
 // Safety: resolveDemoScenario() returns a scenario ONLY when NODE_ENV is 'development' (i.e. `next dev`)
 // AND the viewer is OWNER. `next build` / Vercel Preview / Production run with NODE_ENV='production',

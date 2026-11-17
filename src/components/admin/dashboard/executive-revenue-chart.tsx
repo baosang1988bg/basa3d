@@ -88,7 +88,7 @@ export function ExecutiveRevenueChart({ points }: { points: ExecutiveDailyPoint[
             <p className="text-sm font-medium">Chưa có doanh thu đơn hàng shop trong 30 ngày qua</p>
             <p className="mt-0.5 text-xs text-muted-foreground">Cột doanh thu từng ngày sẽ hiện ở đây khi có đơn.</p>
             {process.env.NODE_ENV === 'development' ? (
-              <a href="/admin/dashboard?tab=business&demo=normal" className="pointer-events-auto mt-1.5 inline-block text-xs font-medium text-primary underline-offset-2 hover:underline">Xem thử với dữ liệu mẫu (chỉ ở môi trường dev)</a>
+              <a href="/basaadmin/dashboard?tab=business&demo=normal" className="pointer-events-auto mt-1.5 inline-block text-xs font-medium text-primary underline-offset-2 hover:underline">Xem thử với dữ liệu mẫu (chỉ ở môi trường dev)</a>
             ) : null}
           </div>
         </div>

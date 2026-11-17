@@ -26,7 +26,7 @@ export function LoginForm() {
       setError('Email hoặc mật khẩu không đúng.');
       return;
     }
-    router.push('/admin/dashboard');
+    router.push('/basaadmin/dashboard');
     router.refresh();
   }
 

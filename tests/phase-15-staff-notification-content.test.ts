@@ -16,15 +16,15 @@ const telegramSiteUrl = resolveTelegramSiteUrl();
 test('order notification email content is exactly type + code + admin link', () => {
   const built = buildStaffNotificationEmail({ type: 'ORDER', id: 'order-id-1', code: 'ORD-ABC123' });
   assert.equal(built.subject, 'Đơn hàng mới: ORD-ABC123');
-  assert.equal(built.text, `Đơn hàng mới.\nMã: ORD-ABC123\n\nXem chi tiết (yêu cầu đăng nhập): ${siteUrl}/admin/orders/order-id-1`);
-  assert.equal(built.html, `<p>Đơn hàng mới.</p><p>Mã: <strong>ORD-ABC123</strong></p><p><a href="${siteUrl}/admin/orders/order-id-1">Xem chi tiết</a> (yêu cầu đăng nhập)</p>`);
+  assert.equal(built.text, `Đơn hàng mới.\nMã: ORD-ABC123\n\nXem chi tiết (yêu cầu đăng nhập): ${siteUrl}/basaadmin/orders/order-id-1`);
+  assert.equal(built.html, `<p>Đơn hàng mới.</p><p>Mã: <strong>ORD-ABC123</strong></p><p><a href="${siteUrl}/basaadmin/orders/order-id-1">Xem chi tiết</a> (yêu cầu đăng nhập)</p>`);
 });
 
 test('custom request notification email content is exactly type + code + admin link', () => {
   const built = buildStaffNotificationEmail({ type: 'CUSTOM_REQUEST', id: 'cr-id-1', code: 'CR-XYZ999' });
   assert.equal(built.subject, 'Yêu cầu custom mới: CR-XYZ999');
-  assert.equal(built.text, `Yêu cầu custom mới.\nMã: CR-XYZ999\n\nXem chi tiết (yêu cầu đăng nhập): ${siteUrl}/admin/custom-requests/cr-id-1`);
-  assert.equal(built.html, `<p>Yêu cầu custom mới.</p><p>Mã: <strong>CR-XYZ999</strong></p><p><a href="${siteUrl}/admin/custom-requests/cr-id-1">Xem chi tiết</a> (yêu cầu đăng nhập)</p>`);
+  assert.equal(built.text, `Yêu cầu custom mới.\nMã: CR-XYZ999\n\nXem chi tiết (yêu cầu đăng nhập): ${siteUrl}/basaadmin/custom-requests/cr-id-1`);
+  assert.equal(built.html, `<p>Yêu cầu custom mới.</p><p>Mã: <strong>CR-XYZ999</strong></p><p><a href="${siteUrl}/basaadmin/custom-requests/cr-id-1">Xem chi tiết</a> (yêu cầu đăng nhập)</p>`);
 });
 
 test('email content never carries restricted PII fields beyond code + link', () => {
@@ -43,12 +43,12 @@ test('email content never carries restricted PII fields beyond code + link', () 
 
 test('order notification telegram content renders basic header, code, and quick open link', () => {
   const built = buildStaffNotificationTelegram({ type: 'ORDER', id: 'order-id-1', code: 'ORD-ABC123' });
-  assert.equal(built, `🔔 <b>Đơn hàng mới</b>\n📋 <b>Mã:</b> <code>ORD-ABC123</code>\n\n👉 <a href="${telegramSiteUrl}/admin/orders/order-id-1"><b>Mở nhanh đơn hàng trên Admin</b></a>`);
+  assert.equal(built, `🔔 <b>Đơn hàng mới</b>\n📋 <b>Mã:</b> <code>ORD-ABC123</code>\n\n👉 <a href="${telegramSiteUrl}/basaadmin/orders/order-id-1"><b>Mở nhanh đơn hàng trên Admin</b></a>`);
 });
 
 test('custom request notification telegram content escapes HTML', () => {
   const built = buildStaffNotificationTelegram({ type: 'CUSTOM_REQUEST', id: 'cr-id-1', code: 'CR-<XYZ>&123' });
-  assert.equal(built, `🔔 <b>Yêu cầu custom mới</b>\n📋 <b>Mã:</b> <code>CR-&lt;XYZ&gt;&amp;123</code>\n\n👉 <a href="${telegramSiteUrl}/admin/custom-requests/cr-id-1"><b>Mở nhanh đơn hàng trên Admin</b></a>`);
+  assert.equal(built, `🔔 <b>Yêu cầu custom mới</b>\n📋 <b>Mã:</b> <code>CR-&lt;XYZ&gt;&amp;123</code>\n\n👉 <a href="${telegramSiteUrl}/basaadmin/custom-requests/cr-id-1"><b>Mở nhanh đơn hàng trên Admin</b></a>`);
 });
 
 test('telegram notification content renders rich details with model link and quick open', () => {
@@ -73,7 +73,7 @@ test('telegram notification content renders rich details with model link and qui
   assert.ok(built.includes('https://makerworld.com/en/models/12345'));
   assert.ok(built.includes('Articulated Dragon'));
   assert.ok(built.includes('In gấp trong ngày'));
-  assert.ok(built.includes(`👉 <a href="${telegramSiteUrl}/admin/custom-requests/cr-id-rich"><b>Mở nhanh đơn hàng trên Admin</b></a>`));
+  assert.ok(built.includes(`👉 <a href="${telegramSiteUrl}/basaadmin/custom-requests/cr-id-rich"><b>Mở nhanh đơn hàng trên Admin</b></a>`));
 });
 
 test('telegram inline keyboard generates quick open button and 3D model button', () => {
@@ -87,6 +87,6 @@ test('telegram inline keyboard generates quick open button and 3D model button',
   assert.ok(keyboard?.inline_keyboard);
   assert.equal(keyboard.inline_keyboard.length, 2);
   assert.equal(keyboard.inline_keyboard[0][0].text, '🚀 Mở đơn #CR-RICH1 trên Admin');
-  assert.equal(keyboard.inline_keyboard[0][0].url, `${telegramSiteUrl}/admin/custom-requests/cr-id-rich`);
+  assert.equal(keyboard.inline_keyboard[0][0].url, `${telegramSiteUrl}/basaadmin/custom-requests/cr-id-rich`);
   assert.equal(keyboard.inline_keyboard[1][0].url, 'https://makerworld.com/en/models/12345');
 });

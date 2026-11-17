@@ -90,16 +90,16 @@ test.afterAll(async () => {
 });
 
 async function login(page: Page) {
-  await page.goto('/admin/login');
+  await page.goto('/basaadmin/login');
   await page.getByLabel('Email').fill(ownerEmail);
   await page.getByLabel('Mật khẩu').fill(password);
   await page.getByRole('button', { name: 'Đăng nhập' }).click();
-  await page.waitForURL('**/admin/dashboard');
+  await page.waitForURL('**/basaadmin/dashboard');
 }
 
 async function openPanelWithMockedResolver(page: Page) {
   await page.route('**/api/admin/pricing/resolve-makerworld', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: resolution }) }));
-  await page.goto(`/admin/custom-requests/${customRequestId}`);
+  await page.goto(`/basaadmin/custom-requests/${customRequestId}`);
   await page.getByPlaceholder('https://makerworld.com/en/models/...#profileId-...').fill(MODEL_URL);
   await page.getByRole('button', { name: 'Tự động lấy dữ liệu' }).click();
   await expect(page.locator('#makerworld-profile-select')).toBeVisible();
