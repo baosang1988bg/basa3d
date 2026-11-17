@@ -19,6 +19,7 @@ Mỗi agent chỉ có **một** mục active tại một thời điểm. Ghi: ag
 |---|---|---|---|
 | Codex | `feat/neobox-lightbox-generator` | `active/feature-neobox-lightbox.md` | chạy `check:agent`, soát UX + xuất 3MF/STL |
 | Claude | `chore/harness-engineering` | — (harness setup) | review/verify harness |
+| Claude (Cowork) | `feat/phase-55-admin-staff-ux` | `active/phase-55-admin-staff-ux.md` | code + test xong, đã commit local; chờ OWNER build + xem UI |
 
 ## Next Steps
 
@@ -28,6 +29,8 @@ Mỗi agent chỉ có **một** mục active tại một thời điểm. Ghi: ag
 
 ## Blockers / Waiting on Owner
 
+- Phase 55: chờ Owner chạy `npm run build` + Playwright trên macOS và xem nav mobile / trang chi tiết sản phẩm (sandbox không build được Next).
+- `tests/phase-28-admin-pagination.test.ts:73` đang fail từ Phase 54.2 (thiếu `blogDrafts` trong expectation) — cần sửa test.
 - Phase 53, 54.x: chờ Owner nghiệm thu nội dung (KANBAN → Review).
 - Phase 35/36: chờ Owner chạy test trên DB disposable (xem status trong plan).
 
@@ -70,4 +73,5 @@ Owner quyết định từng dòng. Prompt/challenge/review đã chuyển sang `
 
 ## Handoff log (mới nhất ở trên, tối đa ~10 dòng — cũ hơn thì xoá, git giữ lịch sử)
 
+- 2026-11-17 · Claude (Cowork) · `feat/phase-55-admin-staff-ux` · Phase 55: nav admin dùng được trên mobile, đổi nhãn menu kho, tìm đơn/yêu cầu theo SĐT-mã-tên, nhân bản sản phẩm, đăng/lưu trữ hàng loạt, trang chi tiết có danh mục + mô tả; sửa lỗi Lưu trang chi tiết xoá mất mô tả. Chưa build/chưa xem UI (sandbox) — xem Evidence trong plan.
 - 2026-11-17 · Claude · `chore/harness-engineering` · Thêm harness: PROGRESS.md, session lifecycle trong AGENTS.md, tách prompts khỏi `active/`, `.nvmrc`, `test:e2e`, `check:arch`, CI `check:agent`, pre-push hook. Đóng `feature-book-maker` (25/25).
