@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { publicSiteUrl } from '@/config/site-url';
 
 export type CopyZaloQuoteModelSummary = {
   title: string;
@@ -25,7 +26,7 @@ function buildZaloMessage(input: { quoteNumber: string; totalVnd: number; deposi
   const printTimeLine = input.model
     ? `- Thời gian in: ${Math.round((input.model.totalPrintMinutes / 60) * 10) / 10} giờ (${input.model.platesCount} plates, ${input.model.colorsCount} màu)\n`
     : '';
-  const link = `https://basa3d.vn/quotes/${input.quoteNumber}${input.token ? `?token=${encodeURIComponent(input.token)}` : ''}`;
+  const link = `${publicSiteUrl()}/quotes/${input.quoteNumber}${input.token ? `?token=${encodeURIComponent(input.token)}` : ''}`;
   return `Dạ BaSa3D xin gửi bạn Báo giá chi tiết cho mẫu ${modelTitle}:\n`
     + printTimeLine
     + `- Tổng chi phí: ${formatVnd(input.totalVnd)}đ (Cọc trước 50%: ${formatVnd(input.depositVnd)}đ)\n`

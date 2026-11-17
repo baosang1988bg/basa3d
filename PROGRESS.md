@@ -33,6 +33,7 @@ Mỗi agent chỉ có **một** mục active tại một thời điểm. Ghi: ag
 - `tests/phase-28-admin-pagination.test.ts:73` đang fail từ Phase 54.2 (thiếu `blogDrafts` trong expectation) — cần sửa test.
 - Phase 53, 54.x: chờ Owner nghiệm thu nội dung (KANBAN → Review).
 - Phase 35/36: chờ Owner chạy test trên DB disposable (xem status trong plan).
+- Phase 56 (`fix/phase-56-security-legal-hardening`, plan `active/phase-56-security-legal-hardening.md`): chờ Owner `npm install` (next 15.5.29) + build, xác nhận `NEXT_PUBLIC_SITE_URL`/domain, điền `NEXT_PUBLIC_BUSINESS_*`, duyệt chính sách bảo mật.
 
 ## Active plans — triage (snapshot 2026-11-17)
 

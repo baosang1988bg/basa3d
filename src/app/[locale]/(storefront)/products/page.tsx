@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
 import { getCachedCategories, getCachedStorefrontProducts } from '@/lib/cache/storefront-cache';
+import { sanitizeListingParams } from '@/lib/catalog/listing-params';
 import { ProductCard } from '@/components/storefront/product-card';
 import { StorefrontButton, storefrontButtonClasses } from '@/components/storefront/button';
 import { Breadcrumb } from '@/components/storefront/breadcrumb';
@@ -31,16 +32,17 @@ export default async function ProductsPage({
   ]);
   const locale = resolvedRouteParams?.locale || 'vi';
   const sortBy = params.sort === 'price_asc' || params.sort === 'price_desc' ? params.sort : 'newest';
+  // Phase 56: these come straight from the URL. Anything that cannot be a real filter is dropped here
+  // instead of reaching PostgreSQL — a malformed categoryId/type used to raise a cast error (500) and
+  // an unbounded `q` became an arbitrarily long ILIKE pattern.
+  const filters = sanitizeListingParams(params);
   const [{ items, page, limit }, { items: categories }, t] = await Promise.all([
-    getCachedStorefrontProducts({
-      search: params.q, productType: params.type, sortBy, categoryId: params.categoryId,
-      page: params.page ? Number(params.page) : 1,
-    }),
+    getCachedStorefrontProducts({ ...filters, sortBy }),
     getCachedCategories(100),
     getTranslations('products'),
   ]);
 
-  const activeCategory = categories.find((category) => category.id === params.categoryId);
+  const activeCategory = categories.find((category) => category.id === filters.categoryId);
   // Analytics always uses the default-locale name so GA4 reports do not split vi/en.
   const activeCategoryAnalyticsName = activeCategory ? getCategoryDisplayName(activeCategory, 'vi') : undefined;
 
@@ -48,10 +50,10 @@ export default async function ProductsPage({
     <div className="mx-auto max-w-6xl px-4 py-10">
       <ViewItemListTracker listName="Product catalog" items={items.map((product) => ({ item_id: product.id, item_name: product.name, price: product.basePrice ?? undefined, item_category: categories.find((category) => category.id === product.categoryId) ? getCategoryDisplayName(categories.find((category) => category.id === product.categoryId)!, locale) : undefined }))} />
       <ProductSearchFilterTracker
-        searchTerm={params.q}
-        categoryId={params.categoryId}
+        searchTerm={filters.search}
+        categoryId={filters.categoryId}
         categoryName={activeCategoryAnalyticsName}
-        productType={toProductTypeFilter(params.type)}
+        productType={toProductTypeFilter(filters.productType)}
         sort={sortBy}
         resultsOnPage={items.length}
       />
@@ -64,7 +66,7 @@ export default async function ProductsPage({
           href={`?${buildQueryString(params, { categoryId: undefined })}`}
           className={cn(
             'cursor-pointer rounded-full border px-3 py-1.5 text-sm font-medium transition-colors duration-150',
-            !params.categoryId ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground hover:text-foreground',
+            !filters.categoryId ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground hover:text-foreground',
           )}
         >
           {t('filterAll')}
@@ -75,7 +77,7 @@ export default async function ProductsPage({
             href={`?${buildQueryString(params, { categoryId: category.id })}`}
             className={cn(
               'cursor-pointer rounded-full border px-3 py-1.5 text-sm font-medium transition-colors duration-150',
-              params.categoryId === category.id ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground hover:text-foreground',
+              filters.categoryId === category.id ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground hover:text-foreground',
             )}
           >
             {getCategoryDisplayName(category, locale)}
@@ -84,15 +86,15 @@ export default async function ProductsPage({
       </div>
 
       <form className="mt-4 flex flex-col gap-3 md:flex-row md:items-center" method="get">
-        {params.categoryId && <input type="hidden" name="categoryId" value={params.categoryId} />}
+        {filters.categoryId && <input type="hidden" name="categoryId" value={filters.categoryId} />}
         <input
           type="search"
           name="q"
-          defaultValue={params.q}
+          defaultValue={filters.search}
           placeholder={t('searchPlaceholder')}
           className="h-10 flex-1 rounded-lg border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
         />
-        <select name="type" defaultValue={params.type ?? ''} className="h-10 cursor-pointer rounded-lg border border-input bg-transparent px-3 text-sm">
+        <select name="type" defaultValue={filters.productType ?? ''} className="h-10 cursor-pointer rounded-lg border border-input bg-transparent px-3 text-sm">
           <option value="">{t('typeAll')}</option>
           <option value="READY_STOCK">{t('typeReadyStock')}</option>
           <option value="MADE_TO_ORDER">{t('typeMadeToOrder')}</option>

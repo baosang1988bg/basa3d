@@ -61,7 +61,9 @@ export async function listStorefrontProducts(input: { page?: number; limit?: num
   let filterSql = '';
   if (input.categoryId) { values.push(input.categoryId); filterSql += ` and p.category_id = $${values.length}`; }
   if (input.productType) { values.push(input.productType); filterSql += ` and p.product_type = $${values.length}`; }
-  if (input.search) { values.push(`%${input.search}%`); filterSql += ` and p.name ilike $${values.length}`; }
+  // Phase 56: `%`, `_` and `\\` are LIKE metacharacters — escaped so a customer's text is matched
+  // literally ("%%%%" used to match every product through a slow pattern scan).
+  if (input.search) { values.push(`%${input.search.replace(/[%_\\]/g, '\\$&')}%`); filterSql += ` and p.name ilike $${values.length}`; }
   if (input.featuredOnly) filterSql += ' and p.is_featured = true';
   const orderSql = input.sortBy === 'price_asc' ? 'p.base_price asc nulls last'
     : input.sortBy === 'price_desc' ? 'p.base_price desc nulls last'

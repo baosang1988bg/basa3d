@@ -2,6 +2,7 @@
 
 import { parseActionId } from '@/lib/action-args';
 import { revalidatePath } from 'next/cache';
+import { invalidateBlogCache } from '@/lib/cache/blog-cache';
 import { requireAdmin } from '@/lib/auth/require-admin';
 import { blogCategoryInputSchema, blogPostInputSchema, blogPostUpdateInputSchema } from '@/domain/schemas';
 import { createBlogCategory, createBlogPostWithCover, updateBlogPostWithCover } from '@/services/blog.service';
@@ -49,6 +50,7 @@ export async function createBlogCategoryAction(formData: FormData) {
   const input = blogCategoryInputSchema.parse({ name: formData.get('name'), slug: formData.get('slug') });
   await createBlogCategory(input, actorId);
   revalidatePath('/admin/blog');
+  invalidateBlogCache(); // Phase 56: public /blog reads are cached across requests
 }
 
 function coverIfProvided(formData: FormData): { file: Blob; fileName: string } | undefined {
@@ -72,6 +74,7 @@ export async function createBlogPostAction(formData: FormData) {
   });
   await createBlogPostWithCover(input, coverIfProvided(formData), actorId);
   revalidatePath('/admin/blog');
+  invalidateBlogCache(); // Phase 56: public /blog reads are cached across requests
 }
 
 export async function updateBlogPostAction(id: string, formData: FormData) {
@@ -90,6 +93,7 @@ export async function updateBlogPostAction(id: string, formData: FormData) {
   });
   await updateBlogPostWithCover(id, input, coverIfProvided(formData), actorId);
   revalidatePath('/admin/blog');
+  invalidateBlogCache(); // Phase 56: public /blog reads are cached across requests
   revalidatePath(`/admin/blog/${id}`);
   revalidatePath('/blog');
 }
