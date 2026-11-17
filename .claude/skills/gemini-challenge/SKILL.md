@@ -10,5 +10,5 @@ pick the 2-4 highest-risk tentative decisions (scope cuts, data-integrity
 tradeoffs, new dependencies/schema, external data sources), and fill the
 template's "Question N" sections from phase-X.md's own content. Do not
 invent scope that isn't in phase-X.md. Save the result to
-`docs/exec-plans/active/phase-X-gemini-prompt.md` and also paste it in a
+`docs/exec-plans/prompts/phase-X-gemini-prompt.md` and also paste it in a
 code block in chat.

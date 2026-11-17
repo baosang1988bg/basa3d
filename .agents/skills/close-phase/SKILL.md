@@ -18,7 +18,11 @@ cả thay đổi của nhiều phase vào một commit lớn không ai review n�
    cho user biết chính xác mục nào còn thiếu — không tự ý đóng phase khi
    chưa đạt DoD.
 2. Di chuyển file: `docs/exec-plans/active/phase-X.md` →
-   `docs/exec-plans/completed/phase-X.md`.
+   `docs/exec-plans/completed/phase-X.md`. Prompt liên quan (nếu còn sót trong
+   `active/`) chuyển sang `docs/exec-plans/prompts/`.
+   Cập nhật `PROGRESS.md`: xoá dòng của phase khỏi "In Progress" / bảng triage,
+   thêm 1 dòng vào "Handoff log", ghi commit + trạng thái `check:agent` vào
+   "Current State".
 3. `git add -A`. Trước khi commit, kiểm tra `git status`/`git diff --cached
    --name-only` không có file `.env`, `.env.local`, hay file chứa secret nào
    lọt vào staged changes (bình thường `.gitignore` đã chặn, nhưng luôn kiểm
