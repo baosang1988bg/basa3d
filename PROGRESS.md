@@ -7,9 +7,10 @@
 ## Current State
 
 - Branch tích hợp: `dev` · Deploy: `netlify` / `vercel`
-- Last verified commit: _(cập nhật ở session end: `git rev-parse --short HEAD`)_
-- `npm run check:agent`: _(passing / failing — ghi rõ test nào fail)_
-- `npm run check:arch`: _(passing / failing)_
+- Last verified: `dev` sau khi merge Phase 55 + 56 (2026-11-17, bản cài sạch Linux: `npm ci`, lint, typecheck, `check:arch`, `next build` 15.5.29 đều xanh)
+- `npm test` (132 file, server chạy): 962 test, 929 pass, 14 fail — cả 14 có sẵn trên `223af23`: `ai-news` (6), `blog-review` (4), `makerworld-estimate` (1), `phase-15-staff-notification-failure` (1), `stl-import-cli` (2). Chưa chạy Playwright.
+- `npm run check:arch`: passing
+- Chưa merge `dev` → `netlify`: chưa có E2E và chưa ai xem UI mới (nav mobile, trang chi tiết sản phẩm).
 
 ## In Progress (WIP = 1 per agent)
 
@@ -19,7 +20,7 @@ Mỗi agent chỉ có **một** mục active tại một thời điểm. Ghi: ag
 |---|---|---|---|
 | Codex | `feat/neobox-lightbox-generator` | `active/feature-neobox-lightbox.md` | chạy `check:agent`, soát UX + xuất 3MF/STL |
 | Claude | `chore/harness-engineering` | — (harness setup) | review/verify harness |
-| Claude (Cowork) | `feat/phase-55-admin-staff-ux` | `active/phase-55-admin-staff-ux.md` | code + test xong, đã commit local; chờ OWNER build + xem UI |
+| Claude (Cowork) | `dev` (đã merge `feat/phase-55-…` + `fix/phase-56-…`) | `active/phase-55-…md`, `active/phase-56-…md` | xong; chờ OWNER xem UI + E2E rồi merge `netlify` |
 
 ## Next Steps
 
@@ -74,5 +75,6 @@ Owner quyết định từng dòng. Prompt/challenge/review đã chuyển sang `
 
 ## Handoff log (mới nhất ở trên, tối đa ~10 dòng — cũ hơn thì xoá, git giữ lịch sử)
 
+- 2026-11-17 · Claude (Cowork) · `dev` · Merge Phase 55 + 56. Phase 56: next 15.5.29, cache blog/sitemap, lọc tham số `/products`, link khách theo `NEXT_PUBLIC_SITE_URL`, chính sách bảo mật, thông tin chủ thể ở footer; lockfile đồng bộ lại (`npm ci` trước đó fail). Thêm hỏi xác nhận trước khi xoá hẳn sản phẩm/biến thể.
 - 2026-11-17 · Claude (Cowork) · `feat/phase-55-admin-staff-ux` · Phase 55: nav admin dùng được trên mobile, đổi nhãn menu kho, tìm đơn/yêu cầu theo SĐT-mã-tên, nhân bản sản phẩm, đăng/lưu trữ hàng loạt, trang chi tiết có danh mục + mô tả; sửa lỗi Lưu trang chi tiết xoá mất mô tả. Chưa build/chưa xem UI (sandbox) — xem Evidence trong plan.
 - 2026-11-17 · Claude · `chore/harness-engineering` · Thêm harness: PROGRESS.md, session lifecycle trong AGENTS.md, tách prompts khỏi `active/`, `.nvmrc`, `test:e2e`, `check:arch`, CI `check:agent`, pre-push hook. Đóng `feature-book-maker` (25/25).

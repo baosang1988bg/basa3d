@@ -1,6 +1,6 @@
 # Phase 56 — Hardening sau review bảo mật & pháp lý (phần làm được trong code)
 
-**Status:** code xong trên nhánh `fix/phase-56-security-legal-hardening` (2026-11-17, tách từ `dev`, độc lập với Phase 55) — chờ OWNER `npm install` + `npm run build` + xem trang chính sách; **nội dung pháp lý cần OWNER/luật sư duyệt trước khi lên Production**.
+**Status:** đã merge vào `dev` (2026-11-17); build Next 15.5.29 + test trên bản cài sạch xem cuối file — chờ OWNER `npm install` trên máy mình + xem trang chính sách; **nội dung pháp lý cần OWNER/luật sư duyệt trước khi lên Production**.
 **Owner:** Claude (implement theo yêu cầu OWNER), OWNER (review, merge, việc hạ tầng bên dưới).
 **Trigger:** review dự án 2026-11-17 (bảo mật, DDoS, crawl, pháp lý). OWNER loại 2 mục: **không tắt** route `makerworld-cn/download`, **không làm** hết hạn đơn NEW.
 
@@ -50,3 +50,13 @@
 - **MFA admin**, **nâng zod 4**, **banner đồng ý cho Google Analytics**, **trang Điều khoản dịch vụ**, **robots cho AI crawler** (quyết định kinh doanh).
 - Bộ keycap nhân vật có bản quyền, cơ sở "in giúp cá nhân" cho mẫu MakerWorld NC, ảnh hotlink ở blog AI — quyết định pháp lý của OWNER.
 - Theo yêu cầu OWNER: giữ nguyên route `makerworld-cn/download`, không làm hết hạn đơn NEW.
+
+## Evidence bổ sung sau khi merge vào `dev` (2026-11-17, bản cài sạch trong sandbox)
+Clone `dev` đã merge Phase 55 + 56 sang thư mục riêng, `npm ci` (binary Linux), rồi chạy:
+- `npm run lint`, `npm run typecheck`, `npm run check:arch`: **xanh** (typecheck sạch hoàn toàn khi không có `.next*/types` cũ).
+- `next build` với **Next 15.5.29**: **thành công**. Google Fonts bị chặn mạng trong sandbox nên build dùng font giả lập qua `NEXT_FONT_GOOGLE_MOCKED_RESPONSES` — chỉ ảnh hưởng file font, không đụng code.
+- `next start` + PostgreSQL thật, gọi thử: `/home`, `/products`, `/products?q=%25%25%25&categoryId=not-a-uuid&type=X&page=abc` (200, trước đây 500), `/blog`, `/blog/<slug không có>`, `/sitemap.xml`, `/robots.txt`, `/privacy-policy`, `/en/privacy-policy`, `/admin/dashboard` (307 → `/admin/login`), `/api/version` — không có lỗi trong log server.
+- Toàn bộ 132 file test theo đúng lệnh của `tests/helpers/test-runner.ts` (server đang chạy): **962 test, 929 pass, 19 skip, 14 fail**.
+- **14 fail đều có sẵn trên `dev` gốc (`223af23`)** — đã build và chạy lại đúng các file đó trên bản gốc, ra y hệt: `ai-news` (6, `syncDaily3DNews`/`claimManualNewsSync`), `blog-review` (4), `makerworld-estimate` (1, "look-alike URLs"), `phase-15-staff-notification-failure` (1), `stl-import-cli` (2). Chưa điều tra nguyên nhân; một phần có thể do sandbox không có Supabase local/Chrome.
+- **Phát hiện thêm:** trên `dev` gốc `npm ci` **thất bại** (`Missing: @swc/helpers@0.5.24 from lock file`) — lockfile lệch `package.json`. Lockfile mới của Phase 56 đã đồng bộ lại, `npm ci` chạy được.
+- **Vẫn chưa làm được:** Playwright E2E (cần trình duyệt + Supabase Auth) và nhìn UI bằng mắt (nav mobile, trang chi tiết sản phẩm). Admin sau đăng nhập chưa được render thử vì không có Supabase Auth trong sandbox.

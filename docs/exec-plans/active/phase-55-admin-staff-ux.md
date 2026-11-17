@@ -1,6 +1,6 @@
 # Phase 55 — Admin dễ dùng cho staff: nav mobile, tìm kiếm, catalog
 
-**Status:** code xong trên nhánh `feat/phase-55-admin-staff-ux` (2026-11-17) — chờ OWNER chạy `npm test` đầy đủ + `npm run build` + Playwright trên macOS và xem UI thật.
+**Status:** đã merge vào `dev` (2026-11-17); build + test trên bản cài sạch xem cuối file — chờ OWNER chạy `npm test` đầy đủ + `npm run build` + Playwright trên macOS và xem UI thật.
 **Owner:** Claude (implement theo yêu cầu OWNER 2026-11-17), OWNER (review UI, merge `dev`).
 **Trigger:** review dự án 2026-11-17 — admin không dùng được trên điện thoại, menu kho gây nhầm, không tìm được đơn theo SĐT, trang chi tiết sản phẩm lệch với form "Đăng sản phẩm mới".
 
@@ -65,8 +65,18 @@
 
 ## Follow-up (chưa làm)
 - **MFA (TOTP) cho OWNER** — cần bật MFA trong Supabase Auth, thêm màn enroll/challenge, và `requireOwner` kiểm `aal2`. Rủi ro tự khoá tài khoản → làm thành phase riêng, test trên project dev.
-- Xác nhận trước khi "Xoá hẳn sản phẩm" (hiện bấm là xoá).
+- ~~Xác nhận trước khi "Xoá hẳn sản phẩm"~~ — đã làm (`confirm-submit-button.tsx`, áp cho xoá sản phẩm và xoá biến thể).
 - Trang chi tiết vẫn cho đổi trạng thái sang "Đang bán" mà không qua `publishProductIfReady` (hành vi cũ, chỉ có cổng Feature 003 cho hàng nhập STL) — nên cho select đi cùng một cổng với nút Đăng bán.
-- Sửa expectation `blogDrafts` ở `tests/phase-28-admin-pagination.test.ts:73` (fail có từ Phase 54.2).
+- ~~Sửa expectation `blogDrafts` ở `tests/phase-28-admin-pagination.test.ts:73`~~ — đã sửa trong Phase 56.
 - "Chọn tất cả" cho thao tác hàng loạt; đổi danh mục hàng loạt.
 - Index `pg_trgm` cho tìm kiếm khi số đơn lớn.
+
+## Evidence bổ sung sau khi merge vào `dev` (2026-11-17, bản cài sạch trong sandbox)
+Clone `dev` đã merge Phase 55 + 56 sang thư mục riêng, `npm ci` (binary Linux), rồi chạy:
+- `npm run lint`, `npm run typecheck`, `npm run check:arch`: **xanh** (typecheck sạch hoàn toàn khi không có `.next*/types` cũ).
+- `next build` với **Next 15.5.29**: **thành công**. Google Fonts bị chặn mạng trong sandbox nên build dùng font giả lập qua `NEXT_FONT_GOOGLE_MOCKED_RESPONSES` — chỉ ảnh hưởng file font, không đụng code.
+- `next start` + PostgreSQL thật, gọi thử: `/home`, `/products`, `/products?q=%25%25%25&categoryId=not-a-uuid&type=X&page=abc` (200, trước đây 500), `/blog`, `/blog/<slug không có>`, `/sitemap.xml`, `/robots.txt`, `/privacy-policy`, `/en/privacy-policy`, `/admin/dashboard` (307 → `/admin/login`), `/api/version` — không có lỗi trong log server.
+- Toàn bộ 132 file test theo đúng lệnh của `tests/helpers/test-runner.ts` (server đang chạy): **962 test, 929 pass, 19 skip, 14 fail**.
+- **14 fail đều có sẵn trên `dev` gốc (`223af23`)** — đã build và chạy lại đúng các file đó trên bản gốc, ra y hệt: `ai-news` (6, `syncDaily3DNews`/`claimManualNewsSync`), `blog-review` (4), `makerworld-estimate` (1, "look-alike URLs"), `phase-15-staff-notification-failure` (1), `stl-import-cli` (2). Chưa điều tra nguyên nhân; một phần có thể do sandbox không có Supabase local/Chrome.
+- **Phát hiện thêm:** trên `dev` gốc `npm ci` **thất bại** (`Missing: @swc/helpers@0.5.24 from lock file`) — lockfile lệch `package.json`. Lockfile mới của Phase 56 đã đồng bộ lại, `npm ci` chạy được.
+- **Vẫn chưa làm được:** Playwright E2E (cần trình duyệt + Supabase Auth) và nhìn UI bằng mắt (nav mobile, trang chi tiết sản phẩm). Admin sau đăng nhập chưa được render thử vì không có Supabase Auth trong sandbox.
