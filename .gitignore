@@ -51,3 +51,16 @@ docs/rea/*/evidence/
 .demo-cases/
 
 cloned-targets/
+
+# Catalog pipeline runtime data (heavy files — never commit)
+.catalog-data/
+tools/catalog/thumbs/
+tools/catalog/exports/
+tools/catalog/__pycache__/
+tools/catalog/*.sqlite
+tools/catalog/catalog_data.json
+tools/catalog/catalog_data.js
+tools/catalog/review_state.json
+tools/catalog/basa3d_sync_cache.json
+tools/catalog/pending_drive_3mf.json
+tools/catalog/*.txt

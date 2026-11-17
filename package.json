@@ -13,7 +13,8 @@
     "test": "tsx tests/helpers/test-runner.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test:db:setup": "tsx scripts/test-db-setup.ts"
+    "test:db:setup": "tsx scripts/test-db-setup.ts",
+    "catalog": "python tools/catalog/server.py"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

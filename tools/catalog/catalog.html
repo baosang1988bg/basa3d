@@ -1,0 +1,3140 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D Model Catalog — D:\Telegram Desktop</title>
+  <style>
+    :root {
+      --bg: #f4f6f9;
+      --surface: #ffffff;
+      --surface-2: #f8fafc;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --muted: #64748b;
+      --primary: #2563eb;
+      --primary-soft: #eff6ff;
+      --accent: #0f766e;
+      --warn: #d97706;
+      --warn-soft: #fffbeb;
+      --danger: #dc2626;
+      --danger-soft: #fef2f2;
+      --radius: 12px;
+      --shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+    }
+
+    .header-top {
+      max-width: 1520px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .brand .sub {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    button, .btn {
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 7px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+      transition: background 0.15s ease, border-color 0.15s ease, transform 0.08s ease;
+    }
+    button:hover, .btn:hover { background: var(--surface-2); border-color: #cbd5e1; }
+    button:active, .btn:active { transform: scale(0.98); }
+    button.primary {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+    button.primary:hover { background: #1d4ed8; }
+
+    .container {
+      max-width: 1520px;
+      margin: 0 auto;
+      padding: 16px 20px 48px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      box-shadow: var(--shadow);
+    }
+    .stat-label { font-size: 12px; color: var(--muted); }
+    .stat-value { font-size: 20px; font-weight: 700; margin-top: 2px; }
+
+    .controls {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      box-shadow: var(--shadow);
+      margin-bottom: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    input[type="text"], input[type="search"], select {
+      font: inherit;
+      font-size: 13px;
+      padding: 7px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+    }
+    input[type="search"] {
+      flex: 1 1 280px;
+      min-width: 220px;
+    }
+
+    .pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .pill {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      cursor: pointer;
+    }
+    .pill.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+    .pill .cnt {
+      opacity: 0.75;
+      font-weight: 500;
+      margin-left: 4px;
+    }
+
+    .result-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(245px, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.09);
+    }
+    .card.is-trash { opacity: 0.55; border-color: #fca5a5; }
+    .card.is-fav { border-color: #f59e0b; }
+    .card.is-selected {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35);
+    }
+    .select-check {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      accent-color: var(--primary);
+      margin: 0;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+    }
+    .bulk-bar {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 45;
+      background: #0f172a;
+      color: #fff;
+      border-radius: 12px;
+      padding: 10px 14px;
+      box-shadow: 0 14px 32px rgba(15, 23, 42, 0.35);
+      display: none;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      max-width: calc(100% - 24px);
+    }
+    .bulk-bar.show { display: flex; }
+    .bulk-bar select {
+      background: #1e293b;
+      color: #fff;
+      border-color: #334155;
+    }
+    .bulk-bar button {
+      background: #1e293b;
+      color: #fff;
+      border-color: #334155;
+    }
+    .bulk-bar button:hover { background: #334155; }
+    .bulk-bar button.danger {
+      background: #dc2626;
+      border-color: #dc2626;
+      color: #fff;
+    }
+    .bulk-bar button.danger:hover { background: #b91c1c; }
+    .bulk-bar button.primary {
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+    .push-progress-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .push-progress-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 700;
+      gap: 8px;
+    }
+    .push-progress-bar {
+      width: 100%;
+      height: 10px;
+      background: #e2e8f0;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .push-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #16a34a, #22c55e);
+      transition: width 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .push-progress-fill.running {
+      background-image: linear-gradient(
+        -45deg,
+        rgba(255, 255, 255, 0.24) 25%,
+        transparent 25%,
+        transparent 50%,
+        rgba(255, 255, 255, 0.24) 50%,
+        rgba(255, 255, 255, 0.24) 75%,
+        transparent 75%,
+        transparent
+      ), linear-gradient(90deg, #16a34a, #22c55e);
+      background-size: 24px 24px, 100% 100%;
+      animation: push-stripe-move 0.8s linear infinite;
+    }
+    @keyframes push-stripe-move {
+      from { background-position: 0 0, 0 0; }
+      to { background-position: 24px 0, 0 0; }
+    }
+    .push-spinner {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid #86efac;
+      border-top-color: #16a34a;
+      border-radius: 50%;
+      animation: push-spin 0.7s linear infinite;
+      vertical-align: -2px;
+      margin-right: 4px;
+    }
+    @keyframes push-spin {
+      to { transform: rotate(360deg); }
+    }
+    .push-progress-fill.has-error {
+      background: linear-gradient(90deg, #d97706, #ef4444);
+    }
+    .push-log-list {
+      max-height: 190px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 11.5px;
+    }
+    .push-log-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: var(--surface-2);
+    }
+    .push-log-item.active {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+    }
+    .push-log-item.err { background: #fef2f2; color: #b91c1c; }
+    .push-log-item.ok { background: #f0fdf4; color: #166534; }
+    .basa3d-link-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      text-decoration: none;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--primary);
+    }
+    .basa3d-link-pill:hover { background: #eff6ff; }
+
+    .thumb-wrap {
+      position: relative;
+      aspect-ratio: 4 / 3;
+      background: #e2e8f0;
+      overflow: hidden;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .thumb-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .no-thumb {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 12px;
+      gap: 4px;
+      padding: 12px;
+      text-align: center;
+    }
+    .no-thumb .ext-big {
+      font-size: 22px;
+      font-weight: 800;
+      color: #475569;
+    }
+
+    .badge-tl {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 6px;
+      background: rgba(15, 23, 42, 0.78);
+      color: #fff;
+      backdrop-filter: blur(4px);
+    }
+    .badge.ext-3mf { background: rgba(37, 99, 235, 0.9); }
+    .badge.ext-zip { background: rgba(15, 118, 110, 0.9); }
+    .badge.ext-stl { background: rgba(124, 58, 237, 0.9); }
+    .badge.dup { background: rgba(217, 119, 6, 0.95); }
+
+    .card-tools {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      display: flex;
+      gap: 4px;
+    }
+    .icon-btn {
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      justify-content: center;
+      border-radius: 7px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      font-size: 14px;
+    }
+    .icon-btn.active-fav { background: #fef3c7; border-color: #f59e0b; }
+    .icon-btn.active-trash { background: #fee2e2; border-color: #ef4444; }
+
+    .plate-toggle {
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(15, 23, 42, 0.8);
+      color: #fff;
+      border: none;
+    }
+
+    .card-body {
+      padding: 10px 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1;
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      min-height: 36px;
+      cursor: pointer;
+    }
+    .card-title:hover { color: var(--primary); }
+
+    .card-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .swatches {
+      display: flex;
+      gap: 3px;
+      align-items: center;
+    }
+    .swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 1px solid rgba(0, 0, 0, 0.2);
+    }
+
+    .cat-select {
+      width: 100%;
+      font-size: 12px;
+      padding: 5px 8px;
+      margin-top: auto;
+      background: var(--surface-2);
+    }
+
+    .pager {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 22px;
+      align-items: center;
+    }
+
+    /* Modal */
+    dialog {
+      border: none;
+      border-radius: 14px;
+      padding: 0;
+      max-width: 880px;
+      width: calc(100% - 24px);
+      box-shadow: 0 24px 48px rgba(15, 23, 42, 0.28);
+      background: var(--surface);
+      color: var(--text);
+    }
+    dialog::backdrop {
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(2px);
+    }
+    .modal-head {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .modal-head h2 { margin: 0; font-size: 16px; word-break: break-word; }
+    .modal-body {
+      padding: 16px 18px;
+      max-height: 78vh;
+      overflow: auto;
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 720px) {
+      .modal-body { grid-template-columns: 1fr; }
+    }
+    .modal-imgs {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .modal-imgs img {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #f1f5f9;
+      max-height: 360px;
+      object-fit: contain;
+    }
+    .kv { font-size: 13px; margin-bottom: 8px; }
+    .kv strong { color: var(--muted); font-weight: 600; display: inline-block; min-width: 95px; }
+    .file-list {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 11px;
+      max-height: 170px;
+      overflow: auto;
+      margin-top: 6px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #0f172a;
+      color: #fff;
+      padding: 9px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      z-index: 99;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    dialog.wide { max-width: 1120px; }
+    .analytics-wrap {
+      padding: 16px 18px;
+      max-height: 82vh;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+      gap: 14px;
+    }
+    .chart-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .chart-card h3 {
+      margin: 0 0 10px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .donut-row {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .legend {
+      flex: 1;
+      min-width: 170px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+      padding: 3px 6px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .legend-item:hover { background: #e2e8f0; }
+    .legend-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .bar-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .bar-row {
+      cursor: pointer;
+      padding: 3px 5px;
+      border-radius: 6px;
+    }
+    .bar-row:hover { background: #e2e8f0; }
+    .bar-head {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-bottom: 3px;
+    }
+    .bar-track {
+      height: 10px;
+      border-radius: 999px;
+      background: #e2e8f0;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: var(--primary);
+    }
+    .mini-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .mini-table th, .mini-table td {
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+    }
+    .mini-table th { color: var(--muted); font-weight: 600; }
+    .mini-table tr:hover { background: #eef2f7; }
+    .toast.show { opacity: 1; }
+    .price-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      margin-bottom: 6px;
+      font-size: 12px;
+      flex-wrap: wrap;
+    }
+    .price-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    .price-pill.sliced { background: #dcfce7; color: #166534; }
+    .price-pill.mesh { background: #fef3c7; color: #92400e; }
+    .price-pill.warn { background: #fee2e2; color: #991b1b; }
+    .price-pill.muted { background: #f1f5f9; color: #64748b; font-weight: 500; }
+    .print-specs-line {
+      font-size: 11px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      margin-bottom: 6px;
+    }
+    .price-box {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin: 10px 0;
+      font-size: 12px;
+    }
+    .price-box-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .price-grid {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 4px 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    .price-grid .total-row {
+      border-top: 1px solid var(--border);
+      padding-top: 5px;
+      margin-top: 3px;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .cfg-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 10px;
+    }
+    .cfg-field label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 3px;
+    }
+    .cfg-field input {
+      width: 100%;
+      font: inherit;
+      font-size: 13px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+    }
+    .card.is-approved { border: 2px solid #16a34a; }
+    .card.is-deferred { border: 1.5px dashed #f59e0b; background: #fffbeb; }
+    .card.is-pushed { border: 2px solid #0284c7; background: #f0f9ff; }
+    .review-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .pill.rev-approved.active { background: #16a34a; border-color: #16a34a; }
+    .pill.rev-deferred.active { background: #d97706; border-color: #d97706; }
+    .pill.rev-pushed.active { background: #0284c7; border-color: #0284c7; }
+    .rev-actions-row {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 6px;
+    }
+    .rev-btn {
+      flex: 1;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 6px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      cursor: pointer;
+    }
+    .rev-btn.active-approve { background: #16a34a; border-color: #16a34a; color: #fff; }
+    .rev-btn.active-defer { background: #f59e0b; border-color: #f59e0b; color: #fff; }
+    .rev-btn.active-pushed { background: #0284c7; border-color: #0284c7; color: #fff; }
+    .rev-seg {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .rev-seg button {
+      font-size: 12px;
+      padding: 5px 10px;
+    }
+    .rev-seg button.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-top">
+      <div class="brand">
+        <div>
+          <h1>📦 3D Model Catalog</h1>
+          <div class="sub" id="subInfo">Đang tải dữ liệu...</div>
+        </div>
+      </div>
+      <div class="actions">
+        <span id="liveBadge" class="pill" style="cursor:default; display:inline-flex; align-items:center;">🔒 Chỉ xem</span>
+        <button id="btnPushBaSa3D" class="primary" style="background:#16a34a; border-color:#16a34a;">🚀 Đẩy BaSa3D (0)</button>
+        <button id="btnSyncBaSa3D" style="display:none;" title="Đồng bộ cấu hình giá &amp; trạng thái sản phẩm từ BaSa3D Dev DB">🔄 Đồng bộ BaSa3D</button>
+        <a id="linkBaSa3DAdmin" class="btn" href="http://localhost:3000/admin/stl-import" target="_blank" title="Mở Kho nhập STL bên BaSa3D Admin">🔗 BaSa3D Admin ↗</a>
+        <button id="btnPricingCfg">💰 Cấu hình giá BaSa3D</button>
+        <button id="btnAnalytics">📊 Biểu đồ & Phân tích ZIP</button>
+        <button id="btnDedup" style="display:none;">🧬 Check trùng</button>
+        <button id="btnRescan" style="display:none;">🔄 Quét lại thư mục</button>
+        <button id="btnAddCat">+ Thêm nhóm</button>
+        <button id="btnExportJson">💾 Lưu / Nạp JSON</button>
+        <button id="btnExportPs1">🪄 Xuất Script dọn file (.ps1)</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="stats-grid" id="statsGrid"></section>
+
+    <section class="controls">
+      <div class="controls-row">
+        <input type="search" id="searchInput" placeholder="🔍 Tìm tên file, tiêu đề 3MF, file trong ZIP (vd: clicker, chibi, rugged, pokemon...)" />
+        <select id="typeFilter">
+          <option value="3d_only">Chỉ file 3D (.3mf, .zip, .stl, .obj, .rar...)</option>
+          <option value="all">Tất cả file (gồm cả ảnh lẻ & tài liệu)</option>
+          <option value="3mf">Chỉ .3mf</option>
+          <option value="zip">Chỉ .zip</option>
+          <option value="stl">Chỉ .stl</option>
+          <option value="3d_other">Chỉ .obj / .glb / .gcode / .mtl</option>
+          <option value="archive">Chỉ .rar / .7z</option>
+          <option value="non3d">Chỉ tài liệu / ảnh lẻ (Non-3D)</option>
+        </select>
+        <select id="thumbFilter">
+          <option value="all">Ảnh: Tất cả</option>
+          <option value="with">Có ảnh minh họa</option>
+          <option value="without">Chưa có ảnh</option>
+        </select>
+        <select id="sizeFilter">
+          <option value="all">Dung lượng: Tất cả</option>
+          <option value="gte1g">Siêu nặng (≥ 1 GB)</option>
+          <option value="200m_1g">Nặng (200 MB – 1 GB)</option>
+          <option value="50m_200m">Vừa lớn (50 – 200 MB)</option>
+          <option value="10m_50m">Trung bình (10 – 50 MB)</option>
+          <option value="1m_10m">Nhẹ (1 – 10 MB)</option>
+          <option value="lt1m">Siêu nhẹ (&lt; 1 MB)</option>
+          <option value="zero">Rỗng (0 Byte)</option>
+        </select>
+        <select id="zipFilter">
+          <option value="all">Nội dung ZIP: Tất cả</option>
+          <option value="any_3mf">ZIP có sẵn 3MF (3MF + cả 3MF/STL)</option>
+          <option value="stl_only">ZIP chỉ chứa STL</option>
+          <option value="both_3mf_stl">ZIP chứa cả 3MF + STL</option>
+          <option value="has_3mf">ZIP chỉ chứa 3MF</option>
+          <option value="nested_archive">ZIP lồng ZIP/RAR</option>
+          <option value="disguised_3mf">ZIP thực chất là 3MF đổi đuôi</option>
+          <option value="no_3d_print">ZIP không có STL/3MF (CAD/Ảnh/Code)</option>
+          <option value="bad_zip">ZIP lỗi / Tải dở / 0 Byte</option>
+        </select>
+        <select id="specialFilter">
+          <option value="all">Trạng thái: Tất cả</option>
+          <option value="fav">★ Đã đánh dấu yêu thích</option>
+          <option value="dup">⚠️ Nghi trùng tên (2)</option>
+          <option value="trash">🗑️ Đã đánh dấu bỏ qua/rác</option>
+        </select>
+        <select id="priceFilter">
+          <option value="all">Nguồn giá: Tất cả</option>
+          <option value="priced">Đã có giá dự kiến</option>
+          <option value="sliced">Đã slice chuẩn (slice_info)</option>
+          <option value="mesh">Ước lượng hình học (mesh)</option>
+          <option value="exceeds_bed">Khổ &gt; 256mm (cần xem xét)</option>
+          <option value="unpriced">Chưa có giá</option>
+        </select>
+        <select id="sortBy">
+          <option value="name_asc">Sắp xếp: Tên A → Z</option>
+          <option value="price_desc">Giá cao → thấp</option>
+          <option value="price_asc">Giá thấp → cao</option>
+          <option value="grams_desc">Nhựa nhiều → ít</option>
+          <option value="time_desc">Thời gian in lâu → nhanh</option>
+          <option value="mtime_desc">Mới nhất trước</option>
+          <option value="size_desc">Nặng nhất trước</option>
+          <option value="size_asc">Nhẹ nhất trước</option>
+        </select>
+      </div>
+      <div class="review-bar">
+        <div class="pills" id="reviewPills"></div>
+        <select id="deferReasonFilter" style="display:none; font-size:12px;">
+          <option value="ALL">Lý do hoãn: Tất cả</option>
+          <option value="MISSING_IMAGE">Thiếu hình</option>
+          <option value="MISSING_INFO">Thiếu thông tin / >3M / >256mm</option>
+          <option value="NOT_PRINTED">Chưa in thử / Chưa review</option>
+          <option value="OTHER">Lý do khác</option>
+        </select>
+      </div>
+      <div class="pills" id="categoryPills"></div>
+    </section>
+
+    <div class="result-bar">
+      <div id="resultInfo"></div>
+      <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+        <button id="btnSelectPage" style="padding:4px 9px; font-size:12px;">☑ Chọn trang này</button>
+        <label style="font-size:12px; cursor:pointer;" title="Bỏ tick để bấm 🗑 là đưa ngay vào Thùng rác Windows không cần hỏi lại">
+          <input type="checkbox" id="chkConfirmDelete" /> Hỏi lại trước khi xóa
+        </label>
+        <label style="font-size:12px; cursor:pointer;">
+          <input type="checkbox" id="chkShowAll" /> Hiện toàn bộ không phân trang
+        </label>
+      </div>
+    </div>
+
+    <section class="grid" id="grid"></section>
+    <div class="pager" id="pager"></div>
+  </main>
+
+  <dialog id="detailModal">
+    <div class="modal-head">
+      <h2 id="modalTitle"></h2>
+      <button onclick="document.getElementById('detailModal').close()">✕ Đóng</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </dialog>
+
+  <dialog id="pricingModal">
+    <div class="modal-head">
+      <h2>💰 Cấu hình bảng giá BaSa3D &amp; Chuẩn bị Phase 2</h2>
+      <button onclick="document.getElementById('pricingModal').close()">✕ Đóng</button>
+    </div>
+    <div style="padding:16px 18px; max-height:78vh; overflow:auto; display:flex; flex-direction:column; gap:14px; font-size:13px;">
+      <div style="color:var(--muted); line-height:1.45;">
+        Áp dụng đúng công thức cost-plus của <strong>BaSa3D</strong> (<code>pricing.service.ts</code> + <code>fdm-estimate-model.ts</code>).
+        Thay đổi thông số bên dưới sẽ cập nhật lại toàn bộ giá hiển thị trên Catalog ngay lập tức (lưu trên trình duyệt, không đẩy file lên sản phẩm).
+      </div>
+      <div class="cfg-grid" id="pricingCfgGrid"></div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:space-between; border-top:1px solid var(--border); padding-top:12px;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button id="btnResetPricingCfg">↺ Khôi phục mặc định BaSa3D</button>
+          <button id="btnExportPhase2Specs" class="primary">📤 Xuất JSON thông số + giá (Phase 2)</button>
+        </div>
+        <button class="primary" id="btnSavePricingCfg">✓ Áp dụng &amp; Đóng</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="exportModal">
+    <div class="modal-head">
+      <h2>🪄 Xuất Script PowerShell phân loại file an toàn</h2>
+      <button onclick="document.getElementById('exportModal').close()">✕ Đóng</button>
+    </div>
+    <div style="padding:16px 18px; display:flex; flex-direction:column; gap:12px; font-size:13px;">
+      <div>Trình duyệt không tự di chuyển file trên ổ đĩa được. Script <code>organize_3d_library.ps1</code> sẽ giúp bạn di chuyển lại các file bạn vừa chỉnh nhóm sang đúng thư mục con tương ứng.</div>
+      <label>Thư mục đích:
+        <input type="text" id="targetDirInput" value="D:\data3D" style="width:100%; margin-top:4px;" />
+      </label>
+      <label><input type="checkbox" id="chkDryRun" checked /> Bật chế độ chạy thử (<code>-WhatIf</code>) — chỉ in ra danh sách sẽ chuyển, chưa di chuyển thật</label>
+      <label><input type="checkbox" id="chkIncludeAuto" checked /> Bao gồm cả nhóm gợi ý tự động (bỏ chọn nếu chỉ muốn chuyển các file bạn đã tự chỉnh)</label>
+      <label><input type="checkbox" id="chkMoveTrash" checked /> Chuyển các file đánh dấu 🗑️ vào <code>_Trash_Review</code> (không xóa vĩnh viễn)</label>
+      <label><input type="checkbox" id="chkMoveNon3d" checked /> Gom nhóm <code>Tài liệu / Ảnh lẻ (Non-3D)</code> sang <code>_Non3D_Archive</code></label>
+      <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:6px;">
+        <button onclick="document.getElementById('exportModal').close()">Hủy</button>
+        <button class="primary" id="btnDownloadPs1">⬇ Tải organize_3d_library.ps1</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="jsonModal">
+    <div class="modal-head">
+      <h2>💾 Sao lưu / Khôi phục chỉnh sửa phân loại</h2>
+      <button onclick="document.getElementById('jsonModal').close()">✕ Đóng</button>
+    </div>
+    <div style="padding:16px 18px; display:flex; flex-direction:column; gap:12px; font-size:13px;">
+      <div>Mọi thay đổi danh mục, ★ yêu thích, 🗑️ bỏ qua và ghi chú của bạn được lưu tự động trong trình duyệt. Bạn có thể tải file sao lưu JSON hoặc nạp lại tại đây.</div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="primary" id="btnDownloadJson">⬇ Tải file sao lưu (.json)</button>
+        <label class="btn">⬆ Nạp file sao lưu (.json)<input type="file" id="importJsonFile" accept=".json" style="display:none" /></label>
+        <button id="btnResetEdits" style="color:var(--danger)">↺ Xóa toàn bộ chỉnh sửa tay</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="analyticsModal" class="wide">
+    <div class="modal-head">
+      <h2>📊 Biểu đồ Dung lượng & Phân tích nội dung ZIP (D:\data3D)</h2>
+      <button onclick="document.getElementById('analyticsModal').close()">✕ Đóng</button>
+    </div>
+    <div class="analytics-wrap" id="analyticsBody"></div>
+  </dialog>
+
+  <dialog id="dedupModal" class="wide">
+    <div class="modal-head">
+      <h2>🧬 Dấu vân tay & Kiểm tra trùng trước khi thêm (SQLite Index)</h2>
+      <button onclick="document.getElementById('dedupModal').close()">✕ Đóng</button>
+    </div>
+    <div class="analytics-wrap" id="dedupBody">
+      <div class="chart-card">
+        <h3>1️⃣ Check thư mục sắp thêm vào kho (không làm thay đổi file)</h3>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+          <input type="text" id="checkFolderInput" value="C:\Users\ADMIN\Downloads" style="flex:1; min-width:260px;" placeholder="Dán đường dẫn thư mục cần kiểm tra..." />
+          <button class="primary" id="btnRunFolderCheck">🔍 Kiểm tra trùng ngay</button>
+        </div>
+        <div id="folderCheckResult" style="margin-top:12px;"></div>
+      </div>
+
+      <div class="chart-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+          <h3 style="margin:0;">2️⃣ File trùng nội dung SHA-256 100% đang nằm sẵn trong D:\data3D</h3>
+          <div style="display:flex; gap:8px;">
+            <button id="btnScanInternalDups">🔎 Quét file trùng trong D:\data3D</button>
+            <button id="btnDeleteExtraDups" style="display:none; color:var(--danger); border-color:#fca5a5;">🗑 Xóa các bản thừa (giữ lại 1 bản/nhóm)</button>
+          </div>
+        </div>
+        <div id="internalDupResult" style="margin-top:12px; font-size:13px; color:var(--muted);">
+          Bấm "Quét file trùng trong D:\data3D" để kiểm tra trùng chính xác theo mã SHA-256 (kể cả khi 2 file khác tên nhau).
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="pushModal" class="wide">
+    <div class="modal-head">
+      <h2>🚀 Duyệt &amp; Đẩy sản phẩm sang BaSa3D Dev (Không file gốc)</h2>
+      <button onclick="document.getElementById('pushModal').close()">✕ Đóng</button>
+    </div>
+    <div style="padding:16px 18px; max-height:78vh; overflow:auto; display:flex; flex-direction:column; gap:12px; font-size:13px;">
+      <div id="pushModalSummary" style="color:var(--muted);"></div>
+      <div style="max-height:300px; overflow:auto; border:1px solid var(--border); border-radius:10px;" id="pushModalTable"></div>
+      <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted);">
+        <input type="checkbox" id="chkMarkPushedOnExport" checked />
+        Khi xuất JSON, tự động chuyển các mẫu này sang cụm <strong>🚀 Đã đẩy BaSa3D</strong>
+      </label>
+      <div id="pushResultBox" style="display:none; padding:10px 12px; border-radius:8px; background:var(--surface-2); border:1px solid var(--border);"></div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; border-top:1px solid var(--border); padding-top:10px;">
+        <button id="btnPushCloseFooter" onclick="document.getElementById('pushModal').close()">Đóng</button>
+        <button id="btnDoExportJsonOnly">📥 Xuất file JSON (tự up / backup)</button>
+        <button id="btnDoAutoPushDev" class="primary" style="background:#16a34a; border-color:#16a34a;">🚀 Đẩy tự động lên BaSa3D Dev (DRAFT)</button>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="bulk-bar" id="bulkBar">
+    <strong id="bulkCount" style="font-size:13px;">Đã chọn 0 mục</strong>
+    <button id="btnBulkApprove" style="background:#16a34a; border-color:#16a34a;">✅ Duyệt đẩy BaSa3D</button>
+    <select id="bulkDeferReason" style="font-size:12px; padding:6px 8px;">
+      <option value="MISSING_IMAGE">⏸ Thiếu hình</option>
+      <option value="MISSING_INFO">⏸ Thiếu thông tin / lỗi</option>
+      <option value="NOT_PRINTED">⏸ Chưa in thử / chưa review</option>
+      <option value="OTHER">⏸ Lý do khác</option>
+    </select>
+    <button id="btnBulkDefer" style="background:#d97706; border-color:#d97706;">⏸ Hoãn sau</button>
+    <button id="btnBulkPending">↩ Chưa review</button>
+    <select id="bulkCatSelect" style="font-size:12px; padding:6px 8px;"></select>
+    <button class="primary" id="btnBulkMove">📦 Chuyển nhóm</button>
+    <button class="danger" id="btnBulkDelete">🗑 Xóa đã chọn (Thùng rác)</button>
+    <button id="btnBulkClear">✕ Bỏ chọn</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="catalog_data.js"></script>
+  <script>
+    const STORAGE_KEY = "basa3d_catalog_overrides_v1";
+    const CUSTOM_CATS_KEY = "basa3d_custom_categories_v1";
+    const PAGE_SIZE = 72;
+
+    const DEFAULT_CATEGORIES = [
+      "Clicker",
+      "Keychain",
+      "Động vật & Flexi",
+      "antistress",
+      "Pokemon",
+      "Anime",
+      "Figure",
+      "Phụ kiện, Hộp & Gridfinity",
+      "Trang trí & Lễ hội",
+      "Bộ nhiều mảnh (Multipart)",
+      "Chưa phân loại",
+      "Tài liệu / Ảnh lẻ (Non-3D)"
+    ];
+
+    let rawItems = Array.isArray(window.CATALOG_DATA) ? window.CATALOG_DATA : [];
+    const catalogMeta = window.CATALOG_META || { sourceDir: "D:\\data3D" };
+    let liveMode = false;
+    let diskFolders = [];
+    const selectedIds = new Set();
+    let lastRenderedIds = [];
+    let lastCheckedId = null;
+
+    let overrides = {};
+    try { overrides = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch {}
+    let customCats = [];
+    try { customCats = JSON.parse(localStorage.getItem(CUSTOM_CATS_KEY) || "[]"); } catch {}
+
+    const PRICING_CFG_KEY = "basa3d_pricing_cfg_v1";
+    const DEFAULT_BASA_PRICING_CFG = {
+      plaVndPerGram: 250,
+      petgVndPerGram: 320,
+      absVndPerGram: 300,
+      tpuVndPerGram: 380,
+      electricityVndPerKwh: 3500,
+      machinePriceVnd: 15000000,
+      machineLifetimeHours: 10000,
+      printerPowerKw: 0.2,
+      laborVndPerHour: 35000,
+      laborMinutesPerPlate: 0,
+      failureBufferPct: 10,
+      marginPct: 40,
+      packagingFeeVnd: 5000,
+      minPriceVnd: 25000,
+    };
+    let pricingCfg = { ...DEFAULT_BASA_PRICING_CFG };
+    try {
+      const savedCfg = JSON.parse(localStorage.getItem(PRICING_CFG_KEY) || "null");
+      if (savedCfg && typeof savedCfg === "object") pricingCfg = { ...DEFAULT_BASA_PRICING_CFG, ...savedCfg };
+    } catch {}
+    let pricingCfgVersion = 1;
+
+    function unitCostForMat(mat) {
+      const m = String(mat || "PLA").trim().toUpperCase();
+      if (m.includes("PETG")) return Number(pricingCfg.petgVndPerGram) || 320;
+      if (m.includes("TPU")) return Number(pricingCfg.tpuVndPerGram) || 380;
+      if (m.includes("ABS") || m.includes("ASA")) return Number(pricingCfg.absVndPerGram) || 300;
+      return Number(pricingCfg.plaVndPerGram) || 250;
+    }
+
+    function computeBaSaPrice(item) {
+      if (item._pVer === pricingCfgVersion && item._pCache !== undefined) return item._pCache;
+      const pi = item.meta?.printInfo;
+      if (!pi || !pi.grams || !pi.printMinutes || (pi.source !== "SLICED" && pi.source !== "MESH_ESTIMATE")) {
+        item._pVer = pricingCfgVersion;
+        item._pCache = null;
+        return null;
+      }
+      const cfg = pricingCfg;
+      const fils = Array.isArray(pi.filaments) && pi.filaments.length
+        ? pi.filaments
+        : [{ id: "1", type: "PLA", color: null, grams: pi.grams }];
+      let materialCostVnd = 0;
+      const materialLines = fils.map(f => {
+        const uCost = unitCostForMat(f.type);
+        const c = Math.round((Number(f.grams) || 0) * uCost);
+        materialCostVnd += c;
+        return {
+          label: `${f.type || "PLA"}${f.color ? ` (${f.color})` : ""}`,
+          grams: Number(f.grams) || 0,
+          unitCost: uCost,
+          costVnd: c,
+        };
+      });
+      const printHours = pi.printMinutes / 60;
+      const electricityCostVnd = Math.round(printHours * cfg.printerPowerKw * cfg.electricityVndPerKwh);
+      const machineDepreciationVnd = Math.round(printHours * (cfg.machinePriceVnd / Math.max(1, cfg.machineLifetimeHours)));
+      const failureBufferVnd = Math.round((materialCostVnd + electricityCostVnd + machineDepreciationVnd) * (cfg.failureBufferPct / 100));
+      const plateCount = Math.max(1, Number(pi.plateCount) || 1);
+      const laborMinutes = (Number(cfg.laborMinutesPerPlate) || 0) * plateCount;
+      const laborCostVnd = Math.round((laborMinutes / 60) * cfg.laborVndPerHour);
+      const packagingFeeVnd = Math.round(cfg.packagingFeeVnd);
+      const totalCostVnd = materialCostVnd + electricityCostVnd + machineDepreciationVnd + failureBufferVnd + laborCostVnd + packagingFeeVnd;
+      const denom = Math.max(0.05, 1 - Math.min(95, Number(cfg.marginPct) || 0) / 100);
+      const priceBeforeRoundingVnd = Math.round(totalCostVnd / denom);
+      const rawRounded = Math.ceil(priceBeforeRoundingVnd / 1000) * 1000;
+      const finalPriceVnd = Math.max(Number(cfg.minPriceVnd) || 0, rawRounded);
+      const res = {
+        source: pi.source,
+        grams: pi.grams,
+        printMinutes: pi.printMinutes,
+        plateCount,
+        exceedsBed: !!pi.exceedsBed,
+        sizeMm: pi.sizeMm || null,
+        volumeCm3: pi.volumeCm3 || null,
+        materialLines,
+        materialCostVnd,
+        electricityCostVnd,
+        machineDepreciationVnd,
+        failureBufferVnd,
+        laborCostVnd,
+        packagingFeeVnd,
+        totalCostVnd,
+        priceBeforeRoundingVnd,
+        finalPriceVnd,
+        floorApplied: finalPriceVnd > rawRounded,
+      };
+      item._pVer = pricingCfgVersion;
+      item._pCache = res;
+      return res;
+    }
+
+    function formatVnd(v) {
+      return Number(v || 0).toLocaleString("vi-VN") + " đ";
+    }
+
+    function formatDuration(mins) {
+      const m = Math.round(Number(mins) || 0);
+      if (m < 60) return `${m}p`;
+      const h = Math.floor(m / 60);
+      const rem = m % 60;
+      return rem ? `${h}h${String(rem).padStart(2, "0")}p` : `${h}h`;
+    }
+
+    const REVIEW_STORAGE_KEY = "basa3d_review_state_v1";
+    const DEFER_REASON_LABELS = {
+      MISSING_IMAGE: "Thiếu hình",
+      MISSING_INFO: "Thiếu thông tin / lỗi",
+      NOT_PRINTED: "Chưa in thử / chưa review",
+      OTHER: "Lý do khác",
+    };
+    let reviews = {};
+    try { reviews = JSON.parse(localStorage.getItem(REVIEW_STORAGE_KEY) || "{}"); } catch {}
+
+    function getReview(id) {
+      const r = reviews[id];
+      if (!r || !r.status) return { status: "PENDING", deferReason: "", note: "", displayName: "" };
+      return r;
+    }
+
+    let basa3dUrl = "http://localhost:3000";
+    let basa3dWebUp = false;
+
+    function applyBaSa3dSyncData(syncData, quiet) {
+      if (!syncData || typeof syncData !== "object") return;
+      if (syncData.basa3dUrl) basa3dUrl = syncData.basa3dUrl;
+      basa3dWebUp = !!syncData.basa3dWebUp;
+      const adminLink = document.getElementById("linkBaSa3DAdmin");
+      if (adminLink) {
+        adminLink.href = `${basa3dUrl}/admin/stl-import`;
+        adminLink.textContent = basa3dWebUp ? "🟢 BaSa3D Admin ↗" : "🔗 BaSa3D Admin ↗";
+      }
+      if (syncData.pricingConfig) {
+        const merged = { ...pricingCfg, ...syncData.pricingConfig };
+        pricingCfg = merged;
+        localStorage.setItem(PRICING_CFG_KEY, JSON.stringify(pricingCfg));
+        pricingCfgVersion++;
+      }
+      if (syncData.reviews && typeof syncData.reviews === "object") {
+        reviews = syncData.reviews;
+        localStorage.setItem(REVIEW_STORAGE_KEY, JSON.stringify(reviews));
+      }
+      if (!quiet) {
+        showToast(`🔄 Đã đồng bộ BaSa3D DB: giá mới & ${syncData.matchedCatalogCount || 0} SP liên kết`);
+      }
+    }
+
+    async function syncWithBaSa3dDev(quiet = false) {
+      const btn = document.getElementById("btnSyncBaSa3D");
+      if (btn && !quiet) {
+        btn.disabled = true;
+        btn.textContent = "⏳ Đang đồng bộ BaSa3D...";
+      }
+      try {
+        const res = await fetch("/api/basa3d/sync", { cache: "no-store" });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.error || "Sync lỗi");
+        applyBaSa3dSyncData(data, quiet);
+        render();
+      } catch (err) {
+        if (!quiet) showToast("⚠️ Không đồng bộ được BaSa3D Dev: " + err.message);
+      } finally {
+        if (btn && !quiet) {
+          btn.disabled = false;
+          btn.textContent = "🔄 Đồng bộ BaSa3D";
+        }
+      }
+    }
+
+    async function updateReviews(updates) {
+      const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+      updates.forEach(u => {
+        const cur = { ...getReview(u.id), ...u, updatedAt: now };
+        if (cur.status !== "DEFERRED") cur.deferReason = "";
+        reviews[u.id] = cur;
+      });
+      localStorage.setItem(REVIEW_STORAGE_KEY, JSON.stringify(reviews));
+      if (liveMode) {
+        try {
+          const res = await apiPost("/api/review", { updates });
+          if (res && res.reviews) {
+            reviews = res.reviews;
+            localStorage.setItem(REVIEW_STORAGE_KEY, JSON.stringify(reviews));
+          }
+        } catch (err) {
+          showToast("⚠️ Lỗi lưu server (đã lưu tạm trình duyệt): " + err.message);
+        }
+      }
+      render();
+    }
+
+    let state = {
+      search: "",
+      category: "ALL",
+      type: "3d_only",
+      thumb: "all",
+      size: "all",
+      zip: "all",
+      price: "all",
+      review: "ALL",
+      deferReason: "ALL",
+      special: "all",
+      sort: "name_asc",
+      page: 1,
+      showAll: false
+    };
+
+    function allCategories() {
+      const set = new Set([...DEFAULT_CATEGORIES, ...diskFolders, ...customCats]);
+      rawItems.forEach(x => { if (x.category) set.add(x.category); });
+      if (!liveMode) {
+        Object.values(overrides).forEach(o => { if (o.category) set.add(o.category); });
+      }
+      return Array.from(set);
+    }
+
+    function getOv(id) {
+      return overrides[id] || {};
+    }
+
+    function setOv(id, patch) {
+      overrides[id] = { ...(overrides[id] || {}), ...patch };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
+    }
+
+    function effectiveCat(item) {
+      if (liveMode) return item.category || "Chưa phân loại";
+      return getOv(item.id).category || item.category || "Chưa phân loại";
+    }
+
+    async function apiPost(url, payload) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        const err = new Error(data.error || "API error");
+        err.status = res.status;
+        throw err;
+      }
+      return data;
+    }
+
+    async function changeItemCategory(item, newCat) {
+      if (liveMode) {
+        try {
+          const data = await apiPost("/api/move", { id: item.id, category: newCat });
+          const idx = rawItems.findIndex(x => x.id === item.id);
+          if (idx >= 0 && data.item) rawItems[idx] = data.item;
+          if (Array.isArray(data.folders)) diskFolders = data.folders;
+          if (overrides[item.id]?.category) {
+            delete overrides[item.id].category;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
+          }
+          render();
+          showToast(`📦 Đã move file sang: ${data.item.folder}`);
+          return data.item;
+        } catch (err) {
+          alert("Lỗi chuyển file: " + err.message);
+          render();
+          return null;
+        }
+      } else {
+        setOv(item.id, { category: newCat, manual: true });
+        render();
+        showToast("Đã cập nhật nhóm (chế độ chỉ xem — mở Start_Catalog.bat để move file thật): " + newCat);
+        return item;
+      }
+    }
+
+    async function deleteItemReal(item) {
+      const needConfirm = document.getElementById("chkConfirmDelete")?.checked;
+      if (needConfirm && !confirm(`Chuyển file thật vào Thùng rác Windows (Recycle Bin)?\n\n${item.relPath || item.name}`)) {
+        return;
+      }
+      try {
+        await apiPost("/api/delete", { id: item.id });
+        rawItems = rawItems.filter(x => x.id !== item.id);
+        const modal = document.getElementById("detailModal");
+        if (modal.open) modal.close();
+        render();
+        showToast("🗑 Đã đưa vào Thùng rác: " + item.name);
+      } catch (err) {
+        alert("Lỗi xóa file: " + err.message);
+      }
+    }
+
+    function formatSize(bytes) {
+      if (bytes >= 1024 ** 3) return (bytes / (1024 ** 3)).toFixed(2) + " GB";
+      if (bytes >= 1024 ** 2) return (bytes / (1024 ** 2)).toFixed(1) + " MB";
+      if (bytes >= 1024) return (bytes / 1024).toFixed(0) + " KB";
+      return bytes + " B";
+    }
+
+    function showToast(msg) {
+      const el = document.getElementById("toast");
+      el.textContent = msg;
+      el.classList.add("show");
+      setTimeout(() => el.classList.remove("show"), 2200);
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
+    }
+
+    function renderStats() {
+      const models3d = rawItems.filter(x => !["image", "non3d"].includes(x.kind));
+      const withThumb = models3d.filter(x => !!x.thumb).length;
+      const dups = models3d.filter(x => x.isDup).length;
+      const totalBytes = rawItems.reduce((s, x) => s + (x.size || 0), 0);
+      const favCount = rawItems.filter(x => getOv(x.id).fav).length;
+
+      document.getElementById("subInfo").textContent =
+        `${catalogMeta.sourceDir} • Cập nhật: ${catalogMeta.generatedAt || "—"}`;
+
+      const cards = [
+        ["File 3D & Nén", models3d.length.toLocaleString()],
+        ["Có ảnh minh họa", `${withThumb} / ${models3d.length}`],
+        ["Tổng dung lượng", formatSize(totalBytes)],
+        ["Nghi trùng tên (N)", dups.toLocaleString()],
+        ["File Non-3D / Ảnh lẻ", (rawItems.length - models3d.length).toLocaleString()],
+        ["Đã đánh dấu ★", favCount.toLocaleString()]
+      ];
+      document.getElementById("statsGrid").innerHTML = cards.map(([l, v]) => `
+        <div class="stat-card">
+          <div class="stat-label">${l}</div>
+          <div class="stat-value">${v}</div>
+        </div>
+      `).join("");
+    }
+
+    function matchesType(item) {
+      if (state.type === "all") return true;
+      if (state.type === "3d_only") return !["image", "non3d"].includes(item.kind);
+      if (state.type === "non3d") return ["image", "non3d"].includes(item.kind);
+      if (state.type === "3mf") return item.kind === "3mf" || item.kind === "3mf_bundle";
+      if (state.type === "stl") return item.kind === "stl" || item.kind === "stl_bundle";
+      return item.kind === state.type;
+    }
+
+    function matchesSize(item) {
+      const s = item.size || 0;
+      const mb = s / (1024 * 1024);
+      if (state.size === "all") return true;
+      if (state.size === "zero") return s === 0;
+      if (state.size === "lt1m") return s > 0 && mb < 1;
+      if (state.size === "1m_10m") return mb >= 1 && mb < 10;
+      if (state.size === "10m_50m") return mb >= 10 && mb < 50;
+      if (state.size === "50m_200m") return mb >= 50 && mb < 200;
+      if (state.size === "200m_1g") return mb >= 200 && mb < 1024;
+      if (state.size === "gte1g") return mb >= 1024;
+      return true;
+    }
+
+    function matchesZip(item) {
+      if (state.zip === "all") return true;
+      if (item.kind !== "zip") return false;
+      const zk = item.meta?.zipKind || "";
+      if (state.zip === "any_3mf") return zk === "has_3mf" || zk === "both_3mf_stl" || zk === "disguised_3mf";
+      if (state.zip === "bad_zip") return zk === "corrupt_zip" || zk === "empty_0b" || !!item.error;
+      if (state.zip === "no_3d_print") return zk === "images_only" || zk === "cad_code_other";
+      return zk === state.zip;
+    }
+
+    function matchesPrice(item) {
+      if (state.price === "all") return true;
+      const p = computeBaSaPrice(item);
+      if (state.price === "priced") return !!p;
+      if (state.price === "sliced") return p?.source === "SLICED";
+      if (state.price === "mesh") return p?.source === "MESH_ESTIMATE";
+      if (state.price === "exceeds_bed") return !!p?.exceedsBed;
+      if (state.price === "unpriced") return !p;
+      return true;
+    }
+
+    function matchesReviewFilter(item) {
+      const rv = getReview(item.id);
+      if (state.review !== "ALL" && rv.status !== state.review) return false;
+      if (state.review === "DEFERRED" && state.deferReason !== "ALL" && rv.deferReason !== state.deferReason) return false;
+      return true;
+    }
+
+    function baseFilteredWithoutCat(ignoreReview = false) {
+      const q = state.search.trim().toLowerCase();
+      return rawItems.filter(item => {
+        if (!matchesType(item)) return false;
+        if (!matchesSize(item)) return false;
+        if (!matchesZip(item)) return false;
+        if (!matchesPrice(item)) return false;
+        if (!ignoreReview && !matchesReviewFilter(item)) return false;
+        if (state.thumb === "with" && !item.thumb) return false;
+        if (state.thumb === "without" && item.thumb) return false;
+        const ov = getOv(item.id);
+        if (state.special === "fav" && !ov.fav) return false;
+        if (state.special === "dup" && !item.isDup) return false;
+        if (state.special === "trash" && !ov.trash) return false;
+        if (q) {
+          const hay = [
+            item.name,
+            item.meta?.title || "",
+            item.meta?.designer || "",
+            ...(item.containedSample || [])
+          ].join(" ").toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+    }
+
+    function renderReviewPills(allMatchingBase) {
+      const cnt = { ALL: allMatchingBase.length, PENDING: 0, APPROVED: 0, DEFERRED: 0, PUSHED: 0 };
+      allMatchingBase.forEach(it => {
+        const st = getReview(it.id).status || "PENDING";
+        if (st in cnt) cnt[st]++;
+      });
+      const totalApprovedAll = rawItems.filter(it => getReview(it.id).status === "APPROVED").length;
+      const pushBtn = document.getElementById("btnPushBaSa3D");
+      if (pushBtn) pushBtn.textContent = `🚀 Đẩy BaSa3D (${totalApprovedAll})`;
+
+      const tabs = [
+        ["ALL", "Tất cả", ""],
+        ["PENDING", "⏳ Chưa review", ""],
+        ["APPROVED", "✅ Đã duyệt chờ đẩy", "rev-approved"],
+        ["DEFERRED", "⏸ Hoãn review sau", "rev-deferred"],
+        ["PUSHED", "🚀 Đã đẩy BaSa3D", "rev-pushed"],
+      ];
+      const el = document.getElementById("reviewPills");
+      el.innerHTML = tabs.map(([key, label, cls]) =>
+        `<button class="pill ${cls} ${state.review === key ? "active" : ""}" data-rev="${key}">${label}<span class="cnt">${cnt[key] || 0}</span></button>`
+      ).join("");
+      el.querySelectorAll(".pill").forEach(btn => {
+        btn.onclick = () => {
+          state.review = btn.dataset.rev;
+          state.page = 1;
+          render();
+        };
+      });
+      const reasonSel = document.getElementById("deferReasonFilter");
+      if (reasonSel) {
+        reasonSel.style.display = state.review === "DEFERRED" ? "inline-block" : "none";
+        reasonSel.value = state.deferReason;
+      }
+    }
+
+    function renderCategoryPills(baseList) {
+      const counts = new Map();
+      baseList.forEach(x => {
+        const c = effectiveCat(x);
+        counts.set(c, (counts.get(c) || 0) + 1);
+      });
+      const cats = allCategories();
+      const pills = [`<button class="pill ${state.category === "ALL" ? "active" : ""}" data-cat="ALL">Tất cả<span class="cnt">${baseList.length}</span></button>`];
+      cats.forEach(cat => {
+        const c = counts.get(cat) || 0;
+        if (c > 0 || state.category === cat) {
+          pills.push(`<button class="pill ${state.category === cat ? "active" : ""}" data-cat="${escapeHtml(cat)}">${escapeHtml(cat)}<span class="cnt">${c}</span></button>`);
+        }
+      });
+      const el = document.getElementById("categoryPills");
+      el.innerHTML = pills.join("");
+      el.querySelectorAll(".pill").forEach(btn => {
+        btn.onclick = () => {
+          state.category = btn.dataset.cat;
+          state.page = 1;
+          render();
+        };
+      });
+    }
+
+    function render() {
+      renderStats();
+      const preReviewList = baseFilteredWithoutCat(true);
+      renderReviewPills(preReviewList);
+      const baseList = preReviewList.filter(matchesReviewFilter);
+      renderCategoryPills(baseList);
+
+      let list = state.category === "ALL"
+        ? baseList
+        : baseList.filter(x => effectiveCat(x) === state.category);
+
+      list.sort((a, b) => {
+        if (state.sort === "name_asc") return a.name.localeCompare(b.name, "vi");
+        if (state.sort === "price_desc") return (computeBaSaPrice(b)?.finalPriceVnd || -1) - (computeBaSaPrice(a)?.finalPriceVnd || -1);
+        if (state.sort === "price_asc") return (computeBaSaPrice(a)?.finalPriceVnd ?? 1e15) - (computeBaSaPrice(b)?.finalPriceVnd ?? 1e15);
+        if (state.sort === "grams_desc") return (computeBaSaPrice(b)?.grams || -1) - (computeBaSaPrice(a)?.grams || -1);
+        if (state.sort === "time_desc") return (computeBaSaPrice(b)?.printMinutes || -1) - (computeBaSaPrice(a)?.printMinutes || -1);
+        if (state.sort === "mtime_desc") return (b.mtime || "").localeCompare(a.mtime || "");
+        if (state.sort === "size_desc") return (b.size || 0) - (a.size || 0);
+        if (state.sort === "size_asc") return (a.size || 0) - (b.size || 0);
+        return 0;
+      });
+
+      const total = list.length;
+      const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+      if (state.page > totalPages) state.page = totalPages;
+
+      const slice = state.showAll
+        ? list
+        : list.slice((state.page - 1) * PAGE_SIZE, state.page * PAGE_SIZE);
+
+      lastRenderedIds = slice.map(x => x.id);
+      document.getElementById("resultInfo").textContent =
+        `Đang hiển thị ${slice.length} / ${total} mục`;
+
+      const cats = allCategories();
+      const grid = document.getElementById("grid");
+      grid.innerHTML = slice.map(item => {
+        const ov = getOv(item.id);
+        const cat = effectiveCat(item);
+        const isSel = selectedIds.has(item.id);
+        const extLabel = (item.ext || "").replace(".", "").toUpperCase();
+        const badgeCls = (item.kind === "3mf" || item.kind === "3mf_bundle") ? "ext-3mf" : item.kind === "zip" ? "ext-zip" : (item.kind === "stl" || item.kind === "stl_bundle") ? "ext-stl" : "";
+        const colors = (item.meta?.colors || []).slice(0, 6).map(c => `<span class="swatch" style="background:${escapeHtml(c)}" title="${escapeHtml(c)}"></span>`).join("");
+        const bundleCount = item.kind === "3mf_bundle" ? (item.meta?.bundleItems?.length || item.containedCount || 0) : 0;
+        const bundlePrices = bundleCount
+          ? item.meta.bundleItems.map(sub => computeBaSaPrice({ meta: { printInfo: sub.printInfo } })).filter(Boolean).map(p => p.finalPriceVnd)
+          : [];
+        const minBP = bundlePrices.length ? Math.min(...bundlePrices) : null;
+        const maxBP = bundlePrices.length ? Math.max(...bundlePrices) : null;
+        const pr = computeBaSaPrice(item);
+        const piSrc = item.meta?.printInfo?.source;
+        const priceLabel = (minBP !== null && maxBP !== null && minBP !== maxBP)
+          ? `${formatVnd(minBP)} – ${formatVnd(maxBP)}`
+          : (pr ? `${pr.source === "SLICED" ? "🟢" : "🟡 ~"}${formatVnd(pr.finalPriceVnd)}` : "");
+        const priceHtml = pr
+          ? `<div class="price-row">
+               <span class="price-pill ${pr.source === "SLICED" ? "sliced" : "mesh"}" title="${pr.source === "SLICED" ? "Giá tính từ file đã slice (chính xác)" : "Giá ước lượng từ hình học mesh"}">${priceLabel}</span>
+               ${pr.exceedsBed ? `<span class="price-pill warn" title="Có chi tiết > 256mm">&gt;256mm</span>` : `<span style="color:var(--muted); font-size:11px;">${bundleCount ? `${bundleCount} file con` : (pr.source === "SLICED" ? "Đã slice" : "Ước lượng")}</span>`}
+             </div>
+             <div class="print-specs-line">${pr.grams}g • ${formatDuration(pr.printMinutes)}${pr.sizeMm ? ` • ${pr.sizeMm.join("×")}mm` : ""}</div>`
+          : (piSrc === "MESH_TOO_LARGE"
+              ? `<div class="price-row"><span class="price-pill muted">Mesh quá lớn (&gt;3M)</span></div>`
+              : "");
+
+        const rv = getReview(item.id);
+        const revCls = rv.status === "APPROVED" ? "is-approved" : rv.status === "DEFERRED" ? "is-deferred" : rv.status === "PUSHED" ? "is-pushed" : "";
+        const is3dCard = !["image", "non3d"].includes(item.kind);
+        const revBadge = rv.status === "APPROVED"
+          ? `<span class="badge" style="background:#16a34a;">✅ Duyệt</span>`
+          : rv.status === "DEFERRED"
+            ? `<span class="badge" style="background:#d97706;">⏸ ${escapeHtml(DEFER_REASON_LABELS[rv.deferReason] || "Hoãn")}</span>`
+            : rv.status === "PUSHED"
+              ? `<span class="badge" style="background:${rv.basa3dProductStatus === "ACTIVE" ? "#059669" : "#0284c7"};">${rv.basa3dProductStatus === "ACTIVE" ? "🌐 BaSa3D LIVE" : "🚀 BaSa3D DRAFT"}</span>`
+              : "";
+        const basaLinkHtml = rv.basa3dProductId
+          ? `<div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:4px;">
+               <a class="basa3d-link-pill" href="${basa3dUrl}/admin/products/${encodeURIComponent(rv.basa3dProductId)}" target="_blank" title="Mở chỉnh sửa trực tiếp trên BaSa3D Admin">🔗 Sửa trên BaSa3D ↗</a>
+               ${rv.basa3dProductStatus === "ACTIVE" && rv.basa3dSlug ? `<a class="basa3d-link-pill" href="${basa3dUrl}/vi/products/${encodeURIComponent(rv.basa3dSlug)}" target="_blank">🌐 Xem Web ↗</a>` : ""}
+             </div>`
+          : "";
+        const revBtnsHtml = is3dCard ? `
+          <div class="rev-actions-row">
+            <button class="rev-btn ${rv.status === "APPROVED" ? "active-approve" : ""}" data-action="approve" title="Tick duyệt đẩy BaSa3D">${rv.status === "APPROVED" ? "✅ Đã duyệt" : "✓ Duyệt"}</button>
+            <button class="rev-btn ${rv.status === "DEFERRED" ? "active-defer" : ""}" data-action="defer" title="Hoãn review sau (chọn lý do)">${rv.status === "DEFERRED" ? "⏸ Hoãn" : "⏸ Để sau"}</button>
+          </div>
+          ${basaLinkHtml}
+        ` : "";
+
+        return `
+          <article class="card ${ov.trash ? "is-trash" : ""} ${ov.fav ? "is-fav" : ""} ${isSel ? "is-selected" : ""} ${revCls}" data-id="${item.id}">
+            <div class="thumb-wrap" data-action="open">
+              ${item.thumb
+                ? `<img loading="lazy" src="${escapeHtml(item.thumb)}" alt="${escapeHtml(item.name)}" data-main="${escapeHtml(item.thumb)}" data-plate="${escapeHtml(item.plateThumb || "")}" />`
+                : `<div class="no-thumb"><div class="ext-big">${escapeHtml(extLabel || "FILE")}</div><div>Chưa có ảnh xem trước</div></div>`
+              }
+              <div class="badge-tl">
+                <input type="checkbox" class="select-check" data-action="select" ${isSel ? "checked" : ""} title="Chọn (giữ Shift để chọn hàng loạt)" />
+                <span class="badge ${badgeCls}">${escapeHtml(extLabel)}</span>
+                ${revBadge}
+                ${bundleCount ? `<span class="badge" style="background:rgba(124,58,237,0.92);">📦 Cụm ${bundleCount} file</span>` : ""}
+                ${item.kind === "stl_bundle" && item.containedCount > 1 ? `<span class="badge">📦 ${item.containedCount} STL</span>` : ""}
+                ${!bundleCount && item.meta?.plates ? `<span class="badge">${item.meta.plates} plate</span>` : ""}
+                ${item.isDup ? `<span class="badge dup">Trùng?</span>` : ""}
+                ${item.meta?.siblingRef ? `<span class="badge" style="background:rgba(15,118,110,0.9);">+${item.meta.siblingRef.kind}</span>` : ""}
+              </div>
+              <div class="card-tools">
+                <button class="icon-btn ${ov.fav ? "active-fav" : ""}" data-action="fav" title="Đánh dấu yêu thích">★</button>
+                <button class="icon-btn ${ov.trash ? "active-trash" : ""}" data-action="trash" title="Đánh dấu bỏ qua / rác">🗑</button>
+              </div>
+              ${item.plateThumb ? `<button class="plate-toggle" data-action="toggle-plate">Bàn in</button>` : ""}
+            </div>
+            <div class="card-body">
+              <div class="card-title" data-action="open" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</div>
+              ${priceHtml}
+              <div class="card-meta">
+                <span>${formatSize(item.size)} • ${(item.mtime || "").slice(0, 10)}</span>
+                <div class="swatches">${colors}</div>
+              </div>
+              ${revBtnsHtml}
+              <select class="cat-select" data-action="cat">
+                ${cats.map(c => `<option value="${escapeHtml(c)}" ${c === cat ? "selected" : ""}>${escapeHtml(c)}</option>`).join("")}
+              </select>
+            </div>
+          </article>
+        `;
+      }).join("");
+
+      renderBulkBar(cats);
+
+      // Pager
+      const pager = document.getElementById("pager");
+      if (state.showAll || totalPages <= 1) {
+        pager.innerHTML = "";
+      } else {
+        pager.innerHTML = `
+          <button ${state.page <= 1 ? "disabled" : ""} id="prevPage">← Trang trước</button>
+          <span style="font-size:13px; color:var(--muted);">Trang ${state.page} / ${totalPages}</span>
+          <button ${state.page >= totalPages ? "disabled" : ""} id="nextPage">Trang sau →</button>
+        `;
+        const prev = document.getElementById("prevPage");
+        const next = document.getElementById("nextPage");
+        if (prev) prev.onclick = () => { state.page--; render(); window.scrollTo({ top: 0, behavior: "smooth" }); };
+        if (next) next.onclick = () => { state.page++; render(); window.scrollTo({ top: 0, behavior: "smooth" }); };
+      }
+    }
+
+    function renderBulkBar(cats) {
+      const bar = document.getElementById("bulkBar");
+      const count = selectedIds.size;
+      if (count === 0) {
+        bar.classList.remove("show");
+        return;
+      }
+      bar.classList.add("show");
+      document.getElementById("bulkCount").textContent = `Đã chọn ${count} mục`;
+      const sel = document.getElementById("bulkCatSelect");
+      const prevVal = sel.value;
+      const listCats = cats || allCategories();
+      sel.innerHTML = listCats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+      if (prevVal && listCats.includes(prevVal)) sel.value = prevVal;
+    }
+
+    async function bulkDeleteSelected() {
+      const ids = Array.from(selectedIds);
+      if (!ids.length) return;
+      const needConfirm = document.getElementById("chkConfirmDelete")?.checked;
+      if (needConfirm && !confirm(`Đưa ${ids.length} file đã chọn vào Thùng rác Windows (Recycle Bin)?`)) {
+        return;
+      }
+      if (liveMode) {
+        const btn = document.getElementById("btnBulkDelete");
+        btn.disabled = true;
+        btn.textContent = "⏳ Đang xóa...";
+        try {
+          let removedIds = [];
+          let errors = [];
+          try {
+            const data = await apiPost("/api/delete_batch", { ids });
+            removedIds = data.deletedIds || ids;
+            errors = data.errors || [];
+          } catch (batchErr) {
+            if (batchErr.status !== 404) throw batchErr;
+            // Fallback for older server.py instance without /api/delete_batch
+            for (const id of ids) {
+              try {
+                await apiPost("/api/delete", { id });
+                removedIds.push(id);
+              } catch (e) {
+                errors.push(e.message);
+              }
+            }
+          }
+          const removed = new Set(removedIds);
+          rawItems = rawItems.filter(x => !removed.has(x.id));
+          removed.forEach(id => selectedIds.delete(id));
+          render();
+          showToast(`🗑 Đã đưa ${removed.size} file vào Thùng rác!`);
+          if (errors.length) {
+            alert("Một số file gặp lỗi:\n" + errors.join("\n"));
+          }
+        } catch (err) {
+          alert("Lỗi xóa hàng loạt: " + err.message);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "🗑 Xóa đã chọn (Thùng rác)";
+        }
+      } else {
+        ids.forEach(id => setOv(id, { trash: true }));
+        selectedIds.clear();
+        render();
+        showToast(`Đã đánh dấu bỏ qua ${ids.length} mục (mở Start_Catalog.bat để xóa file thật)`);
+      }
+    }
+
+    async function bulkMoveSelected() {
+      const ids = Array.from(selectedIds);
+      const targetCat = document.getElementById("bulkCatSelect").value;
+      if (!ids.length || !targetCat) return;
+      if (liveMode) {
+        const btn = document.getElementById("btnBulkMove");
+        btn.disabled = true;
+        btn.textContent = "⏳ Đang chuyển...";
+        try {
+          let movedItems = [];
+          let errors = [];
+          let folders = null;
+          try {
+            const data = await apiPost("/api/move_batch", { ids, category: targetCat });
+            movedItems = data.movedItems || [];
+            errors = data.errors || [];
+            folders = data.folders;
+          } catch (batchErr) {
+            if (batchErr.status !== 404) throw batchErr;
+            // Fallback for older server.py instance without /api/move_batch
+            for (const id of ids) {
+              try {
+                const res = await apiPost("/api/move", { id, category: targetCat });
+                if (res.item) movedItems.push(res.item);
+                if (res.folders) folders = res.folders;
+              } catch (e) {
+                errors.push(e.message);
+              }
+            }
+          }
+          const byId = new Map(movedItems.map(x => [x.id, x]));
+          rawItems = rawItems.map(x => byId.get(x.id) || x);
+          if (Array.isArray(folders)) diskFolders = folders;
+          selectedIds.clear();
+          render();
+          showToast(`📦 Đã move ${movedItems.length} file sang: ${targetCat}`);
+          if (errors.length) {
+            alert("Một số file gặp lỗi:\n" + errors.join("\n"));
+          }
+        } catch (err) {
+          alert("Lỗi chuyển hàng loạt: " + err.message);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "📦 Chuyển nhóm";
+        }
+      } else {
+        ids.forEach(id => setOv(id, { category: targetCat, manual: true }));
+        selectedIds.clear();
+        render();
+        showToast(`Đã đổi nhóm ${ids.length} mục trên web (mở Start_Catalog.bat để move file thật)`);
+      }
+    }
+
+    document.getElementById("btnSelectPage").onclick = () => {
+      const allSelectedOnPage = lastRenderedIds.length > 0 && lastRenderedIds.every(id => selectedIds.has(id));
+      if (allSelectedOnPage) {
+        lastRenderedIds.forEach(id => selectedIds.delete(id));
+      } else {
+        lastRenderedIds.forEach(id => selectedIds.add(id));
+      }
+      render();
+    };
+    document.getElementById("btnBulkClear").onclick = () => { selectedIds.clear(); lastCheckedId = null; render(); };
+    document.getElementById("btnBulkDelete").onclick = bulkDeleteSelected;
+    document.getElementById("btnBulkMove").onclick = bulkMoveSelected;
+    document.getElementById("btnBulkApprove").onclick = () => {
+      const ids = Array.from(selectedIds);
+      if (!ids.length) return;
+      updateReviews(ids.map(id => ({ id, status: "APPROVED" })));
+      selectedIds.clear();
+      showToast(`✅ Đã duyệt ${ids.length} mẫu chờ đẩy BaSa3D`);
+    };
+    document.getElementById("btnBulkDefer").onclick = () => {
+      const ids = Array.from(selectedIds);
+      if (!ids.length) return;
+      const reason = document.getElementById("bulkDeferReason").value || "NOT_PRINTED";
+      updateReviews(ids.map(id => ({ id, status: "DEFERRED", deferReason: reason })));
+      selectedIds.clear();
+      showToast(`⏸ Đã hoãn ${ids.length} mẫu (${DEFER_REASON_LABELS[reason] || reason})`);
+    };
+    document.getElementById("btnBulkPending").onclick = () => {
+      const ids = Array.from(selectedIds);
+      if (!ids.length) return;
+      updateReviews(ids.map(id => ({ id, status: "PENDING" })));
+      selectedIds.clear();
+      showToast(`↩ Đã đưa ${ids.length} mẫu về Chưa review`);
+    };
+
+    // Event delegation on grid
+    document.getElementById("grid").addEventListener("click", e => {
+      const actionEl = e.target.closest("[data-action]");
+      if (!actionEl) return;
+      const card = e.target.closest(".card");
+      if (!card) return;
+      const id = card.dataset.id;
+      const item = rawItems.find(x => x.id === id);
+      if (!item) return;
+
+      const action = actionEl.dataset.action;
+      if (action === "select") {
+        e.stopPropagation();
+        const checked = actionEl.checked;
+        if (e.shiftKey && lastCheckedId && lastCheckedId !== id) {
+          const i1 = lastRenderedIds.indexOf(lastCheckedId);
+          const i2 = lastRenderedIds.indexOf(id);
+          if (i1 !== -1 && i2 !== -1) {
+            const [lo, hi] = i1 < i2 ? [i1, i2] : [i2, i1];
+            for (let k = lo; k <= hi; k++) {
+              if (checked) selectedIds.add(lastRenderedIds[k]);
+              else selectedIds.delete(lastRenderedIds[k]);
+            }
+          }
+        } else {
+          if (checked) selectedIds.add(id);
+          else selectedIds.delete(id);
+        }
+        lastCheckedId = id;
+        render();
+      } else if (action === "approve") {
+        e.stopPropagation();
+        const cur = getReview(id);
+        const nextStatus = cur.status === "APPROVED" ? "PENDING" : "APPROVED";
+        updateReviews([{ id, status: nextStatus }]);
+        showToast(nextStatus === "APPROVED" ? "✅ Đã tick duyệt đẩy BaSa3D" : "↩ Đã bỏ tick duyệt");
+      } else if (action === "defer") {
+        e.stopPropagation();
+        const cur = getReview(id);
+        if (cur.status === "DEFERRED") {
+          updateReviews([{ id, status: "PENDING" }]);
+          showToast("↩ Đã bỏ hoãn");
+        } else {
+          const piSrc = item.meta?.printInfo?.source;
+          const autoReason = !item.thumb
+            ? "MISSING_IMAGE"
+            : (piSrc === "MESH_TOO_LARGE" || piSrc === "MESH_INVALID" || item.meta?.printInfo?.exceedsBed ? "MISSING_INFO" : "NOT_PRINTED");
+          updateReviews([{ id, status: "DEFERRED", deferReason: autoReason }]);
+          showToast(`⏸ Đã hoãn (${DEFER_REASON_LABELS[autoReason]})`);
+        }
+      } else if (action === "fav") {
+        e.stopPropagation();
+        setOv(id, { fav: !getOv(id).fav });
+        render();
+      } else if (action === "trash") {
+        e.stopPropagation();
+        if (liveMode) {
+          deleteItemReal(item);
+        } else {
+          setOv(id, { trash: !getOv(id).trash });
+          render();
+        }
+      } else if (action === "toggle-plate") {
+        e.stopPropagation();
+        const img = card.querySelector(".thumb-wrap img");
+        if (img && img.dataset.plate) {
+          const showingPlate = img.dataset.showing === "plate";
+          img.src = showingPlate ? img.dataset.main : img.dataset.plate;
+          img.dataset.showing = showingPlate ? "main" : "plate";
+          actionEl.textContent = showingPlate ? "Bàn in" : "Ảnh mẫu";
+        }
+      } else if (action === "open") {
+        openDetail(item);
+      }
+    });
+
+    document.getElementById("grid").addEventListener("change", e => {
+      if (e.target.dataset.action === "cat") {
+        const card = e.target.closest(".card");
+        if (!card) return;
+        const item = rawItems.find(x => x.id === card.dataset.id);
+        if (item) changeItemCategory(item, e.target.value);
+      }
+    });
+
+    function openDetail(initialItem) {
+      let item = initialItem;
+      const ov = getOv(item.id);
+      const cats = allCategories();
+      const cat = effectiveCat(item);
+      const getFullPath = () => `${catalogMeta.sourceDir}\\${(item.relPath || item.name).replace(/\//g, "\\")}`;
+      const fullPath = getFullPath();
+      const fileUrl = liveMode
+        ? `/files?p=${encodeURIComponent(item.relPath || item.name)}`
+        : "file:///" + fullPath.replace(/\\/g, "/").split("/").map(encodeURIComponent).join("/").replace(/^([A-Za-z])%3A/, "$1:");
+
+      document.getElementById("modalTitle").textContent = item.name;
+      document.getElementById("modalBody").innerHTML = `
+        <div class="modal-imgs">
+          ${item.thumb ? `<img src="${escapeHtml(item.thumb)}" alt="Preview" />` : `<div class="no-thumb" style="border:1px dashed var(--border); padding:40px; border-radius:10px;">Không có ảnh xem trước</div>`}
+          ${item.plateThumb ? `<img src="${escapeHtml(item.plateThumb)}" alt="Plate preview" />` : ""}
+        </div>
+        <div>
+          <div class="kv"><strong>Thư mục:</strong> <span id="modalFolderVal">${escapeHtml(item.folder || "(Gốc)")}</span></div>
+          <div class="kv"><strong>Định dạng:</strong> ${escapeHtml(item.ext || "")} (${formatSize(item.size)})</div>
+          <div class="kv"><strong>Ngày sửa:</strong> ${escapeHtml(item.mtime || "")}</div>
+          ${item.meta?.title ? `<div class="kv"><strong>Tiêu đề 3MF:</strong> ${escapeHtml(item.meta.title)}</div>` : ""}
+          ${item.meta?.designer ? `<div class="kv"><strong>Designer:</strong> ${escapeHtml(item.meta.designer)}</div>` : ""}
+          ${item.meta?.printer ? `<div class="kv"><strong>Máy in:</strong> ${escapeHtml(item.meta.printer)}</div>` : ""}
+          ${item.meta?.filament ? `<div class="kv"><strong>Nhựa:</strong> ${escapeHtml(item.meta.filament.join(", "))}</div>` : ""}
+          ${item.meta?.plates ? `<div class="kv"><strong>Số bàn in:</strong> ${item.meta.plates}</div>` : ""}
+          ${(() => {
+            const pr = computeBaSaPrice(item);
+            if (!pr) {
+              const src = item.meta?.printInfo?.source;
+              if (src === "MESH_TOO_LARGE") {
+                return `<div class="price-box"><strong>⚠️ Quá nhiều tam giác (&gt;3M)</strong> — cần cắt hoặc slice tay để tính giá.</div>`;
+              }
+              return "";
+            }
+            const filDetails = pr.materialLines.map(l => `${escapeHtml(l.label)}: ${l.grams}g (${formatVnd(l.costVnd)})`).join("<br/>");
+            return `
+              <div class="price-box">
+                <div class="price-box-head">
+                  <span>💰 Giá dự kiến BaSa3D (${pr.source === "SLICED" ? "Đã slice chuẩn" : "Ước lượng mesh"})</span>
+                  <span style="color:#166534; font-size:15px;">${formatVnd(pr.finalPriceVnd)}</span>
+                </div>
+                <div style="color:var(--muted); margin-bottom:6px; font-size:11px;">
+                  ${pr.grams}g nhựa • ${formatDuration(pr.printMinutes)} (${pr.plateCount} bàn)${pr.sizeMm ? ` • ${pr.sizeMm.join(" × ")} mm` : ""}${pr.volumeCm3 ? ` • ${pr.volumeCm3} cm³` : ""}${pr.exceedsBed ? " • ⚠️ Vượt khổ 256mm" : ""}
+                </div>
+                <div class="price-grid">
+                  <span>Nhựa (${filDetails})</span><span>${formatVnd(pr.materialCostVnd)}</span>
+                  <span>Tiền điện máy in</span><span>${formatVnd(pr.electricityCostVnd)}</span>
+                  <span>Khấu hao máy</span><span>${formatVnd(pr.machineDepreciationVnd)}</span>
+                  <span>Dự phòng in lỗi (${pricingCfg.failureBufferPct}%)</span><span>${formatVnd(pr.failureBufferVnd)}</span>
+                  <span>Công thợ (${pricingCfg.laborMinutesPerPlate}p/bàn)</span><span>${formatVnd(pr.laborCostVnd)}</span>
+                  <span>Đóng gói</span><span>${formatVnd(pr.packagingFeeVnd)}</span>
+                  <span class="total-row">Tổng giá vốn</span><span class="total-row">${formatVnd(pr.totalCostVnd)}</span>
+                  <span>Giá bán (margin ${pricingCfg.marginPct}%, làm tròn 1k${pr.floorApplied ? ", áp sàn" : ""})</span>
+                  <strong>${formatVnd(pr.finalPriceVnd)}</strong>
+                </div>
+              </div>
+            `;
+          })()}
+          ${item.error ? `<div class="kv" style="color:var(--danger)"><strong>Lưu ý file nén:</strong> ${escapeHtml(item.error)}</div>` : ""}
+
+          ${(() => {
+            const rv = getReview(item.id);
+            const suggestedName = rv.displayName || (item.meta?.title || item.name).replace(/\.(3mf|stl|zip)$/i, "").replace(/@Print3DWorld.*$/i, "").replace(/[_+]+/g, " ").trim();
+            return `
+              <div style="margin:10px 0; padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:var(--surface-2);">
+                <div style="font-size:12px; font-weight:700; margin-bottom:6px;">📝 Duyệt đẩy sản phẩm BaSa3D</div>
+                <label style="font-size:11px; font-weight:600; color:var(--muted);">Tên sản phẩm sẽ lên BaSa3D:</label>
+                <input type="text" id="modalDisplayNameInput" value="${escapeHtml(suggestedName)}" style="width:100%; margin:3px 0 8px;" />
+                <div class="rev-seg" id="modalRevSeg">
+                  <button type="button" data-st="PENDING" class="${rv.status === "PENDING" ? "active" : ""}">⏳ Chưa review</button>
+                  <button type="button" data-st="APPROVED" class="${rv.status === "APPROVED" ? "active" : ""}">✅ Duyệt đẩy BaSa3D</button>
+                  <button type="button" data-st="DEFERRED" class="${rv.status === "DEFERRED" ? "active" : ""}">⏸ Hoãn sau</button>
+                  <button type="button" data-st="PUSHED" class="${rv.status === "PUSHED" ? "active" : ""}">🚀 Đã đẩy</button>
+                </div>
+                <div id="modalDeferWrap" style="margin-top:8px; display:${rv.status === "DEFERRED" ? "block" : "none"};">
+                  <label style="font-size:11px; font-weight:600; color:var(--muted);">Lý do chưa duyệt giai đoạn này:</label>
+                  <select id="modalDeferReasonSel" style="width:100%; margin-top:3px;">
+                    <option value="MISSING_IMAGE" ${rv.deferReason === "MISSING_IMAGE" ? "selected" : ""}>Thiếu hình ảnh đẹp</option>
+                    <option value="MISSING_INFO" ${rv.deferReason === "MISSING_INFO" ? "selected" : ""}>Thiếu thông tin / &gt;3M tam giác / &gt;256mm</option>
+                    <option value="NOT_PRINTED" ${rv.deferReason === "NOT_PRINTED" || !rv.deferReason ? "selected" : ""}>Chưa in thử / Chưa review thực tế</option>
+                    <option value="OTHER" ${rv.deferReason === "OTHER" ? "selected" : ""}>Lý do khác (xem ghi chú)</option>
+                  </select>
+                </div>
+                ${(rv.status === "PUSHED" || rv.basa3dProductId) ? `<div style="margin-top:8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:11.5px; color:#0369a1;">
+                  <span>🚀 ${rv.basa3dProductStatus ? `BaSa3D: <strong>${escapeHtml(rv.basa3dProductStatus)}</strong>` : "Đã đẩy"}${rv.pushedAt ? ` lúc ${escapeHtml(rv.pushedAt)}` : ""}${rv.basa3dSku ? ` • SKU: <code>${escapeHtml(rv.basa3dSku)}</code>` : ""}</span>
+                  ${rv.basa3dProductId ? `<a class="basa3d-link-pill" href="${basa3dUrl}/admin/products/${encodeURIComponent(rv.basa3dProductId)}" target="_blank">🔗 Mở SP trên BaSa3D Admin ↗</a>` : ""}
+                </div>` : ""}
+              </div>
+            `;
+          })()}
+
+          <div style="margin:12px 0;">
+            <label style="font-size:12px; font-weight:600; color:var(--muted);">Phân loại:</label>
+            <select id="modalCatSelect" style="width:100%; margin-top:4px;">
+              ${cats.map(c => `<option value="${escapeHtml(c)}" ${c === cat ? "selected" : ""}>${escapeHtml(c)}</option>`).join("")}
+            </select>
+          </div>
+
+          <div style="margin:12px 0;">
+            <label style="font-size:12px; font-weight:600; color:var(--muted);">Ghi chú riêng:</label>
+            <input type="text" id="modalNoteInput" value="${escapeHtml(ov.note || "")}" placeholder="Ví dụ: In rất đẹp, cần AMS 4 màu..." style="width:100%; margin-top:4px;" />
+          </div>
+
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+            <button class="primary" id="btnCopyPath">📋 Copy đường dẫn</button>
+            ${liveMode ? `<button id="btnRevealFile">📂 Mở thư mục chứa file</button>` : `<a class="btn" href="${fileUrl}" target="_blank">📂 Mở file</a>`}
+            ${item.meta?.siblingRef ? `<button id="btnJumpSibling">🔗 Bản ${escapeHtml(item.meta.siblingRef.kind)} cùng mẫu (${escapeHtml(item.meta.siblingRef.name)})</button>` : ""}
+            ${liveMode ? `<button id="btnDeleteReal" style="color:var(--danger); border-color:#fca5a5;">🗑 Xóa (Thùng rác)</button>` : ""}
+          </div>
+
+          ${Array.isArray(item.meta?.bundleItems) && item.meta.bundleItems.length ? `
+            <div style="margin-top:14px; font-size:12px; font-weight:700; color:var(--text);">
+              📦 Tất cả bản in / mảnh trong cụm (${item.meta.bundleItems.length} file):
+            </div>
+            <div style="max-height:240px; overflow:auto; border:1px solid var(--border); border-radius:8px; margin-top:6px; background:var(--surface-2);">
+              ${item.meta.bundleItems.map(sub => {
+                const sp = computeBaSaPrice({ meta: { printInfo: sub.printInfo } });
+                return `
+                  <div style="display:flex; align-items:center; gap:8px; padding:6px 8px; border-bottom:1px solid var(--border); font-size:12px;">
+                    ${sub.thumb ? `<img src="${escapeHtml(sub.thumb)}" style="width:42px; height:32px; object-fit:cover; border-radius:5px; flex-shrink:0;" />` : `<div style="width:42px; height:32px; border-radius:5px; background:#e2e8f0; display:flex; align-items:center; justify-content:center; font-size:10px; flex-shrink:0;">3MF</div>`}
+                    <div style="min-width:0; flex:1;">
+                      <div style="font-weight:600; word-break:break-word;">${escapeHtml(sub.name)}</div>
+                      <div style="color:var(--muted); font-size:11px;">
+                        ${formatSize(sub.size)}${sp ? ` • ${sp.grams}g • ${formatDuration(sp.printMinutes)}` : ""}${sp?.sizeMm ? ` • ${sp.sizeMm.join("×")}mm` : ""}
+                      </div>
+                    </div>
+                    ${sp ? `<span class="price-pill ${sp.source === "SLICED" ? "sliced" : "mesh"}" style="flex-shrink:0;">${sp.source === "SLICED" ? "🟢" : "🟡 ~"}${formatVnd(sp.finalPriceVnd)}</span>` : ""}
+                  </div>
+                `;
+              }).join("")}
+            </div>
+          ` : (item.containedSample && item.containedSample.length ? `
+            <div style="margin-top:14px; font-size:12px; font-weight:600; color:var(--muted);">
+              File bên trong (${item.containedCount}${item.containedCount >= 40 ? "+" : ""}):
+            </div>
+            <div class="file-list">${escapeHtml(item.containedSample.join("\n"))}</div>
+          ` : "")}
+        </div>
+      `;
+
+      document.getElementById("modalCatSelect").onchange = async e => {
+        const updated = await changeItemCategory(item, e.target.value);
+        if (updated) {
+          item = updated;
+          const fv = document.getElementById("modalFolderVal");
+          if (fv) fv.textContent = item.folder || "(Gốc)";
+        }
+      };
+      document.getElementById("modalNoteInput").oninput = e => {
+        setOv(item.id, { note: e.target.value });
+        updateReviews([{ id: item.id, note: e.target.value }]);
+      };
+      document.getElementById("modalDisplayNameInput").onchange = e => {
+        updateReviews([{ id: item.id, displayName: e.target.value }]);
+        showToast("✓ Đã lưu tên sản phẩm");
+      };
+      document.querySelectorAll("#modalRevSeg button").forEach(btn => {
+        btn.onclick = () => {
+          const st = btn.dataset.st;
+          document.querySelectorAll("#modalRevSeg button").forEach(b => b.classList.toggle("active", b === btn));
+          document.getElementById("modalDeferWrap").style.display = st === "DEFERRED" ? "block" : "none";
+          const reason = st === "DEFERRED" ? (document.getElementById("modalDeferReasonSel").value || "NOT_PRINTED") : "";
+          const dn = document.getElementById("modalDisplayNameInput").value;
+          updateReviews([{ id: item.id, status: st, deferReason: reason, displayName: dn }]);
+        };
+      });
+      document.getElementById("modalDeferReasonSel").onchange = e => {
+        updateReviews([{ id: item.id, status: "DEFERRED", deferReason: e.target.value }]);
+      };
+      document.getElementById("btnCopyPath").onclick = () => {
+        const p = getFullPath();
+        navigator.clipboard?.writeText(p);
+        showToast("Đã copy: " + p);
+      };
+      const revealBtn = document.getElementById("btnRevealFile");
+      if (revealBtn) {
+        revealBtn.onclick = async () => {
+          revealBtn.disabled = true;
+          try {
+            const res = await apiPost("/api/reveal", { relPath: item.relPath || item.name });
+            showToast("📂 Đã mở Explorer: " + (res.path || item.relPath || item.name));
+          } catch (err) {
+            alert("Không mở được thư mục: " + err.message);
+          } finally {
+            revealBtn.disabled = false;
+          }
+        };
+      }
+      const sibBtn = document.getElementById("btnJumpSibling");
+      if (sibBtn && item.meta?.siblingRef) {
+        sibBtn.onclick = () => {
+          const target = rawItems.find(x => x.id === item.meta.siblingRef.id);
+          if (target) openDetail(target);
+        };
+      }
+      const delBtn = document.getElementById("btnDeleteReal");
+      if (delBtn) {
+        delBtn.onclick = () => deleteItemReal(item);
+      }
+
+      document.getElementById("detailModal").showModal();
+    }
+
+    // Filters
+    document.getElementById("searchInput").oninput = e => { state.search = e.target.value; state.page = 1; render(); };
+    document.getElementById("typeFilter").onchange = e => { state.type = e.target.value; state.page = 1; render(); };
+    document.getElementById("thumbFilter").onchange = e => { state.thumb = e.target.value; state.page = 1; render(); };
+    document.getElementById("sizeFilter").onchange = e => { state.size = e.target.value; state.page = 1; render(); };
+    document.getElementById("zipFilter").onchange = e => { state.zip = e.target.value; state.page = 1; render(); };
+    document.getElementById("priceFilter").onchange = e => { state.price = e.target.value; state.page = 1; render(); };
+    document.getElementById("specialFilter").onchange = e => { state.special = e.target.value; state.page = 1; render(); };
+    document.getElementById("sortBy").onchange = e => { state.sort = e.target.value; state.page = 1; render(); };
+    document.getElementById("chkShowAll").onchange = e => { state.showAll = e.target.checked; state.page = 1; render(); };
+
+    const CHART_COLORS = ["#2563eb", "#0f766e", "#f59e0b", "#7c3aed", "#ec4899", "#ef4444", "#06b6d4", "#84cc16", "#64748b", "#a855f7"];
+
+    function buildDonutSvg(segments, centerTop, centerSub) {
+      const total = segments.reduce((s, x) => s + x.value, 0) || 1;
+      const r = 56;
+      const c = 2 * Math.PI * r;
+      let offset = 0;
+      const circles = segments.filter(s => s.value > 0).map(seg => {
+        const len = (seg.value / total) * c;
+        const el = `<circle cx="72" cy="72" r="${r}" fill="transparent" stroke="${seg.color}" stroke-width="22" stroke-dasharray="${len.toFixed(2)} ${c.toFixed(2)}" stroke-dashoffset="${(-offset).toFixed(2)}" transform="rotate(-90 72 72)"><title>${escapeHtml(seg.label)}: ${seg.displayVal}</title></circle>`;
+        offset += len;
+        return el;
+      }).join("");
+      return `
+        <svg width="144" height="144" viewBox="0 0 144 144" style="flex-shrink:0;">
+          <circle cx="72" cy="72" r="${r}" fill="transparent" stroke="#e2e8f0" stroke-width="22" />
+          ${circles}
+          <text x="72" y="69" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">${escapeHtml(centerTop)}</text>
+          <text x="72" y="86" text-anchor="middle" font-size="10" fill="#64748b">${escapeHtml(centerSub)}</text>
+        </svg>
+      `;
+    }
+
+    function applyFilterFromAnalytics(patch) {
+      Object.assign(state, patch);
+      state.page = 1;
+      document.getElementById("typeFilter").value = state.type;
+      document.getElementById("sizeFilter").value = state.size;
+      document.getElementById("zipFilter").value = state.zip;
+      document.getElementById("sortBy").value = state.sort;
+      document.getElementById("analyticsModal").close();
+      render();
+    }
+
+    function openAnalyticsModal() {
+      const totalBytes = rawItems.reduce((s, x) => s + (x.size || 0), 0);
+
+      // 1. Category storage breakdown
+      const catMap = new Map();
+      rawItems.forEach(x => {
+        const c = effectiveCat(x);
+        const cur = catMap.get(c) || { count: 0, bytes: 0 };
+        cur.count++;
+        cur.bytes += (x.size || 0);
+        catMap.set(c, cur);
+      });
+      const catSegs = Array.from(catMap.entries())
+        .sort((a, b) => b[1].bytes - a[1].bytes)
+        .map(([label, v], i) => ({
+          label,
+          value: v.bytes,
+          count: v.count,
+          displayVal: `${formatSize(v.bytes)} (${v.count})`,
+          color: CHART_COLORS[i % CHART_COLORS.length],
+          pct: totalBytes ? ((v.bytes / totalBytes) * 100).toFixed(1) : "0"
+        }));
+
+      // 2. Size tiers
+      const tiers = [
+        { key: "gte1g", label: "Siêu nặng (≥ 1 GB)", match: b => b >= 1024 ** 3, color: "#dc2626" },
+        { key: "200m_1g", label: "Nặng (200 MB – 1 GB)", match: b => b >= 200 * 1024 ** 2 && b < 1024 ** 3, color: "#ea580c" },
+        { key: "50m_200m", label: "Vừa lớn (50 – 200 MB)", match: b => b >= 50 * 1024 ** 2 && b < 200 * 1024 ** 2, color: "#d97706" },
+        { key: "10m_50m", label: "Trung bình (10 – 50 MB)", match: b => b >= 10 * 1024 ** 2 && b < 50 * 1024 ** 2, color: "#2563eb" },
+        { key: "1m_10m", label: "Nhẹ (1 – 10 MB)", match: b => b >= 1024 ** 2 && b < 10 * 1024 ** 2, color: "#0f766e" },
+        { key: "lt1m", label: "Siêu nhẹ (< 1 MB)", match: b => b > 0 && b < 1024 ** 2, color: "#64748b" },
+        { key: "zero", label: "Rỗng (0 Byte)", match: b => b === 0, color: "#991b1b" }
+      ].map(t => {
+        const sub = rawItems.filter(x => t.match(x.size || 0));
+        const bytes = sub.reduce((s, x) => s + (x.size || 0), 0);
+        return { ...t, count: sub.length, bytes };
+      });
+      const maxTierBytes = Math.max(...tiers.map(t => t.bytes), 1);
+
+      // 3. ZIP deep breakdown
+      const zips = rawItems.filter(x => x.kind === "zip");
+      const zipDefs = [
+        { key: "stl_only", label: "Chỉ chứa STL", color: "#7c3aed" },
+        { key: "both_3mf_stl", label: "Có cả 3MF + STL", color: "#2563eb" },
+        { key: "has_3mf", label: "Chỉ chứa 3MF", color: "#0ea5e9" },
+        { key: "nested_archive", label: "ZIP/RAR lồng bên trong", color: "#f59e0b" },
+        { key: "bad_zip", label: "ZIP lỗi / tải dở / 0 Byte", color: "#dc2626" },
+        { key: "disguised_3mf", label: "3MF bị đổi đuôi thành .zip", color: "#10b981" },
+        { key: "no_3d_print", label: "CAD / Ảnh / PDF / Code (ko STL/3MF)", color: "#64748b" },
+        { key: "obj_glb", label: "OBJ / GLB", color: "#ec4899" }
+      ];
+      const zipSegs = zipDefs.map(d => {
+        const matchFn = item => {
+          const zk = item.meta?.zipKind || "";
+          if (d.key === "bad_zip") return zk === "corrupt_zip" || zk === "empty_0b" || !!item.error;
+          if (d.key === "no_3d_print") return zk === "images_only" || zk === "cad_code_other";
+          return zk === d.key;
+        };
+        const sub = zips.filter(matchFn);
+        const bytes = sub.reduce((s, x) => s + (x.size || 0), 0);
+        return {
+          ...d,
+          value: sub.length,
+          bytes,
+          displayVal: `${sub.length} file (${formatSize(bytes)})`,
+          pct: zips.length ? ((sub.length / zips.length) * 100).toFixed(1) : "0"
+        };
+      }).filter(x => x.value > 0);
+
+      const topHeavy = [...rawItems].sort((a, b) => (b.size || 0) - (a.size || 0)).slice(0, 15);
+      const badZips = zips.filter(x => ["corrupt_zip", "empty_0b"].includes(x.meta?.zipKind) || x.error)
+        .sort((a, b) => (b.size || 0) - (a.size || 0));
+
+      document.getElementById("analyticsBody").innerHTML = `
+        <div class="chart-grid">
+          <div class="chart-card">
+            <h3>🥧 Dung lượng theo Nhóm (bấm để lọc)</h3>
+            <div class="donut-row">
+              ${buildDonutSvg(catSegs, formatSize(totalBytes), `${rawItems.length} file`)}
+              <div class="legend">
+                ${catSegs.map(s => `
+                  <div class="legend-item" data-filter-cat="${escapeHtml(s.label)}">
+                    <span class="legend-left"><span class="legend-dot" style="background:${s.color}"></span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(s.label)}</span></span>
+                    <span style="white-space:nowrap;color:var(--muted);">${formatSize(s.bytes)} (${s.pct}%)</span>
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <h3>🗜 Phân tích ${zips.length} file ZIP chứa gì (bấm để lọc)</h3>
+            <div class="donut-row">
+              ${buildDonutSvg(zipSegs, String(zips.length), "file .zip")}
+              <div class="legend">
+                ${zipSegs.map(s => `
+                  <div class="legend-item" data-filter-zip="${escapeHtml(s.key)}">
+                    <span class="legend-left"><span class="legend-dot" style="background:${s.color}"></span><span>${escapeHtml(s.label)}</span></span>
+                    <span style="white-space:nowrap;color:var(--muted);">${s.value} (${s.pct}%) • ${formatSize(s.bytes)}</span>
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <h3>📊 Phân bố file Nặng → Nhẹ (bấm để lọc)</h3>
+            <div class="bar-list">
+              ${tiers.map(t => `
+                <div class="bar-row" data-filter-size="${escapeHtml(t.key)}">
+                  <div class="bar-head">
+                    <span><strong>${escapeHtml(t.label)}</strong></span>
+                    <span style="color:var(--muted);">${t.count} file • ${formatSize(t.bytes)}</span>
+                  </div>
+                  <div class="bar-track">
+                    <div class="bar-fill" style="width:${Math.max(2, (t.bytes / maxTierBytes) * 100).toFixed(1)}%; background:${t.color};"></div>
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-grid">
+          <div class="chart-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <h3 style="margin:0;">🏋️ Top 15 file nặng nhất</h3>
+              <button id="btnFilterHeavy" style="padding:4px 9px; font-size:12px;">Lọc file ≥ 1 GB</button>
+            </div>
+            <table class="mini-table">
+              <thead><tr><th>File</th><th>Nhóm</th><th>Dung lượng</th></tr></thead>
+              <tbody>
+                ${topHeavy.map(x => `
+                  <tr style="cursor:pointer;" data-open-id="${x.id}">
+                    <td style="max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(x.name)}">${escapeHtml(x.name)}</td>
+                    <td>${escapeHtml(effectiveCat(x))}</td>
+                    <td style="white-space:nowrap; font-weight:700;">${formatSize(x.size)}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="chart-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <h3 style="margin:0;">⚠️ ${badZips.length} file ZIP hỏng / tải dở / 0 Byte</h3>
+              <button id="btnFilterBadZip" style="padding:4px 9px; font-size:12px;">Lọc tất cả ZIP lỗi ra ngoài</button>
+            </div>
+            <table class="mini-table">
+              <thead><tr><th>File</th><th>Trạng thái</th><th>Dung lượng</th></tr></thead>
+              <tbody>
+                ${badZips.slice(0, 15).map(x => `
+                  <tr style="cursor:pointer;" data-open-id="${x.id}">
+                    <td style="max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(x.name)}">${escapeHtml(x.name)}</td>
+                    <td style="color:var(--danger);">${x.size === 0 ? "0 Byte (rỗng)" : "Tải dở / lỗi"}</td>
+                    <td style="white-space:nowrap;">${formatSize(x.size)}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+
+      const body = document.getElementById("analyticsBody");
+      body.querySelectorAll("[data-filter-cat]").forEach(el => {
+        el.onclick = () => applyFilterFromAnalytics({ category: el.dataset.filterCat, type: "all", size: "all", zip: "all" });
+      });
+      body.querySelectorAll("[data-filter-zip]").forEach(el => {
+        el.onclick = () => applyFilterFromAnalytics({ category: "ALL", type: "zip", size: "all", zip: el.dataset.filterZip });
+      });
+      body.querySelectorAll("[data-filter-size]").forEach(el => {
+        el.onclick = () => applyFilterFromAnalytics({ category: "ALL", type: "all", size: el.dataset.filterSize, zip: "all", sort: "size_desc" });
+      });
+      body.querySelectorAll("[data-open-id]").forEach(el => {
+        el.onclick = () => {
+          const item = rawItems.find(x => x.id === el.dataset.openId);
+          if (item) {
+            document.getElementById("analyticsModal").close();
+            openDetail(item);
+          }
+        };
+      });
+      document.getElementById("btnFilterHeavy").onclick = () =>
+        applyFilterFromAnalytics({ category: "ALL", type: "all", size: "gte1g", zip: "all", sort: "size_desc" });
+      document.getElementById("btnFilterBadZip").onclick = () =>
+        applyFilterFromAnalytics({ category: "ALL", type: "zip", size: "all", zip: "bad_zip", sort: "size_desc" });
+
+      document.getElementById("analyticsModal").showModal();
+    }
+
+    document.getElementById("btnAnalytics").onclick = openAnalyticsModal;
+
+    // Add category
+    document.getElementById("btnAddCat").onclick = async () => {
+      const name = prompt("Nhập tên nhóm phân loại mới (ví dụ: Keycap Artisan, Phụ kiện bàn làm việc):");
+      if (!name || !name.trim()) return;
+      const catName = name.trim();
+      if (liveMode) {
+        try {
+          const data = await apiPost("/api/mkdir", { category: catName });
+          if (Array.isArray(data.folders)) diskFolders = data.folders;
+          render();
+          showToast("Đã tạo thư mục thật: D:\\data3D\\" + data.folder);
+          return;
+        } catch (err) {
+          alert("Lỗi tạo thư mục: " + err.message);
+          return;
+        }
+      }
+      customCats.push(catName);
+      localStorage.setItem(CUSTOM_CATS_KEY, JSON.stringify(Array.from(new Set(customCats))));
+      render();
+      showToast("Đã thêm nhóm: " + catName);
+    };
+
+    document.getElementById("btnRescan").onclick = async () => {
+      if (!liveMode) return;
+      const btn = document.getElementById("btnRescan");
+      btn.disabled = true;
+      btn.textContent = "⏳ Đang quét lại...";
+      try {
+        await apiPost("/api/rescan", {});
+        const data = await (await fetch("/api/items", { cache: "no-store" })).json();
+        if (data.ok && Array.isArray(data.items)) {
+          rawItems = data.items;
+          diskFolders = data.folders || [];
+        }
+        render();
+        showToast("Đã quét lại xong D:\\data3D!");
+      } catch (err) {
+        alert("Lỗi quét lại: " + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "🔄 Quét lại thư mục";
+      }
+    };
+
+    // JSON Backup / Restore
+    document.getElementById("btnExportJson").onclick = () => document.getElementById("jsonModal").showModal();
+    document.getElementById("btnDownloadJson").onclick = () => {
+      const payload = { overrides, customCats, exportedAt: new Date().toISOString() };
+      downloadFile("3d_catalog_backup.json", JSON.stringify(payload, null, 2), "application/json");
+    };
+    document.getElementById("importJsonFile").onchange = e => {
+      const f = e.target.files?.[0];
+      if (!f) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(String(reader.result));
+          if (data.overrides) {
+            overrides = data.overrides;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
+          }
+          if (Array.isArray(data.customCats)) {
+            customCats = data.customCats;
+            localStorage.setItem(CUSTOM_CATS_KEY, JSON.stringify(customCats));
+          }
+          render();
+          document.getElementById("jsonModal").close();
+          showToast("Đã nạp lại dữ liệu phân loại!");
+        } catch {
+          alert("File JSON không hợp lệ.");
+        }
+      };
+      reader.readAsText(f);
+    };
+    document.getElementById("btnResetEdits").onclick = () => {
+      if (confirm("Xóa toàn bộ chỉnh sửa tay và quay về gợi ý mặc định?")) {
+        overrides = {};
+        localStorage.removeItem(STORAGE_KEY);
+        render();
+        document.getElementById("jsonModal").close();
+      }
+    };
+
+    // Export PowerShell Organize Script
+    document.getElementById("btnExportPs1").onclick = () => document.getElementById("exportModal").showModal();
+    document.getElementById("btnDownloadPs1").onclick = () => {
+      const targetRoot = (document.getElementById("targetDirInput").value || "D:\\data3D").replace(/\\+$/, "");
+      const dryRun = document.getElementById("chkDryRun").checked;
+      const includeAuto = document.getElementById("chkIncludeAuto").checked;
+      const moveTrash = document.getElementById("chkMoveTrash").checked;
+      const moveNon3d = document.getElementById("chkMoveNon3d").checked;
+
+      const sanitizeFolder = s => s.replace(/\s*\/\s*/g, " - ").replace(/[<>:"/\\|?*]/g, "-").trim();
+      const lines = [
+        "# Auto-generated by BaSa3D 3D Catalog",
+        `$ErrorActionPreference = "Stop"`,
+        `$SourceDir = "${catalogMeta.sourceDir.replace(/"/g, '`"')}"`,
+        `$TargetRoot = "${targetRoot.replace(/"/g, '`"')}"`,
+        `$DryRun = $${dryRun ? "true" : "false"}`,
+        "",
+        "function Move-CatalogFile([string]$RelPath, [string]$FolderName) {",
+        "    $src = Join-Path $SourceDir $RelPath",
+        "    if (-not (Test-Path -LiteralPath $src)) { return }",
+        "    $fileName = Split-Path -Leaf $src",
+        "    $destDir = Join-Path $TargetRoot $FolderName",
+        "    $dest = Join-Path $destDir $fileName",
+        "    if ($src -eq $dest) { return }",
+        "    if (-not $DryRun -and -not (Test-Path -LiteralPath $destDir)) {",
+        "        New-Item -ItemType Directory -Path $destDir -Force | Out-Null",
+        "    }",
+        "    if ($DryRun) {",
+        '        Write-Host "[DRY-RUN] $RelPath -> $FolderName"',
+        "    } else {",
+        "        Move-Item -LiteralPath $src -Destination $dest",
+        '        Write-Host "[MOVED] $RelPath -> $FolderName"',
+        "    }",
+        "}",
+        ""
+      ];
+
+      let count = 0;
+      for (const item of rawItems) {
+        const ov = getOv(item.id);
+        const isNon3d = ["image", "non3d"].includes(item.kind);
+        let destFolder = null;
+
+        if (ov.trash) {
+          if (moveTrash) destFolder = "_Trash_Review";
+        } else if (isNon3d) {
+          if (moveNon3d) destFolder = "_Non3D_Archive";
+        } else {
+          const cat = effectiveCat(item);
+          if (cat !== "Chưa phân loại" && (ov.manual || includeAuto)) {
+            destFolder = sanitizeFolder(cat);
+          } else if (cat === "Chưa phân loại") {
+            destFolder = "Chưa phân loại";
+          }
+        }
+
+        if (destFolder) {
+          const relWin = (item.relPath || item.name).replace(/\//g, "\\");
+          if (item.folder && item.folder === destFolder && targetRoot.toLowerCase() === catalogMeta.sourceDir.toLowerCase()) {
+            continue;
+          }
+          const safeRel = relWin.replace(/"/g, '`"');
+          const safeFold = destFolder.replace(/"/g, '`"');
+          lines.push(`Move-CatalogFile "${safeRel}" "${safeFold}"`);
+          count++;
+        }
+      }
+
+      lines.push("", `Write-Host "Hoan tat! Tong file xu ly: ${count} (DryRun=$DryRun)"`);
+      // UTF-8 BOM for PowerShell 5.1 compatibility with Vietnamese paths
+      const content = "\uFEFF" + lines.join("\r\n");
+      downloadFile("organize_3d_library.ps1", content, "text/plain;charset=utf-8");
+      document.getElementById("exportModal").close();
+      showToast(`Đã xuất script cho ${count} file!`);
+    };
+
+    function downloadFile(filename, content, mime) {
+      const blob = new Blob([content], { type: mime });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }
+
+    let lastExtraDupIds = [];
+
+    document.getElementById("btnDedup").onclick = () => {
+      document.getElementById("dedupModal").showModal();
+    };
+
+    document.getElementById("btnRunFolderCheck").onclick = async () => {
+      const folderPath = document.getElementById("checkFolderInput").value.trim();
+      const box = document.getElementById("folderCheckResult");
+      if (!folderPath) return;
+      box.innerHTML = `<div style="color:var(--muted); font-size:13px;">⏳ Đang đối chiếu với dấu vân tay của D:\\data3D...</div>`;
+      try {
+        const data = await apiPost("/api/index/check_folder", { folderPath });
+        const rows = data.results || [];
+        const counts = {
+          new: rows.filter(x => x.status === "new").length,
+          exact_dup: rows.filter(x => x.status === "exact_dup").length,
+          inside_zip: rows.filter(x => x.status === "inside_zip").length,
+          name_similar: rows.filter(x => x.status === "name_similar").length
+        };
+        const labelMap = {
+          exact_dup: ["🔴 Trùng 100%", "#dc2626"],
+          inside_zip: ["🟠 Đã nằm trong ZIP", "#d97706"],
+          name_similar: ["🟡 Tên tương tự", "#2563eb"],
+          new: ["✅ File mới", "#16a34a"]
+        };
+        const sorted = [...rows].sort((a, b) => {
+          const order = { exact_dup: 0, inside_zip: 1, name_similar: 2, new: 3 };
+          return (order[a.status] ?? 9) - (order[b.status] ?? 9);
+        });
+        box.innerHTML = `
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; font-size:12px;">
+            <span class="pill">Tổng file 3D ở thư mục: <strong>${rows.length}</strong></span>
+            <span class="pill" style="color:#dc2626;">🔴 Trùng 100%: <strong>${counts.exact_dup}</strong></span>
+            <span class="pill" style="color:#d97706;">🟠 Đã nằm trong ZIP: <strong>${counts.inside_zip}</strong></span>
+            <span class="pill" style="color:#2563eb;">🟡 Trùng tên tương tự: <strong>${counts.name_similar}</strong></span>
+            <span class="pill" style="color:#16a34a;">✅ Mới hoàn toàn: <strong>${counts.new}</strong></span>
+          </div>
+          <div style="max-height:280px; overflow:auto; border:1px solid var(--border); border-radius:8px;">
+            <table class="mini-table">
+              <thead><tr><th>File kiểm tra</th><th>Dung lượng</th><th>Kết quả</th><th>Trùng với trong D:\\data3D</th></tr></thead>
+              <tbody>
+                ${sorted.map(r => {
+                  const [lbl, col] = labelMap[r.status] || [r.status, "#64748b"];
+                  return `
+                    <tr>
+                      <td style="max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(r.file)}">${escapeHtml(r.file)}</td>
+                      <td style="white-space:nowrap;">${formatSize(r.size)}</td>
+                      <td style="white-space:nowrap; font-weight:700; color:${col};">${lbl}</td>
+                      <td style="font-size:11px; color:var(--muted);">${escapeHtml((r.matches || []).join(" | ") || "—")}</td>
+                    </tr>
+                  `;
+                }).join("")}
+              </tbody>
+            </table>
+          </div>
+        `;
+      } catch (err) {
+        if (err.status === 404) {
+          box.innerHTML = `<div style="color:var(--danger); font-size:13px;">Cần đóng cửa sổ <code>Start_Catalog.bat</code> cũ và mở lại <code>Start_Catalog.bat</code> để nạp API check trùng mới!</div>`;
+        } else {
+          box.innerHTML = `<div style="color:var(--danger); font-size:13px;">Lỗi: ${escapeHtml(err.message)}</div>`;
+        }
+      }
+    };
+
+    document.getElementById("btnScanInternalDups").onclick = async () => {
+      const box = document.getElementById("internalDupResult");
+      const delBtn = document.getElementById("btnDeleteExtraDups");
+      box.innerHTML = `<div style="color:var(--muted);">⏳ Đang kiểm tra SHA-256 trong D:\\data3D...</div>`;
+      delBtn.style.display = "none";
+      try {
+        const res = await fetch("/api/index/dups", { cache: "no-store" });
+        if (res.status === 404) {
+          box.innerHTML = `<div style="color:var(--danger);">Cần đóng cửa sổ <code>Start_Catalog.bat</code> cũ và mở lại <code>Start_Catalog.bat</code> để dùng tính năng quét SHA-256!</div>`;
+          return;
+        }
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "API error");
+        const groups = data.groups || [];
+        const wasted = groups.reduce((s, g) => s + (g.wastedBytes || 0), 0);
+        lastExtraDupIds = [];
+        groups.forEach(g => {
+          const entries = g.entries || [];
+          // Keep the first shortest/cleanest filename, mark extras for cleanup
+          const sorted = [...entries].sort((a, b) => a.relPath.length - b.relPath.length);
+          sorted.slice(1).forEach(e => { if (e.id) lastExtraDupIds.push(e.id); });
+        });
+        if (!groups.length) {
+          box.innerHTML = `<div style="color:#16a34a; font-weight:600;">✅ Tuyệt vời! Hiện không có file nào trùng 100% trong D:\\data3D. (Đã đánh dấu ${data.stats?.totalFiles || 0} file & ${data.stats?.totalZipEntries || 0} mục trong ZIP)</div>`;
+          return;
+        }
+        if (lastExtraDupIds.length > 0) {
+          delBtn.style.display = "inline-flex";
+          delBtn.textContent = `🗑 Xóa ${lastExtraDupIds.length} bản thừa (${formatSize(wasted)} vào Thùng rác)`;
+        }
+        box.innerHTML = `
+          <div style="margin-bottom:8px;">Tìm thấy <strong>${groups.length} nhóm trùng SHA-256</strong> (lãng phí <strong>${formatSize(wasted)}</strong>). Đã index <strong>${data.stats?.totalFiles || 0}</strong> file & <strong>${data.stats?.totalZipEntries || 0}</strong> mục trong ZIP.</div>
+          <div style="max-height:260px; overflow:auto; border:1px solid var(--border); border-radius:8px;">
+            <table class="mini-table">
+              <thead><tr><th>Dung lượng</th><th>Các file giống hệt nhau 100%</th></tr></thead>
+              <tbody>
+                ${groups.map(g => `
+                  <tr>
+                    <td style="white-space:nowrap; font-weight:700;">${formatSize(g.size)}</td>
+                    <td style="font-size:11px;">${g.files.map(f => escapeHtml(f)).join("<br/>")}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        `;
+      } catch (err) {
+        box.innerHTML = `<div style="color:var(--danger);">Lỗi: ${escapeHtml(err.message)}</div>`;
+      }
+    };
+
+    document.getElementById("btnDeleteExtraDups").onclick = async () => {
+      if (!lastExtraDupIds.length) return;
+      if (!confirm(`Đưa ${lastExtraDupIds.length} bản trùng thừa vào Thùng rác Windows (mỗi nhóm vẫn giữ nguyên 1 bản gốc)?`)) return;
+      const btn = document.getElementById("btnDeleteExtraDups");
+      btn.disabled = true;
+      try {
+        const data = await apiPost("/api/delete_batch", { ids: lastExtraDupIds });
+        const removed = new Set(data.deletedIds || lastExtraDupIds);
+        rawItems = rawItems.filter(x => !removed.has(x.id));
+        render();
+        showToast(`🗑 Đã dọn ${removed.size} bản trùng thừa vào Thùng rác!`);
+        document.getElementById("btnScanInternalDups").click();
+      } catch (err) {
+        alert("Lỗi xóa bản trùng: " + err.message);
+      } finally {
+        btn.disabled = false;
+      }
+    };
+
+    async function initLiveMode() {
+      if (location.protocol !== "http:" && location.protocol !== "https:") return;
+      try {
+        const res = await fetch("/api/health", { cache: "no-store" });
+        const info = await res.json();
+        if (info && info.live) {
+          liveMode = true;
+          diskFolders = Array.isArray(info.folders) ? info.folders : [];
+          const badge = document.getElementById("liveBadge");
+          badge.textContent = "🟢 Live Sync: Đổi nhóm / Xóa sẽ đổi file thật";
+          badge.style.background = "#dcfce7";
+          badge.style.borderColor = "#86efac";
+          badge.style.color = "#166534";
+          document.getElementById("btnSyncBaSa3D").style.display = "inline-flex";
+          document.getElementById("btnDedup").style.display = "inline-flex";
+          document.getElementById("btnRescan").style.display = "inline-flex";
+          document.getElementById("btnExportPs1").style.display = "none";
+          const itemsRes = await fetch("/api/items", { cache: "no-store" });
+          const itemsData = await itemsRes.json();
+          if (itemsData.ok && Array.isArray(itemsData.items)) {
+            rawItems = itemsData.items;
+            diskFolders = itemsData.folders || diskFolders;
+            if (itemsData.basa3dSync) applyBaSa3dSyncData(itemsData.basa3dSync, true);
+            if (itemsData.reviews && typeof itemsData.reviews === "object") {
+              const serverHasReviews = Object.keys(itemsData.reviews).length > 0;
+              const localEntries = Object.entries(reviews || {});
+              if (serverHasReviews) {
+                reviews = itemsData.reviews;
+                localStorage.setItem(REVIEW_STORAGE_KEY, JSON.stringify(reviews));
+              } else if (localEntries.length > 0) {
+                apiPost("/api/review", {
+                  updates: localEntries.map(([id, v]) => ({ id, ...v })),
+                }).catch(() => {});
+              }
+            }
+          }
+          render();
+          // Quiet background sync with BaSa3D Dev DB for live pricing + DRAFT/ACTIVE status
+          syncWithBaSa3dDev(true);
+        }
+      } catch {
+        // Fallback to static file mode
+      }
+    }
+
+    const PRICING_FIELDS = [
+      ["plaVndPerGram", "Nhựa PLA (đ / gram)", 1],
+      ["petgVndPerGram", "Nhựa PETG (đ / gram)", 1],
+      ["absVndPerGram", "Nhựa ABS / ASA (đ / gram)", 1],
+      ["tpuVndPerGram", "Nhựa TPU (đ / gram)", 1],
+      ["electricityVndPerKwh", "Giá điện (đ / kWh)", 100],
+      ["printerPowerKw", "Công suất máy in (kW)", 0.05],
+      ["machinePriceVnd", "Giá mua máy (đ)", 500000],
+      ["machineLifetimeHours", "Tuổi thọ máy (giờ)", 500],
+      ["failureBufferPct", "Dự phòng in lỗi (%)", 1],
+      ["laborVndPerHour", "Công thợ (đ / giờ)", 1000],
+      ["laborMinutesPerPlate", "Số phút công / bàn in", 1],
+      ["packagingFeeVnd", "Phí đóng gói (đ)", 500],
+      ["marginPct", "Biên lợi nhuận margin (%)", 1],
+      ["minPriceVnd", "Giá sàn tối thiểu (đ)", 1000],
+    ];
+
+    function renderPricingCfgFields() {
+      document.getElementById("pricingCfgGrid").innerHTML = PRICING_FIELDS.map(([key, label, step]) => `
+        <div class="cfg-field">
+          <label for="cfg_${key}">${label}</label>
+          <input type="number" step="${step}" id="cfg_${key}" value="${pricingCfg[key] ?? 0}" />
+        </div>
+      `).join("");
+    }
+
+    document.getElementById("btnPricingCfg").onclick = () => {
+      renderPricingCfgFields();
+      document.getElementById("pricingModal").showModal();
+    };
+
+    document.getElementById("btnResetPricingCfg").onclick = () => {
+      pricingCfg = { ...DEFAULT_BASA_PRICING_CFG };
+      localStorage.setItem(PRICING_CFG_KEY, JSON.stringify(pricingCfg));
+      pricingCfgVersion++;
+      renderPricingCfgFields();
+      render();
+      showToast("Đã khôi phục cấu hình giá mặc định BaSa3D");
+    };
+
+    document.getElementById("btnSavePricingCfg").onclick = () => {
+      const next = { ...pricingCfg };
+      PRICING_FIELDS.forEach(([key]) => {
+        const val = Number(document.getElementById(`cfg_${key}`)?.value);
+        if (Number.isFinite(val) && val >= 0) next[key] = val;
+      });
+      if (next.marginPct >= 95) next.marginPct = 95;
+      if (next.machineLifetimeHours <= 0) next.machineLifetimeHours = 1;
+      pricingCfg = next;
+      localStorage.setItem(PRICING_CFG_KEY, JSON.stringify(pricingCfg));
+      pricingCfgVersion++;
+      document.getElementById("pricingModal").close();
+      render();
+      showToast("✓ Đã cập nhật lại giá toàn bộ Catalog");
+    };
+
+    document.getElementById("btnExportPhase2Specs").onclick = () => {
+      const exportRows = rawItems
+        .filter(it => !["image", "non3d"].includes(it.kind))
+        .map(it => {
+          const pr = computeBaSaPrice(it);
+          if (!pr) return null;
+          const ov = getOv(it.id);
+          return {
+            id: it.id,
+            name: it.name,
+            title: it.meta?.title || null,
+            designer: it.meta?.designer || null,
+            category: effectiveCat(it),
+            relPath: it.relPath,
+            ext: it.ext,
+            thumb: it.thumb,
+            fav: !!ov.fav,
+            note: ov.note || "",
+            specs: {
+              source: pr.source,
+              grams: pr.grams,
+              printMinutes: pr.printMinutes,
+              plateCount: pr.plateCount,
+              sizeMm: pr.sizeMm,
+              volumeCm3: pr.volumeCm3,
+              exceedsBed: pr.exceedsBed,
+              filaments: pr.materialLines,
+            },
+            pricing: {
+              finalPriceVnd: pr.finalPriceVnd,
+              totalCostVnd: pr.totalCostVnd,
+              materialCostVnd: pr.materialCostVnd,
+              electricityCostVnd: pr.electricityCostVnd,
+              machineDepreciationVnd: pr.machineDepreciationVnd,
+              failureBufferVnd: pr.failureBufferVnd,
+              laborCostVnd: pr.laborCostVnd,
+              packagingFeeVnd: pr.packagingFeeVnd,
+            },
+          };
+        })
+        .filter(Boolean);
+      const blob = new Blob([JSON.stringify({ pricingConfig: pricingCfg, count: exportRows.length, items: exportRows }, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `basa3d_phase2_specs_pricing_${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      showToast(`📤 Đã xuất ${exportRows.length} mẫu (chỉ thông số & giá, không file gốc)`);
+    };
+
+    document.getElementById("deferReasonFilter").onchange = e => {
+      state.deferReason = e.target.value;
+      state.page = 1;
+      render();
+    };
+
+    function getApprovedItemsList() {
+      return rawItems.filter(it => getReview(it.id).status === "APPROVED");
+    }
+
+    function renderPushQueueSection(justFinishedMsg) {
+      const approved = getApprovedItemsList();
+      const summaryEl = document.getElementById("pushModalSummary");
+      const tableEl = document.getElementById("pushModalTable");
+      const exportBtn = document.getElementById("btnDoExportJsonOnly");
+      const pushBtn = document.getElementById("btnDoAutoPushDev");
+      const closeBtn = document.getElementById("btnPushCloseFooter");
+      const markWrap = document.getElementById("chkMarkPushedOnExport")?.closest("label");
+
+      if (approved.length) {
+        summaryEl.innerHTML = `Đang có <strong>${approved.length}</strong> mẫu đã tick duyệt. Hệ thống sẽ tạo JSON gồm toàn bộ profile/biến thể, giá &amp; chỉ ảnh preview (tuyệt đối không đẩy file <code>.3mf/.stl</code> gốc).`;
+        tableEl.style.display = "block";
+        tableEl.innerHTML = `
+          <table class="mini-table">
+            <thead><tr><th>Tên sản phẩm</th><th>Danh mục</th><th>Biến thể</th><th>Giá đề xuất</th><th>Ảnh</th></tr></thead>
+            <tbody>
+              ${approved.map(it => {
+                const rv = getReview(it.id);
+                const name = rv.displayName || (it.meta?.title || it.name).replace(/\.(3mf|stl|zip)$/i, "");
+                const variantsCnt = it.kind === "3mf_bundle" ? (it.meta?.bundleItems?.length || 1) : 1;
+                const pr = computeBaSaPrice(it);
+                return `
+                  <tr>
+                    <td><strong>${escapeHtml(name)}</strong></td>
+                    <td>${escapeHtml(effectiveCat(it))}</td>
+                    <td>${variantsCnt} profile</td>
+                    <td>${pr ? formatVnd(pr.finalPriceVnd) : "Chưa có giá"}</td>
+                    <td>${it.thumb ? "✅ Có ảnh" : "⚠️ Thiếu ảnh"}</td>
+                  </tr>
+                `;
+              }).join("")}
+            </tbody>
+          </table>
+        `;
+        if (markWrap) markWrap.style.display = "flex";
+        exportBtn.style.display = "inline-flex";
+        exportBtn.disabled = false;
+        pushBtn.style.display = "inline-flex";
+        pushBtn.disabled = !liveMode;
+        pushBtn.textContent = `🚀 Đẩy tự động lên BaSa3D Dev (${approved.length})`;
+        closeBtn.className = "";
+        closeBtn.textContent = "Đóng";
+      } else {
+        summaryEl.innerHTML = justFinishedMsg
+          ? `✅ <strong>${escapeHtml(justFinishedMsg)}</strong> Toàn bộ mẫu vừa đẩy đã được chuyển sang cụm <strong>🚀 Đã đẩy BaSa3D</strong>.`
+          : `Chưa có mẫu nào ở trạng thái <strong>✅ Đã duyệt chờ đẩy</strong>. Hãy bấm nút <strong>✓ Duyệt</strong> trên thẻ sản phẩm hoặc dùng checkbox hàng loạt trước nhé.`;
+        tableEl.style.display = "none";
+        tableEl.innerHTML = "";
+        if (markWrap) markWrap.style.display = "none";
+        exportBtn.style.display = "none";
+        pushBtn.style.display = "none";
+        closeBtn.className = "primary";
+        closeBtn.textContent = justFinishedMsg ? "✓ Hoàn tất & Đóng" : "Đóng";
+      }
+    }
+
+    function openPushModal() {
+      const box = document.getElementById("pushResultBox");
+      box.style.display = "none";
+      box.innerHTML = "";
+      renderPushQueueSection("");
+      document.getElementById("pushModal").showModal();
+    }
+
+    document.getElementById("btnPushBaSa3D").onclick = openPushModal;
+
+    document.getElementById("btnDoExportJsonOnly").onclick = async () => {
+      const approved = getApprovedItemsList();
+      if (!approved.length) {
+        renderPushQueueSection("");
+        return;
+      }
+      const markPushed = document.getElementById("chkMarkPushedOnExport").checked;
+      const btn = document.getElementById("btnDoExportJsonOnly");
+      btn.disabled = true;
+      try {
+        if (liveMode) {
+          const data = await apiPost("/api/push_basa3d", {
+            exportOnly: true,
+            markPushed,
+            pricingCfg,
+            ids: approved.map(x => x.id),
+          });
+          if (data.reviews) {
+            reviews = data.reviews;
+            localStorage.setItem(REVIEW_STORAGE_KEY, JSON.stringify(reviews));
+          }
+          const blob = new Blob([JSON.stringify(data.payload, null, 2)], { type: "application/json" });
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = data.exportFilename || `basa3d_export_${new Date().toISOString().slice(0,10)}.json`;
+          a.click();
+          URL.revokeObjectURL(a.href);
+          const box = document.getElementById("pushResultBox");
+          box.style.display = "block";
+          box.innerHTML = `✅ Đã xuất <strong>${data.count}</strong> mẫu ra <code>${escapeHtml(data.exportPath)}</code>${markPushed ? " và phân cụm sang <strong>🚀 Đã đẩy BaSa3D</strong>." : "."}`;
+          render();
+          renderPushQueueSection(markPushed ? `Đã xuất ${data.count} mẫu JSON.` : "");
+        } else {
+          alert("Cần bật Start_Catalog.bat (Live Sync) để tạo JSON đầy đủ biến thể và lưu trạng thái lên ổ đĩa.");
+        }
+      } catch (err) {
+        alert("Lỗi xuất JSON: " + err.message);
+      } finally {
+        btn.disabled = false;
+      }
+    };
+
+    document.getElementById("btnSyncBaSa3D").onclick = () => syncWithBaSa3dDev(false);
+
+    function renderPushProgressHtml(job, clientElapsedSec) {
+      const total = Math.max(1, Number(job.total) || 1);
+      const completed = Number(job.completed) || 0;
+      const elapsed = job.done ? (job.elapsedSec || clientElapsedSec || 0) : (clientElapsedSec ?? job.elapsedSec ?? 0);
+      // Show smooth visual progress while waiting for startup or next item
+      const rawPct = Number(job.percent) || 0;
+      const pct = job.done ? 100 : Math.max(4, Math.min(96, rawPct || Math.round((completed + 0.35) * 100 / total)));
+      const logs = Array.isArray(job.logs) ? job.logs : [];
+      const errCnt = Number(job.errorCount) || 0;
+      const statusText = !job.done
+        ? `<span class="push-spinner"></span>Đang xử lý <strong>${Math.min(completed + 1, total)}/${total}</strong> (${Math.round(rawPct)}%) — ${escapeHtml(job.currentName || "Đang khởi tạo...")}`
+        : (errCnt > 0 && !(job.pushedCount > 0)
+            ? `❌ Hoàn tất với ${errCnt} lỗi (${elapsed}s)`
+            : `🎉 Hoàn tất: Tạo mới ${job.createdCount || 0}, Cập nhật ${job.updatedCount || 0}${errCnt ? `, Lỗi ${errCnt}` : ""} (${elapsed}s)`);
+
+      const activeRowHtml = !job.done && job.currentName ? `
+        <div class="push-log-item active">
+          <span><span class="push-spinner"></span><strong>Đang upload WebP &amp; ghi DB:</strong> ${escapeHtml(job.currentName)}</span>
+          <span style="font-size:11px;">#${Math.min(completed + 1, total)}/${total}</span>
+        </div>
+      ` : "";
+
+      const logsHtml = logs.map(l => {
+        const isErr = l.action === "ERROR";
+        const icon = isErr ? "❌" : l.action === "UPDATE" ? "🔄" : l.action === "SKIP" ? "⏭" : "✅";
+        const linkPart = (!isErr && l.productId)
+          ? `<a class="basa3d-link-pill" href="${basa3dUrl}/admin/products/${encodeURIComponent(l.productId)}" target="_blank">Mở SP ↗</a>`
+          : "";
+        return `
+          <div class="push-log-item ${isErr ? "err" : "ok"}">
+            <span>${icon} <strong>#${l.index} ${escapeHtml(l.name)}</strong> ${l.sku ? `<code style="font-size:10px;">${escapeHtml(l.sku)}</code>` : ""}${l.error ? ` — ${escapeHtml(l.error)}` : ""}</span>
+            ${linkPart}
+          </div>
+        `;
+      }).reverse().join("");
+
+      const footerLinks = job.done ? `
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:4px;">
+          <a class="basa3d-link-pill" href="${basa3dUrl}/admin/stl-import" target="_blank">🔗 Mở Kho nhập STL trên BaSa3D Admin ↗</a>
+          <a class="basa3d-link-pill" href="${basa3dUrl}/admin/products" target="_blank">📦 Danh sách Sản phẩm BaSa3D ↗</a>
+          ${job.exportPath ? `<span style="font-size:11px; color:var(--muted);">JSON: <code>${escapeHtml(job.exportPath)}</code></span>` : ""}
+        </div>
+      ` : "";
+
+      const fatalHtml = job.fatalError
+        ? `<div style="color:var(--danger); font-size:12px;">${escapeHtml(job.fatalError)}</div>`
+        : "";
+
+      return `
+        <div class="push-progress-wrap">
+          <div class="push-progress-head">
+            <span>${statusText}</span>
+            <span style="color:var(--muted); font-variant-numeric:tabular-nums;">${Number(elapsed).toFixed(1)}s</span>
+          </div>
+          <div class="push-progress-bar">
+            <div class="push-progress-fill ${!job.done ? "running" : ""} ${errCnt > 0 ? "has-error" : ""}" style="width:${pct}%;"></div>
+          </div>
+          ${fatalHtml}
+          ${(activeRowHtml || logsHtml) ? `<div class="push-log-list">${activeRowHtml}${logsHtml}</div>` : ""}
+          ${footerLinks}
+        </div>
+      `;
+    }
+
+    document.getElementById("btnDoAutoPushDev").onclick = async () => {
+      const approved = getApprovedItemsList();
+      if (!approved.length) {
+        renderPushQueueSection("");
+        return;
+      }
+      const btn = document.getElementById("btnDoAutoPushDev");
+      const exportBtn = document.getElementById("btnDoExportJsonOnly");
+      const box = document.getElementById("pushResultBox");
+      btn.disabled = true;
+      exportBtn.disabled = true;
+      btn.textContent = "⏳ Đang đẩy lên BaSa3D Dev...";
+      box.style.display = "block";
+      const startMs = Date.now();
+      let latestJob = {
+        done: false,
+        completed: 0,
+        total: approved.length,
+        percent: 4,
+        currentName: "Đang khởi chạy importer & nén ảnh WebP...",
+        elapsedSec: 0,
+        logs: [],
+      };
+      box.innerHTML = renderPushProgressHtml(latestJob, 0.0);
+
+      const animTimer = setInterval(() => {
+        if (!latestJob.done) {
+          const elSec = (Date.now() - startMs) / 1000;
+          box.innerHTML = renderPushProgressHtml(latestJob, elSec);
+        }
+      }, 180);
+
+      try {
+        const startData = await apiPost("/api/push_basa3d/start", {
+          pricingCfg,
+          ids: approved.map(x => x.id),
+        });
+        const jobId = startData.jobId;
+        while (true) {
+          await new Promise(r => setTimeout(r, 350));
+          const stRes = await fetch(`/api/push_basa3d/status?jobId=${encodeURIComponent(jobId)}`, { cache: "no-store" });
+          const stData = await stRes.json();
+          if (!stRes.ok || !stData.ok || !stData.job) {
+            throw new Error(stData.error || "Mất kết nối job");
+          }
+          latestJob = stData.job;
+          const elSec = (Date.now() - startMs) / 1000;
+          box.innerHTML = renderPushProgressHtml(latestJob, elSec);
+          if (latestJob.done) {
+            if (latestJob.reviews) {
+              reviews = latestJob.reviews;
+              localStorage.setItem(REVIEW_STORAGE_KEY, JSON.stringify(reviews));
+            }
+            render();
+            renderPushQueueSection(
+              latestJob.pushedCount > 0
+                ? `Đã đẩy xong ${latestJob.pushedCount}/${latestJob.total} sản phẩm DRAFT sang BaSa3D Dev!`
+                : "",
+            );
+            break;
+          }
+        }
+      } catch (err) {
+        box.innerHTML = `<span style="color:var(--danger);">❌ Lỗi đẩy BaSa3D Dev: ${escapeHtml(err.message)}</span>`;
+      } finally {
+        clearInterval(animTimer);
+        if (getApprovedItemsList().length > 0) {
+          btn.disabled = false;
+          exportBtn.disabled = false;
+          btn.textContent = `🚀 Đẩy tự động lên BaSa3D Dev (${getApprovedItemsList().length})`;
+        }
+      }
+    };
+
+    render();
+    initLiveMode();
+  </script>
+</body>
+</html>
