@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { ConfirmSubmitButton } from '@/components/admin/confirm-submit-button';
 import { QuickRestockButton } from '@/components/admin/quick-restock-dialog';
 import { getCategoryDisplayName } from '@/lib/categories';
 import { PricingCalculatorPanel } from '@/components/admin/pricing-calculator-panel';
@@ -96,7 +97,7 @@ export default async function ProductDetailPage({ params, searchParams }: { para
           </form>
           {role === 'OWNER' ? (
             <form action={deleteProductAction.bind(null, id)}>
-              <Button type="submit" variant="destructive" size="sm">Xoá hẳn sản phẩm</Button>
+              <ConfirmSubmitButton variant="destructive" size="sm" confirmation={`Xoá hẳn "${product.name}"? Không khôi phục được. Nếu chỉ muốn ẩn khỏi web, hãy chọn trạng thái "Đã lưu trữ".`}>Xoá hẳn sản phẩm</ConfirmSubmitButton>
             </form>
           ) : null}
         </div>
@@ -219,7 +220,7 @@ export default async function ProductDetailPage({ params, searchParams }: { para
                 <QuickRestockButton variants={[{ id: variant.id, sku: variant.sku, name: variant.name }]} productName={product.name} />
               ) : null}
               {role === 'OWNER' ? (
-                <Button type="submit" size="sm" variant="destructive" formAction={deleteVariantAction.bind(null, id, variant.id)}>Xoá hẳn</Button>
+                <ConfirmSubmitButton size="sm" variant="destructive" formAction={deleteVariantAction.bind(null, id, variant.id)} confirmation={`Xoá hẳn biến thể "${variant.name}" (${variant.sku})? Không khôi phục được.`}>Xoá hẳn</ConfirmSubmitButton>
               ) : null}
             </form>
           ))}
