@@ -10,6 +10,7 @@ import { pagination } from './product.service';
 import type { PreparedCustomRequestItem } from './custom-request-items.service';
 import type { CustomRequestAdminUpdate } from '../domain/schemas';
 import { createUploadClaim } from '../lib/upload-claim';
+import { adminSearchSql, parseAdminSearch } from '../lib/admin-search';
 import {
   CONTENT_TYPE_BY_EXTENSION,
   CUSTOM_REQUEST_ATTACHMENT_BUCKET as ATTACHMENT_BUCKET,
@@ -361,12 +362,14 @@ export type CustomRequestSummary = {
   itemCount: number;
 };
 
-export async function listCustomRequests(input: { page?: number; limit?: number; status?: string; statuses?: string[] } = {}) {
+export async function listCustomRequests(input: { page?: number; limit?: number; status?: string; statuses?: string[]; search?: string } = {}) {
   const { page, limit, offset } = pagination(input);
   const values: unknown[] = [];
   const statusSql = input.statuses?.length
     ? (values.push(input.statuses), `and status = any($${values.length})`)
     : input.status ? (values.push(input.status), `and status = $${values.length}`) : '';
+  // Phase 55 (D3): request number, customer name or phone (digits-only match for pasted numbers).
+  const searchSql = adminSearchSql(parseAdminSearch(input.search), values, { code: 'request_number', name: 'customer_name', phone: 'customer_phone' });
   values.push(limit + 1, offset);
   const result = await query<CustomRequestSummary>(
     `select id, request_number as "requestNumber", source_channel as "sourceChannel",
@@ -376,7 +379,7 @@ export async function listCustomRequests(input: { page?: number; limit?: number;
        status, created_at as "createdAt", ip_risk_flag as "ipRiskFlag",
        -- Phase 33 (B3): the "Đa món" badge counts real items, never attachment_path IS NULL.
        (select count(*)::int from custom_request_items i where i.custom_request_id = custom_requests.id) as "itemCount"
-     from custom_requests where true ${statusSql} order by created_at desc, id limit $${values.length - 1} offset $${values.length}`,
+     from custom_requests where true ${statusSql} ${searchSql} order by created_at desc, id limit $${values.length - 1} offset $${values.length}`,
     values,
   );
   return { page, limit, hasNext: result.rows.length > limit, items: result.rows.slice(0, limit) };
