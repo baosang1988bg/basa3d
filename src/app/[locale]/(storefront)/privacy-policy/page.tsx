@@ -19,10 +19,11 @@ export default async function PrivacyPolicyPage({ params }: { params: LocalePara
   await applyRequestLocale(params);
   const t = await getTranslations('policies.privacy');
   return (
-    <LegalPage title={t('title')} updatedAt="2026-10-26">
+    <LegalPage title={t('title')} updatedAt="2026-11-17">
       <section>
         <h2>{t('section1Title')}</h2>
         <p>{t('section1Body', { siteName: SITE_CONFIG.name })}</p>
+        <p>{t('section1Technical')}</p>
       </section>
       <section>
         <h2>{t('section2Title')}</h2>
@@ -36,6 +37,29 @@ export default async function PrivacyPolicyPage({ params }: { params: LocalePara
       <section>
         <h2>{t('section3Title')}</h2>
         <p>{t('section3Body')}</p>
+        <ul>
+          <li>{t('section3Item1')}</li>
+          <li>{t('section3Item2')}</li>
+          <li>{t('section3Item3')}</li>
+          <li>{t('section3Item4')}</li>
+          <li>{t('section3Item5')}</li>
+        </ul>
+        <p>{t('section3Transfer')}</p>
+      </section>
+      <section>
+        <h2>{t('storageTitle')}</h2>
+        <p>{t('storageBody')}</p>
+        <p>{t('storageUploads')}</p>
+      </section>
+      <section>
+        <h2>{t('rightsTitle')}</h2>
+        <p>{t('rightsBody')}</p>
+        <ul>
+          <li>{t('rightsItem1')}</li>
+          <li>{t('rightsItem2')}</li>
+          <li>{t('rightsItem3')}</li>
+        </ul>
+        <p>{t('rightsHow', { hotline: SITE_CONFIG.hotline, email: SITE_CONFIG.email })}</p>
       </section>
       <section>
         <h2>{t('section4Title')}</h2>

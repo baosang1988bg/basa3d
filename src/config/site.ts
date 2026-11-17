@@ -25,6 +25,12 @@ export const SITE_CONFIG = {
   instagramUrl: process.env.NEXT_PUBLIC_INSTAGRAM_URL || '',
   email: process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'basa3d.vn@gmail.com',
   address: 'Hồ Chí Minh, Việt Nam',
+  // Phase 56: seller identity shown in the footer (name of the registered business / household
+  // business, tax code, registered address). Empty until the OWNER fills them in — the footer then
+  // simply omits the line rather than showing a placeholder.
+  businessName: (process.env.NEXT_PUBLIC_BUSINESS_NAME ?? '').trim(),
+  businessTaxId: (process.env.NEXT_PUBLIC_BUSINESS_TAX_ID ?? '').trim(),
+  businessAddress: (process.env.NEXT_PUBLIC_BUSINESS_ADDRESS ?? '').trim(),
   // Cart temporarily hidden (2026-09) — customers are directed to contact Zalo/hotline directly
   // instead of ordering through the storefront cart. Flip NEXT_PUBLIC_CART_ENABLED=true to
   // restore add-to-cart, the cart icon, and the /cart and /checkout routes.

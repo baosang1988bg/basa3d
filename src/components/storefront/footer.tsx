@@ -57,6 +57,12 @@ export function Footer() {
         </div>
       </div>
       <div className="border-t border-border px-4 py-4 text-center text-xs text-muted-foreground">
+        {/* Phase 56: seller identity — rendered only once the OWNER sets NEXT_PUBLIC_BUSINESS_* . */}
+        {SITE_CONFIG.businessName ? (
+          <p className="mb-1">
+            {[SITE_CONFIG.businessName, SITE_CONFIG.businessTaxId ? t('businessTaxId', { taxId: SITE_CONFIG.businessTaxId }) : '', SITE_CONFIG.businessAddress].filter(Boolean).join(' · ')}
+          </p>
+        ) : null}
         {t('copyright', { year: new Date().getFullYear() })}
         {/* Phase 44: build version (production "v1.0.0", preview "v1.0.0-preview.a1b2c3d") — fixed per build,
             so static/ISR pages stay static. Dimmed: for support, not for shoppers. */}
