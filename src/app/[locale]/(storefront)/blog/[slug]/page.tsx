@@ -1,17 +1,18 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { getPublishedPostBySlug } from '@/services/blog.service';
+import { getCachedPublishedPostBySlug } from '@/lib/cache/blog-cache';
 import { BlogArticleView } from '@/components/blog/blog-article-view';
 import { SITE_CONFIG } from '@/config/site';
 import { Breadcrumb } from '@/components/storefront/breadcrumb';
 import { ReadBlogPostTracker } from '@/components/analytics/storefront-trackers';
 import { serializeJsonLd } from '@/lib/json-ld';
 
+// Per-request render, cached query (Phase 56 — see blog-cache.ts).
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const post = await getPublishedPostBySlug(slug);
+  const post = await getCachedPublishedPostBySlug(slug);
   if (!post) return {};
   const title = post.seoTitle ?? post.title;
   const description = post.seoDescription ?? post.excerpt ?? undefined;
@@ -24,7 +25,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const post = await getPublishedPostBySlug(slug);
+  const post = await getCachedPublishedPostBySlug(slug);
   if (!post) notFound();
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://basa3d.example.com';

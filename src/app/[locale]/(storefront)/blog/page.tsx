@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Metadata } from 'next';
-import { listPublishedPosts } from '@/services/blog.service';
+import { getCachedPublishedPosts } from '@/lib/cache/blog-cache';
 import { Breadcrumb } from '@/components/storefront/breadcrumb';
 import { SourceImage } from '@/components/blog/source-media';
 
@@ -10,13 +10,15 @@ export const metadata: Metadata = {
   description: 'Kiến thức in 3D, mẫu mới, và tin tức từ xưởng in 3D BaSa3D.',
 };
 
-// Blog posts change independent of any request-time input, but publishing is a manual admin action
-// rather than something readers trigger — force-dynamic keeps a freshly PUBLISHED post visible
-// immediately without waiting for a rebuild, same reasoning as the homepage's featured products.
+// Rendered per request (no build-time DB access), but the query itself is cached across requests
+// (Phase 56, src/lib/cache/blog-cache.ts): publishing/editing in admin invalidates it, otherwise it
+// is at most BLOG_CACHE_TTL_SECONDS stale. Before that every anonymous hit ran the query.
 export const dynamic = 'force-dynamic';
 
+const BLOG_LIST_SIZE = 20;
+
 export default async function BlogListPage() {
-  const { items: posts } = await listPublishedPosts({ limit: 20 });
+  const { items: posts } = await getCachedPublishedPosts(BLOG_LIST_SIZE);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">

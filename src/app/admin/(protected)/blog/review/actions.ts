@@ -2,6 +2,7 @@
 
 // Phase 54.2 (ADR-0057): review queue actions. D4: any active staff (requireAdmin) may approve.
 import { revalidatePath } from 'next/cache';
+import { invalidateBlogCache } from '@/lib/cache/blog-cache';
 import { parseActionId } from '@/lib/action-args';
 import { requireAdmin } from '@/lib/auth/require-admin';
 import { DomainError } from '@/lib/domain-error';
@@ -13,6 +14,7 @@ function revalidateBlogViews() {
   revalidatePath('/admin/blog');
   revalidatePath('/admin/blog/review');
   revalidatePath('/blog');
+  invalidateBlogCache(); // Phase 56: public /blog reads are cached across requests
 }
 
 function toResult(error: unknown): ReviewDecisionResult {

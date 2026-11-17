@@ -18,12 +18,26 @@ export const dynamic = 'force-dynamic';
 // `localePrefix: 'as-needed'`) and EN under `/en`. This does not claim every EN URL has
 // translated content yet — pages outside Phase 18's content slice still render Vietnamese under
 // `/en` (see <UntranslatedNotice />) but are still the same canonical page worth indexing once.
+// Phase 56: /sitemap.xml is public, unauthenticated and was two full-table reads per request. The
+// slug lists are memoised in this server instance for a few minutes — a plain module variable rather
+// than unstable_cache so the function still works when called directly (tests, scripts). A new
+// product/post shows up in the sitemap at most SITEMAP_TTL_MS late, which crawlers do not notice.
+const SITEMAP_TTL_MS = 10 * 60_000;
+type SitemapSlugs = [Awaited<ReturnType<typeof listAllActiveProductSlugs>>, Awaited<ReturnType<typeof listAllPublishedPostSlugs>>];
+let slugCache: { expiresAt: number; value: Promise<SitemapSlugs> } | null = null;
+
+function loadSitemapSlugs(now = Date.now()): Promise<SitemapSlugs> {
+  if (slugCache && slugCache.expiresAt > now) return slugCache.value;
+  const value = Promise.all([listAllActiveProductSlugs(), listAllPublishedPostSlugs()]);
+  slugCache = { expiresAt: now + SITEMAP_TTL_MS, value };
+  // A failed read must not be served for 10 minutes.
+  value.catch(() => { if (slugCache?.value === value) slugCache = null; });
+  return value;
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(/\/+$/, '');
-  const [products, posts] = await Promise.all([
-    listAllActiveProductSlugs(),
-    listAllPublishedPostSlugs(),
-  ]);
+  const [products, posts] = await loadSitemapSlugs();
 
   type RouteEntry = { path: string; changeFrequency: MetadataRoute.Sitemap[number]['changeFrequency']; priority: number; lastModified?: Date };
 
