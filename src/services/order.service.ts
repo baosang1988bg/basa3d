@@ -8,6 +8,7 @@ import { pagination } from './product.service';
 import { verifyOrderConfirmationToken } from '../lib/order-confirmation-token';
 import { sendStaffNotification } from '../lib/notify/send-staff-notification';
 import { createDatabaseFailureBudget } from '../lib/rate-limit';
+import { adminSearchSql, parseAdminSearch } from '../lib/admin-search';
 
 type OrderItemRequest = { variantId: string; quantity: number };
 type CreateOrderInput = { checkoutRequestId?: string | null; customerName: string; customerPhone: string; customerEmail?: string | null; shippingAddress?: Record<string, unknown>; shippingFee?: number; discount?: number; codFee?: number; customerNote?: string | null; items: OrderItemRequest[] };
@@ -278,18 +279,20 @@ export type OrderListRow = {
   createdAt: string;
 };
 
-export async function listOrders(input: { page?: number; limit?: number; status?: string; statuses?: string[] } = {}) {
+export async function listOrders(input: { page?: number; limit?: number; status?: string; statuses?: string[]; search?: string } = {}) {
   const { page, limit, offset } = pagination(input);
   const values: unknown[] = [];
   const statusSql = input.statuses?.length
     ? (values.push(input.statuses), `and status = any($${values.length})`)
     : input.status ? (values.push(input.status), `and status = $${values.length}`) : '';
+  // Phase 55 (D3): order number, customer name or phone (digits-only match for pasted numbers).
+  const searchSql = adminSearchSql(parseAdminSearch(input.search), values, { code: 'order_number', name: 'customer_name', phone: 'customer_phone' });
   values.push(limit + 1, offset);
   const rows = await query<OrderListRow>(`
     select id, order_number as "orderNumber", customer_name as "customerName", customer_phone as "customerPhone",
       status, payment_status as "paymentStatus", shipping_status as "shippingStatus", total, created_at as "createdAt",
       (select count(*)::int from order_items where order_id = orders.id) as "itemCount"
-    from orders where true ${statusSql} order by created_at desc, id limit $${values.length - 1} offset $${values.length}`, values);
+    from orders where true ${statusSql} ${searchSql} order by created_at desc, id limit $${values.length - 1} offset $${values.length}`, values);
   return { page, limit, hasNext: rows.rows.length > limit, items: rows.rows.slice(0, limit) };
 }
 

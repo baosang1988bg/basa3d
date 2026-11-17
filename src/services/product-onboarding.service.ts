@@ -192,6 +192,106 @@ export async function createProductWithVariants(input: ProductOnboardingInput, a
 }
 
 // ---------------------------------------------------------------------------------------------
+// Phase 55 (D4) — "Nhân bản sản phẩm"
+// ---------------------------------------------------------------------------------------------
+
+export const DUPLICATE_NAME_SUFFIX = ' (bản sao)';
+
+/** Pure: `<name> (bản sao)`, trimmed so it still fits products.name (varchar 200). */
+export function duplicateProductName(name: string): string {
+  return `${name.slice(0, 200 - DUPLICATE_NAME_SUFFIX.length).trimEnd()}${DUPLICATE_NAME_SUFFIX}`;
+}
+
+/**
+ * Copies a product into a new DRAFT: category, descriptions, sale type, prices, pricing snapshot and
+ * variants (fresh slug + SKUs). Deliberately NOT copied:
+ *   - images — two products pointing at one Storage object would break each other on delete;
+ *   - stock — inventory only changes through movements (business rule #3);
+ *   - licence — reset to UNKNOWN so someone confirms the source of the NEW model (Phase 52 D8);
+ *   - SEO fields / "featured" — per-product decisions.
+ * Idempotent on `requestId` (admin_request_keys, same scope as onboarding: it creates a product).
+ * A DRAFT is invisible on the storefront, so no catalog cache invalidation is needed.
+ */
+export async function duplicateProduct(input: { sourceProductId: string; requestId: string }, actorId: string): Promise<ProductOnboardingResult> {
+  return withTransaction(async (client) => {
+    const claim = await claimRequestKey(client, { key: input.requestId, scope: 'product_onboarding', payload: { duplicateOf: input.sourceProductId }, actorId },
+      'Lần nhân bản này đã được dùng cho một sản phẩm khác. Hãy tải lại trang rồi thử lại.');
+    if (claim.status === 'REPLAY') return loadReplay(client, claim.resultId);
+
+    const source = await client.query<{
+      name: string; category_id: string | null; category_slug: string | null; short_description: string | null; description: string | null;
+      product_type: string; base_price: string | null; cost_price: string | null; is_customizable: boolean;
+      pricing_breakdown: unknown | null; pricing_config_id: string | null;
+    }>(`
+      select p.name, p.category_id, c.slug as category_slug, p.short_description, p.description, p.product_type, p.base_price, p.cost_price,
+        p.is_customizable, p.pricing_breakdown, p.pricing_config_id
+      from products p left join categories c on c.id = p.category_id where p.id = $1`, [input.sourceProductId]);
+    if (!source.rowCount) throw new DomainError('PRODUCT_NOT_FOUND', 'Không tìm thấy sản phẩm cần nhân bản.', 404);
+    const original = source.rows[0];
+    const sourceVariants = await client.query<{ name: string; attributes: Record<string, string>; price: string; cost_price: string | null; weight_grams: number | null; is_active: boolean }>(
+      'select name, attributes, price, cost_price, weight_grams, is_active from product_variants where product_id = $1 order by created_at, sku', [input.sourceProductId]);
+
+    const name = duplicateProductName(original.name);
+    let productId = '';
+    let slug = '';
+    for (let attempt = 0; ; attempt += 1) {
+      const taken = await takenValues(client, 'products', 'slug', slugify(name));
+      slug = uniqueSlug(name, (value) => taken.has(value));
+      await client.query('savepoint product_slug');
+      try {
+        const inserted = await client.query<{ id: string }>(`
+          insert into products (category_id, name, slug, short_description, description, product_type, status, base_price, cost_price,
+            is_customizable, pricing_breakdown, pricing_config_id, license_type)
+          values ($1,$2,$3,$4,$5,$6,'DRAFT',$7,$8,$9,$10,$11,'UNKNOWN') returning id`, [
+          original.category_id, name, slug, original.short_description, original.description, original.product_type, original.base_price,
+          original.cost_price, original.is_customizable,
+          original.pricing_breakdown ? JSON.stringify(original.pricing_breakdown) : null, original.pricing_breakdown ? original.pricing_config_id : null,
+        ]);
+        await client.query('release savepoint product_slug');
+        productId = inserted.rows[0].id;
+        break;
+      } catch (error) {
+        await client.query('rollback to savepoint product_slug');
+        if (!isUniqueViolation(error) || attempt >= 2) throw error;
+      }
+    }
+
+    const skuCode = skuCodeForCategory(original.category_slug);
+    const assigned = new Set<string>();
+    const variants: ProductOnboardingResult['variants'] = [];
+    for (const variant of sourceVariants.rows) {
+      const skuSlug = sourceVariants.rows.length === 1 ? slug : `${slug.slice(0, 24)}-${slugify(variant.name)}`;
+      let created: { id: string; sku: string } | null = null;
+      for (let attempt = 0; !created; attempt += 1) {
+        const taken = await takenValues(client, 'product_variants', 'sku', buildSku(skuCode, skuSlug, () => false));
+        const sku = buildSku(skuCode, skuSlug, (value) => taken.has(value) || assigned.has(value));
+        await client.query('savepoint variant_sku');
+        try {
+          const inserted = await client.query<{ id: string }>(`
+            insert into product_variants (product_id, sku, name, attributes, price, cost_price, weight_grams, is_active)
+            values ($1,$2,$3,$4,$5,$6,$7,$8) returning id`,
+          [productId, sku, variant.name, variant.attributes ?? {}, variant.price, variant.cost_price, variant.weight_grams, variant.is_active]);
+          await client.query('release savepoint variant_sku');
+          created = { id: inserted.rows[0].id, sku };
+        } catch (error) {
+          await client.query('rollback to savepoint variant_sku');
+          if (!isUniqueViolation(error) || attempt >= 2) throw error;
+        }
+      }
+      assigned.add(created.sku);
+      variants.push({ id: created.id, sku: created.sku, name: variant.name });
+    }
+
+    await setRequestKeyResult(client, input.requestId, productId);
+    await writeAuditLog(client, {
+      actorId, action: 'PRODUCT_CREATED', entityType: 'product', entityId: productId,
+      afterData: { name, slug, status: 'DRAFT', licenseType: 'UNKNOWN', duplicateOf: input.sourceProductId, variants: variants.map((v) => ({ id: v.id, sku: v.sku })), source: 'duplicate' },
+    });
+    return { productId, slug, variants, replayed: false };
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
 // Images (P3)
 // ---------------------------------------------------------------------------------------------
 
@@ -403,6 +503,50 @@ export async function publishProductIfReady(productId: string, actorId: string):
   // updateProduct locks the row, audits, and still runs the Feature 003 publish-gate trigger.
   await updateProduct(productId, { status: 'ACTIVE' }, actorId);
   return { published: true, reasons: [] };
+}
+
+// Phase 55 (D5) — bulk actions on the catalogue list. Each product goes through the SAME single-item
+// path (own transaction, row lock, audit log, publish gate), so a bulk click can never publish
+// something the per-row button would refuse; products that are not eligible are counted as skipped.
+export const BULK_PRODUCT_MAX = 100;
+export type BulkProductResult = { done: number; skipped: number };
+
+async function productStatuses(productIds: string[]): Promise<Map<string, string>> {
+  const rows = await query<{ id: string; status: string }>('select id, status from products where id = any($1::uuid[])', [productIds]);
+  return new Map(rows.rows.map((row) => [row.id, row.status]));
+}
+
+/** DRAFT → ACTIVE for every selected draft that is ready; everything else is skipped. */
+export async function bulkPublishDrafts(productIds: string[], actorId: string): Promise<BulkProductResult> {
+  const statuses = await productStatuses(productIds);
+  const result: BulkProductResult = { done: 0, skipped: 0 };
+  for (const productId of productIds) {
+    if (statuses.get(productId) !== 'DRAFT') { result.skipped += 1; continue; }
+    try {
+      if ((await publishProductIfReady(productId, actorId)).published) result.done += 1; else result.skipped += 1;
+    } catch (error) {
+      // Feature 003 publish gate (PublishBlockedError) or the product vanished meanwhile → skip, keep going.
+      if (error instanceof DomainError) result.skipped += 1; else throw error;
+    }
+  }
+  return result;
+}
+
+/** Soft archive (hidden from the storefront, history kept) for every selected product not archived yet. */
+export async function bulkArchiveProducts(productIds: string[], actorId: string): Promise<BulkProductResult> {
+  const statuses = await productStatuses(productIds);
+  const result: BulkProductResult = { done: 0, skipped: 0 };
+  for (const productId of productIds) {
+    const status = statuses.get(productId);
+    if (!status || status === 'ARCHIVED') { result.skipped += 1; continue; }
+    try {
+      await updateProduct(productId, { status: 'ARCHIVED' }, actorId);
+      result.done += 1;
+    } catch (error) {
+      if (error instanceof DomainError) result.skipped += 1; else throw error;
+    }
+  }
+  return result;
 }
 
 /** Free SKU for a variant added later on the product page (staff left "SKU" empty). */

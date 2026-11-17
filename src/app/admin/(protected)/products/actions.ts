@@ -23,7 +23,15 @@ import {
   updateVariant,
   uploadProductImage,
 } from '@/services/product.service';
-import { generateVariantSku, publishProductIfReady } from '@/services/product-onboarding.service';
+import {
+  BULK_PRODUCT_MAX,
+  bulkArchiveProducts,
+  bulkPublishDrafts,
+  duplicateProduct,
+  generateVariantSku,
+  publishProductIfReady,
+} from '@/services/product-onboarding.service';
+import { DomainError } from '@/lib/domain-error';
 import { slugify } from '@/lib/catalog/naming';
 
 // Feature 003: the import publish gate refuses status → ACTIVE with reasons; send the admin back to
@@ -87,10 +95,15 @@ export async function updateProductAction(productId: string, formData: FormData)
   productId = parseActionId(productId, 'productId');
   const pricingBreakdownRaw = readFormValue(formData, 'pricingBreakdown');
   const patch = productUpdateInputSchema.parse({
+    // Phase 55 (D6): the detail form now has a category select; absent field = leave unchanged.
+    categoryId: readFormValue(formData, 'categoryId'),
     name: readFormValue(formData, 'name'),
     slug: readFormValue(formData, 'slug'),
     shortDescription: readFormValue(formData, 'shortDescription') ?? null,
-    description: readFormValue(formData, 'description') ?? null,
+    // Phase 55 (D7): only touch the long description when the form actually sent the field. It used
+    // to be `?? null` unconditionally while the detail form had no such field, so every save wiped
+    // the description entered on "Đăng sản phẩm mới".
+    description: formData.has('description') ? readFormValue(formData, 'description') ?? null : undefined,
     status: readFormValue(formData, 'status'),
     basePrice: readFormValue(formData, 'basePrice') ? Number(formData.get('basePrice')) : null,
     isFeatured: formData.get('isFeatured') === 'on',
@@ -137,6 +150,47 @@ export async function publishProductFromListAction(productId: string) {
   }
   revalidatePath('/admin/products');
   if (missing.length) redirect(`/admin/products?missing=${missing.join(',')}`);
+}
+
+// Phase 55 (D4): copy a product into a new DRAFT and open it. `requestId` is minted when the page
+// renders, so a double click replays the first copy instead of creating two.
+export async function duplicateProductAction(productId: string, requestId: string) {
+  const { actorId } = await requireAdmin();
+  productId = parseActionId(productId, 'productId');
+  requestId = parseActionId(requestId, 'requestId');
+  const copy = await duplicateProduct({ sourceProductId: productId, requestId }, actorId);
+  revalidatePath('/admin/products');
+  redirect(`/admin/products/${copy.productId}?duplicated=1`);
+}
+
+// Phase 55 (D5): bulk publish / archive from the list. Ids arrive as repeated `ids` form fields.
+function readBulkIds(formData: FormData): string[] {
+  const raw = formData.getAll('ids');
+  if (raw.length > BULK_PRODUCT_MAX) throw new DomainError('TOO_MANY_ITEMS', `Chỉ chọn tối đa ${BULK_PRODUCT_MAX} sản phẩm mỗi lần.`, 400);
+  return [...new Set(raw.map((value) => parseActionId(value, 'ids')))];
+}
+
+function bulkReturnUrl(formData: FormData, action: 'published' | 'archived', result: { done: number; skipped: number }): string {
+  const params = new URLSearchParams({ bulk: action, done: String(result.done), skipped: String(result.skipped) });
+  const status = formData.get('status');
+  if (status === 'DRAFT' || status === 'ACTIVE' || status === 'ARCHIVED') params.set('status', status);
+  return `/admin/products?${params}`;
+}
+
+export async function bulkPublishProductsAction(formData: FormData) {
+  const { actorId } = await requireAdmin();
+  const ids = readBulkIds(formData);
+  const result = ids.length ? await bulkPublishDrafts(ids, actorId) : { done: 0, skipped: 0 };
+  revalidatePath('/admin/products');
+  redirect(bulkReturnUrl(formData, 'published', result));
+}
+
+export async function bulkArchiveProductsAction(formData: FormData) {
+  const { actorId } = await requireAdmin();
+  const ids = readBulkIds(formData);
+  const result = ids.length ? await bulkArchiveProducts(ids, actorId) : { done: 0, skipped: 0 };
+  revalidatePath('/admin/products');
+  redirect(bulkReturnUrl(formData, 'archived', result));
 }
 
 // Hard delete — OWNER only (ADR-0011 boundary #3).

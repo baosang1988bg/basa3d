@@ -20,7 +20,8 @@ export default async function ProtectedAdminLayout({ children }: { children: Rea
             blogDrafts: operational.blogDrafts,
           }}
         />
-        <main className="flex-1 min-w-0 bg-background p-6">{children}</main>
+        {/* Phase 55: pt-16 clears the fixed mobile top bar rendered by AdminNav (hidden from md up). */}
+        <main className="min-w-0 flex-1 bg-background p-4 pt-16 md:p-6">{children}</main>
       </div>
     );
   } catch (error) {

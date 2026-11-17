@@ -19,11 +19,20 @@ import {
   type CatalogStatusFilter,
   type PublishReadinessReason,
 } from '@/services/product-onboarding.service';
-import { archiveProductAction, createCategoryAction, publishProductFromListAction, unarchiveProductAction } from './actions';
+import {
+  archiveProductAction,
+  bulkArchiveProductsAction,
+  bulkPublishProductsAction,
+  createCategoryAction,
+  publishProductFromListAction,
+  unarchiveProductAction,
+} from './actions';
 
 export const metadata = { title: 'Sản phẩm | BaSa3D Admin' };
 
-type SearchParams = { q?: string; status?: string; type?: string; category?: string; page?: string; publishBlocked?: string; missing?: string };
+type SearchParams = { q?: string; status?: string; type?: string; category?: string; page?: string; publishBlocked?: string; missing?: string; bulk?: string; done?: string; skipped?: string };
+
+const BULK_FORM_ID = 'bulk-products';
 
 const STATUS_TABS: { value: CatalogStatusFilter | 'ALL'; label: string }[] = [
   { value: 'ALL', label: 'Tất cả' },
@@ -45,6 +54,20 @@ const SHORT_MISSING: Record<PublishReadinessReason, string> = {
   UNCATEGORIZED: 'danh mục',
   NOT_FOUND: 'sản phẩm',
 };
+
+// Phase 55 (D6): where on the detail page each missing item is fixed.
+const MISSING_ANCHOR: Record<PublishReadinessReason, string> = {
+  LICENSE_UNKNOWN: '#ban-quyen',
+  NO_IMAGE: '#anh',
+  NO_PRICE: '#thong-tin',
+  UNCATEGORIZED: '#thong-tin',
+  NOT_FOUND: '',
+};
+
+function countParam(value: string | undefined): number {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 0 && parsed <= 1000 ? parsed : 0;
+}
 
 function formatVnd(value: number | null): string {
   return value == null ? '—' : `${value.toLocaleString('vi-VN')}đ`;
@@ -72,6 +95,10 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
   const total = catalog.statusCounts.ACTIVE + catalog.statusCounts.DRAFT + catalog.statusCounts.ARCHIVED;
   const missingNotice = (params.missing ?? '').split(',').filter((reason): reason is PublishReadinessReason => (PUBLISH_READINESS_REASONS as readonly string[]).includes(reason));
 
+  const bulkAction = params.bulk === 'published' || params.bulk === 'archived' ? params.bulk : null;
+  const bulkDone = countParam(params.done);
+  const bulkSkipped = countParam(params.skipped);
+
   function tabHref(value: CatalogStatusFilter | 'ALL') {
     const query = new URLSearchParams();
     for (const [key, item] of Object.entries(filters)) if (item) query.set(key, item);
@@ -86,6 +113,15 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
       {missingNotice.length ? (
         <div role="alert" className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300">
           Chưa đăng bán được: {missingNotice.map((reason) => PUBLISH_READINESS_MESSAGES[reason]).join('; ')}. Bổ sung ở trang chi tiết rồi thử lại.
+        </div>
+      ) : null}
+
+      {bulkAction ? (
+        <div role="status" className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-800 dark:text-emerald-300">
+          {bulkAction === 'published' ? `Đã đăng bán ${bulkDone} sản phẩm.` : `Đã lưu trữ ${bulkDone} sản phẩm.`}
+          {bulkSkipped > 0 ? (bulkAction === 'published'
+            ? ` Bỏ qua ${bulkSkipped} sản phẩm chưa đủ điều kiện (xem dòng “Còn thiếu” ở từng bản nháp).`
+            : ` Bỏ qua ${bulkSkipped} sản phẩm đã lưu trữ từ trước.`) : null}
         </div>
       ) : null}
 
@@ -148,6 +184,17 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
         </div>
       </form>
 
+      {/* Phase 55 (D5): bulk actions. The row checkboxes sit outside this form and join it through
+          their `form` attribute — rows already contain their own per-item forms, and forms can't nest. */}
+      {catalog.items.length ? (
+        <form id={BULK_FORM_ID} className="flex flex-wrap items-center gap-2 text-sm">
+          {status ? <input type="hidden" name="status" value={status} /> : null}
+          <span className="text-muted-foreground">Với các sản phẩm đã tick:</span>
+          <Button type="submit" size="sm" variant="outline" formAction={bulkPublishProductsAction}>Đăng bán</Button>
+          <Button type="submit" size="sm" variant="outline" formAction={bulkArchiveProductsAction}>Lưu trữ</Button>
+        </form>
+      ) : null}
+
       {/* List */}
       {catalog.items.length ? (
         <Card className="gap-0 overflow-hidden p-0">
@@ -159,13 +206,14 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
               return (
                 <li key={item.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center">
                   {/* Product */}
-                  <Link href={`/admin/products/${item.id}`} className="flex min-w-0 flex-1 items-center gap-3">
-                    <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <input type="checkbox" name="ids" value={item.id} form={BULK_FORM_ID} aria-label={`Chọn ${item.name}`} className="size-5 shrink-0 accent-primary" />
+                    <Link href={`/admin/products/${item.id}`} tabIndex={-1} aria-hidden className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
                       {cover ? <img src={cover} alt="" className="size-full object-cover" loading="lazy" /> : <ImageOff className="size-5 text-muted-foreground/60" />}
-                    </div>
+                    </Link>
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="truncate font-medium hover:underline">{item.name}</span>
+                        <Link href={`/admin/products/${item.id}`} className="truncate font-medium hover:underline">{item.name}</Link>
                         <Badge variant="outline" className={`text-[11px] ${badge.className}`}>{badge.label}</Badge>
                         {item.imported ? <Badge variant="outline" className="text-[10px] text-muted-foreground">Nhập từ kho STL</Badge> : null}
                       </div>
@@ -180,11 +228,20 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                       </div>
                       {item.status === 'DRAFT' ? (
                         item.missing.length
-                          ? <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">Còn thiếu: {item.missing.map((reason) => SHORT_MISSING[reason]).join(', ')}</p>
+                          ? (
+                            <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-amber-700 dark:text-amber-400">
+                              <span>Còn thiếu:</span>
+                              {item.missing.map((reason) => (
+                                <Link key={reason} href={`/admin/products/${item.id}${MISSING_ANCHOR[reason]}`} className="rounded underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-200">
+                                  {SHORT_MISSING[reason]}
+                                </Link>
+                              ))}
+                            </p>
+                          )
                           : <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-400">Đủ thông tin — có thể đăng bán</p>
                       ) : null}
                     </div>
-                  </Link>
+                  </div>
 
                   {/* Price */}
                   <div className="text-sm font-medium tabular-nums sm:w-44 sm:text-right">{priceLabel(item)}</div>

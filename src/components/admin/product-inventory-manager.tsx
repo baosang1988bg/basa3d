@@ -347,7 +347,7 @@ export function ProductInventoryManager({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link href="/admin/inventory" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
-            <Boxes className="mr-1.5 size-4" /> Sổ kho
+            <Boxes className="mr-1.5 size-4" /> Lịch sử kho
           </Link>
           <BatchRestockButton variants={batchVariants} warehouses={warehouses} />
           <Link href="/admin/products/new" className={buttonVariants({ size: 'sm' })}>

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Phone, Inbox } from 'lucide-react';
 import { AdminPagination } from '@/components/admin/admin-pagination';
+import { AdminSearchForm } from '@/components/admin/admin-search-form';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -72,15 +73,17 @@ const CHANNEL_LABELS: Record<string, string> = {
 export default async function CustomRequestsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string; page?: string }>;
+  searchParams: Promise<{ filter?: string; page?: string; q?: string }>;
 }) {
   const session = await requireAdmin();
   const isOwner = session.role === 'OWNER';
-  const { filter, page: pageParam } = await searchParams;
+  const { filter, page: pageParam, q: rawQuery } = await searchParams;
+  const q = typeof rawQuery === 'string' ? rawQuery.trim() || undefined : undefined;
   const { activeKey, statuses } = resolveStatusFilter(FILTER_GROUPS, filter);
   const { items: customRequests, page, hasNext } = await listCustomRequests({
     page: Number(pageParam),
     statuses,
+    search: q,
   });
 
   return (
@@ -104,6 +107,9 @@ export default async function CustomRequestsPage({
 
       {/* Status Filter Tabs */}
       <StatusFilterTabs basePath="/admin/custom-requests" groups={FILTER_GROUPS} activeKey={activeKey} />
+
+      {/* Phase 55: find a request by number, customer name or phone (keeps the active tab). */}
+      <AdminSearchForm basePath="/admin/custom-requests" query={q} placeholder="Tìm theo mã yêu cầu, tên hoặc SĐT khách" hidden={{ filter: activeKey === FILTER_GROUPS[0].key ? undefined : activeKey }} />
 
       {/* Prioritized List of Requests */}
       <Card className="border border-border shadow-xs overflow-hidden">
@@ -280,7 +286,7 @@ export default async function CustomRequestsPage({
               basePath="/admin/custom-requests"
               page={page}
               hasNext={hasNext}
-              filters={{ filter: activeKey }}
+              filters={{ filter: activeKey, q }}
             />
           </div>
         </CardContent>
