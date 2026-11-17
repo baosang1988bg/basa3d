@@ -48,7 +48,7 @@ export default async function StlImportPage({ searchParams }: { searchParams: Pr
   return (
     <div className="flex flex-col gap-4 pb-24">
       <div>
-        <h1 className="text-2xl font-semibold">Kho nhập STL</h1>
+        <h1 className="text-2xl font-semibold">Duyệt mẫu STL</h1>
         <p className="text-sm text-muted-foreground">
           Bản nháp tạo từ kho STL. Kiểm tra bản quyền, sửa tên/danh mục/giá rồi {session.role === 'OWNER' ? 'duyệt để lên web' : 'chờ OWNER duyệt'}.
         </p>

@@ -6,7 +6,7 @@ export const PUBLISH_BLOCK_REASONS = ['NOT_APPROVED', 'LICENSE_NOT_REVIEWED', 'N
 export type PublishBlockReason = typeof PUBLISH_BLOCK_REASONS[number];
 
 export const PUBLISH_BLOCK_LABELS: Record<PublishBlockReason, string> = {
-  NOT_APPROVED: 'mẫu nhập chưa được OWNER duyệt ở "Kho nhập STL"',
+  NOT_APPROVED: 'mẫu nhập chưa được OWNER duyệt ở "Duyệt mẫu STL"',
   LICENSE_NOT_REVIEWED: 'chưa tick "đã kiểm tra bản quyền"',
   NO_IMAGE: 'chưa có ảnh',
   NO_PRICE: 'giá chưa > 0',

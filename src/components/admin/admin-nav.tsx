@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import {
   BookOpen, Boxes, Calculator, ChevronDown, ClipboardCheck, FileEdit, LayoutDashboard, Layers, Package, Printer,
   Receipt, ShieldAlert, ShoppingBag, Users,
-  Tags, Loader2, Warehouse, FileBox,
+  Tags, Loader2, Warehouse, FileBox, Menu, X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
@@ -51,10 +51,10 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'Sản phẩm & Nhựa',
     items: [
       { href: '/admin/products', label: 'Sản phẩm', icon: Package },
-      { href: '/admin/product-inventory', label: 'Kho sản phẩm', icon: Warehouse },
-      { href: '/admin/stl-import', label: 'Kho nhập STL', icon: FileBox },
-      { href: '/admin/inventory', label: 'Tồn kho', icon: Boxes },
-      { href: '/admin/materials', label: 'Kho nhựa', icon: Layers },
+      { href: '/admin/product-inventory', label: 'Kho & giá', icon: Warehouse },
+      { href: '/admin/stl-import', label: 'Duyệt mẫu STL', icon: FileBox },
+      { href: '/admin/inventory', label: 'Lịch sử kho', icon: Boxes },
+      { href: '/admin/materials', label: 'Nhựa in', icon: Layers },
     ],
   },
   {
@@ -78,7 +78,8 @@ const NAV_SECTIONS: NavSection[] = [
 
 const STORAGE_KEY = 'basa3d_admin_nav_expanded';
 
-const ALL_HREFS = NAV_SECTIONS.flatMap((section) => section.items.map((item) => item.href));
+const ALL_ITEMS = NAV_SECTIONS.flatMap((section) => section.items);
+const ALL_HREFS = ALL_ITEMS.map((item) => item.href);
 
 /** Longest matching href wins, so /admin/blog/review highlights "Duyệt bài", not "Blog" too. */
 function resolveActiveHref(pathname: string): string | undefined {
@@ -92,6 +93,17 @@ export function AdminNav({ role, badges = {} }: { role: StaffRole; badges?: Admi
   const pathname = usePathname();
   const activeHref = resolveActiveHref(pathname);
   const [navigatingHref, setNavigatingHref] = useState<string | null>(null);
+  // Phase 55 (D1): below `md` the same <nav> is an off-canvas drawer opened from the top bar.
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const activeLabel = ALL_ITEMS.find((item) => item.href === activeHref)?.label;
+  const totalBadge = ALL_ITEMS.reduce((sum, item) => sum + (item.badgeKey && (!item.ownerOnly || role === 'OWNER') ? badges[item.badgeKey] ?? 0 : 0), 0);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') setMobileOpen(false); };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [mobileOpen]);
 
   // Default: 'Đơn hàng & In' is expanded, others collapsed.
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -118,6 +130,7 @@ export function AdminNav({ role, badges = {} }: { role: StaffRole; badges?: Admi
 
   useEffect(() => {
     setNavigatingHref(null);
+    setMobileOpen(false);
 
     // Auto-expand section if current route is within it
     for (const section of NAV_SECTIONS) {
@@ -169,11 +182,38 @@ export function AdminNav({ role, badges = {} }: { role: StaffRole; badges?: Admi
   }
 
   return (
-    <nav className="sticky top-0 flex h-screen w-56 shrink-0 flex-col justify-between overflow-y-auto border-r border-border bg-muted/40 p-4">
+    <>
+    <div className="fixed inset-x-0 top-0 z-30 flex h-12 items-center gap-2 border-b border-border bg-background px-2 md:hidden">
+      <button
+        type="button"
+        onClick={() => setMobileOpen(true)}
+        aria-label="Mở menu"
+        aria-expanded={mobileOpen}
+        aria-controls="admin-nav"
+        className="relative flex size-10 items-center justify-center rounded-md hover:bg-accent"
+      >
+        <Menu className="size-5" />
+        {totalBadge > 0 ? <span aria-hidden className="absolute right-1.5 top-1.5 size-2 rounded-full bg-destructive" /> : null}
+      </button>
+      <p className="min-w-0 flex-1 truncate text-sm font-semibold">{activeLabel ?? 'BaSa3D Admin'}</p>
+      {navigatingHref && <Loader2 className="mr-2 size-4 animate-spin text-primary" />}
+    </div>
+    {mobileOpen ? (
+      <button type="button" aria-label="Đóng menu" tabIndex={-1} onClick={() => setMobileOpen(false)} className="fixed inset-0 z-40 bg-black/40 md:hidden" />
+    ) : null}
+    <nav
+      id="admin-nav"
+      className={`fixed inset-y-0 left-0 z-50 flex w-64 max-w-[85vw] flex-col justify-between overflow-y-auto border-r border-border bg-background p-4 transition-transform duration-200 md:visible md:sticky md:bottom-auto md:top-0 md:z-auto md:h-screen md:w-56 md:shrink-0 md:translate-x-0 md:bg-muted/40 md:transition-none ${
+        mobileOpen ? 'translate-x-0' : 'invisible -translate-x-full'
+      }`}
+    >
       <div className="flex flex-col gap-1">
         <div className="mb-2 flex items-center justify-between px-2">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">BaSa3D Admin</p>
-          {navigatingHref && <Loader2 className="size-3.5 animate-spin text-primary" />}
+          {navigatingHref && <Loader2 className="hidden size-3.5 animate-spin text-primary md:block" />}
+          <button type="button" onClick={() => setMobileOpen(false)} aria-label="Đóng menu" className="flex size-9 items-center justify-center rounded-md hover:bg-accent md:hidden">
+            <X className="size-4" />
+          </button>
         </div>
         {NAV_SECTIONS.map((section, sectionIdx) => {
           const visibleItems = section.items.filter((item) => !item.ownerOnly || role === 'OWNER');
@@ -221,7 +261,7 @@ export function AdminNav({ role, badges = {} }: { role: StaffRole; badges?: Admi
                         key={item.href}
                         href={item.href}
                         onClick={() => handleItemClick(item.href)}
-                        className={`flex items-center gap-2.5 rounded-md border-l-2 px-2 py-1.5 text-sm transition-colors ${
+                        className={`flex items-center gap-2.5 rounded-md border-l-2 px-2 py-2.5 text-sm transition-colors md:py-1.5 ${
                           isActive || isNavigatingToThis
                             ? 'border-primary bg-primary/10 font-medium text-primary'
                             : 'border-transparent hover:bg-accent hover:text-accent-foreground'
@@ -256,5 +296,6 @@ export function AdminNav({ role, badges = {} }: { role: StaffRole; badges?: Admi
         </p>
       </div>
     </nav>
+    </>
   );
 }

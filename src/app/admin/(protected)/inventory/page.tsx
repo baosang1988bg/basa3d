@@ -17,7 +17,7 @@ import { listStockTrackedVariants } from '@/services/quick-restock.service';
 import { recordMovementAction } from './actions';
 import { requireAdmin } from '@/lib/auth/require-admin';
 
-export const metadata = { title: 'Sổ kho | BaSa3D Admin' };
+export const metadata = { title: 'Lịch sử kho | BaSa3D Admin' };
 
 type SearchParams = { q?: string; type?: string; actor?: string; from?: string; to?: string; page?: string };
 
@@ -51,7 +51,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Sổ kho</h1>
+          <h1 className="text-2xl font-semibold">Lịch sử kho</h1>
           <p className="text-sm text-muted-foreground">Mọi lần nhập/xuất thành phẩm, không sửa/xoá được. Nhập kho hằng ngày dùng nút bên phải hoặc nút “Nhập kho” ở từng sản phẩm.</p>
         </div>
         <div className="flex flex-wrap gap-2">

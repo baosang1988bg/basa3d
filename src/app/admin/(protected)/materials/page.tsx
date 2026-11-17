@@ -52,7 +52,7 @@ export default async function MaterialsPage({ searchParams }: { searchParams: Pr
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">Kho nhựa theo cuộn</h1>
+      <h1 className="text-2xl font-semibold">Nhựa in (theo cuộn)</h1>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
         <Card><CardContent className="pt-6"><p className="text-xs text-muted-foreground">Tổng số cuộn</p><p className="text-2xl font-semibold">{stats.totalSpools}</p></CardContent></Card>
