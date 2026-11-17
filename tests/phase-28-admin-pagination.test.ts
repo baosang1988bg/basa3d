@@ -70,7 +70,9 @@ test('five lists paginate 105 tied rows without gaps; warning tier filters befor
     assert.equal(operational.pendingOrders, before.pendingOrders + 105);
     assert.equal(operational.customRequestsOpen, before.customRequestsOpen + 105);
     assert.equal(operational.printJobsActive, before.printJobsActive + 105);
-    assert.deepEqual(badges, { pendingOrders: operational.pendingOrders, customRequestsOpen: operational.customRequestsOpen, printJobsActive: operational.printJobsActive });
+    // blogDrafts was added to the nav badges in Phase 54.2; this test only owns the three operational counts.
+    assert.deepEqual({ pendingOrders: badges.pendingOrders, customRequestsOpen: badges.customRequestsOpen, printJobsActive: badges.printJobsActive },
+      { pendingOrders: operational.pendingOrders, customRequestsOpen: operational.customRequestsOpen, printJobsActive: operational.printJobsActive });
     assert.deepEqual(financial, beforeFinancial); // Future zero-value fixtures do not change today's money.
     assert.ok(operational.dailyOrderTrends.every((row) => !('revenue' in row)));
   } finally {
