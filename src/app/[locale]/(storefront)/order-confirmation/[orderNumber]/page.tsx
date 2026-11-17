@@ -1,3 +1,4 @@
+import { publicSiteUrl } from '@/config/site-url';
 import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
@@ -41,7 +42,7 @@ export default async function OrderConfirmationPage({ params, searchParams }: { 
 
   const bankTransfer = order.paymentMethod === 'BANK_TRANSFER';
   const qrUrl = bankTransfer ? buildVietQrUrl(order.total, order.orderNumber) : null;
-  const confirmationUrl = `https://basa3d.vn/order-confirmation/${order.orderNumber}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+  const confirmationUrl = `${publicSiteUrl()}/order-confirmation/${order.orderNumber}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">

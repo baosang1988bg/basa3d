@@ -1,3 +1,4 @@
+import { publicSiteUrl } from '@/config/site-url';
 import { ActionForm } from '@/components/admin/action-form';
 import { notFound } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
@@ -100,7 +101,7 @@ export default async function CustomRequestDetailPage({ params, searchParams }: 
       const position = quote.customRequestItemId ? itemPosition.get(quote.customRequestItemId) : undefined;
       const item = position ? items[position - 1] : undefined;
       const token = mintQuoteAccessToken(quote.id, new Date(quote.validUntil));
-      return `${item ? `Món ${position} (${item.displayName})` : quote.quoteNumber}: ${Number(quote.total).toLocaleString('vi-VN')}đ — https://basa3d.vn/quotes/${quote.quoteNumber}?token=${encodeURIComponent(token)}`;
+      return `${item ? `Món ${position} (${item.displayName})` : quote.quoteNumber}: ${Number(quote.total).toLocaleString('vi-VN')}đ — ${publicSiteUrl()}/quotes/${quote.quoteNumber}?token=${encodeURIComponent(token)}`;
     });
 
   const statusOptions = session.role === 'OWNER'
