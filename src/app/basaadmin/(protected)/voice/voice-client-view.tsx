@@ -12,7 +12,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 
-const PRESET_VOICES = [
+interface VoiceOption {
+  id: string;
+  name: string;
+  region?: string;
+  type?: string;
+}
+
+const FALLBACK_VOICES: VoiceOption[] = [
   { id: 'adamsang', name: 'Giọng Sang (Chủ Shop BaSa3D)', region: 'Bình Dương' },
   { id: 'default', name: 'VieNeu Chuẩn (Mặc định v3 Turbo)', region: 'Toàn quốc' },
   { id: 'binhduong', name: 'Bình Dương (Miền Nam)', region: 'Miền Nam' },
@@ -23,8 +30,9 @@ const PRESET_VOICES = [
 ];
 
 const SAMPLE_SCRIPTS = [
-  'Xin chào các bạn! Hôm nay xưởng BaSa3D vừa hoàn thiện mô hình rồng uốn lượn Articulated Dragon được in bằng nhựa Silk PLA cao cấp.',
-  'Dịch vụ in 3D theo yêu cầu tại BaSa3D. Tải file 3MF hoặc STL lên hệ thống để nhận báo giá tự động ngay trong 3 giây!',
+  'Xin chào các bạn [cười]! Hôm nay xưởng BaSa3D vừa hoàn thiện mô hình rồng uốn lượn Articulated Dragon được in bằng nhựa Silk PLA cao cấp.',
+  'Làm mẫu in 3D phức tạp này mất hơn mười tiếng đồng hồ [thở dài]... Nhưng tháo bàn in xong thì quá đẹp và mãn nhãn [cười]!',
+  'Dạ [hắng giọng], xưởng in 3D BaSa3D xin chào anh chị! Bên em nhận in từ file 3MF và STL với báo giá tự động ngay trong 3 giây.',
   'Mẹo in 3D: Để bản in đạt độ bóng đẹp và bám bàn tốt nhất, hãy vệ sinh bàn in bằng cồn isopropyl trước mỗi lần bắt đầu.',
 ];
 
@@ -46,6 +54,9 @@ export function VoiceClientView() {
   const [isOnline, setIsOnline] = useState(false);
   const [isCheckingHost, setIsCheckingHost] = useState(false);
 
+  // Available voices dynamically loaded from PC Host
+  const [voicesList, setVoicesList] = useState<VoiceOption[]>(FALLBACK_VOICES);
+
   // Form input
   const [textPrompt, setTextPrompt] = useState(SAMPLE_SCRIPTS[0]);
   const [voiceTab, setVoiceTab] = useState<'preset' | 'custom'>('preset');
@@ -66,7 +77,7 @@ export function VoiceClientView() {
     if (saved) setHostUrl(saved);
   }, []);
 
-  // Check PC Host status
+  // Check PC Host status and fetch voices
   const checkHostStatus = async (urlToCheck?: string) => {
     const target = (urlToCheck || hostUrl).trim().replace(/\/+$/, '');
     if (!target) return;
@@ -75,6 +86,10 @@ export function VoiceClientView() {
       const res = await fetch(`${target}/health`, { method: 'GET', mode: 'cors' });
       if (res.ok) {
         setIsOnline(true);
+        const data = await res.json().catch(() => ({}));
+        if (Array.isArray(data.voices) && data.voices.length > 0) {
+          setVoicesList(data.voices);
+        }
       } else {
         setIsOnline(false);
       }
@@ -161,6 +176,7 @@ export function VoiceClientView() {
 
   return (
     <div className="space-y-6">
+      {/* Cảnh báo Mixed Content nếu web HTTPS mà host là HTTP */}
       {isHttpsWeb && isHttpHost && !isOnline && (
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-xs space-y-1.5 text-amber-900 dark:text-amber-200">
           <div className="flex items-center gap-2 font-semibold">
@@ -175,6 +191,7 @@ export function VoiceClientView() {
           </p>
         </div>
       )}
+
       {/* 1. Header Banner */}
       <div className="rounded-xl border bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-transparent p-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -184,9 +201,9 @@ export function VoiceClientView() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold">BaSaTTS — VieNeu-TTS v3 Turbo (48kHz)</h2>
+                <h2 className="text-lg font-bold">BaSaTTS — VieNeu-TTS v3.8.4 (48kHz)</h2>
                 <Badge variant="secondary" className="text-[11px] bg-orange-100 text-orange-800 dark:bg-orange-950/60 dark:text-orange-300">
-                  Zero Storage · In-Memory
+                  Zero Storage · In-Memory · Emotion Cues
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
@@ -202,7 +219,7 @@ export function VoiceClientView() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
-                PC Host Online &amp; Sẵn sàng
+                PC Host Online &amp; Sẵn sàng ({voicesList.length} giọng)
               </Badge>
             ) : (
               <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-400 gap-1.5 py-1.5 px-3">
@@ -246,7 +263,7 @@ export function VoiceClientView() {
               </Button>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              💡 Mẹo: Nếu web BaSa3D mở ngay trên máy xưởng, dùng <code>http://localhost:7860</code>. Nếu mở từ xa qua mạng khác, chạy <code>cloudflared tunnel --url http://localhost:7860</code> và dán link vào đây.
+              💡 Mẹo: Nếu web BaSa3D mở ngay trên máy xưởng, dùng <code>http://localhost:7860</code>. Nếu mở từ xa qua mạng khác, chạy <code>Mo_Cong_Public_Cloudflare.bat</code> và dán link HTTPS vào đây.
             </p>
           </div>
         )}
@@ -278,7 +295,7 @@ export function VoiceClientView() {
                 }}
               >
                 <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                Mẫu ví dụ
+                Mẫu kịch bản cảm xúc
               </Button>
             </CardHeader>
 
@@ -316,8 +333,9 @@ export function VoiceClientView() {
                     className="resize-y text-sm leading-relaxed focus-visible:ring-orange-500"
                   />
 
+                  {/* Nút bấm chèn nhanh thẻ cảm xúc */}
                   <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                    <span className="text-[11px] text-muted-foreground">Chèn cảm xúc:</span>
+                    <span className="text-[11px] text-muted-foreground">Chèn cảm xúc (v3.8):</span>
                     <button
                       type="button"
                       onClick={() => setTextPrompt((prev) => `${prev} [cười] `)}
@@ -343,7 +361,6 @@ export function VoiceClientView() {
                       🗣️ [hắng giọng]
                     </button>
                   </div>
-
                 </div>
 
                 {/* Chọn giọng đọc */}
@@ -359,7 +376,7 @@ export function VoiceClientView() {
                             : 'border-transparent text-muted-foreground hover:text-foreground'
                         }`}
                       >
-                        🎙️ Preset (Giọng mẫu có sẵn)
+                        🎙️ Giọng trên PC ({voicesList.length} giọng có sẵn)
                       </button>
                       <button
                         type="button"
@@ -370,7 +387,7 @@ export function VoiceClientView() {
                             : 'border-transparent text-muted-foreground hover:text-foreground'
                         }`}
                       >
-                        🧬 Voice Cloning (File mẫu)
+                        🧬 File mẫu riêng (.wav)
                       </button>
                     </div>
                   </div>
@@ -382,9 +399,9 @@ export function VoiceClientView() {
                         onChange={(e) => setVoiceProfile(e.target.value)}
                         className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-orange-500"
                       >
-                        {PRESET_VOICES.map((v) => (
+                        {voicesList.map((v) => (
                           <option key={v.id} value={v.id}>
-                            {v.name} — [{v.region}]
+                            {v.name} {v.region ? `— [${v.region}]` : ''}
                           </option>
                         ))}
                       </select>
@@ -395,12 +412,11 @@ export function VoiceClientView() {
                   ) : (
                     <div className="space-y-2">
                       <Input
-                        placeholder="Nhập tên file giọng mẫu trên PC (ví dụ: my_voice hoặc test_sang)..."
+                        placeholder="Nhập tên file giọng mẫu trên PC (ví dụ: my_voice hoặc adamsang_hao_hung)..."
                         value={customVoiceName}
                         onChange={(e) => setCustomVoiceName(e.target.value)}
                         className="h-9 text-sm"
                       />
-    
                       <p className="text-[11px] text-muted-foreground">
                         Server PC sẽ tự tìm file <code>{customVoiceName ? `${customVoiceName}.wav` : 'my_voice.wav'}</code> trong thư mục BaSaTTS để clone giọng đọc.
                       </p>
@@ -426,7 +442,6 @@ export function VoiceClientView() {
                     onChange={(e) => setSpeed(parseFloat(e.target.value))}
                     className="w-full cursor-pointer accent-orange-500 h-1.5"
                   />
-
                 </div>
 
                 {/* Nút hành động */}
@@ -438,7 +453,7 @@ export function VoiceClientView() {
                   {isGenerating ? (
                     <>
                       <RefreshCw className="h-4 w-4 animate-spin" />
-                      Đang xử lý trên máy PC xưởng (VieNeu-TTS)...
+                      Đang xử lý trên máy PC xưởng (VieNeu-TTS v3.8.4)...
                     </>
                   ) : (
                     <>
@@ -483,7 +498,7 @@ export function VoiceClientView() {
                 <div className="text-center py-14 text-muted-foreground text-xs border border-dashed rounded-lg space-y-2">
                   <Volume2 className="h-8 w-8 mx-auto opacity-30 text-orange-500" />
                   <p>Chưa có file âm thanh nào trong phiên làm việc này.</p>
-                  <p className="text-[11px] opacity-75">Hãy nhập văn bản bên trái và bấm "Tạo âm thanh ngay".</p>
+                  <p className="text-[11px] opacity-75">Hãy nhập văn bản bên trái và bấm &quot;Tạo âm thanh ngay&quot;.</p>
                 </div>
               ) : (
                 <div className="space-y-3.5 max-h-[640px] overflow-y-auto pr-1">
@@ -530,7 +545,6 @@ export function VoiceClientView() {
                           src={item.url}
                           className="w-full h-8 max-w-full rounded"
                         />
-      
                         <div className="flex justify-end pt-0.5">
                           <a
                             href={item.url}
