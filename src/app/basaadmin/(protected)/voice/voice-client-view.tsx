@@ -156,8 +156,25 @@ export function VoiceClientView() {
     }
   };
 
+  const isHttpsWeb = typeof window !== 'undefined' && window.location.protocol === 'https:';
+  const isHttpHost = hostUrl.trim().toLowerCase().startsWith('http://');
+
   return (
     <div className="space-y-6">
+      {isHttpsWeb && isHttpHost && !isOnline && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-xs space-y-1.5 text-amber-900 dark:text-amber-200">
+          <div className="flex items-center gap-2 font-semibold">
+            <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+            Lý do báo Offline: Trình duyệt bảo mật chặn kết nối HTTP từ Web HTTPS (Mixed Content)
+          </div>
+          <p>
+            Trang web hiện tại đang mở qua <strong>HTTPS</strong>, nên trình duyệt tự động chặn kết nối tới <code>http://localhost:7860</code>.
+          </p>
+          <p>
+            👉 <strong>Cách xử lý:</strong> Trên máy PC, double-click file <code>Mo_Cong_Public_Cloudflare.bat</code> trong thư mục BaSaTTS để lấy link HTTPS (ví dụ: <code>https://...trycloudflare.com</code>), sau đó bấm nút <strong>&quot;Cấu hình PC&quot;</strong> bên dưới và dán link vào là dùng được ngay!
+          </p>
+        </div>
+      )}
       {/* 1. Header Banner */}
       <div className="rounded-xl border bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-transparent p-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
