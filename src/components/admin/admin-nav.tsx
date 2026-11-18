@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import {
   BookOpen, Boxes, Calculator, ChevronDown, ClipboardCheck, FileEdit, LayoutDashboard, Layers, Package, Printer,
   Receipt, ShieldAlert, ShoppingBag, Users,
-  Tags, Loader2, Warehouse, FileBox, Menu, X,
+  Tags, Loader2, Warehouse, FileBox, Menu, X, Mic,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
@@ -72,6 +72,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/basaadmin/audit-logs', label: 'Nhật ký hệ thống', icon: ShieldAlert, ownerOnly: true },
       { href: '/basaadmin/blog', label: 'Blog', icon: BookOpen },
       { href: '/basaadmin/blog/review', label: 'Duyệt bài', icon: ClipboardCheck, badgeKey: 'blogDrafts' },
+      { href: '/basaadmin/voice', label: 'Voice Studio AI', icon: Mic },
     ],
   },
 ];
