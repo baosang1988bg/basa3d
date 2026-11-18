@@ -14,13 +14,26 @@ export async function createTtsJob(params: {
       text_prompt,
       voice_profile,
       speed,
+      silence_gap,
+      mode,
+      speaker_map,
       status
-    ) values ($1, $2, $3, $4, $5, 'PENDING')
+    ) values ($1, $2, $3, $4, $5, $6, $7, $8, 'PENDING')
     returning
       id, staff_id, staff_name, text_prompt, voice_profile, speed,
+      silence_gap, mode, speaker_map,
       status, audio_url, audio_duration_seconds, error_message,
       worker_id, created_at, updated_at, completed_at`,
-    [staffId, staffName, input.textPrompt, input.voiceProfile, input.speed],
+    [
+      staffId,
+      staffName,
+      input.textPrompt,
+      input.voiceProfile,
+      input.speed,
+      input.silenceGap ?? 0.3,
+      input.mode ?? 'single',
+      JSON.stringify(input.speakerMap ?? {}),
+    ],
   );
 
   return res.rows[0];
@@ -31,6 +44,7 @@ export async function listTtsJobs(limit = 20): Promise<TtsJobRecord[]> {
   const res = await query<TtsJobRecord>(
     `select
       id, staff_id, staff_name, text_prompt, voice_profile, speed,
+      silence_gap, mode, speaker_map,
       status, audio_url, audio_duration_seconds, error_message,
       worker_id, created_at, updated_at, completed_at
     from public.staff_tts_jobs
@@ -46,6 +60,7 @@ export async function getTtsJobById(id: string): Promise<TtsJobRecord | null> {
   const res = await query<TtsJobRecord>(
     `select
       id, staff_id, staff_name, text_prompt, voice_profile, speed,
+      silence_gap, mode, speaker_map,
       status, audio_url, audio_duration_seconds, error_message,
       worker_id, created_at, updated_at, completed_at
     from public.staff_tts_jobs

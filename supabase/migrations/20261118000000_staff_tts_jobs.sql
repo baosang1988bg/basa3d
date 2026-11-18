@@ -23,6 +23,9 @@ create table if not exists public.staff_tts_jobs (
   text_prompt text not null check (btrim(text_prompt) <> ''),
   voice_profile varchar(64) not null default 'default',
   speed numeric(3, 2) not null default 1.00 check (speed between 0.50 and 2.00),
+  silence_gap numeric(3, 2) not null default 0.30,
+  mode varchar(16) not null default 'single' check (mode in ('single', 'conversation')),
+  speaker_map jsonb not null default '{}'::jsonb,
   status varchar(16) not null default 'PENDING' check (status in ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED')),
   audio_url text,
   audio_duration_seconds numeric(6, 2),
@@ -45,7 +48,7 @@ drop trigger if exists staff_tts_jobs_set_updated_at on public.staff_tts_jobs;
 create trigger staff_tts_jobs_set_updated_at before update on public.staff_tts_jobs
   for each row execute function public.set_updated_at();
 
--- RLS Policies: Only active staff can access
+-- RLS Policies: Allow authenticated staff and service role
 drop policy if exists "Staff can view tts workers" on public.staff_tts_workers;
 create policy "Staff can view tts workers" on public.staff_tts_workers
   for select to authenticated

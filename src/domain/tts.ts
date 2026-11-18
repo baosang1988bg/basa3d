@@ -3,16 +3,19 @@ import { z } from 'zod';
 export const ttsJobStatusSchema = z.enum(['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED']);
 export type TtsJobStatus = z.infer<typeof ttsJobStatusSchema>;
 
+export const ttsModeSchema = z.enum(['single', 'conversation']);
+export type TtsMode = z.infer<typeof ttsModeSchema>;
+
 export const createTtsJobSchema = z.object({
   textPrompt: z
     .string()
     .trim()
-    .min(1, 'Vui lòng nhập văn bản cần chuyển thành giọng nói.')
-    .max(5000, 'Văn bản không được vượt quá 5.000 ký tự cho mỗi lượt.'),
+    .min(1, 'Vui lòng nhập văn bản hoặc kịch bản cần đọc.')
+    .max(10000, 'Văn bản không được vượt quá 10.000 ký tự cho mỗi lượt.'),
   voiceProfile: z
     .string()
     .trim()
-    .min(1, 'Vui lòng chọn hoặc nhập tên giọng đọc.')
+    .min(1, 'Vui lòng chọn hoặc nhập giọng đọc.')
     .max(64)
     .default('default'),
   speed: z
@@ -20,6 +23,13 @@ export const createTtsJobSchema = z.object({
     .min(0.5, 'Tốc độ tối thiểu 0.5x')
     .max(2.0, 'Tốc độ tối đa 2.0x')
     .default(1.0),
+  silenceGap: z
+    .number()
+    .min(0.0)
+    .max(3.0)
+    .default(0.3),
+  mode: ttsModeSchema.default('single'),
+  speakerMap: z.record(z.string()).optional().default({}),
 });
 
 export type CreateTtsJobInput = z.infer<typeof createTtsJobSchema>;
@@ -31,6 +41,9 @@ export interface TtsJobRecord {
   text_prompt: string;
   voice_profile: string;
   speed: number;
+  silence_gap?: number;
+  mode?: TtsMode;
+  speaker_map?: Record<string, string>;
   status: TtsJobStatus;
   audio_url: string | null;
   audio_duration_seconds: number | null;

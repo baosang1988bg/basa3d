@@ -1,4 +1,4 @@
-import { Metadata } from 'next';
+import type { Metadata } from 'next';
 import { requireAdmin } from '@/lib/auth/require-admin';
 import { getWorkerStatus, listTtsJobs } from '@/services/tts.service';
 import { VoiceClientView } from './voice-client-view';

@@ -19,11 +19,26 @@ export async function createTtsJobAction(formData: FormData) {
   const textPrompt = formData.get('textPrompt');
   const voiceProfile = formData.get('voiceProfile') || 'default';
   const speed = formData.get('speed') ? Number(formData.get('speed')) : 1.0;
+  const silenceGap = formData.get('silenceGap') ? Number(formData.get('silenceGap')) : 0.3;
+  const mode = formData.get('mode') === 'conversation' ? 'conversation' : 'single';
+  const speakerMapRaw = formData.get('speakerMap');
+
+  let speakerMap: Record<string, string> = {};
+  if (typeof speakerMapRaw === 'string' && speakerMapRaw) {
+    try {
+      speakerMap = JSON.parse(speakerMapRaw);
+    } catch {
+      speakerMap = {};
+    }
+  }
 
   const parsed = createTtsJobSchema.parse({
     textPrompt: typeof textPrompt === 'string' ? textPrompt : '',
     voiceProfile: typeof voiceProfile === 'string' ? voiceProfile : 'default',
     speed,
+    silenceGap,
+    mode,
+    speakerMap,
   });
 
   await createTtsJob({
