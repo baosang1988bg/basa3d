@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import {
-  Mic, Volume2, Download, Trash2, RefreshCw, AlertCircle, CheckCircle2,
-  Clock, Users, Sparkles, Sliders, Play,
+  Mic, Volume2, Download, RefreshCw, AlertCircle, CheckCircle2,
+  Sliders, Play, Settings, Sparkles,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,13 +11,6 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import type { TtsJobRecord, TtsWorkerInfo } from '@/domain/tts';
-import { createTtsJobAction, deleteTtsJobAction } from './actions';
-
-interface VoiceClientViewProps {
-  initialJobs: TtsJobRecord[];
-  initialWorker: TtsWorkerInfo | null;
-}
 
 const PRESET_VOICES = [
   { id: 'adamsang', name: 'Giọng Sang (Chủ Shop BaSa3D)', region: 'Bình Dương' },
@@ -36,132 +28,137 @@ const SAMPLE_SCRIPTS = [
   'Mẹo in 3D: Để bản in đạt độ bóng đẹp và bám bàn tốt nhất, hãy vệ sinh bàn in bằng cồn isopropyl trước mỗi lần bắt đầu.',
 ];
 
-const SAMPLE_CONVERSATION = `Nhân viên: Dạ xưởng in 3D BaSa3D xin chào ạ, em có thể hỗ trợ gì cho anh chị?
-Khách hàng: Anh có file STL mô hình móc khóa rồng, bên em in bao lâu thì lấy được em?
-Nhân viên: Dạ thời gian in khoảng 2 đến 3 tiếng là xong ạ, anh gửi file qua em báo giá liền nha!`;
+interface GeneratedAudioItem {
+  id: string;
+  url: string;
+  text: string;
+  voice: string;
+  speed: number;
+  createdAt: Date;
+  sizeKb: number;
+}
 
-export function VoiceClientView({ initialJobs, initialWorker }: VoiceClientViewProps) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+const STORAGE_HOST_KEY = 'basa3d_tts_host_url';
 
-  // Mode: single (Đọc đơn) or conversation (Hội thoại đa nhân vật)
-  const [mode, setMode] = useState<'single' | 'conversation'>('single');
+export function VoiceClientView() {
+  const [hostUrl, setHostUrl] = useState('http://localhost:7860');
+  const [showConfig, setShowConfig] = useState(false);
+  const [isOnline, setIsOnline] = useState(false);
+  const [isCheckingHost, setIsCheckingHost] = useState(false);
 
-  // Single mode state
+  // Form input
   const [textPrompt, setTextPrompt] = useState(SAMPLE_SCRIPTS[0]);
   const [voiceTab, setVoiceTab] = useState<'preset' | 'custom'>('preset');
   const [voiceProfile, setVoiceProfile] = useState('adamsang');
   const [customVoiceName, setCustomVoiceName] = useState('');
-
-  // Tuning parameters
   const [speed, setSpeed] = useState(1.0);
-  const [silenceGap, setSilenceGap] = useState(0.3);
 
-  // Conversation mode state
-  const [convScript, setConvScript] = useState(SAMPLE_CONVERSATION);
-  const [detectedSpeakers, setDetectedSpeakers] = useState<string[]>(['Nhân viên', 'Khách hàng']);
-  const [speakerVoiceMap, setSpeakerVoiceMap] = useState<Record<string, string>>({
-    'Nhân viên': 'adamsang',
-    'Khách hàng': 'hanoi',
-  });
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Generation status
+  const [isGenerating, setIsGenerating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Auto-refresh when jobs are pending/processing
-  const hasActiveJobs = initialJobs.some((j) => j.status === 'PENDING' || j.status === 'PROCESSING');
+  // In-memory generated audio list for this session (ZERO database write)
+  const [audioList, setAudioList] = useState<GeneratedAudioItem[]>([]);
+
+  // Load saved host URL from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_HOST_KEY);
+    if (saved) setHostUrl(saved);
+  }, []);
+
+  // Check PC Host status
+  const checkHostStatus = async (urlToCheck?: string) => {
+    const target = (urlToCheck || hostUrl).trim().replace(/\/+$/, '');
+    if (!target) return;
+    setIsCheckingHost(true);
+    try {
+      const res = await fetch(`${target}/health`, { method: 'GET', mode: 'cors' });
+      if (res.ok) {
+        setIsOnline(true);
+      } else {
+        setIsOnline(false);
+      }
+    } catch {
+      setIsOnline(false);
+    } finally {
+      setIsCheckingHost(false);
+    }
+  };
 
   useEffect(() => {
-    if (!hasActiveJobs) return;
-    const interval = setInterval(() => {
-      startTransition(() => {
-        router.refresh();
-      });
-    }, 4000);
+    checkHostStatus();
+    const interval = setInterval(() => checkHostStatus(), 10000);
     return () => clearInterval(interval);
-  }, [hasActiveJobs, router]);
+  }, [hostUrl]);
 
-  // Quét nhân vật từ kịch bản hội thoại
-  function handleScanSpeakers() {
-    const lines = convScript.split('\n');
-    const speakers = new Set<string>();
+  const handleSaveHostUrl = (newUrl: string) => {
+    const clean = newUrl.trim().replace(/\/+$/, '');
+    setHostUrl(clean);
+    localStorage.setItem(STORAGE_HOST_KEY, clean);
+    checkHostStatus(clean);
+  };
 
-    for (const line of lines) {
-      const match = line.match(/^([^:\n]+):/);
-      if (match && match[1]) {
-        const name = match[1].trim();
-        if (name) speakers.add(name);
-      }
-    }
-
-    const speakerList = Array.from(speakers);
-    if (speakerList.length > 0) {
-      setDetectedSpeakers(speakerList);
-      setSpeakerVoiceMap((prev) => {
-        const updated = { ...prev };
-        speakerList.forEach((sp, idx) => {
-          if (!updated[sp]) {
-            updated[sp] = PRESET_VOICES[idx % PRESET_VOICES.length].id;
-          }
-        });
-        return updated;
-      });
-    } else {
-      alert('Không tìm thấy nhân vật nào! Hãy định dạng kịch bản dạng: "Tên nhân vật: Lời thoại"');
-    }
-  }
-
-  async function handleCreateJob(e: React.FormEvent) {
+  const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMessage(null);
-
-    const contentToRead = mode === 'single' ? textPrompt.trim() : convScript.trim();
-    if (!contentToRead) {
-      setErrorMessage('Vui lòng nhập nội dung văn bản kịch bản cần đọc.');
+    const content = textPrompt.trim();
+    if (!content) {
+      setErrorMessage('Vui lòng nhập văn bản cần đọc.');
       return;
     }
 
-    setIsSubmitting(true);
+    setErrorMessage(null);
+    setIsGenerating(true);
+
+    const cleanHost = hostUrl.trim().replace(/\/+$/, '');
+    const selectedVoice = voiceTab === 'custom' && customVoiceName.trim() ? customVoiceName.trim() : voiceProfile;
 
     try {
-      const selectedVoice = voiceTab === 'custom' && customVoiceName.trim() ? customVoiceName.trim() : voiceProfile;
-      const formData = new FormData();
-      formData.set('textPrompt', contentToRead);
-      formData.set('voiceProfile', selectedVoice);
-      formData.set('speed', speed.toString());
-      formData.set('silenceGap', silenceGap.toString());
-      formData.set('mode', mode);
+      const res = await fetch(`${cleanHost}/tts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: content,
+          voice: selectedVoice,
+          speed,
+        }),
+      });
 
-      if (mode === 'conversation') {
-        formData.set('speakerMap', JSON.stringify(speakerVoiceMap));
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Máy chủ PC phản hồi lỗi (Mã: ${res.status})`);
       }
 
-      await createTtsJobAction(formData);
-      startTransition(() => {
-        router.refresh();
-      });
+      // Stream trực tiếp audio bytes vào RAM trình duyệt (Không ghi đĩa, không DB)
+      const blob = await res.blob();
+      const audioUrl = URL.createObjectURL(blob);
+
+      const newItem: GeneratedAudioItem = {
+        id: Math.random().toString(36).substring(2, 9),
+        url: audioUrl,
+        text: content,
+        voice: selectedVoice,
+        speed,
+        createdAt: new Date(),
+        sizeKb: Math.round(blob.size / 1024),
+      };
+
+      setAudioList((prev) => [newItem, ...prev]);
     } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : 'Có lỗi xảy ra khi gửi yêu cầu sang PC.');
+      setErrorMessage(
+        err instanceof Error
+          ? err.message
+          : 'Không thể kết nối tới PC xưởng. Vui lòng đảm bảo máy PC đang mở và file Chay_Host_PC.bat đang chạy.',
+      );
     } finally {
-      setIsSubmitting(false);
+      setIsGenerating(false);
     }
-  }
-
-  async function handleDeleteJob(id: string) {
-    if (!confirm('Bạn có chắc chắn muốn xóa bản ghi âm thanh này?')) return;
-    const formData = new FormData();
-    formData.set('id', id);
-    startTransition(async () => {
-      await deleteTtsJobAction(formData);
-      router.refresh();
-    });
-  }
-
-  const isWorkerOnline = Boolean(initialWorker?.is_online);
+  };
 
   return (
     <div className="space-y-6">
-      {/* 1. Header Banner phong cách BaSaTTS */}
+      {/* 1. Header Banner */}
       <div className="rounded-xl border bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-transparent p-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -172,32 +169,70 @@ export function VoiceClientView({ initialJobs, initialWorker }: VoiceClientViewP
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-bold">BaSaTTS — VieNeu-TTS v3 Turbo (48kHz)</h2>
                 <Badge variant="secondary" className="text-[11px] bg-orange-100 text-orange-800 dark:bg-orange-950/60 dark:text-orange-300">
-                  Chuẩn âm thanh Studio
+                  Zero Storage · In-Memory
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Chuyển văn bản thành giọng đọc tiếng Việt mượt mà, hỗ trợ đọc kịch bản video TikTok/Reels và hội thoại đa nhân vật.
+                Sinh giọng nói trực tiếp từ máy PC xưởng và phát ngay trên trình duyệt — Hoàn toàn không lưu rác hay đụng vào Database.
               </p>
             </div>
           </div>
 
-          <div>
-            {isWorkerOnline ? (
+          <div className="flex items-center gap-2">
+            {isOnline ? (
               <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400 gap-1.5 py-1.5 px-3">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
-                PC Xưởng Online ({initialWorker?.worker_name || 'PC Host'})
+                PC Host Online &amp; Sẵn sàng
               </Badge>
             ) : (
               <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-400 gap-1.5 py-1.5 px-3">
                 <span className="h-2 w-2 rounded-full bg-amber-500"></span>
-                PC Xưởng Đang Tắt (Vui lòng bật PC &amp; chạy worker)
+                PC Host Offline
               </Badge>
             )}
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowConfig(!showConfig)}
+              className="h-8 gap-1 text-xs"
+              title="Cấu hình địa chỉ PC Host"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              Cấu hình PC
+            </Button>
           </div>
         </div>
+
+        {/* Cấu hình địa chỉ Host PC */}
+        {showConfig && (
+          <div className="mt-4 pt-4 border-t border-border/60 space-y-2">
+            <Label className="text-xs font-semibold">Địa chỉ kết nối máy PC Host:</Label>
+            <div className="flex gap-2">
+              <Input
+                value={hostUrl}
+                onChange={(e) => setHostUrl(e.target.value)}
+                placeholder="http://localhost:7860 hoặc link Cloudflare Tunnel https://..."
+                className="h-9 text-xs"
+              />
+              <Button
+                size="sm"
+                onClick={() => handleSaveHostUrl(hostUrl)}
+                disabled={isCheckingHost}
+                className="h-9 text-xs shrink-0 gap-1"
+              >
+                <RefreshCw className={`h-3 w-3 ${isCheckingHost ? 'animate-spin' : ''}`} />
+                Lưu &amp; Thử kết nối
+              </Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              💡 Mẹo: Nếu web BaSa3D mở ngay trên máy xưởng, dùng <code>http://localhost:7860</code>. Nếu mở từ xa qua mạng khác, chạy <code>cloudflared tunnel --url http://localhost:7860</code> và dán link vào đây.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* 2. Main Studio Grid */}
@@ -205,53 +240,29 @@ export function VoiceClientView({ initialJobs, initialWorker }: VoiceClientViewP
         {/* Left Column: Input Form (7 cols) */}
         <div className="lg:col-span-7 space-y-4">
           <Card>
-            <CardHeader className="pb-3 border-b">
-              {/* Tab chuyển đổi chế độ: Đọc đơn vs Hội thoại */}
-              <div className="flex items-center justify-between">
-                <div className="flex p-1 bg-muted/60 rounded-lg gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setMode('single')}
-                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-medium transition-all ${
-                      mode === 'single'
-                        ? 'bg-background text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    <Volume2 className="h-3.5 w-3.5" />
-                    📖 Đọc truyện (Đơn thoại)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMode('conversation')}
-                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-medium transition-all ${
-                      mode === 'conversation'
-                        ? 'bg-background text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    <Users className="h-3.5 w-3.5" />
-                    🎭 Hội thoại (Đa nhân vật)
-                  </button>
-                </div>
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs text-muted-foreground hover:text-foreground gap-1 h-7"
-                  onClick={() => {
-                    if (mode === 'single') {
-                      const next = SAMPLE_SCRIPTS[(SAMPLE_SCRIPTS.indexOf(textPrompt) + 1) % SAMPLE_SCRIPTS.length];
-                      setTextPrompt(next);
-                    } else {
-                      setConvScript(SAMPLE_CONVERSATION);
-                    }
-                  }}
-                >
-                  <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                  Mẫu ví dụ
-                </Button>
+            <CardHeader className="pb-3 border-b flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Volume2 className="h-4 w-4 text-orange-500" />
+                  Kịch bản cần chuyển thành giọng nói
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Nhập văn bản tiếng Việt để PC xưởng tổng hợp âm thanh 48kHz
+                </CardDescription>
               </div>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-muted-foreground hover:text-foreground gap-1 h-7"
+                onClick={() => {
+                  const next = SAMPLE_SCRIPTS[(SAMPLE_SCRIPTS.indexOf(textPrompt) + 1) % SAMPLE_SCRIPTS.length];
+                  setTextPrompt(next);
+                }}
+              >
+                <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                Mẫu ví dụ
+              </Button>
             </CardHeader>
 
             <CardContent className="pt-4 space-y-4">
@@ -262,218 +273,129 @@ export function VoiceClientView({ initialJobs, initialWorker }: VoiceClientViewP
                 </div>
               )}
 
-              <form onSubmit={handleCreateJob} className="space-y-4">
-                {/* TAB 1: SINGLE SPEAKER */}
-                {mode === 'single' ? (
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <Label htmlFor="textPrompt" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                          Văn bản cần đọc
-                        </Label>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[11px] text-muted-foreground">{textPrompt.length} ký tự</span>
-                          <button
-                            type="button"
-                            onClick={() => setTextPrompt('')}
-                            className="text-[11px] text-muted-foreground hover:text-destructive underline"
-                          >
-                            Xóa
-                          </button>
-                        </div>
-                      </div>
-                      <Textarea
-                        id="textPrompt"
-                        rows={6}
-                        placeholder="Nhập nội dung văn bản tiếng Việt cần đọc..."
-                        value={textPrompt}
-                        onChange={(e) => setTextPrompt(e.target.value)}
-                        className="resize-y text-sm leading-relaxed focus-visible:ring-orange-500"
-                      />
-                    </div>
-
-                    {/* Lựa chọn giọng đọc: Preset vs Voice Clone */}
-                    <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
-                      <div className="flex items-center justify-between border-b pb-2">
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setVoiceTab('preset')}
-                            className={`text-xs font-medium pb-1 border-b-2 transition-all ${
-                              voiceTab === 'preset'
-                                ? 'border-orange-500 text-orange-600 dark:text-orange-400 font-semibold'
-                                : 'border-transparent text-muted-foreground hover:text-foreground'
-                            }`}
-                          >
-                            🎙️ Preset (Giọng mẫu có sẵn)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setVoiceTab('custom')}
-                            className={`text-xs font-medium pb-1 border-b-2 transition-all ${
-                              voiceTab === 'custom'
-                                ? 'border-orange-500 text-orange-600 dark:text-orange-400 font-semibold'
-                                : 'border-transparent text-muted-foreground hover:text-foreground'
-                            }`}
-                          >
-                            🧬 Voice Cloning (Giọng riêng)
-                          </button>
-                        </div>
-                      </div>
-
-                      {voiceTab === 'preset' ? (
-                        <div className="space-y-2">
-                          <select
-                            value={voiceProfile}
-                            onChange={(e) => setVoiceProfile(e.target.value)}
-                            className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-orange-500"
-                          >
-                            {PRESET_VOICES.map((v) => (
-                              <option key={v.id} value={v.id}>
-                                {v.name} — [{v.region}]
-                              </option>
-                            ))}
-                          </select>
-                          <p className="text-[11px] text-muted-foreground">
-                            💡 Gợi ý: Giọng <code className="text-orange-600 dark:text-orange-400 font-semibold">adamsang</code> là giọng thật của chủ shop BaSa3D, rất thích hợp đọc review sản phẩm và hướng dẫn in 3D.
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <Input
-                            placeholder="Nhập tên file giọng mẫu (ví dụ: my_voice hoặc test_sang)..."
-                            value={customVoiceName}
-                            onChange={(e) => setCustomVoiceName(e.target.value)}
-                            className="h-9 text-sm"
-                          />
-                          <p className="text-[11px] text-muted-foreground">
-                            Worker trên PC sẽ tìm file audio mẫu <code>{customVoiceName ? `${customVoiceName}.wav` : 'my_voice.wav'}</code> trong thư mục BaSaTTS để clone giọng đọc.
-                          </p>
-                        </div>
-                      )}
+              <form onSubmit={handleGenerate} className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <Label htmlFor="textPrompt" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Nội dung văn bản
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-muted-foreground">{textPrompt.length} ký tự</span>
+                      <button
+                        type="button"
+                        onClick={() => setTextPrompt('')}
+                        className="text-[11px] text-muted-foreground hover:text-destructive underline"
+                      >
+                        Xóa
+                      </button>
                     </div>
                   </div>
-                ) : (
-                  /* TAB 2: CONVERSATION MODE */
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <Label htmlFor="convScript" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                          Kịch bản hội thoại đa nhân vật
-                        </Label>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          onClick={handleScanSpeakers}
-                          className="h-7 text-xs gap-1"
-                        >
-                          🔍 Quét nhân vật
-                        </Button>
-                      </div>
-                      <Textarea
-                        id="convScript"
-                        rows={7}
-                        placeholder="Nhập kịch bản dạng:&#10;Tên nhân vật: Lời thoại...&#10;Tên nhân vật 2: Lời thoại..."
-                        value={convScript}
-                        onChange={(e) => setConvScript(e.target.value)}
-                        className="resize-y text-sm font-mono leading-relaxed"
-                      />
-                    </div>
-
-                    {/* Danh sách gán giọng cho từng nhân vật */}
-                    {detectedSpeakers.length > 0 && (
-                      <div className="rounded-lg border bg-muted/20 p-3 space-y-2.5">
-                        <Label className="text-xs font-medium">Gán giọng đọc cho từng nhân vật:</Label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                          {detectedSpeakers.map((speaker) => (
-                            <div key={speaker} className="flex items-center gap-2 p-2 rounded-md bg-background border">
-                              <span className="text-xs font-semibold text-primary truncate w-24 shrink-0">
-                                {speaker}:
-                              </span>
-                              <select
-                                value={speakerVoiceMap[speaker] || 'adamsang'}
-                                onChange={(e) =>
-                                  setSpeakerVoiceMap((prev) => ({
-                                    ...prev,
-                                    [speaker]: e.target.value,
-                                  }))
-                                }
-                                className="w-full h-8 rounded border border-input bg-background px-2 text-xs"
-                              >
-                                {PRESET_VOICES.map((v) => (
-                                  <option key={v.id} value={v.id}>
-                                    {v.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Tinh chỉnh nâng cao (Speed & Silence Gap) */}
-                <div className="rounded-lg border p-3 bg-muted/10 space-y-3">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-                    <Sliders className="h-3.5 w-3.5" />
-                    Cài đặt tốc độ &amp; nhịp đọc
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Tốc độ đọc */}
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between items-center text-xs">
-                        <span>Tốc độ đọc (Speed)</span>
-                        <span className="font-semibold text-primary">{speed.toFixed(2)}x</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0.6"
-                        max="1.6"
-                        step="0.05"
-                        value={speed}
-                        onChange={(e) => setSpeed(parseFloat(e.target.value))}
-                        className="w-full cursor-pointer accent-orange-500 h-1.5"
-                      />
-                    </div>
-
-                    {/* Khoảng lặng giữa các câu */}
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between items-center text-xs">
-                        <span>Khoảng lặng ngắt câu (Silence)</span>
-                        <span className="font-semibold text-primary">{silenceGap.toFixed(1)}s</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0.1"
-                        max="2.0"
-                        step="0.1"
-                        value={silenceGap}
-                        onChange={(e) => setSilenceGap(parseFloat(e.target.value))}
-                        className="w-full cursor-pointer accent-orange-500 h-1.5"
-                      />
-                    </div>
-                  </div>
+                  <Textarea
+                    id="textPrompt"
+                    rows={6}
+                    placeholder="Nhập nội dung văn bản tiếng Việt cần đọc..."
+                    value={textPrompt}
+                    onChange={(e) => setTextPrompt(e.target.value)}
+                    className="resize-y text-sm leading-relaxed focus-visible:ring-orange-500"
+                  />
                 </div>
 
-                {/* Nút hành động chính */}
+                {/* Chọn giọng đọc */}
+                <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setVoiceTab('preset')}
+                        className={`text-xs font-medium pb-1 border-b-2 transition-all ${
+                          voiceTab === 'preset'
+                            ? 'border-orange-500 text-orange-600 dark:text-orange-400 font-semibold'
+                            : 'border-transparent text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        🎙️ Preset (Giọng mẫu có sẵn)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVoiceTab('custom')}
+                        className={`text-xs font-medium pb-1 border-b-2 transition-all ${
+                          voiceTab === 'custom'
+                            ? 'border-orange-500 text-orange-600 dark:text-orange-400 font-semibold'
+                            : 'border-transparent text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        🧬 Voice Cloning (File mẫu)
+                      </button>
+                    </div>
+                  </div>
+
+                  {voiceTab === 'preset' ? (
+                    <div className="space-y-2">
+                      <select
+                        value={voiceProfile}
+                        onChange={(e) => setVoiceProfile(e.target.value)}
+                        className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-orange-500"
+                      >
+                        {PRESET_VOICES.map((v) => (
+                          <option key={v.id} value={v.id}>
+                            {v.name} — [{v.region}]
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[11px] text-muted-foreground">
+                        💡 Giọng <code className="text-orange-600 dark:text-orange-400 font-semibold">adamsang</code> là giọng chuẩn của chủ shop BaSa3D, tối ưu cho review sản phẩm.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Input
+                        placeholder="Nhập tên file giọng mẫu trên PC (ví dụ: my_voice hoặc test_sang)..."
+                        value={customVoiceName}
+                        onChange={(e) => setCustomVoiceName(e.target.value)}
+                        className="h-9 text-sm"
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Server PC sẽ tự tìm file <code>{customVoiceName ? `${customVoiceName}.wav` : 'my_voice.wav'}</code> trong thư mục BaSaTTS để clone giọng đọc.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Tinh chỉnh tốc độ */}
+                <div className="rounded-lg border p-3 bg-muted/10 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1 font-medium text-muted-foreground">
+                      <Sliders className="h-3.5 w-3.5" />
+                      Tốc độ đọc (Speed)
+                    </span>
+                    <span className="font-semibold text-primary">{speed.toFixed(2)}x</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.6"
+                    max="1.5"
+                    step="0.05"
+                    value={speed}
+                    onChange={(e) => setSpeed(parseFloat(e.target.value))}
+                    className="w-full cursor-pointer accent-orange-500 h-1.5"
+                  />
+                </div>
+
+                {/* Nút hành động */}
                 <Button
                   type="submit"
-                  disabled={isSubmitting}
-                  className="w-full h-11 bg-orange-600 hover:bg-orange-700 text-white font-medium text-sm gap-2 shadow-sm"
+                  disabled={isGenerating || !isOnline}
+                  className="w-full h-11 bg-orange-600 hover:bg-orange-700 text-white font-medium text-sm gap-2 shadow-sm disabled:opacity-60"
                 >
-                  {isSubmitting ? (
+                  {isGenerating ? (
                     <>
                       <RefreshCw className="h-4 w-4 animate-spin" />
-                      Đang gửi yêu cầu sang máy PC xưởng...
+                      Đang xử lý trên máy PC xưởng (VieNeu-TTS)...
                     </>
                   ) : (
                     <>
                       <Play className="h-4 w-4 fill-white" />
-                      🚀 Tạo âm thanh ngay (VieNeu-TTS v3)
+                      🚀 Tạo âm thanh ngay (Không lưu máy chủ)
                     </>
                   )}
                 </Button>
@@ -482,133 +404,94 @@ export function VoiceClientView({ initialJobs, initialWorker }: VoiceClientViewP
           </Card>
         </div>
 
-        {/* Right Column: Output & History (5 cols) */}
+        {/* Right Column: Audio Output & Recent Session (5 cols) */}
         <div className="lg:col-span-5 space-y-4">
           <Card>
             <CardHeader className="pb-3 border-b flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-base flex items-center gap-2">
                   <Volume2 className="h-4 w-4 text-orange-500" />
-                  Kết quả âm thanh
+                  Âm thanh tạo ra ({audioList.length})
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  File âm thanh mới nhất &amp; lịch sử ({initialJobs.length})
+                  Nghe trực tiếp từ RAM hoặc tải file .WAV về máy
                 </CardDescription>
               </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => startTransition(() => router.refresh())}
-                disabled={isPending}
-                className="h-7 text-xs gap-1"
-              >
-                <RefreshCw className={`h-3 w-3 ${isPending ? 'animate-spin' : ''}`} />
-                Làm mới
-              </Button>
+              {audioList.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setAudioList([])}
+                  className="h-7 text-xs text-muted-foreground hover:text-destructive"
+                >
+                  Xóa phiên làm việc
+                </Button>
+              )}
             </CardHeader>
 
             <CardContent className="pt-4">
-              {initialJobs.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground text-xs border border-dashed rounded-lg space-y-2">
+              {audioList.length === 0 ? (
+                <div className="text-center py-14 text-muted-foreground text-xs border border-dashed rounded-lg space-y-2">
                   <Volume2 className="h-8 w-8 mx-auto opacity-30 text-orange-500" />
-                  <p>Chưa có file âm thanh nào được sinh ra.</p>
-                  <p className="text-[11px] opacity-75">Hãy nhập văn bản bên trái và bấm "Tạo âm thanh".</p>
+                  <p>Chưa có file âm thanh nào trong phiên làm việc này.</p>
+                  <p className="text-[11px] opacity-75">Hãy nhập văn bản bên trái và bấm "Tạo âm thanh ngay".</p>
                 </div>
               ) : (
-                <div className="space-y-3 max-h-[640px] overflow-y-auto pr-1">
-                  {initialJobs.map((job, idx) => (
+                <div className="space-y-3.5 max-h-[640px] overflow-y-auto pr-1">
+                  {audioList.map((item, idx) => (
                     <div
-                      key={job.id}
+                      key={item.id}
                       className={`p-3.5 rounded-lg border transition-all space-y-2.5 ${
                         idx === 0
-                          ? 'bg-orange-500/5 border-orange-500/30 dark:bg-orange-950/20'
+                          ? 'bg-orange-500/5 border-orange-500/30 dark:bg-orange-950/20 shadow-sm'
                           : 'bg-card hover:bg-muted/30'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          {job.status === 'COMPLETED' && (
-                            <Badge className="bg-emerald-600 text-white gap-1 text-[10px] py-0">
-                              <CheckCircle2 className="h-3 w-3" /> Hoàn thành
-                            </Badge>
-                          )}
-                          {job.status === 'PROCESSING' && (
-                            <Badge className="bg-blue-600 text-white gap-1 text-[10px] py-0 animate-pulse">
-                              <RefreshCw className="h-3 w-3 animate-spin" /> PC đang đọc...
-                            </Badge>
-                          )}
-                          {job.status === 'PENDING' && (
-                            <Badge variant="secondary" className="gap-1 text-[10px] py-0 text-amber-700 bg-amber-100 dark:text-amber-300 dark:bg-amber-950/60">
-                              <Clock className="h-3 w-3" /> Chờ PC nhận
-                            </Badge>
-                          )}
-                          {job.status === 'FAILED' && (
-                            <Badge variant="destructive" className="gap-1 text-[10px] py-0">
-                              <AlertCircle className="h-3 w-3" /> Lỗi
-                            </Badge>
-                          )}
-
+                          <Badge className="bg-emerald-600 text-white gap-1 text-[10px] py-0">
+                            <CheckCircle2 className="h-3 w-3" /> Thành công
+                          </Badge>
                           <span className="text-[11px] font-semibold text-foreground">
-                            {job.mode === 'conversation' ? '🎭 Hội thoại' : `🎙️ ${job.voice_profile}`}
+                            🎙️ {item.voice}
                           </span>
-                          <span className="text-[11px] text-muted-foreground">({job.speed}x)</span>
+                          <span className="text-[10px] text-muted-foreground">({item.speed}x)</span>
+                          <span className="text-[10px] text-muted-foreground">· {item.sizeKb} KB</span>
                         </div>
 
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] text-muted-foreground">
-                            {new Date(job.created_at).toLocaleTimeString('vi-VN', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </span>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                            onClick={() => handleDeleteJob(job.id)}
-                            title="Xóa"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
+                        <span className="text-[10px] text-muted-foreground">
+                          {item.createdAt.toLocaleTimeString('vi-VN', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                          })}
+                        </span>
                       </div>
 
-                      {/* Đoạn text trích dẫn */}
+                      {/* Text trích dẫn */}
                       <p className="text-xs text-foreground/80 line-clamp-2 bg-muted/40 p-2 rounded text-[11px] leading-relaxed">
-                        {job.text_prompt}
+                        {item.text}
                       </p>
 
-                      {/* Trình phát Audio khi xong */}
-                      {job.status === 'COMPLETED' && job.audio_url && (
-                        <div className="space-y-1.5 pt-1">
-                          <audio
-                            controls
-                            src={job.audio_url}
-                            className="w-full h-8 max-w-full rounded"
-                            preload="metadata"
-                          />
-                          <div className="flex justify-between items-center pt-0.5">
-                            <span className="text-[10px] text-muted-foreground">
-                              {job.audio_duration_seconds ? `Thời lượng: ~${job.audio_duration_seconds}s` : ''}
-                            </span>
-                            <a
-                              href={job.audio_url}
-                              download={`basa3d-voice-${job.id.slice(0, 8)}.wav`}
-                              className="inline-flex items-center h-7 px-2.5 rounded-md text-xs font-medium border border-orange-500/40 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/40 gap-1"
-                            >
-                              <Download className="h-3 w-3" /> Tải file .WAV
-                            </a>
-                          </div>
+                      {/* Audio Player & Nút tải về */}
+                      <div className="space-y-1.5 pt-1">
+                        <audio
+                          controls
+                          autoPlay={idx === 0}
+                          src={item.url}
+                          className="w-full h-8 max-w-full rounded"
+                        />
+                        <div className="flex justify-end pt-0.5">
+                          <a
+                            href={item.url}
+                            download={`basa3d-voice-${item.id}.wav`}
+                            className="inline-flex items-center h-7 px-3 rounded-md text-xs font-medium border border-orange-500/40 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/40 gap-1.5 transition-colors"
+                          >
+                            <Download className="h-3 w-3" /> Tải về .WAV
+                          </a>
                         </div>
-                      )}
-
-                      {/* Thông báo lỗi nếu có */}
-                      {job.status === 'FAILED' && job.error_message && (
-                        <div className="text-[11px] text-destructive bg-destructive/10 p-2 rounded">
-                          Lỗi: {job.error_message}
-                        </div>
-                      )}
+                      </div>
                     </div>
                   ))}
                 </div>
