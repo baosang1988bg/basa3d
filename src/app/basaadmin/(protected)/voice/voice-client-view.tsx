@@ -315,6 +315,35 @@ export function VoiceClientView() {
                     onChange={(e) => setTextPrompt(e.target.value)}
                     className="resize-y text-sm leading-relaxed focus-visible:ring-orange-500"
                   />
+
+                  <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                    <span className="text-[11px] text-muted-foreground">Chèn cảm xúc:</span>
+                    <button
+                      type="button"
+                      onClick={() => setTextPrompt((prev) => `${prev} [cười] `)}
+                      className="text-[11px] px-2 py-0.5 rounded border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:border-orange-900 dark:text-orange-300 transition-colors"
+                      title="Chèn tiếng cười hoặc giọng vui vẻ"
+                    >
+                      😄 [cười]
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTextPrompt((prev) => `${prev} [thở dài] `)}
+                      className="text-[11px] px-2 py-0.5 rounded border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:border-blue-900 dark:text-blue-300 transition-colors"
+                      title="Chèn tiếng thở dài, mệt mỏi hoặc trầm ngâm"
+                    >
+                      😮‍💨 [thở dài]
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTextPrompt((prev) => `${prev} [hắng giọng] `)}
+                      className="text-[11px] px-2 py-0.5 rounded border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:border-amber-900 dark:text-amber-300 transition-colors"
+                      title="Chèn tiếng khẽ hắng giọng"
+                    >
+                      🗣️ [hắng giọng]
+                    </button>
+                  </div>
+
                 </div>
 
                 {/* Chọn giọng đọc */}
@@ -371,6 +400,7 @@ export function VoiceClientView() {
                         onChange={(e) => setCustomVoiceName(e.target.value)}
                         className="h-9 text-sm"
                       />
+    
                       <p className="text-[11px] text-muted-foreground">
                         Server PC sẽ tự tìm file <code>{customVoiceName ? `${customVoiceName}.wav` : 'my_voice.wav'}</code> trong thư mục BaSaTTS để clone giọng đọc.
                       </p>
@@ -396,6 +426,7 @@ export function VoiceClientView() {
                     onChange={(e) => setSpeed(parseFloat(e.target.value))}
                     className="w-full cursor-pointer accent-orange-500 h-1.5"
                   />
+
                 </div>
 
                 {/* Nút hành động */}
@@ -499,6 +530,7 @@ export function VoiceClientView() {
                           src={item.url}
                           className="w-full h-8 max-w-full rounded"
                         />
+      
                         <div className="flex justify-end pt-0.5">
                           <a
                             href={item.url}
