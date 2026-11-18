@@ -19,7 +19,7 @@ Mỗi agent chỉ có **một** mục active tại một thời điểm. Ghi: ag
 | Agent | Branch | Exec-plan | Đang làm |
 |---|---|---|---|
 | Codex | `feat/neobox-lightbox-generator` | `active/feature-neobox-lightbox.md` | chạy `check:agent`, soát UX + xuất 3MF/STL |
-| Gemini | `feat/staff-tts-voice-studio` | `active/feature-staff-tts-studio.md` | hoàn thành code Web UI + Supabase migration + Local Worker BaSaTTS; sẵn sàng test thực tế |
+| Gemini | `dev` (đã merge `feat/staff-tts-voice-studio`) | `active/feature-staff-tts-studio.md` | Hoàn thành & build xanh (Next.js production build); sẵn sàng merge dev lên remote |
 | Claude | `chore/harness-engineering` | — (harness setup) | review/verify harness |
 | Claude (Cowork) | `dev` (đã merge `feat/phase-55-…` + `fix/phase-56-…`) | `active/phase-55-…md`, `active/phase-56-…md` | xong; chờ OWNER xem UI + E2E rồi merge `netlify` |
 
