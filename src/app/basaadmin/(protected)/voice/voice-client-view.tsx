@@ -20,7 +20,8 @@ interface VoiceOption {
 }
 
 const FALLBACK_VOICES: VoiceOption[] = [
-  { id: 'adamsang', name: 'Giọng Sang (Chủ Shop BaSa3D)', region: 'Bình Dương' },
+  { id: 'Adam Sang', name: 'Giọng Adam Sang (Chủ Shop BaSa3D)', region: 'Bình Dương' },
+  { id: 'Adam bựa', name: 'Adam Bựa (Tự nhiên / Hài hước)', region: 'Bắc' },
   { id: 'default', name: 'VieNeu Chuẩn (Mặc định v3 Turbo)', region: 'Toàn quốc' },
   { id: 'binhduong', name: 'Bình Dương (Miền Nam)', region: 'Miền Nam' },
   { id: 'hanoi', name: 'Hà Nội (Miền Bắc truyền cảm)', region: 'Miền Bắc' },
@@ -60,7 +61,7 @@ export function VoiceClientView() {
   // Form input
   const [textPrompt, setTextPrompt] = useState(SAMPLE_SCRIPTS[0]);
   const [voiceTab, setVoiceTab] = useState<'preset' | 'custom'>('preset');
-  const [voiceProfile, setVoiceProfile] = useState('adamsang');
+  const [voiceProfile, setVoiceProfile] = useState('Adam Sang');
   const [customVoiceName, setCustomVoiceName] = useState('');
   const [speed, setSpeed] = useState(1.0);
 
@@ -406,7 +407,7 @@ export function VoiceClientView() {
                         ))}
                       </select>
                       <p className="text-[11px] text-muted-foreground">
-                        💡 Giọng <code className="text-orange-600 dark:text-orange-400 font-semibold">adamsang</code> là giọng chuẩn của chủ shop BaSa3D, tối ưu cho review sản phẩm.
+                        💡 Giọng <code className="text-orange-600 dark:text-orange-400 font-semibold">Adam Sang</code> là giọng chuẩn của chủ shop BaSa3D, tối ưu cho review sản phẩm.
                       </p>
                     </div>
                   ) : (
