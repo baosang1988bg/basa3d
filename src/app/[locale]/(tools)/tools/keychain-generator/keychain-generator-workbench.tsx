@@ -100,7 +100,7 @@ export default function KeychainGeneratorWorkbench() {
           const response = await fetch('/api/public/tool-price-estimate', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ weightGrams, printMinutes: estimatePrintMinutes(weightGrams) }),
+            body: JSON.stringify({ weightGrams, printMinutes: estimatePrintMinutes(weightGrams), isMultiColor: baseColor.toLowerCase() !== textColor.toLowerCase() }),
           });
           if (!cancelled && response.ok) setPrice(await response.json());
           else if (!cancelled) setPrice(null);
@@ -124,6 +124,8 @@ export default function KeychainGeneratorWorkbench() {
     cornerRadiusMm,
     textThicknessMm,
     keyringHoleDiameterMm,
+    baseColor,
+    textColor,
   ]);
 
   const makeStl = useCallback(() => {

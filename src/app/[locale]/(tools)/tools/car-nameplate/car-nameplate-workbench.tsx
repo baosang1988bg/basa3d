@@ -78,7 +78,7 @@ export default function CarNameplateWorkbench() {
       const volume = parts.reduce((sum, p) => sum + calculateMeshVolumeCm3(p.geometry), 0); parts.forEach(p => p.geometry.dispose());
       const weightGrams = estimateMeshWeightGrams(volume);
       try {
-        const response = await fetch('/api/public/tool-price-estimate', { method: 'POST', headers: { 'content-type': 'application/json' }, signal: controller.signal, body: JSON.stringify({ weightGrams, printMinutes: estimatePrintMinutes(weightGrams) }) });
+        const response = await fetch('/api/public/tool-price-estimate', { method: 'POST', headers: { 'content-type': 'application/json' }, signal: controller.signal, body: JSON.stringify({ weightGrams, printMinutes: estimatePrintMinutes(weightGrams), isMultiColor: addBase && nameplateColor.toLowerCase() !== baseColor.toLowerCase() }) });
         const value = response.ok ? await response.json() : null; if (!controller.signal.aborted) setPrice(value);
       } catch { /* Advisory pricing does not prevent export. */ }
     }, 500);

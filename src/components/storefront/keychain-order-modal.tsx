@@ -96,8 +96,8 @@ export function KeychainOrderModal({
   const weightGrams = estimateMeshWeightGrams(calculateMeshVolumeCm3(model.mergedGeometry));
   const printMinutes = estimatePrintMinutes(weightGrams);
 
-  const unitMinPrice = price?.minPriceVnd ?? 35_000;
-  const unitMaxPrice = price?.maxPriceVnd ?? 55_000;
+  const unitMinPrice = price?.minPriceVnd ?? 25_000;
+  const unitMaxPrice = price?.maxPriceVnd ?? 40_000;
   const totalMinPrice = unitMinPrice * Math.max(1, quantity);
   const totalMaxPrice = unitMaxPrice * Math.max(1, quantity);
 
@@ -508,14 +508,14 @@ export function KeychainOrderModal({
               {/* Actions Footer */}
               <div className="flex flex-col gap-3 border-t border-border pt-4">
                 <ZaloConsultButton
-                  label="M? Zalo t? v?n ngay (t? copy th?ng s?)"
+                  label="Mở Zalo tư vấn ngay (tự copy thông số)"
                   payload={() => ({
                     source: 'tool',
-                    title: `M?c kh?a ch? "${text.trim() || 'T?y ch?nh'}"`,
+                    title: `Móc khóa chữ "${text.trim() || 'Tùy chỉnh'}"`,
                     specs: [
-                      { label: 'M?u s?c', value: colorDescription },
-                      { label: '?? d?y ?? / ch?', value: `${baseThicknessMm}mm / ${textThicknessMm}mm` },
-                      { label: 'L? m?c kh?a', value: includeKeyringHole ? `C? (${keyringHoleDiameterMm}mm)` : 'Kh?ng' },
+                      { label: 'Màu sắc', value: colorDescription },
+                      { label: 'Độ dày đế / chữ', value: `${baseThicknessMm}mm / ${textThicknessMm}mm` },
+                      { label: 'Lỗ móc khóa', value: includeKeyringHole ? `Có (${keyringHoleDiameterMm}mm)` : 'Không' },
                     ],
                     estimatedPriceVnd: price ? { min: price.minPriceVnd, max: price.maxPriceVnd } : null,
                     note,

@@ -8,6 +8,7 @@ import {
   MakerWorldNotFoundError,
 } from '@/lib/parsers/makerworld-resolver';
 import { sanitizeMakerWorldImageUrl } from '@/lib/parsers/makerworld-image';
+import { extractAuthorDimensions, extractDimensionsFromGlbZip } from '@/lib/parsers/makerworld-dimension';
 import { createDatabaseRateLimiter, getClientIp } from '@/lib/rate-limit';
 import {
   attachInstantEstimates,
@@ -71,6 +72,7 @@ async function fetchFromBambuApi(
             plates?: unknown[];
             compatibility?: { devProductName?: string };
           };
+          extensionModelFileList?: Array<{ compressType?: string; modelFile?: string }>;
         };
         instanceFilaments?: Array<{
           type?: string;
@@ -83,6 +85,7 @@ async function fetchFromBambuApi(
     if (!data || !data.title) return null;
 
     const instances = Array.isArray(data.instances) ? data.instances : [];
+    const modelDim = extractAuthorDimensions(data.summary) || extractAuthorDimensions(data.title) || null;
 
     return {
       modelId: String(data.id ?? modelId),
@@ -93,40 +96,54 @@ async function fetchFromBambuApi(
       license: data.license || null,
       sourceUrl,
       summary: data.summary || null,
-      profiles: instances.map((inst, index) => {
-        const pId = String(inst.profileId ?? inst.id ?? index + 1);
-        const minutes = Math.round(Number(inst.prediction ?? 0) / 60);
-        const weightGrams = Math.round(Number(inst.weight ?? 0));
-        const platesCount = Array.isArray(inst.extention?.modelInfo?.plates)
-          ? inst.extention.modelInfo.plates.length
-          : 1;
-        const filaments = Array.isArray(inst.instanceFilaments)
-          ? inst.instanceFilaments.map((f, fIdx) => ({
-              name: f.type || `Màu ${fIdx + 1}`,
-              colorHex: f.color
-                ? f.color.startsWith('#')
-                  ? f.color
-                  : `#${f.color}`
-                : '#666666',
-              type: f.type || 'PLA',
-              weightGrams: Math.round(Number(f.usedG ?? 0)),
-            }))
-          : [];
+      authorDimensionNote: modelDim,
+      profiles: await Promise.all(
+        instances.map(async (inst, index) => {
+          const pId = String(inst.profileId ?? inst.id ?? index + 1);
+          const minutes = Math.round(Number(inst.prediction ?? 0) / 60);
+          const weightGrams = Math.round(Number(inst.weight ?? 0));
+          const platesCount = Array.isArray(inst.extention?.modelInfo?.plates)
+            ? inst.extention.modelInfo.plates.length
+            : 1;
+          const filaments = Array.isArray(inst.instanceFilaments)
+            ? inst.instanceFilaments.map((f, fIdx) => ({
+                name: f.type || `Màu ${fIdx + 1}`,
+                colorHex: f.color
+                  ? f.color.startsWith('#')
+                    ? f.color
+                    : `#${f.color}`
+                  : '#666666',
+                type: f.type || 'PLA',
+                weightGrams: Math.round(Number(f.usedG ?? 0)),
+              }))
+            : [];
 
-        return {
-          profileId: pId,
-          title: inst.title || `Bàn in ${index + 1}`,
-          coverImageUrl: sanitizeMakerWorldImageUrl(inst.cover),
-          printerTarget:
-            inst.extention?.modelInfo?.compatibility?.devProductName ||
-            'Bambu Lab',
-          printTimeMinutes: minutes,
-          weightGrams,
-          platesCount,
-          amsRequired: typeof inst.needAms === 'boolean' ? inst.needAms : null,
-          filaments,
-        };
-      }),
+          let dimensionsMm: string | null = null;
+          const glbList = inst.extention?.extensionModelFileList;
+          const lowZip = Array.isArray(glbList)
+            ? (glbList.find((g: { compressType?: string; modelFile?: string }) => g.compressType === 'low_compression_glb')?.modelFile as string | undefined)
+            : undefined;
+          if (lowZip) {
+            dimensionsMm = await extractDimensionsFromGlbZip(lowZip);
+          }
+
+          return {
+            profileId: pId,
+            title: inst.title || `Bàn in ${index + 1}`,
+            coverImageUrl: sanitizeMakerWorldImageUrl(inst.cover),
+            printerTarget:
+              inst.extention?.modelInfo?.compatibility?.devProductName ||
+              'Bambu Lab',
+            printTimeMinutes: minutes,
+            weightGrams,
+            platesCount,
+            amsRequired: typeof inst.needAms === 'boolean' ? inst.needAms : null,
+            authorDimensionNote: extractAuthorDimensions(inst.title) || modelDim,
+            dimensionsMm,
+            filaments,
+          };
+        })
+      ),
     };
   } catch {
     return null;
@@ -185,6 +202,7 @@ async function fetchFromFallbackService(url: string, modelId: string): Promise<M
 
     const design = data.design;
     const instances = Array.isArray(data.instances) ? data.instances : [];
+    const modelDim = extractAuthorDimensions(design.summary) || extractAuthorDimensions(design.title) || null;
 
     return {
       modelId: String(data.model_id ?? modelId),
@@ -195,6 +213,7 @@ async function fetchFromFallbackService(url: string, modelId: string): Promise<M
       license: design.license || null,
       sourceUrl: url,
       summary: design.summary || null,
+      authorDimensionNote: modelDim,
       profiles: instances.map((inst, index) => {
         const pId = String(inst.profileId ?? index + 1);
         const minutes = Math.round(Number(inst.prediction ?? 0) / 60);
@@ -220,6 +239,7 @@ async function fetchFromFallbackService(url: string, modelId: string): Promise<M
           weightGrams,
           platesCount,
           amsRequired: typeof inst.needAms === 'boolean' ? inst.needAms : null,
+          authorDimensionNote: extractAuthorDimensions(inst.title) || modelDim,
           filaments,
         };
       }),
@@ -272,6 +292,7 @@ export async function POST(request: Request) {
         license: native.license,
         sourceUrl: native.sourceUrl,
         summary: null,
+        authorDimensionNote: extractAuthorDimensions(native.modelTitle) || null,
         profiles: native.profiles.map((p) => ({
           profileId: p.profileId,
           title: p.profileTitle,
@@ -281,6 +302,7 @@ export async function POST(request: Request) {
           weightGrams: p.netWeightGrams,
           platesCount: p.platesCount,
           amsRequired: p.amsRequired,
+          authorDimensionNote: extractAuthorDimensions(p.profileTitle) || extractAuthorDimensions(native.modelTitle) || null,
           filaments: p.filaments.map((f) => ({
             name: f.name,
             colorHex: f.colorHex,

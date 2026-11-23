@@ -36,6 +36,7 @@ export interface MakerWorldOrderModalProps {
   onClose: () => void;
   detail: MakerWorldCnModelDetail;
   initialProfileId?: string | null;
+  measuredDimensions?: Record<string, string>;
 }
 
 export function MakerWorldOrderModal({
@@ -43,6 +44,7 @@ export function MakerWorldOrderModal({
   onClose,
   detail,
   initialProfileId,
+  measuredDimensions,
 }: MakerWorldOrderModalProps) {
   const [selectedProfileId, setSelectedProfileId] = useState<string>(
     initialProfileId || detail.profiles[0]?.profileId || ''
@@ -52,6 +54,13 @@ export function MakerWorldOrderModal({
     detail.profiles.find((p) => p.profileId === selectedProfileId) ||
     detail.profiles[0] ||
     null;
+
+  const [targetDimension, setTargetDimension] = useState('');
+  const currentDim =
+    measuredDimensions && selectedProfile ? (measuredDimensions[selectedProfile.profileId] || null) : null;
+  const activeDimension = targetDimension.trim()
+    ? targetDimension.trim()
+    : currentDim || selectedProfile?.dimensionsMm || null;
 
   const isMultiPlate = (selectedProfile?.platesCount ?? 1) > 1;
   const [tier, setTier] = useState<'ASSEMBLED' | 'KIT'>('ASSEMBLED');
@@ -140,6 +149,7 @@ export function MakerWorldOrderModal({
       `Nguồn mẫu: ${detail.sourceUrl}`,
       detail.author ? `Tác giả: ${detail.author}` : null,
       `Bàn in (Profile): ${selectedProfile.title} (ID: ${selectedProfile.profileId})`,
+      activeDimension ? `Kích thước: ${activeDimension}` : null,
       `Thông số in: ${formatPrintTime(selectedProfile.printTimeMinutes)} · ${selectedProfile.weightGrams ? `${selectedProfile.weightGrams}g` : 'Chưa rõ'} · ${selectedProfile.platesCount} bàn in`,
       `Máy in: ${selectedProfile.printerTarget || 'Bambu Lab'} · AMS: ${selectedProfile.amsRequired ? 'Cần AMS (Đa màu)' : 'Không AMS'}`,
       `Màu sắc file: ${filamentList}`,
@@ -257,6 +267,12 @@ export function MakerWorldOrderModal({
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Bàn in (Profile):</span>
                     <span className="font-medium text-right line-clamp-1">{selectedProfile.title}</span>
+                  </div>
+                ) : null}
+                {activeDimension ? (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Kích thước:</span>
+                    <span className="font-medium text-right font-mono text-emerald-600 dark:text-emerald-400">{activeDimension}</span>
                   </div>
                 ) : null}
                 <div className="flex justify-between">
@@ -555,6 +571,21 @@ export function MakerWorldOrderModal({
                       className={inputClass}
                     />
                   </div>
+
+                  <div className="space-y-1">
+                    <label htmlFor="orderTargetDimension" className="text-xs font-semibold text-foreground flex items-center justify-between">
+                      <span>Kích thước in mong muốn (tuỳ chọn)</span>
+                      <span className="text-[10px] text-muted-foreground font-normal">Mặc định: theo file gốc</span>
+                    </label>
+                    <input
+                      id="orderTargetDimension"
+                      maxLength={100}
+                      placeholder={currentDim || selectedProfile?.dimensionsMm ? `Mặc định: ${currentDim || selectedProfile?.dimensionsMm} (hoặc nhập vd: 15cm)` : 'Ví dụ: Cao 15cm, Rộng 20cm, hoặc theo file gốc'}
+                      value={targetDimension}
+                      onChange={(e) => setTargetDimension(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-1">
@@ -607,13 +638,14 @@ export function MakerWorldOrderModal({
               {/* Actions Footer */}
               <div className="flex flex-col gap-3 border-t border-border pt-4">
                 <ZaloConsultButton
-                  label="M? Zalo t? v?n ngay (t? copy th?ng s?)"
+                  label="Mở Zalo tư vấn ngay (tự copy thông số)"
                   payload={() => ({
                     source: 'makerworld',
                     title: detail.title,
                     specs: [
                       { label: 'Profile in', value: selectedProfile?.title || selectedProfileId },
-                      { label: 'H?nh th?c', value: isMultiPlate ? (tier === 'ASSEMBLED' ? 'L?p ho?n thi?n' : 'B? Kit t? l?p') : 'Ti?u chu?n' },
+                      { label: 'Kích thước', value: activeDimension || 'Theo kích thước chuẩn của file' },
+                      { label: 'Hình thức', value: isMultiPlate ? (tier === 'ASSEMBLED' ? 'Lắp hoàn thiện' : 'Bộ Kit tự lắp') : 'Tiêu chuẩn' },
                       { label: 'Link MakerWorld', value: detail.sourceUrl },
                     ],
                     estimatedPriceVnd: unitPrice > 0 ? { min: totalPrice } : null,

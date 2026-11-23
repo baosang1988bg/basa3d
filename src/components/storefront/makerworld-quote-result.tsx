@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import {
-  Download,
   ExternalLink,
   Printer,
   Loader2,
@@ -14,6 +13,7 @@ import {
   Share2,
   Eye,
   RotateCcw,
+  Ruler,
 } from 'lucide-react';
 import { formatVnd } from '@/components/storefront/format';
 import type { MakerWorldCnModelDetail, MakerWorldCnProfile } from '@/app/api/public/makerworld-cn/resolve/route';
@@ -28,6 +28,14 @@ import {
 } from '@/lib/analytics';
 
 const isProduction = BUILD_INFO.channel === 'production' || process.env.NODE_ENV === 'production';
+
+function getBedSizeLabel(printerTarget: string | null): { label: string; sub: string } {
+  const target = (printerTarget || '').toLowerCase();
+  if (target.includes('a1 mini') || target.includes('a1-mini') || target.includes('mini')) {
+    return { label: 'Tối đa 18 × 18 cm', sub: 'Khổ A1 Mini' };
+  }
+  return { label: 'Tối đa 25.6 × 25.6 cm', sub: 'Khổ tiêu chuẩn' };
+}
 
 function formatPrintTime(minutes: number): string {
   if (!minutes || minutes <= 0) return 'Chưa rõ';
@@ -63,6 +71,11 @@ export function MakerWorldQuoteResult({
 
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [selectedOrderProfileId, setSelectedOrderProfileId] = useState<string | null>(null);
+  const [measuredDimensions, setMeasuredDimensions] = useState<Record<string, string>>({});
+
+  const handleDimensionsMeasured = (profileId: string, dimensionsStr: string) => {
+    setMeasuredDimensions((prev) => ({ ...prev, [profileId]: dimensionsStr }));
+  };
 
   useEffect(() => {
     setDetail(initialDetail);
@@ -416,6 +429,48 @@ export function MakerWorldQuoteResult({
                       <span className={`inline-block size-2 rounded-full ${p.amsRequired ? 'bg-amber-500' : 'bg-emerald-500'}`} />
                       <span>{p.amsRequired ? 'Cần AMS' : 'Không AMS'}</span>
                     </div>
+
+                    {/* Dimension row */}
+                    <div className="col-span-2 flex items-center justify-between gap-1.5 rounded-lg bg-muted/40 px-2.5 py-1.5 text-xs">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Ruler className="size-3.5 text-primary shrink-0" />
+                        <span className="text-muted-foreground shrink-0">Kích thước:</span>
+                        {measuredDimensions[p.profileId] || p.dimensionsMm ? (
+                          <span className="font-semibold text-emerald-600 dark:text-emerald-400 font-mono truncate">
+                            {measuredDimensions[p.profileId] || p.dimensionsMm}{' '}
+                            <span className="font-sans text-[10px] text-emerald-600/80 font-normal">
+                              (Đo từ file 3D)
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="font-medium text-foreground truncate">
+                            {getBedSizeLabel(p.printerTarget).label}{' '}
+                            <span className="text-[10px] text-muted-foreground font-normal">
+                              ({getBedSizeLabel(p.printerTarget).sub})
+                            </span>
+                          </span>
+                        )}
+                      </div>
+                      {!measuredDimensions[p.profileId] && !p.dimensionsMm && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            trackMakerWorldPreview3D({
+                              model_id: detail.modelId,
+                              profile_id: p.profileId,
+                            });
+                            setActive3dProfile({
+                              profileId: p.profileId,
+                              title: p.title,
+                              estimatedPriceVnd: p.estimatedPriceVnd,
+                            });
+                          }}
+                          className="text-[11px] text-primary hover:underline shrink-0 font-medium cursor-pointer"
+                        >
+                          Xem 3D
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Filaments swatch preview */}
@@ -543,8 +598,8 @@ export function MakerWorldQuoteResult({
                         </>
                       ) : detail.isChinaModel ? (
                         <>
-                          <Download className="size-3.5 text-foreground/80" />
-                          <span>Tải .3MF</span>
+                          <ExternalLink className="size-3.5 text-foreground/80" />
+                          <span>File gốc .3MF</span>
                         </>
                       ) : (
                         <>
@@ -578,6 +633,7 @@ export function MakerWorldQuoteResult({
             handleOpenOrderModal(targetPid);
           }}
           estimatedPriceVnd={active3dProfile.estimatedPriceVnd}
+          onDimensionsMeasured={handleDimensionsMeasured}
         />
       ) : null}
 
@@ -588,6 +644,7 @@ export function MakerWorldQuoteResult({
           onClose={() => setIsOrderModalOpen(false)}
           detail={detail}
           initialProfileId={selectedOrderProfileId}
+          measuredDimensions={measuredDimensions}
         />
       ) : null}
     </div>

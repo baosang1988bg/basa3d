@@ -6,9 +6,9 @@ insert into categories (id, name, slug, sort_order) values
   ('00000000-0000-4000-8000-000000000003', 'Figure & Model', 'figure-model', 3);
 insert into warehouses (id, name, code) values ('00000000-0000-4000-8000-000000000010', 'Main Workshop', 'MAIN');
 insert into materials (id, name, material_type, brand, color, unit, cost_per_spool, spool_weight_grams, current_unit_cost) values
-  ('00000000-0000-4000-8000-000000000020', 'PLA Black 1kg', 'PLA', 'Sample', 'Black', 'GRAM', 250000, 1000, 250),
-  ('00000000-0000-4000-8000-000000000021', 'PLA White 1kg', 'PLA', 'Sample', 'White', 'GRAM', 250000, 1000, 250),
-  ('00000000-0000-4000-8000-000000000022', 'PETG Clear 1kg', 'PETG', 'Sample', 'Clear', 'GRAM', 320000, 1000, 320);
+  ('00000000-0000-4000-8000-000000000020', 'PLA Black 1kg', 'PLA', 'Sample', 'Black', 'GRAM', 180000, 1000, 180),
+  ('00000000-0000-4000-8000-000000000021', 'PLA White 1kg', 'PLA', 'Sample', 'White', 'GRAM', 180000, 1000, 180),
+  ('00000000-0000-4000-8000-000000000022', 'PETG Clear 1kg', 'PETG', 'Sample', 'Clear', 'GRAM', 180000, 1000, 180);
 insert into products (id, category_id, name, slug, product_type, status, base_price, is_featured) values
   ('00000000-0000-4000-8000-000000000101', '00000000-0000-4000-8000-000000000001', 'Phone Stand', 'phone-stand', 'READY_STOCK', 'ACTIVE', 99000, true),
   ('00000000-0000-4000-8000-000000000102', '00000000-0000-4000-8000-000000000002', 'Desk Organizer', 'desk-organizer', 'MADE_TO_ORDER', 'ACTIVE', 149000, true);

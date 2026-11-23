@@ -174,8 +174,8 @@ export default async function PublicQuotePage({
         </div>
       ) : (
         <div className="mt-6 rounded-xl border border-border bg-card p-6 text-center shadow-xs">
-          <p className="text-sm font-semibold text-foreground">T? v?n &amp; x?c nh?n b?o gi?</p>
-          <p className="mt-2 text-sm text-muted-foreground">Vui l?ng li?n h? Zalo/hotline BaSa3D k?m m? b?o gi? <span className="font-mono font-semibold text-foreground">{quote.quoteNumber}</span> ?? ???c t? v?n v? x?c nh?n th?c hi?n.</p>
+          <p className="text-sm font-semibold text-foreground">Tư vấn &amp; xác nhận báo giá</p>
+          <p className="mt-2 text-sm text-muted-foreground">Vui lòng liên hệ Zalo/hotline BaSa3D kèm mã báo giá <span className="font-mono font-semibold text-foreground">{quote.quoteNumber}</span> để được tư vấn và xác nhận thực hiện.</p>
         </div>
       )}
     </Shell>

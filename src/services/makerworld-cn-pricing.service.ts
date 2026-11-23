@@ -15,6 +15,8 @@ export type MakerWorldCnProfile = {
     type: string;
     weightGrams: number;
   }>;
+  authorDimensionNote?: string | null;
+  dimensionsMm?: string | null;
   estimatedPriceVnd?: number | null;
   priceTiers?: {
     assembledVnd: number | null;
@@ -31,6 +33,7 @@ export type MakerWorldCnModelDetail = {
   license: string | null;
   sourceUrl: string;
   summary: string | null;
+  authorDimensionNote?: string | null;
   profiles: MakerWorldCnProfile[];
 };
 

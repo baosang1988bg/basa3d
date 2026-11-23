@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { X, Loader2, AlertCircle, Download, Printer, ExternalLink, Box } from 'lucide-react';
+import { X, Loader2, AlertCircle, Download, Printer, ExternalLink, Box, Ruler } from 'lucide-react';
+import { formatDimensionsMm, formatDimensionsCm } from '@/lib/parsers/makerworld-dimension';
 import MeshViewer from '@/components/bao-gia/mesh-viewer';
 import { threeMfToPositions } from '@/lib/stl-import/threemf-mesh';
 import { Link } from '@/i18n/navigation';
@@ -18,6 +19,7 @@ export interface MakerWorld3dModalProps {
   onDownload?: () => void;
   onOrder?: () => void;
   estimatedPriceVnd?: number | null;
+  onDimensionsMeasured?: (profileId: string, dimensionsStr: string) => void;
 }
 
 export function MakerWorld3dModal({
@@ -31,7 +33,9 @@ export function MakerWorld3dModal({
   onDownload,
   onOrder,
   estimatedPriceVnd,
+  onDimensionsMeasured,
 }: MakerWorld3dModalProps) {
+  const [measuredDim, setMeasuredDim] = useState<{ x: number; y: number; z: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [positions, setPositions] = useState<Float32Array | null>(null);
@@ -52,6 +56,7 @@ export function MakerWorld3dModal({
     setError(null);
     setPositions(null);
     setScalePct(100);
+    setMeasuredDim(null);
 
     try {
       const res = await fetch('/api/public/makerworld-cn/download', {
@@ -70,6 +75,25 @@ export function MakerWorld3dModal({
       const buffer = await res.arrayBuffer();
       const pos = threeMfToPositions(new Uint8Array(buffer));
       setPositions(pos);
+
+      // Measure exact bounding box dimensions from mesh vertices
+      let minX = Infinity, minY = Infinity, minZ = Infinity;
+      let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+      for (let i = 0; i < pos.length; i += 3) {
+        const x = pos[i], y = pos[i + 1], z = pos[i + 2];
+        if (x < minX) minX = x; if (x > maxX) maxX = x;
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
+        if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+      }
+      if (Number.isFinite(minX) && Number.isFinite(maxX)) {
+        const dim = {
+          x: Math.round((maxX - minX) * 10) / 10,
+          y: Math.round((maxY - minY) * 10) / 10,
+          z: Math.round((maxZ - minZ) * 10) / 10,
+        };
+        setMeasuredDim(dim);
+        onDimensionsMeasured?.(profileId, formatDimensionsMm(dim));
+      }
     } catch (err: unknown) {
       const msg =
         err instanceof Error
@@ -87,6 +111,7 @@ export function MakerWorld3dModal({
     } else {
       setPositions(null);
       setError(null);
+      setMeasuredDim(null);
     }
   }, [isOpen, loadGeometry]);
 
@@ -194,6 +219,23 @@ export function MakerWorld3dModal({
             </div>
           ) : positions ? (
             <div className="w-full">
+              {measuredDim ? (
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/25 px-3.5 py-2.5 text-xs animate-in fade-in">
+                  <div className="flex items-center gap-2">
+                    <Ruler className="size-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span className="font-semibold text-foreground">Kích thước in thực tế:</span>
+                    <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300 text-sm">
+                      {formatDimensionsMm(measuredDim)}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      (~{formatDimensionsCm(measuredDim)})
+                    </span>
+                  </div>
+                  <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 dark:text-emerald-300">
+                    ✓ Đo chuẩn 100% từ toạ độ file
+                  </span>
+                </div>
+              ) : null}
               <MeshViewer
                 positions={positions}
                 label={profileTitle}
