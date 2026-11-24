@@ -19,7 +19,7 @@ Mỗi agent chỉ có **một** mục active tại một thời điểm. Ghi: ag
 | Agent | Branch | Exec-plan | Đang làm |
 |---|---|---|---|
 | Codex | `feat/neobox-lightbox-generator` | `active/feature-neobox-lightbox.md` | chạy `check:agent`, soát UX + xuất 3MF/STL |
-| Gemini | `dev` (đã merge `feat/smart-product-onboarding-full`) | `active/feature-smart-product-onboarding.md` | Hoàn thành toàn diện 7 Slices: AI Vision (RTX 4060), Auto-Catalog, Voice, 3D Storage, Tunnel |
+| Gemini | `feat/workshop-catalog-dashboard` | `active/feature-workshop-catalog-dashboard.md` | Đang làm Slice 1: Server Actions Thêm, Xoá, Sửa tại chỗ cho Mẫu In |
 | Claude | `chore/harness-engineering` | — (harness setup) | review/verify harness |
 | Claude (Cowork) | `dev` (đã merge `feat/phase-55-…` + `fix/phase-56-…`) | `active/phase-55-…md`, `active/phase-56-…md` | xong; chờ OWNER xem UI + E2E rồi merge `netlify` |
 

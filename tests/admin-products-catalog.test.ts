@@ -107,6 +107,10 @@ test('catalog actions enforce auth, OWNER-only delete, and clean DomainError han
   });
   mock.module('../src/services/product-onboarding.service.ts', {
     namedExports: {
+      BULK_PRODUCT_MAX: 100,
+      bulkArchiveProducts: async () => ({ done: 1, skipped: 0 }),
+      bulkPublishDrafts: async () => ({ done: 1, skipped: 0 }),
+      duplicateProduct: async () => ({ productId: ID, slug: 'test', variants: [], replayed: false }),
       generateVariantSku: async () => 'SKU-1',
       setProductCoverImage: async () => undefined,
       publishProductIfReady: async () => ({ published: true, reasons: [] }),

@@ -3,20 +3,20 @@ import { AlertTriangle, ClipboardList, Coins, Layers, MessageSquareText, Package
 import { RevenueOrdersChart } from '@/components/admin/dashboard/revenue-orders-chart';
 import { ProductionPipelineCard } from '@/components/admin/dashboard/production-pipeline';
 import { MaterialHealthCard } from '@/components/admin/dashboard/material-health-card';
-import { DashboardTabs } from '@/components/admin/dashboard/dashboard-tabs';
+import { DashboardTabs, type DashboardViewTab } from '@/components/admin/dashboard/dashboard-tabs';
 import { ExecutiveRevenueChart } from '@/components/admin/dashboard/executive-revenue-chart';
 import { ActivityFeed } from '@/components/admin/dashboard/activity-feed';
 import { LiveStatus } from '@/components/admin/dashboard/live-status';
 import { AlertStrip, CardLink, DashCard, DonutChart, KpiTile, StatStrip } from '@/components/admin/dashboard/dash-ui';
+import { WorkshopCatalogHub, type WorkshopCatalogItem } from '@/components/admin/dashboard/workshop-catalog-hub';
 import { requireAdmin } from '@/lib/auth/require-admin';
+import { getCategoryDisplayName } from '@/lib/categories';
 import { buildExecutiveDemoMetrics, DEMO_SCENARIO_LABELS, DEMO_SCENARIOS, resolveDemoScenario, type DemoScenario } from '@/lib/executive-demo-data';
-import { FILAMENT_LOW_STOCK_PCT, formatVndCompact, resolveDashboardTab } from '@/lib/executive-metrics';
+import { FILAMENT_LOW_STOCK_PCT, formatVndCompact } from '@/lib/executive-metrics';
+import { productImagePublicUrl } from '@/lib/storage/product-image-url';
 import { getExecutiveBusinessMetrics, getFinancialMetrics, getOperationalMetrics } from '@/services/dashboard.service';
-
-// UX refresh 2026-10-27 (OWNER: "UI cứng quá", reference: realtime-dashboard.html "Pulse"): live status
-// + refresh in the header, KPI tiles with sparklines, a stat strip above each chart, a share donut and
-// one "việc cần xử lý" feed. Data access and the OWNER/STAFF split are unchanged (ADR-0011 boundary #2:
-// STAFF never reaches getFinancialMetrics / getExecutiveBusinessMetrics, and no money prop is passed).
+import { listCatalogProducts } from '@/services/product-onboarding.service';
+import { listCategories } from '@/services/product.service';
 
 const kg = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 });
 const ROLE_LABEL: Record<string, string> = { OWNER: 'Chủ xưởng', STAFF: 'Nhân viên' };
@@ -35,6 +35,53 @@ function DemoBanner({ scenario }: { scenario: DemoScenario }) {
         <Link href="/basaadmin/dashboard?tab=business" className="underline-offset-2 hover:underline">Thoát demo</Link>
       </div>
     </div>
+  );
+}
+
+/**
+ * Tab Mẫu In Đang Bán (Active Catalog Hub).
+ * Trung tâm thao tác chính của xưởng in: Thêm/Sửa/Xoá, đổi giá, bật/tắt bán, copy đường dẫn file in local slicer.
+ */
+async function CatalogTab({ role }: { role: string }) {
+  const [catalog, { items: rawCategories }, operational] = await Promise.all([
+    listCatalogProducts({
+      limit: 100,
+      sort: 'updated_desc',
+    }),
+    listCategories({ limit: 100 }),
+    getOperationalMetrics(),
+  ]);
+
+  const categories = rawCategories.map((category) => ({
+    id: category.id,
+    label: getCategoryDisplayName(category, 'vi'),
+    slug: category.slug,
+  }));
+
+  const initialItems: WorkshopCatalogItem[] = catalog.items.map((item) => ({
+    id: item.id,
+    name: item.name,
+    slug: item.slug,
+    status: item.status,
+    basePrice: item.basePrice,
+    categoryName: item.categoryName,
+    categorySlug: item.categorySlug,
+    coverUrl: productImagePublicUrl(item.coverStoragePath),
+    printLocalPath: item.printLocalPath,
+    printDriveUrl: item.printDriveUrl,
+    licenseSourceUrl: item.licenseSourceUrl,
+    updatedAt: item.updatedAt,
+  }));
+
+  return (
+    <WorkshopCatalogHub
+      initialItems={initialItems}
+      categories={categories}
+      statusCounts={catalog.statusCounts}
+      role={role}
+      customRequestsOpenCount={operational.customRequestsOpen}
+      materialsCount={operational.materialHealth.totalSpools}
+    />
   );
 }
 
@@ -84,7 +131,6 @@ async function BusinessTab({ demo }: { demo: DemoScenario | null }) {
         </DashCard>
       </div>
 
-      {/* Filament detail lives on /basaadmin/materials; the dashboard only raises the alarm. */}
       {lowFilament ? (
         <AlertStrip href="/basaadmin/materials" linkLabel="Xem kho nhựa">
           {lowFilament}/{metrics.filamentStock.length} loại nhựa đang dưới ngưỡng {FILAMENT_LOW_STOCK_PCT}% — cần đặt thêm cuộn.
@@ -154,29 +200,43 @@ async function OperationsTab({ isOwner, now }: { isOwner: boolean; now: string }
 export default async function DashboardPage({ searchParams }: { searchParams?: Promise<{ tab?: string | string[]; demo?: string | string[] }> }) {
   const { role } = await requireAdmin();
   const params = await searchParams;
-  // ADR-0011 boundary #2 / ADR-0044 §6: STAFF always resolves to 'operations', whatever ?tab= says.
-  const tab = resolveDashboardTab(role, params?.tab);
+  const isOwner = role === 'OWNER';
+  const rawTab = typeof params?.tab === 'string' ? params.tab : Array.isArray(params?.tab) ? params.tab[0] : undefined;
+
+  // ADR-0011 boundary #2: STAFF can never resolve to 'business', whatever ?tab= says.
+  let activeTab: DashboardViewTab = 'catalog';
+  if (rawTab === 'business' && isOwner) {
+    activeTab = 'business';
+  } else if (rawTab === 'operations') {
+    activeTab = 'operations';
+  } else {
+    activeTab = 'catalog';
+  }
+
   // `next dev` + OWNER only; null everywhere else (Preview/Production run with NODE_ENV=production).
   const demo = resolveDemoScenario(params?.demo, { nodeEnv: process.env.NODE_ENV, role });
-  const isOwner = role === 'OWNER';
   const now = new Date();
 
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Dashboard Xưởng In 3D</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             {now.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' })} · {ROLE_LABEL[role] ?? role}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <LiveStatus updatedAt={now.toISOString()} />
-          {isOwner ? <DashboardTabs active={tab} /> : null}
+          <DashboardTabs active={activeTab} isOwner={isOwner} />
         </div>
       </div>
 
-      {isOwner && tab === 'business' ? await BusinessTab({ demo }) : await OperationsTab({ isOwner, now: now.toISOString() })}
+      {activeTab === 'business' && isOwner
+        ? await BusinessTab({ demo })
+        : activeTab === 'operations'
+          ? await OperationsTab({ isOwner, now: now.toISOString() })
+          : await CatalogTab({ role })}
     </div>
   );
 }
