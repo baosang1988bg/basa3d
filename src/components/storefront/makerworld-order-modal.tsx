@@ -16,6 +16,8 @@ import {
   QrCode,
   Info,
   PhoneCall,
+  SlidersHorizontal,
+  ChevronDown,
 } from 'lucide-react';
 import { formatVnd } from '@/components/storefront/format';
 import { SITE_CONFIG } from '@/config/site';
@@ -70,6 +72,16 @@ export function MakerWorldOrderModal({
   const [note, setNote] = useState('');
   const [copied, setCopied] = useState(false);
   const [showQr, setShowQr] = useState(false);
+  const [showCustomSpecs, setShowCustomSpecs] = useState(false);
+
+  const hasCustomSpecs = useMemo(() => {
+    return (
+      quantity > 1 ||
+      requestedColor.trim().length > 0 ||
+      targetDimension.trim().length > 0 ||
+      note.trim().length > 0
+    );
+  }, [quantity, requestedColor, targetDimension, note]);
 
   // Sync profile when initialProfileId changes
   useEffect(() => {
@@ -77,6 +89,15 @@ export function MakerWorldOrderModal({
       setSelectedProfileId(initialProfileId);
     }
   }, [initialProfileId]);
+
+  // Reset collapsible sections when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setShowCustomSpecs(false);
+      setShowQr(false);
+      setCopied(false);
+    }
+  }, [isOpen]);
 
   // Handle ESC key to close
   useEffect(() => {
@@ -413,77 +434,111 @@ export function MakerWorldOrderModal({
             </div>
           ) : null}
 
-          {/* Customizable Print Specs (Parameters only - NO customer PII) */}
-          <div className="space-y-3 rounded-xl border border-border/80 bg-background p-3.5 sm:p-4">
-            <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
-              <span>Tuỳ chỉnh thông số in</span>
-              <span className="text-[11px] font-normal lowercase text-muted-foreground">
-                (tự động cập nhật vào tin nhắn Zalo)
-              </span>
-            </h4>
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="space-y-1">
-                <label htmlFor="orderQuantity" className="text-xs font-semibold text-foreground">
-                  Số lượng cần in
-                </label>
-                <input
-                  id="orderQuantity"
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={quantity}
-                  onChange={(e) => setQuantity(Math.min(100, Math.max(1, parseInt(e.target.value) || 1)))}
-                  className={inputClass}
+          {/* Collapsible Print Specs (Parameters only - NO customer PII) */}
+          <div className="rounded-xl border border-border/80 bg-background overflow-hidden transition-all">
+            <button
+              type="button"
+              onClick={() => setShowCustomSpecs((prev) => !prev)}
+              aria-expanded={showCustomSpecs}
+              aria-controls="custom-print-specs-panel"
+              className="flex w-full items-center justify-between p-3.5 sm:px-4 text-left transition hover:bg-muted/30 cursor-pointer"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <SlidersHorizontal className="size-3.5 text-muted-foreground shrink-0" />
+                <span className="text-xs font-semibold text-foreground">
+                  Tuỳ chỉnh thông số in
+                </span>
+                <span className="text-[11px] text-muted-foreground hidden sm:inline">
+                  (tuỳ chọn: số lượng, màu sắc, kích thước...)
+                </span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {hasCustomSpecs && !showCustomSpecs ? (
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                    Đã tuỳ chỉnh
+                  </span>
+                ) : null}
+                <ChevronDown
+                  className={`size-4 text-muted-foreground transition-transform duration-200 ${
+                    showCustomSpecs ? 'rotate-180' : ''
+                  }`}
                 />
               </div>
+            </button>
 
-              <div className="space-y-1">
-                <label htmlFor="orderRequestedColor" className="text-xs font-semibold text-foreground">
-                  Màu sắc mong muốn
-                </label>
-                <input
-                  id="orderRequestedColor"
-                  maxLength={100}
-                  placeholder="Theo file, hoặc: Đen, Trắng..."
-                  value={requestedColor}
-                  onChange={(e) => setRequestedColor(e.target.value)}
-                  className={inputClass}
-                />
+            {showCustomSpecs ? (
+              <div
+                id="custom-print-specs-panel"
+                className="space-y-3 border-t border-border/60 p-3.5 sm:p-4 pt-3 bg-muted/10 animate-in fade-in duration-150"
+              >
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <span>Tự động cập nhật vào tin nhắn Zalo gửi xưởng</span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="space-y-1">
+                    <label htmlFor="orderQuantity" className="text-xs font-semibold text-foreground">
+                      Số lượng cần in
+                    </label>
+                    <input
+                      id="orderQuantity"
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={quantity}
+                      onChange={(e) => setQuantity(Math.min(100, Math.max(1, parseInt(e.target.value) || 1)))}
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label htmlFor="orderRequestedColor" className="text-xs font-semibold text-foreground">
+                      Màu sắc mong muốn
+                    </label>
+                    <input
+                      id="orderRequestedColor"
+                      maxLength={100}
+                      placeholder="Theo file, hoặc: Đen, Trắng..."
+                      value={requestedColor}
+                      onChange={(e) => setRequestedColor(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label htmlFor="orderTargetDimension" className="text-xs font-semibold text-foreground">
+                      Kích thước mong muốn
+                    </label>
+                    <input
+                      id="orderTargetDimension"
+                      maxLength={100}
+                      placeholder={
+                        currentDim || selectedProfile?.dimensionsMm
+                          ? `${currentDim || selectedProfile?.dimensionsMm}`
+                          : 'Ví dụ: Cao 15cm, hoặc theo file gốc'
+                      }
+                      value={targetDimension}
+                      onChange={(e) => setTargetDimension(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1 pt-1">
+                  <label htmlFor="orderNote" className="text-xs font-semibold text-foreground">
+                    Ghi chú thêm cho xưởng (tuỳ chọn)
+                  </label>
+                  <input
+                    id="orderNote"
+                    maxLength={300}
+                    placeholder="Ví dụ: Cần lấy gấp trước cuối tuần, yêu cầu in nhựa PETG chịu nhiệt..."
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
               </div>
-
-              <div className="space-y-1">
-                <label htmlFor="orderTargetDimension" className="text-xs font-semibold text-foreground">
-                  Kích thước mong muốn
-                </label>
-                <input
-                  id="orderTargetDimension"
-                  maxLength={100}
-                  placeholder={
-                    currentDim || selectedProfile?.dimensionsMm
-                      ? `${currentDim || selectedProfile?.dimensionsMm}`
-                      : 'Ví dụ: Cao 15cm, hoặc theo file gốc'
-                  }
-                  value={targetDimension}
-                  onChange={(e) => setTargetDimension(e.target.value)}
-                  className={inputClass}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1 pt-1">
-              <label htmlFor="orderNote" className="text-xs font-semibold text-foreground">
-                Ghi chú thêm cho xưởng (tuỳ chọn)
-              </label>
-              <input
-                id="orderNote"
-                maxLength={300}
-                placeholder="Ví dụ: Cần lấy gấp trước cuối tuần, yêu cầu in nhựa PETG chịu nhiệt..."
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                className={inputClass}
-              />
-            </div>
+            ) : null}
           </div>
 
           {/* Price Callout Banner */}
