@@ -24,6 +24,10 @@ Checklist khi deploy lên Vercel:
   `20261125000000_trend_radar_upgrades.sql` (ADR-0063 — trigger chặn publish sản phẩm Trend chưa có bằng chứng license).
 - Cron thứ 3 `/api/cron/trend-snapshots` (`30 3 * * *` UTC ≈ 10:30 giờ VN) cần `CRON_SECRET` như 2 cron cũ.
 - Tuỳ chọn: `THINGIVERSE_APP_TOKEN` (app token Thingiverse) để lấy license + số liệu Thingiverse; không đặt thì bỏ qua.
+- Tuỳ chọn: `VISUAL_SEARCH_MODEL` (mặc định `gemini-3.5-flash-lite`, dùng chung helper với ADR-0039). Không dùng
+  `gemini-2.5-flash` cho dự án mới — Google chỉ mở cho project đã dùng trước đó.
+- MakerWorld chặn fetch không cookie bằng Cloudflare: snapshot độ nóng của mẫu MakerWorld có thể bị "skipped"
+  khi chạy từ Vercel (Printables/Thingiverse không bị). Xem log cron `/api/cron/trend-snapshots`.
 
 ## Biến môi trường bắt buộc (Phase 38)
 

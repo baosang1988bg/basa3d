@@ -121,3 +121,92 @@ test('trend publish-gate exception becomes a readable 409', () => {
   assert.equal(translated.status, 409);
   assert.equal(translated.code, 'TREND_PUBLISH_BLOCKED');
 });
+
+// Real license strings captured live on 2026-11-25: Printables `licenses` GraphQL query (formatted as
+// "name (abbreviation)" like formatPrintablesLicense does) and MakerWorld __NEXT_DATA__ design.license.
+test('license classifier against every live Printables license + MakerWorld codes', async () => {
+  const { evaluateLicenseSafety } = await import('../src/lib/trend/license-safety');
+  const expected: [string, string][] = [
+    ['Creative Commons — Public Domain (CC0)', 'COMMERCIAL_ALLOWED'],
+    ['Creative Commons — Attribution (CC-BY)', 'COMMERCIAL_ALLOWED'],
+    ['Creative Commons — Attribution  — Share Alike (CC-BY-SA)', 'COMMERCIAL_ALLOWED'],
+    ['Creative Commons — Attribution — NoDerivatives (CC-BY-ND)', 'COMMERCIAL_ALLOWED'],
+    ['Creative Commons — Attribution  — Noncommercial (CC-BY-NC)', 'NON_COMMERCIAL'],
+    ['Creative Commons — Attribution  — Noncommercial  —  Share Alike (CC-BY-NC-SA)', 'NON_COMMERCIAL'],
+    ['Creative Commons — Attribution  — Noncommercial  —  NoDerivatives (CC-BY-NC-ND)', 'NON_COMMERCIAL'],
+    ['GNU General Public License v2.0 (GPL 2.0)', 'UNKNOWN'],
+    ['GNU General Public License v3.0 (GPL 3.0)', 'UNKNOWN'],
+    ['GNU Lesser General Public License (LGPL)', 'UNKNOWN'],
+    ['BSD License (BSD)', 'UNKNOWN'],
+    ['Standard Digital File License (Standard Digital File)', 'NON_COMMERCIAL'],
+    ['Commercial Use - No Derivative (Comm. - No Derivative)', 'COMMERCIAL_SUBSCRIPTION'],
+    ['Commercial Use', 'COMMERCIAL_SUBSCRIPTION'],
+    ['Open Community License v1 (OCL v1)', 'UNKNOWN'],
+    ['Open Community License v1.1 + Micro Business v1 (OCL v1.1 + Micro v1)', 'UNKNOWN'],
+    ['Open Community License v1.1 (OCL v1.1)', 'UNKNOWN'],
+    ['Open Community License v1.1 + General Attribution v1 (OCL v1.1 + GAtt v1)', 'UNKNOWN'],
+    ['Open Community License v1.1 + Research & Development v1 (OCL v1.1 + RnD v1)', 'UNKNOWN'],
+    ['Open Community License v1.1 + GAtt v1 + Micro v1 (OCL v1.1 + GAtt v1 + Micro v1)', 'UNKNOWN'],
+    ['Open Community License v1.1 + GAtt v1 + RnD v1 (OCL v1.1 + GAtt v1 + RnD v1)', 'UNKNOWN'],
+    ['CERN Open Hardware Licence Version 2 - Strongly Reciprocal (CERN-OHL-S v2)', 'UNKNOWN'],
+    ['Apache License 2.0 (Apache-2.0)', 'UNKNOWN'],
+    ['Standard Digital File License', 'NON_COMMERCIAL'],
+    ['BY-NC-SA', 'NON_COMMERCIAL'],
+    ['BY-SA', 'COMMERCIAL_ALLOWED'],
+  ];
+  for (const [license, status] of expected) {
+    assert.equal(evaluateLicenseSafety(license).status, status, license);
+  }
+});
+
+test('Printables adapter parses the exact live responses (model 3161, captured 2026-11-25)', async () => {
+  const live: Record<string, unknown> = {
+    PrintDetail: { data: { print: { id: '3161', name: '3D BENCHY', license: { id: '7', name: 'Creative Commons — Public Domain', abbreviation: 'CC0' } } } },
+    PrintStats: { data: { print: { id: '3161', likesCount: 22972, downloadCount: 602593, makesCount: 9137 } } },
+  };
+  const fetchImpl: FetchLike = async (_url, init) => json(live[JSON.parse(String(init.body)).operationName]);
+  const meta = await fetchPrintablesMetadata('3161', { fetchImpl });
+  assert.deepEqual(meta, {
+    title: '3D BENCHY', coverUrl: null, author: null,
+    license: 'Creative Commons — Public Domain (CC0)',
+    stats: { downloads: 602593, likes: 22972, prints: 9137 },
+  });
+});
+
+test('visual search uses the shared vision helper: supported default model, header key, thought parts skipped', async () => {
+  const { analyzeImageForModelSearch } = await import('../src/lib/search/visual-search');
+  const { DEFAULT_VISION_MODEL } = await import('../src/lib/vision/gemini-vision');
+  const calls: { url: string; headers: Record<string, string>; body: { contents: { parts: { inline_data?: { data: string } }[] }[] } }[] = [];
+  const fetchImpl = async (input: string | URL, init?: RequestInit) => {
+    calls.push({ url: String(input), headers: init?.headers as Record<string, string>, body: JSON.parse(String(init?.body)) });
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [
+      { text: 'thinking...', thought: true },
+      { text: JSON.stringify({ objectName: 'Flexi Cat', keywordsEn: ['flexi cat', 'articulated cat'], keywordsZh: ['关节猫'], category: 'Fidget Toy' }) },
+    ] } }] }), { status: 200 });
+  };
+  const raw = Buffer.from('jpeg').toString('base64');
+  const result = await analyzeImageForModelSearch(`data:image/jpeg;base64,${raw}`, 'image/jpeg', { apiKey: 'k', fetchImpl });
+  assert.equal(result?.objectName, 'Flexi Cat');
+  assert.equal(result?.aiUsed, true);
+  assert.ok(calls[0].url.includes(`/models/${DEFAULT_VISION_MODEL}:generateContent`));
+  assert.ok(!calls[0].url.includes('key='));
+  assert.equal(calls[0].headers['x-goog-api-key'], 'k');
+  assert.equal(calls[0].body.contents[0].parts[1].inline_data?.data, raw);
+
+  const failing = async () => new Response('nope', { status: 404 });
+  assert.equal(await analyzeImageForModelSearch(raw, 'image/jpeg', { apiKey: 'k', fetchImpl: failing }), null);
+  const injected = async () => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ objectName: 'x', keywordsEn: [] }) }] } }] }), { status: 200 });
+  assert.equal(await analyzeImageForModelSearch(raw, 'image/jpeg', { apiKey: 'k', fetchImpl: injected }), null);
+});
+
+test('trend-snapshots cron route fails closed without the bearer secret', async () => {
+  const previous = process.env.CRON_SECRET;
+  process.env.CRON_SECRET = 'trend-cron-secret-0123456789';
+  try {
+    const { GET } = await import('../src/app/api/cron/trend-snapshots/route');
+    assert.equal((await GET(new Request('https://x/api/cron/trend-snapshots'))).status, 401);
+    assert.equal((await GET(new Request('https://x/api/cron/trend-snapshots', { headers: { authorization: 'Bearer wrong-secret-0123456789' } }))).status, 401);
+  } finally {
+    process.env.CRON_SECRET = previous;
+  }
+});

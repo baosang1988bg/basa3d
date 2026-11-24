@@ -13,8 +13,8 @@ export function visualSearchImageHash(imageBase64: string): string {
 
 export async function readVisualSearchCache<T>(hash: string): Promise<T | null> {
   const result = await query<{ result: T }>(
-    `update visual_search_cache set hit_count = hit_count + 1, last_hit_at = timezone('utc', now())
-     where image_sha256 = $1 and created_at > timezone('utc', now()) - make_interval(days => $2)
+    `update visual_search_cache set hit_count = hit_count + 1, last_hit_at = now()
+     where image_sha256 = $1 and created_at > now() - make_interval(days => $2)
      returning result`,
     [hash, VISUAL_SEARCH_CACHE_TTL_DAYS],
   );
@@ -24,7 +24,7 @@ export async function readVisualSearchCache<T>(hash: string): Promise<T | null> 
 export async function writeVisualSearchCache(hash: string, value: unknown): Promise<void> {
   await query(
     `insert into visual_search_cache (image_sha256, result) values ($1, $2)
-     on conflict (image_sha256) do update set result = excluded.result, created_at = timezone('utc', now()), hit_count = 0, last_hit_at = null`,
+     on conflict (image_sha256) do update set result = excluded.result, created_at = now(), hit_count = 0, last_hit_at = null`,
     [hash, JSON.stringify(value)],
   );
 }
@@ -32,7 +32,7 @@ export async function writeVisualSearchCache(hash: string, value: unknown): Prom
 /** Called by the daily trend-snapshot cron. Returns rows removed. */
 export async function pruneVisualSearchCache(): Promise<number> {
   const result = await query(
-    `delete from visual_search_cache where created_at < timezone('utc', now()) - make_interval(days => $1)`,
+    `delete from visual_search_cache where created_at < now() - make_interval(days => $1)`,
     [VISUAL_SEARCH_CACHE_TTL_DAYS],
   );
   return result.rowCount ?? 0;

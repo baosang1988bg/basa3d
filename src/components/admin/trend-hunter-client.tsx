@@ -545,7 +545,7 @@ export function TrendHunterClient({ initialItems = [], loadError = null }: { ini
             {/* Filter buttons */}
             <div className="flex flex-col gap-2 items-start sm:items-end">
               <div className="flex flex-wrap items-center gap-1.5">
-                {['ALL', 'MAKERWORLD_CN', 'MAKERWORLD', 'PRINTABLES', 'THINGIVERSE', 'DOUYIN'].map((p) => (
+                {['ALL', 'MAKERWORLD_CN', 'MAKERWORLD', 'PRINTABLES', 'THINGIVERSE', 'THANGS', 'DOUYIN', 'OTHER'].map((p) => (
                   <button
                     key={p}
                     onClick={() => setPlatformFilter(p)}

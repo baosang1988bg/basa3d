@@ -107,6 +107,11 @@ test('catalog actions enforce auth, OWNER-only delete, and clean DomainError han
   });
   mock.module('../src/services/product-onboarding.service.ts', {
     namedExports: {
+      // actions.ts imports every name below; mock.module requires all of them (Phase 55 added the bulk/duplicate ones).
+      BULK_PRODUCT_MAX: 100,
+      bulkArchiveProducts: async () => ({ done: 0, skipped: 0 }),
+      bulkPublishDrafts: async () => ({ done: 0, skipped: 0 }),
+      duplicateProduct: async () => ({ productId: ID, slug: 'dup', variants: [], replayed: false }),
       generateVariantSku: async () => 'SKU-1',
       setProductCoverImage: async () => undefined,
       publishProductIfReady: async () => ({ published: true, reasons: [] }),

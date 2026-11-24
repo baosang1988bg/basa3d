@@ -18,7 +18,7 @@ import { categoryMapSchema, resolveCategory, type CategoryMap } from '../../src/
 import { analyzeModel, toStlParts, type ImportWarning } from '../../src/lib/stl-import/metrics';
 import { buildSku, describeModel, displayName, uniqueSlug } from '../../src/lib/stl-import/naming';
 import { estimateImportPrice, estimateImportPriceFromSliceInfo, type ImportPrice, type ImportPricingContext } from '../../src/lib/stl-import/pricing';
-import { groupModels, matchesOnly, walkDir, type GroupMode, type ModelGroup } from '../../src/lib/stl-import/scan';
+import { groupDiskDir, groupModels, matchesOnly, walkDir, type GroupMode, type ModelGroup } from '../../src/lib/stl-import/scan';
 import { sourceKey } from '../../src/lib/stl-import/source-key';
 import { applyImport, findImportItem, planImport, PRODUCT_IMAGE_BUCKET, type ImageStore, type ImportAction } from '../../src/services/stl-import-write.service';
 import { getBucketUsageBytes, STORAGE_BLOCK_BYTES, STORAGE_WARN_BYTES } from '../../src/services/storage-usage.service';
@@ -36,9 +36,8 @@ const BOOLEAN_FLAGS = ['dims-overlay', 'retry-errors', 'apply', 'allow-storage-o
 const IMAGE_RE = /\.(jpe?g|png|webp)$/i;
 
 async function findExistingImagesForGroup(root: string, group: ModelGroup): Promise<string[]> {
-  const dir = group.groupMode === 'FOLDER'
-    ? path.join(root, ...group.sourceRelPath.split('/'))
-    : path.dirname(path.join(root, ...group.sourceRelPath.split('/')));
+  // Disk form of the folder (NFD names stay NFD) — the normalised sourceRelPath may not exist on Linux.
+  const dir = path.join(root, ...groupDiskDir(group).split('/').filter(Boolean));
   try {
     const entries = await readdir(dir, { withFileTypes: true });
     const imageFiles: string[] = [];
@@ -273,7 +272,7 @@ export async function main(argv: string[]): Promise<number> {
           const prepare = async () => {
             const files = await Promise.all(group.files.map(async (file) => ({
               relPath: file.relPath,
-              bytes: new Uint8Array(await readFile(path.join(options.in, ...file.relPath.split('/')))),
+              bytes: new Uint8Array(await readFile(path.join(options.in, ...(file.diskRelPath ?? file.relPath).split(/[\\/]+/)))),
             })));
 
             let sliceInfo: ParsedSliceInfo | null = null;

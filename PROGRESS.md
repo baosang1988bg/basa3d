@@ -8,7 +8,7 @@
 
 - Branch tích hợp: `dev` · Deploy: `vercel` (ADR-0061, Hobby = UAT/nội bộ, chưa nhận khách thật) · `netlify` đóng băng (dự phòng ADR-0054)
 - Last verified: `dev` sau khi merge Phase 55 + 56 (2026-11-17, bản cài sạch Linux: `npm ci`, lint, typecheck, `check:arch`, `next build` 15.5.29 đều xanh)
-- `npm test` (132 file, server chạy): 962 test, 929 pass, 14 fail — cả 14 có sẵn trên `223af23`: `ai-news` (6), `blog-review` (4), `makerworld-estimate` (1), `phase-15-staff-notification-failure` (1), `stl-import-cli` (2). Chưa chạy Playwright.
+- `npm test` (140 file, server chạy, 2026-11-25, Postgres TZ Asia/Ho_Chi_Minh): 1007 test, 16 fail — **cả 16 chỉ vì sandbox không có Supabase local** (Auth admin / Storage: phase-3-auth 2, phase-3-route-auth 4, phase-33-upload-route 6, phase-7-blog 2, phase-15 1, phase-17 1). 14 lỗi cũ (ai-news, blog-review, makerworld-estimate, stl-import-cli…) đã sửa trong `fix/trend-radar-verification`. Chưa chạy Playwright E2E.
 - `npm run check:arch`: passing
 - Chưa merge `dev` → `netlify`: chưa có E2E và chưa ai xem UI mới (nav mobile, trang chi tiết sản phẩm).
 
