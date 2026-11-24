@@ -2,6 +2,7 @@ import { cache } from 'react';
 import { query } from '../lib/db';
 import { pagination } from './product.service';
 import { availableStock } from './inventory.service';
+import { buildSearchSql } from '../lib/catalog/search-terms';
 
 const PRODUCT_IMAGE_BUCKET = 'product-images';
 
@@ -63,7 +64,8 @@ export async function listStorefrontProducts(input: { page?: number; limit?: num
   if (input.productType) { values.push(input.productType); filterSql += ` and p.product_type = $${values.length}`; }
   // Phase 56: `%`, `_` and `\\` are LIKE metacharacters — escaped so a customer's text is matched
   // literally ("%%%%" used to match every product through a slow pattern scan).
-  if (input.search) { values.push(`%${input.search.replace(/[%_\\]/g, '\\$&')}%`); filterSql += ` and p.name ilike $${values.length}`; }
+  // ADR-0064: accent-insensitive ("gia do" finds "Giá đỡ") and every word must match.
+  filterSql += buildSearchSql(input.search, values);
   if (input.featuredOnly) filterSql += ' and p.is_featured = true';
   const orderSql = input.sortBy === 'price_asc' ? 'p.base_price asc nulls last'
     : input.sortBy === 'price_desc' ? 'p.base_price desc nulls last'
