@@ -6,7 +6,7 @@
 // Flow on save: create (DRAFT, replay-safe by requestId) → upload photos → optionally publish.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, ChevronDown, Cloud, ExternalLink, FolderOpen, HardDrive, Loader2, Mic, Package, Plus, Printer, Sparkles, X } from 'lucide-react';
+import { BookOpen, CheckCircle2, ChevronDown, Cloud, ExternalLink, FolderOpen, HardDrive, Loader2, Mic, Package, Plus, Printer, Sparkles, X } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -542,6 +542,61 @@ export function ProductOnboardingForm({
           </div>
         </div>
       ) : null}
+      {/* Quick Staff Guide (Collapsible) */}
+      <details className="group rounded-xl border border-primary/25 bg-primary/5 transition-all">
+        <summary className="flex cursor-pointer items-center justify-between p-3.5 text-xs font-semibold text-primary select-none hover:bg-primary/10 rounded-xl">
+          <div className="flex items-center gap-2">
+            <BookOpen className="size-4 shrink-0 text-primary" />
+            <span>📖 Hướng dẫn nhanh cho Staff: 4 bước đăng sản phẩm siêu tốc (10–15s/món)</span>
+          </div>
+          <span className="text-[11px] text-muted-foreground group-open:rotate-180 transition-transform">▼</span>
+        </summary>
+        <div className="border-t border-primary/15 p-4 pt-3 flex flex-col gap-3 text-xs text-foreground bg-background/50 rounded-b-xl">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-lg border border-border bg-card p-3 flex flex-col gap-1.5 shadow-2xs">
+              <span className="font-semibold text-primary flex items-center gap-1.5">
+                📸 1. Thả ảnh (AI Vision)
+              </span>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Kéo ảnh mẫu in vào khung ảnh. Card đồ họa RTX 4060 quét ảnh trong ~300ms và gợi ý 3 tên tiếng Việt chuẩn SEO.
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-border bg-card p-3 flex flex-col gap-1.5 shadow-2xs">
+              <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                🎙️ 2. Đặt tên (Click / Nói)
+              </span>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Click 1 tên gợi ý HOẶC bấm nút <strong>&quot;Nói tên&quot;</strong> để đọc tiếng Việt. Danh mục sẽ tự động gán và con trỏ tự nhảy sang ô Giá!
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-border bg-card p-3 flex flex-col gap-1.5 shadow-2xs">
+              <span className="font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                ⌨️ 3. Phím tắt Ctrl + Enter
+              </span>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Gõ giá bán xong bấm tổ hợp <strong>Ctrl + Enter</strong> (Mac: <strong>Cmd + Enter</strong>) để Lưu &amp; làm mới form cho món kế tiếp ngay lập tức.
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-border bg-card p-3 flex flex-col gap-1.5 shadow-2xs">
+              <span className="font-semibold text-sky-600 dark:text-sky-400 flex items-center gap-1.5">
+                📁 4. Nơi lưu file in xưởng
+              </span>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Điền đường dẫn file trên máy tính xưởng (VD: <code className="text-[10px] bg-muted px-1 rounded">D:\3D_Models\...</code>) để thợ mở Bambu Studio in ngay.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-border/50 text-[11px] text-muted-foreground">
+            <span>💡 <strong>Mẹo:</strong> Nếu chạy web trên mạng mà muốn dùng GPU RTX 4060 ở xưởng, hãy chạy file <code className="font-mono text-primary bg-muted px-1 rounded">Mo_Cong_Ollama_Cloudflare.bat</code>.</span>
+            <span className="text-primary font-medium">Bấm lại thanh tiêu đề để thu gọn</span>
+          </div>
+        </div>
+      </details>
+
       {/* Block 1 — photos */}
       <Card>
         <CardHeader><CardTitle>1. Ảnh mẫu in</CardTitle></CardHeader>
