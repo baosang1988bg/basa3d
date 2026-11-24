@@ -90,7 +90,7 @@ curl -s -o /dev/null -w '%{http_code}\n' https://<uat-domain>/api/cron/trend-sna
 
 ## 5. Chạy 16 test cần Supabase local
 
-Sandbox của agent không có Docker nên 16 test này chưa chạy được ở đó (toàn bộ 991 test còn lại đã xanh,
+Sandbox của agent không có Docker nên 16 test này chưa chạy được ở đó (toàn bộ 999 test còn lại đã xanh sau khi merge `origin/dev`,
 xem exec plan §6). Trên máy có **Docker Desktop**, làm theo `docs/operations/local-testing.md` → *Mức 3*:
 
 ```bash
