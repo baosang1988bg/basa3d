@@ -70,5 +70,5 @@
 - [x] `npm run lint` — passed 0 errors
 - [x] `npm run typecheck` — passed 0 errors
 - [x] `npm run check:arch` — passed 6 rules
-- [x] `npx tsx --test tests/meta-engines.test.ts tests/trend-hunter.test.ts` — passed 6/6 tests
+- [x] `npx tsx --test tests/meta-engines.test.ts tests/trend-hunter.test.ts` — passed 7/7 tests
 - [x] `npm run build` — Next.js 15.5 production build passed cleanly (exit code 0)

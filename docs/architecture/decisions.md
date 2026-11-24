@@ -1193,3 +1193,31 @@ intact for staff managing Zalo/offline orders, and the admin URL should not sit 
 **Migration cost.** None for the database; all internal tables and services remain intact so
 e-commerce can be restored from git history or automated later.
 
+## ADR-0060 — Admin Trend Radar, Multi-Engine Meta Search, and Automated License Safety Gateway
+
+**Status.** Accepted 2026-11-24 (branch `feat/trend-radar-model-search`).
+
+**Context.** In the Vietnamese 3D printing market, capturing viral/trending models (from Douyin, MakerWorld China, Bambu Contests, Printables) 2–4 weeks ahead of competitors is a major business advantage. However, directly selling 3D printed items without copyright checks poses severe legal risks (DMCA strikes, social commerce bans) due to non-commercial licenses (`Standard Digital File License`, `CC BY-NC`). Furthermore, customers frequently visit `/bao-gia` without 3D models or with screenshots/photos from social media.
+
+**Decision.**
+1. **Admin Trend Radar (`/basaadmin/trend-hunter` & `trend-hunter.service.ts`):**
+   - Curated direct feeds for MakerWorld China top downloads/trending, Douyin 3D tags, MakerWorld Contests, Printables 7-day, and Thangs leaderboard.
+   - On-demand SSRF-safe URL parser (`captureModelFromUrl`) extracting title, cover, filaments, grams, print minutes, plates, and raw license string.
+   - Watchlist state machine: `WATCHING` → `PRINT_TESTING` → `CONVERTED_DRAFT` → `ARCHIVED`.
+2. **Automated License Safety Classifier (`evaluateLicenseSafety`):**
+   - Classifies models into:
+     - `COMMERCIAL_ALLOWED` (CC0, CC-BY without NC): Safe to direct-sell with attribution.
+     - `NON_COMMERCIAL` (Standard Digital File License, CC-NC): Blocked from retail selling; designated for personal custom-print on demand only.
+     - `COMMERCIAL_SUBSCRIPTION` (Patreon, Printables Club, Merchant tier): Flags designer subscription requirement.
+   - Enforces a client-side confirmation dialog when staff attempts to draft a `NON_COMMERCIAL` model into the catalog.
+3. **1-Click Catalog Onboarding Bridge:**
+   - Computes suggested retail price: $\max(35.000\text{đ}, \text{Round}_{5.000}(\text{Grams} \times 550 + \text{Minutes} \times 250 + 25.000\text{đ}))$.
+   - Pre-fills `/basaadmin/products/new` via query parameters (`title`, `basePrice`, `sourceUrl`, `notes`, `licenseMode=LICENSED`).
+4. **Smart Search & Visual Search Assistant (`ModelSearchDialog` & `/api/public/search/visual-analyze`):**
+   - Bilingual keyword enhancement (Vietnamese input auto-mapped to English & Chinese 3D printing domain terms).
+   - Multi-engine search deep-links for Yeggi, Thangs, MakerWorld, MW CN, Printables, Thingiverse, Cults3D.
+   - Visual search using Gemini Vision API with automatic fallback to Google Lens 3D-specific dorks (`site:makerworld.com OR site:thingiverse.com OR site:printables.com`).
+   - Integrated directly into the `/bao-gia` upload flow and the storefront discovery banner.
+
+**Migration cost.** One additive table (`trend_watch_items` in `supabase/migrations/20261124000000_trend_watch_items.sql`) with staff-only RLS and in-memory/service graceful fallback.
+
