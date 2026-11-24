@@ -53,6 +53,7 @@ import type {
   CatalogSortOption,
   CatalogSourceFilter,
   CatalogStatusFilter,
+  CatalogVariantItem,
   PublishReadinessReason,
 } from '@/services/product-onboarding.service';
 import {
@@ -64,9 +65,14 @@ import {
 } from '@/app/basaadmin/(protected)/products/actions';
 import { createProductOnboardingAction, publishProductAction } from '@/app/basaadmin/(protected)/products/new/actions';
 
-export type CatalogUiItem = CatalogListItem & {
+export type CatalogUiVariantItem = CatalogVariantItem & {
+  coverUrl: string | null;
+};
+
+export type CatalogUiItem = Omit<CatalogListItem, 'variants'> & {
   coverUrl: string | null;
   categoryLabel: string | null;
+  variants: CatalogUiVariantItem[];
 };
 
 export type CatalogCategoryOption = {
@@ -139,10 +145,15 @@ function formatVnd(value: number | null): string {
 }
 
 function priceLabel(item: CatalogUiItem): string {
-  if (item.minPrice !== null && item.maxPrice !== null && item.minPrice !== item.maxPrice) {
-    return `${formatVnd(item.minPrice)} – ${formatVnd(item.maxPrice)}`;
+  const variantPrices = (item.variants ?? [])
+    .map((v) => v.price)
+    .filter((p) => Number.isFinite(p) && p > 0);
+  const min = variantPrices.length ? Math.min(...variantPrices) : (item.minPrice ?? item.basePrice);
+  const max = variantPrices.length ? Math.max(...variantPrices) : (item.maxPrice ?? item.basePrice);
+  if (min !== null && max !== null && min !== max) {
+    return `${formatVnd(min)} – ${formatVnd(max)}`;
   }
-  return formatVnd(item.minPrice ?? item.basePrice);
+  return formatVnd(min ?? max ?? item.basePrice);
 }
 
 const digitsOnly = (value: string) => value.replace(/[^\d]/g, '');
@@ -165,6 +176,15 @@ export function ProductsCatalogManager({
   const router = useRouter();
   const isOwner = role === 'OWNER';
   const [categories, setCategories] = useState(initialCategories);
+  const [expandedProductIds, setExpandedProductIds] = useState<Set<string>>(new Set());
+  function toggleExpandProduct(productId: string) {
+    setExpandedProductIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(productId)) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+  }
   useEffect(() => { setCategories(initialCategories); }, [initialCategories]);
 
   const realCategories = useMemo(
@@ -769,6 +789,7 @@ export function ProductsCatalogManager({
                               <Pencil className="size-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                             </button>
                           )}
+                          <Badge variant="outline" className="text-[10px] font-bold border-primary/40 bg-primary/10 text-primary">Sản phẩm cha</Badge>
                           <Badge variant="outline" className={`text-[11px] ${badge.className}`}>{badge.label}</Badge>
                           {item.imported ? (
                             <Badge variant="outline" className="text-[10px] text-muted-foreground">STL</Badge>
@@ -787,7 +808,19 @@ export function ProductsCatalogManager({
                             <span className="inline-flex items-center gap-1"><Printer className="size-3" /> In theo yêu cầu</span>
                           )}
                           <span>·</span>
-                          <span>{item.variantCount} biến thể</span>
+                          <button
+                            type="button"
+                            onClick={() => toggleExpandProduct(item.id)}
+                            className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium transition-colors ${
+                              expandedProductIds.has(item.id)
+                                ? 'bg-primary/10 text-primary font-semibold ring-1 ring-primary/20'
+                                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                            }`}
+                            title="Bấm để xem/ẩn danh sách sản phẩm con (biến thể)"
+                          >
+                            <ChevronDown className={`size-3 transition-transform duration-200 ${expandedProductIds.has(item.id) ? 'rotate-180 text-primary' : ''}`} />
+                            <span>{item.variantCount} sản phẩm con</span>
+                          </button>
                           <span>·</span>
                           <select
                             aria-label={`Đổi danh mục cho ${item.name}`}
@@ -857,18 +890,23 @@ export function ProductsCatalogManager({
                             </Button>
                           </div>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingPriceId(item.id);
-                              setInlinePriceValue(item.basePrice != null ? String(item.basePrice) : '');
-                            }}
-                            className="group inline-flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-muted"
-                            title="Bấm để sửa giá nhanh"
-                          >
-                            <span>{priceLabel(item)}</span>
-                            <Pencil className="size-3 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                          </button>
+                          <div className="flex flex-col items-start lg:items-end">
+                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                              Range giá ngoài web
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingPriceId(item.id);
+                                setInlinePriceValue(item.basePrice != null ? String(item.basePrice) : '');
+                              }}
+                              className="group inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-bold text-emerald-700 hover:bg-muted dark:text-emerald-400"
+                              title="Bấm để sửa giá nhanh"
+                            >
+                              <span>{priceLabel(item)}</span>
+                              <Pencil className="size-3 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                            </button>
+                          </div>
                         )}
                       </div>
 
@@ -981,6 +1019,80 @@ export function ProductsCatalogManager({
                         ) : null}
                       </div>
                     </div>
+
+                    {/* Expanded Child Products / Variants Panel */}
+                    {expandedProductIds.has(item.id) ? (
+                      <div className="mt-3 ml-7 overflow-hidden rounded-xl border border-border bg-muted/30 p-3">
+                        <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-border/60">
+                          <div className="flex items-center gap-2">
+                            <Layers className="size-4 text-primary" />
+                            <span className="text-xs font-semibold text-foreground">
+                              Sản phẩm con / Biến thể ({item.variants?.length ?? item.variantCount})
+                            </span>
+                            <span className="text-[11px] text-muted-foreground hidden sm:inline">
+                              · Từng biến thể là 1 sản phẩm con riêng biệt
+                            </span>
+                          </div>
+                          <Link
+                            href={`/basaadmin/products/${item.id}#anh`}
+                            className={buttonVariants({ variant: 'ghost', size: 'xs', className: 'h-6 text-xs text-primary' })}
+                          >
+                            <Plus className="mr-1 size-3" /> Thêm / Quản lý con
+                          </Link>
+                        </div>
+
+                        {item.variants && item.variants.length > 0 ? (
+                          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                            {item.variants.map((v) => (
+                              <div
+                                key={v.id}
+                                className="flex items-center gap-2.5 rounded-lg border border-border/80 bg-background/95 p-2 transition-shadow hover:shadow-xs"
+                              >
+                                <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-muted">
+                                  {v.coverUrl ? (
+                                    <img src={v.coverUrl} alt="" className="size-full object-cover" />
+                                  ) : (
+                                    <ImageOff className="size-4 text-muted-foreground/50" />
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center justify-between gap-1">
+                                    <p className="truncate text-xs font-medium text-foreground" title={v.name}>
+                                      {v.name}
+                                    </p>
+                                    <Badge
+                                      variant="outline"
+                                      className={`text-[9px] px-1 py-0 ${
+                                        v.isActive
+                                          ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                                          : 'border-border bg-muted text-muted-foreground'
+                                      }`}
+                                    >
+                                      {v.isActive ? 'Đang bán' : 'Tạm ngưng'}
+                                    </Badge>
+                                  </div>
+                                  <div className="mt-0.5 flex items-center justify-between gap-1 text-[11px]">
+                                    <span className="font-mono text-muted-foreground text-[10px]" title={v.sku}>
+                                      {v.sku}
+                                    </span>
+                                    <span className="font-semibold tabular-nums text-foreground">
+                                      {v.price.toLocaleString('vi-VN')} ₫
+                                    </span>
+                                  </div>
+                                  {v.printLocalPath ? (
+                                    <p className="truncate font-mono text-[10px] text-muted-foreground/80 mt-0.5" title={v.printLocalPath}>
+                                      🖨️ {v.printLocalPath.split('\\').pop() ?? v.printLocalPath}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground italic py-1">Chưa có sản phẩm con nào.</p>
+                        )}
+                      </div>
+                    ) : null}
                   </li>
                 );
               })}
@@ -1044,6 +1156,7 @@ export function ProductsCatalogManager({
                           className="size-4 accent-primary"
                         />
                       </label>
+                      <Badge className="bg-primary/90 text-primary-foreground text-[10px] font-bold">CHA</Badge>
                       <Badge variant="outline" className={`bg-background/90 text-[11px] ${badge.className}`}>{badge.label}</Badge>
                       {item.imported ? (
                         <Badge variant="outline" className="bg-background/90 text-[10px] text-muted-foreground">STL</Badge>
@@ -1143,12 +1256,52 @@ export function ProductsCatalogManager({
                           <Pencil className="size-2.5 opacity-70" />
                         </button>
                       )}
-                      <span className="text-muted-foreground">{item.productType === 'READY_STOCK' ? 'Có sẵn' : 'In theo YC'} · {item.variantCount} BT</span>
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <span className="text-muted-foreground">{item.productType === 'READY_STOCK' ? 'Có sẵn' : 'In theo YC'}</span>
+                        <span>·</span>
+                        <button
+                          type="button"
+                          onClick={() => toggleExpandProduct(item.id)}
+                          className={`inline-flex items-center gap-1 rounded px-1 text-[11px] font-medium transition-colors ${
+                            expandedProductIds.has(item.id)
+                              ? 'bg-primary/10 text-primary font-semibold'
+                              : 'text-primary hover:underline'
+                          }`}
+                          title="Xem các sản phẩm con / biến thể"
+                        >
+                          <Layers className="size-3" />
+                          <span>{item.variantCount} con</span>
+                          <ChevronDown className={`size-3 transition-transform ${expandedProductIds.has(item.id) ? 'rotate-180' : ''}`} />
+                        </button>
+                      </div>
                     </div>
 
                     {item.status === 'DRAFT' ? (
                       <div className="flex flex-wrap gap-1">
                         <ReadinessPills item={item} onFix={() => setQuickEditItem(item)} />
+                      </div>
+                    ) : null}
+
+                    {/* Expandable Child Products Preview inside Grid Card */}
+                    {expandedProductIds.has(item.id) && item.variants && item.variants.length > 0 ? (
+                      <div className="mt-1 flex flex-col gap-1.5 rounded-lg border border-border/80 bg-muted/40 p-2 text-xs">
+                        <div className="flex items-center justify-between font-semibold text-[11px] text-foreground border-b border-border/50 pb-1">
+                          <span className="flex items-center gap-1"><Layers className="size-3 text-primary" /> Sản phẩm con ({item.variants.length})</span>
+                          <Link href={`/basaadmin/products/${item.id}#anh`} className="text-primary hover:underline font-normal text-[10px]">
+                            Quản lý &rarr;
+                          </Link>
+                        </div>
+                        <div className="flex flex-col gap-1 max-h-36 overflow-y-auto pr-0.5">
+                          {item.variants.map((v) => (
+                            <div key={v.id} className="flex items-center justify-between gap-1 py-0.5 border-b border-border/30 last:border-0 text-[11px]">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className={`size-1.5 rounded-full shrink-0 ${v.isActive ? 'bg-emerald-500' : 'bg-muted-foreground'}`} />
+                                <span className="truncate font-medium text-foreground" title={v.name}>{v.name}</span>
+                              </div>
+                              <span className="tabular-nums font-semibold text-foreground shrink-0">{v.price.toLocaleString('vi-VN')} ₫</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     ) : null}
 

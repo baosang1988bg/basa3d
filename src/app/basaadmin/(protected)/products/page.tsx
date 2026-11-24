@@ -64,6 +64,10 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
   const items = catalog.items.map((item) => ({
     ...item,
     coverUrl: productImagePublicUrl(item.coverStoragePath),
+    variants: (item.variants ?? []).map((v) => ({
+      ...v,
+      coverUrl: productImagePublicUrl(v.coverStoragePath) || productImagePublicUrl(item.coverStoragePath),
+    })),
     categoryLabel: item.categorySlug
       ? getCategoryDisplayName({ name: item.categoryName ?? '', slug: item.categorySlug }, 'vi')
       : null,
