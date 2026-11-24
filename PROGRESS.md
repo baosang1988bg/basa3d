@@ -19,7 +19,7 @@ Mỗi agent chỉ có **một** mục active tại một thời điểm. Ghi: ag
 | Agent | Branch | Exec-plan | Đang làm |
 |---|---|---|---|
 | Codex | `feat/neobox-lightbox-generator` | `active/feature-neobox-lightbox.md` | chạy `check:agent`, soát UX + xuất 3MF/STL |
-| Gemini | dev | ctive/feature-workshop-catalog-dashboard.md | Xong: Nâng cấp AI Model dual-stage + Tinh gọn Dashboard loại bỏ dữ liệu thừa |
+| Gemini | dev | docs/exec-plans/active/feature-workshop-catalog-dashboard.md | Hoàn thành: Dashboard mẫu in đang bán, visual inline edit, phân quyền Owner/Staff, Dual-stage AI |
 | Claude | `chore/harness-engineering` | — (harness setup) | review/verify harness |
 | Claude (Cowork) | `dev` (đã merge `feat/phase-55-…` + `fix/phase-56-…`) | `active/phase-55-…md`, `active/phase-56-…md` | xong; chờ OWNER xem UI + E2E rồi merge `netlify` |
 
