@@ -37,6 +37,10 @@ export function publishBlockedReasons(error: unknown): PublishBlockReason[] | nu
 export function translateImportGateError(error: unknown): unknown {
   const reasons = publishBlockedReasons(error);
   if (reasons) return new PublishBlockedError(reasons);
+  // ADR-0063 U2: trend-radar license gate (migration 20261125000000).
+  if (pgMessage(error) === 'TREND_PUBLISH_BLOCKED:LICENSE_PROOF_REQUIRED') {
+    return new DomainError('TREND_PUBLISH_BLOCKED', 'Mẫu lấy từ Trend Radar chưa được xác nhận được phép bán: chọn đúng loại license và dán link bằng chứng (hoá đơn/giấy phép thương mại) trước khi đưa lên web.', 409);
+  }
   if (pgMessage(error) === 'IMPORT_LINK_BLOCKED') {
     return new DomainError('IMPORT_LINK_BLOCKED', 'Sản phẩm đang bán: mẫu nhập phải giữ trạng thái đã duyệt và đã kiểm tra bản quyền.', 409);
   }

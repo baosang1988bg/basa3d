@@ -89,3 +89,23 @@ Review found 3 BLOCKERS + 4 IMPORTANT. Fixed:
 - CSP `img-src` for Printables/Thingiverse covers before CSP leaves Report-Only.
 - i18n keys for the new storefront banner strings (EN locale shows Vietnamese).
 - "Mở 3 kho cùng lúc" is blocked after the first tab by Safari/Firefox popup blockers — replace with a list of links.
+
+## 5. Upgrades (Claude, 2026-11-25 — branch `feat/trend-radar-upgrades`, ADR-0063)
+- [x] U1 License from platform APIs — Printables GraphQL (undocumented, defensive) + Thingiverse REST (`THINGIVERSE_APP_TOKEN`), `license_source` column, UI warns when NONE.
+- [x] U2 Server publish gate — `trend_watch_items.license_status` + `product_id`; DB triggers block ACTIVE without license type + proof; `trendItemId` links product on create; capture-tab convert saves to watchlist first; form shows warning.
+- [x] U3 Audit log for create / status / delete / convert.
+- [x] U4 Visual-search cache by image SHA-256 (30-day TTL, served before rate limit).
+- [x] U5 Daily popularity snapshots + velocity (`/api/cron/trend-snapshots`, `vercel.json`).
+- [x] U6 Resolver uses `safeFetchText`; i18n key for banner button; CSP img-src for Printables/Thingiverse.
+
+### Verification (2026-11-25, Linux sandbox, Postgres 17 embedded)
+- lint ✅ · typecheck (src/tests) ✅ · check:arch ✅ · `next build` ✅ (76 pages)
+- Unit: `trend-radar-upgrades` 10, `trend-radar-hardening` 14, `trend-hunter` 3, `meta-engines` 4, `phase-13-makerworld-resolver` 20 (after resolver refactor), `netlify-deploy` 11 — all pass.
+- DB: `trend-radar-upgrades-db` 4 + `trend-watch-db` 2 pass on the full migration chain.
+- Regression: product/catalog/STL-gate DB suites — 46/52 pass, **identical** to `dev` baseline (6 pre-existing env failures: missing seed warehouse, `mock.module` flag).
+
+### Still open
+- Verify Printables GraphQL fields against the live API (`licenseSource` should be PLATFORM_API for most Printables captures).
+- Register a Thingiverse app and set `THINGIVERSE_APP_TOKEN` in Vercel.
+- i18n of `ModelSearchDialog` copy (storefront EN locale is currently disabled by ADR-0048, so low priority).
+- Owner review UI for license proof (gate checks presence, not validity).

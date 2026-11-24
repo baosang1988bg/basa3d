@@ -126,7 +126,7 @@ export function MakerWorldDiscoveryBanner({
             className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3.5 py-2 text-xs font-bold text-primary shadow-sm transition-all hover:bg-primary hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm"
           >
             <Search className="size-4" aria-hidden="true" />
-            <span>Tìm Bằng Ảnh / Từ Khóa</span>
+            <span>{t('makerworldSmartSearch')}</span>
           </button>
 
           {/* New Tool Highlight CTA Button */}

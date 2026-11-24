@@ -19,13 +19,13 @@ Mỗi agent chỉ có **một** mục active tại một thời điểm. Ghi: ag
 | Agent | Branch | Exec-plan | Đang làm |
 |---|---|---|---|
 | Codex | `feat/neobox-lightbox-generator` | `active/feature-neobox-lightbox.md` | chạy `check:agent`, soát UX + xuất 3MF/STL |
-| Gemini | `dev` (đã merge `feat/trend-radar-model-search`) | `active/feature-trend-radar-model-search.md` | Claude đã review + hardening (`fix/trend-radar-hardening`, ADR-0062) → merge `dev` → `vercel` local, chờ Owner push |
+| Gemini | `dev` (đã merge `feat/trend-radar-model-search`) | `active/feature-trend-radar-model-search.md` | Claude: hardening (ADR-0062) + nâng cấp (`feat/trend-radar-upgrades`, ADR-0063: license từ API, gate publish ở DB, audit, cache ảnh, độ nóng) → merge `dev` → `vercel` local, chờ Owner push |
 | Claude | `chore/harness-engineering` | — (harness setup) | review/verify harness |
 | Claude (Cowork) | `dev` (đã merge `feat/phase-55-…` + `fix/phase-56-…`) | `active/phase-55-…md`, `active/phase-56-…md` | xong; chờ OWNER xem UI + E2E rồi merge `netlify` |
 
 ## Next Steps
 
-0. Owner: push `dev` + `vercel`; chạy migration `20261124000000_trend_watch_items.sql` lên DB UAT trước khi Vercel deploy; giữ Vercel Hobby ở chế độ UAT (ADR-0061).
+0. Owner: push `dev` + `vercel`; chạy 2 migration `20261124000000_trend_watch_items.sql` + `20261125000000_trend_radar_upgrades.sql` lên DB UAT trước khi Vercel deploy; (tuỳ chọn) đặt `THINGIVERSE_APP_TOKEN`; giữ Vercel Hobby ở chế độ UAT (ADR-0061).
 
 1. Owner triage bảng "Active plans" bên dưới (đóng / chuyển `pending/` / giữ).
 2. Merge `chore/harness-engineering` → `dev` sau khi Owner review.

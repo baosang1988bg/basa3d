@@ -243,7 +243,8 @@
     "makerworldInputLabel": "Hoặc dán ngay link MakerWorld để phân tích:",
     "makerworldInputPlaceholder": "Dán link makerworld.com hoặc makerworld.com.cn...",
     "makerworldAnalyzeBtn": "Phân tích ngay",
-    "makerworldEmptyHint": "Bạn cũng có thể tìm thêm mẫu trên MakerWorld và gửi link để xưởng in:"
+    "makerworldEmptyHint": "Bạn cũng có thể tìm thêm mẫu trên MakerWorld và gửi link để xưởng in:",
+    "makerworldSmartSearch": "Tìm bằng ảnh / từ khoá"
   },
   "tools": {
     "breadcrumbHome": "Trang chủ",

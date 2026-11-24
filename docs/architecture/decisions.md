@@ -1273,3 +1273,49 @@ to Netlify — record that as a new ADR when it happens.
 6. `/api/public/search/visual-analyze`: DB rate limit (20 req/h per network), MIME allowlist, 4 MB base64
    cap (under Vercel's 4.5 MB request body limit), API key in `x-goog-api-key` header; the client downsizes
    images to ≤1024 px JPEG before upload and shows an error when analysis fails.
+
+## ADR-0063 — Trend Radar upgrades: platform licenses, DB publish gate, velocity, visual-search cache
+
+**Status.** Accepted 2026-11-25 (branch `feat/trend-radar-upgrades`). Builds on ADR-0060/0062.
+
+**Context.** ADR-0062 made the classifier safe but most non-MakerWorld captures still had no structured
+license (verdict UNKNOWN), the "do not sell" rule lived only in a client `confirm()`, watchlist mutations
+were not audited, every visual search paid a Gemini call, and the radar had no notion of "how fast is this
+model growing".
+
+**Decision.**
+1. **Structured licenses (`src/lib/trend/platform-sources.ts`).** Printables: public GraphQL
+   `print(id) { name license { name abbreviation } }` (shape used by hackclub/construct PR #46, *not
+   officially documented* — parsed with zod, drift ⇒ `null` ⇒ UNKNOWN, never "allowed"); popularity is a
+   separate best-effort query so an unknown field cannot break the license lookup. Thingiverse: REST
+   `GET api.thingiverse.com/things/{id}` with `THINGIVERSE_APP_TOKEN` (optional; skipped when unset).
+   Both go through `lib/net/safe-fetch` (now supports POST; redirects refused for non-GET).
+   `trend_watch_items.license_source` records `PLATFORM_API | PAGE_DATA | NONE`.
+2. **Publish gate in the DB (migration `20261125000000`).** `trend_watch_items.license_status` is computed
+   on the server at save time; `product_id` links the catalog product (set inside
+   `createProductWithVariants` via `trendItemId`, which also moves the item to `CONVERTED_DRAFT`).
+   Triggers `products_trend_publish_gate` / `trend_watch_items_link_gate` refuse `ACTIVE` for a linked
+   product whose trend verdict is not `COMMERCIAL_ALLOWED` unless `license_type <> 'UNKNOWN'` **and**
+   `license_proof_url` is set — also when the proof is removed later. Error
+   `TREND_PUBLISH_BLOCKED:LICENSE_PROOF_REQUIRED` → 409 via `translateImportGateError`. The capture-tab
+   "Đăng bán" now saves the draft to the watchlist first, so every Trend-Radar product is linked.
+3. **Audit.** `TREND_ITEM_CREATED | TREND_ITEM_STATUS_CHANGED | TREND_ITEM_DELETED | TREND_ITEM_CONVERTED`
+   in `audit_logs` (status change now uses `select … for update` in a transaction).
+4. **Velocity.** `trend_watch_snapshots` (1 row/item/UTC day). Daily cron `/api/cron/trend-snapshots`
+   (`30 3 * * *` UTC, ≤40 items, concurrency 3, 45 s budget) for WATCHING/PRINT_TESTING items on
+   MakerWorld (`downloadCount/likeCount/printCount` from `__NEXT_DATA__`, defensive), Printables, Thingiverse.
+   List shows downloads/likes and "+N lượt tải/ngày" over the ≤7-day window.
+5. **Visual-search cache.** `visual_search_cache` keyed by SHA-256 of the decoded image; served before the
+   rate limiter (no Gemini cost), 30-day TTL, pruned by the snapshot cron. Cache errors never block search.
+6. **Tech debt.** `makerworld-resolver` now delegates to `safeFetchText` (one SSRF implementation, same
+   error contract — `phase-13` tests unchanged and green); banner button i18n key `makerworldSmartSearch`;
+   CSP `img-src` adds `media.printables.com`, `cdn.thingiverse.com`.
+
+**Residual risks.** Printables GraphQL is undocumented (monitor `licenseSource = NONE` rate). Staff can
+still type any proof URL — the gate proves *a* proof was recorded, not that it is valid (owner review).
+The license string is sent by the admin client on save (insider could edit it) — acceptable for an
+OWNER/STAFF-only tool; re-capture on save if that ever matters. Netlify has no scheduled function for the
+new cron (Netlify is frozen, ADR-0061). `ModelSearchDialog` copy is still Vietnamese-only.
+
+**Migration cost.** One additive migration (3 columns, 2 tables, 2 triggers). Rollback: drop the triggers
+and the two tables; columns are nullable/defaulted.

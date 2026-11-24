@@ -41,6 +41,7 @@
 
 import { z } from 'zod';
 import { sanitizeMakerWorldImageUrl } from './makerworld-image';
+import { safeFetchText, SafeFetchError } from '../net/safe-fetch';
 
 const ALLOWED_HOST_SUFFIXES = ['makerworld.com', 'makerworld.com.cn', 'makerworld.cn'] as const;
 export const MAKERWORLD_FETCH_DEADLINE_MS = 6_000;
@@ -148,106 +149,44 @@ export function parseMakerWorldUrl(rawUrl: string): ParsedMakerWorldUrl {
   return { modelId: modelMatch[1], profileId: profileMatch ? profileMatch[1] : null, url };
 }
 
-async function readBodyWithCap(response: Response, maxBytes: number): Promise<string> {
-  const declared = Number(response.headers.get('content-length'));
-  if (Number.isFinite(declared) && declared > maxBytes) {
-    throw new MakerWorldBlockedOrTimeoutError('Trang MakerWorld trả về dữ liệu quá lớn — từ chối đọc.');
-  }
-  if (!response.body) return '';
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let received = 0;
-  let text = '';
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    received += value.byteLength;
-    if (received > maxBytes) {
-      await reader.cancel().catch(() => undefined);
-      throw new MakerWorldBlockedOrTimeoutError('Trang MakerWorld trả về dữ liệu quá lớn — từ chối đọc.');
-    }
-    text += decoder.decode(value, { stream: true });
-  }
-  return text + decoder.decode();
-}
-
 type FetchSafelyOptions = { deadlineMs: number; maxBytes: number };
 
-/** SSRF-safe GET: manual redirect handling (re-validates hostname allowlist on every hop), ONE
- * deadline for the whole chain + body read, and a streamed body size cap. */
+/** SSRF-safe GET (ADR-0062 follow-up): delegates to lib/net/safe-fetch — allowlist re-validated on every
+ * redirect hop, ONE deadline for the chain + body read, streamed size cap — and maps its failures onto
+ * the resolver's three error kinds so callers/tests keep the same contract. */
 async function fetchSafely(startUrl: URL, fetchImpl: FetchLike, options: FetchSafelyOptions): Promise<string> {
-  const controller = new AbortController();
-  let timedOut = false;
-  const timeout = setTimeout(() => {
-    timedOut = true;
-    controller.abort();
-  }, options.deadlineMs);
-  const deadline = new Promise<never>((_, reject) => {
-    controller.signal.addEventListener('abort', () => reject(new MakerWorldBlockedOrTimeoutError()), { once: true });
-  });
-  // Prevent an unhandled rejection when the deadline fires after we've already returned.
-  deadline.catch(() => undefined);
-
   try {
-    let currentUrl = startUrl;
-    for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
-      let response: Response;
-      try {
-        response = await Promise.race([
-          fetchImpl(currentUrl, {
-            redirect: 'manual',
-            signal: controller.signal,
-            headers: {
-              'User-Agent': USER_AGENT,
-              'Accept': 'text/html,application/json;q=0.9,*/*;q=0.8',
-            },
-          }),
-          deadline,
-        ]);
-      } catch (error) {
-        if (error instanceof MakerWorldResolverError) throw error;
-        if (timedOut || (error instanceof Error && error.name === 'AbortError')) {
-          throw new MakerWorldBlockedOrTimeoutError();
+    return await safeFetchText(startUrl, {
+      allowedHostSuffixes: ALLOWED_HOST_SUFFIXES,
+      deadlineMs: options.deadlineMs,
+      maxBytes: options.maxBytes,
+      maxRedirects: MAX_REDIRECTS,
+      userAgent: USER_AGENT,
+      accept: 'text/html,application/json;q=0.9,*/*;q=0.8',
+      fetchImpl: (input, init) => fetchImpl(input, init),
+    });
+  } catch (error) {
+    if (!(error instanceof SafeFetchError)) throw new MakerWorldBlockedOrTimeoutError('Không thể kết nối tới MakerWorld.');
+    switch (error.reason) {
+      case 'HOST_NOT_ALLOWED':
+        throw new MakerWorldNotFoundError('Redirect trỏ ra ngoài makerworld.com — từ chối theo dõi vì lý do bảo mật.');
+      case 'INVALID_URL':
+        throw new MakerWorldNotFoundError('Redirect trỏ tới URL không hợp lệ.');
+      case 'TOO_LARGE':
+        throw new MakerWorldBlockedOrTimeoutError('Trang MakerWorld trả về dữ liệu quá lớn — từ chối đọc.');
+      case 'TOO_MANY_REDIRECTS':
+        throw new MakerWorldBlockedOrTimeoutError('Quá nhiều lượt redirect từ MakerWorld.');
+      case 'HTTP_ERROR':
+        if (error.status === 404) throw new MakerWorldNotFoundError();
+        if (error.status === undefined || [403, 429, 503].includes(error.status) || (error.status >= 300 && error.status < 400) || error.status === 0) {
+          throw new MakerWorldBlockedOrTimeoutError(error.status && error.status >= 300 && error.status < 400 ? 'MakerWorld trả về redirect không hợp lệ.' : undefined);
         }
+        throw new MakerWorldBlockedOrTimeoutError(`MakerWorld trả về lỗi HTTP ${error.status}.`);
+      case 'NETWORK':
         throw new MakerWorldBlockedOrTimeoutError('Không thể kết nối tới MakerWorld.');
-      }
-
-      // fetch() with redirect:'manual' surfaces a redirect as an opaqueredirect response in browser
-      // contexts, but in Node's undici-based fetch it returns the real 3xx status + Location header —
-      // handle both defensively.
-      if (response.status >= 300 && response.status < 400 && response.type !== 'opaqueredirect') {
-        const location = response.headers.get('location');
-        if (!location) throw new MakerWorldBlockedOrTimeoutError('MakerWorld trả về redirect không hợp lệ.');
-        let nextUrl: URL;
-        try {
-          nextUrl = new URL(location, currentUrl);
-        } catch {
-          throw new MakerWorldNotFoundError('Redirect trỏ tới URL không hợp lệ.');
-        }
-        if (!isAllowedMakerWorldUrl(nextUrl)) {
-          throw new MakerWorldNotFoundError('Redirect trỏ ra ngoài makerworld.com — từ chối theo dõi vì lý do bảo mật.');
-        }
-        currentUrl = nextUrl;
-        continue;
-      }
-      if (response.type === 'opaqueredirect') {
-        throw new MakerWorldBlockedOrTimeoutError('Không thể xác minh đích redirect từ MakerWorld.');
-      }
-      if (response.status === 404) throw new MakerWorldNotFoundError();
-      if (response.status === 403 || response.status === 429 || response.status === 503) {
+      default:
         throw new MakerWorldBlockedOrTimeoutError();
-      }
-      if (!response.ok) throw new MakerWorldBlockedOrTimeoutError(`MakerWorld trả về lỗi HTTP ${response.status}.`);
-      try {
-        return await Promise.race([readBodyWithCap(response, options.maxBytes), deadline]);
-      } catch (error) {
-        if (error instanceof MakerWorldResolverError) throw error;
-        throw new MakerWorldBlockedOrTimeoutError();
-      }
     }
-    throw new MakerWorldBlockedOrTimeoutError('Quá nhiều lượt redirect từ MakerWorld.');
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
@@ -292,7 +231,11 @@ export type MakerWorldResolution = {
   /** NOT_ALLOWED when the license name is known to forbid paid/commercial printing; otherwise
    * UNKNOWN. Deliberately never "ALLOWED" — that is a legal judgement for the owner, not the parser. */
   licenseCommercialUse: 'NOT_ALLOWED' | 'UNKNOWN';
+  /** Popularity counters when the page exposes them (ADR-0063 trend velocity); null fields otherwise. */
+  stats: MakerWorldStats;
 };
+
+export type MakerWorldStats = { downloads: number | null; likes: number | null; prints: number | null };
 
 // Matched on the license NAME only. "Standard Digital File License" (MakerWorld's default) forbids
 // charging money for printed copies; CC "NC" variants are non-commercial.
@@ -328,7 +271,15 @@ type RawMakerWorldInstance = {
   filaments?: unknown;
   extention?: { modelInfo?: { plates?: unknown; compatibility?: { devProductName?: unknown } } };
 };
-type RawMakerWorldDesign = { title?: unknown; coverUrl?: unknown; license?: unknown; instances?: unknown };
+type RawMakerWorldDesign = {
+  title?: unknown; coverUrl?: unknown; license?: unknown; instances?: unknown;
+  downloadCount?: unknown; likeCount?: unknown; printCount?: unknown;
+};
+
+function countOf(value: unknown): number | null {
+  const n = typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : Number.NaN;
+  return Number.isFinite(n) && n >= 0 && n <= 2_000_000_000 ? Math.floor(n) : null;
+}
 type RawMakerWorldNextData = {
   props?: { pageProps?: { design?: RawMakerWorldDesign; designDetail?: RawMakerWorldDesign } };
 };
@@ -493,6 +444,7 @@ export function extractResolutionFromHtml(html: string, parsed: ParsedMakerWorld
     requestedProfileMissing,
     license,
     licenseCommercialUse: classifyMakerWorldLicense(license),
+    stats: { downloads: countOf(design.downloadCount), likes: countOf(design.likeCount), prints: countOf(design.printCount) },
   };
 }
 
