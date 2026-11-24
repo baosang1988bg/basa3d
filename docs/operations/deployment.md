@@ -23,7 +23,8 @@ Checklist khi deploy lên Vercel:
 - Cron trong `vercel.json` (2 job, mỗi job 1 lần/ngày) — tần suất này thấp; vẫn đối chiếu giới hạn cron Hobby hiện hành tại https://vercel.com/docs/cron-jobs trước khi thêm job mới.
 - Body request của Vercel Function tối đa 4.5 MB (413 `FUNCTION_PAYLOAD_TOO_LARGE`) — upload lớn phải đi thẳng lên Supabase Storage bằng signed URL, không qua route handler.
 - Chạy migration mới lên DB UAT **trước** khi promote, theo thứ tự: `20261124000000_trend_watch_items.sql`,
-  `20261125000000_trend_radar_upgrades.sql` (ADR-0063 — trigger chặn publish sản phẩm Trend chưa có bằng chứng license).
+  `20261125000000_trend_radar_upgrades.sql` (ADR-0063 — trigger chặn publish sản phẩm Trend chưa có bằng chứng license),
+  `20261126000000_storefront_search_fold.sql` (ADR-0064 — hàm tìm kiếm không dấu; **bắt buộc**, thiếu thì `/products?q=` lỗi).
 - Cron thứ 3 `/api/cron/trend-snapshots` (`30 3 * * *` UTC ≈ 10:30 giờ VN) cần `CRON_SECRET` như 2 cron cũ.
 - Tuỳ chọn: `THINGIVERSE_APP_TOKEN` (app token Thingiverse) để lấy license + số liệu Thingiverse; không đặt thì bỏ qua.
 - Tuỳ chọn: `VISUAL_SEARCH_MODEL` (mặc định `gemini-3.5-flash-lite`, dùng chung helper với ADR-0039). Không dùng

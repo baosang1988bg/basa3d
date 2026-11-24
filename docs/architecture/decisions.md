@@ -1338,3 +1338,37 @@ and the two tables; columns are nullable/defaulted.
   `VISUAL_SEARCH_MODEL`.
 - Timestamp defaults of the two new migrations use `now()` (Phase 36 rule; the `phase-36` test caught the
   `timezone('utc', now())` drift). Same drift fixed in `claimManualNewsSync`.
+
+## ADR-0064 — Header unified search: shop catalog first, 3D libraries second, always a way back to a quote
+
+**Status.** Accepted 2026-11-25 (Owner: "okay đồng ý"; branch `feat/header-unified-search`).
+Plan: `docs/exec-plans/active/feature-header-unified-search.md`.
+
+**Context.** Search existed twice and nowhere in the header: `/products?q=` (accent-sensitive `ILIKE` on the
+name) and the 3D-library/image `ModelSearchDialog` (only `/custom-print` + `/bao-gia`). External results sent
+customers away with no path back.
+
+**Decision.**
+1. **Accent-insensitive, all-words search.** Migration `20261126000000` adds IMMUTABLE
+   `public.basa3d_search_fold(text)` (translate of every Vietnamese vowel + Đ/đ, then lower — no `unaccent`
+   extension). `src/lib/catalog/search-terms.ts` splits the query (NFC, ≤ 6 tokens, `% _ \` escaped) into AND-ed
+   `fold(name) like fold(token)` clauses. `/products?q=` uses it too.
+2. **Suggest API** `GET /api/public/products/suggest?q=` → ≤ 6 ACTIVE products via `listStorefrontProducts`;
+   `< 2` chars short-circuits; `Cache-Control: public, s-maxage=60, stale-while-revalidate=300`. **No DB rate
+   limiter** (would write a row per keystroke): cost = one `/products?q=` render, client debounce 250 ms + abort,
+   CDN absorbs repeats. Revisit if logs show abuse.
+3. **Header button + `UnifiedSearchDialog`** (lazy `next/dynamic`, `ssr:false`): tabs *Sản phẩm BaSa3D*
+   (default; suggestions, ↑/↓/Enter, GA4 `search` with PII redaction) · *Kho mẫu 3D* · *Tìm bằng ảnh*; one shared
+   query; Ctrl/⌘+K and `window` event `basa3d:open-search`. `ModelSearchDialog` split into `SearchModalShell` +
+   `ModelSearchPanel` (public API unchanged). The shell **portals to `<body>`**: the header's `backdrop-blur`
+   makes it the containing block for `position: fixed`, which clipped the overlay to 64 px (found in UI check).
+4. **Way back to a quote.** `QuoteLinkBox` ends every library/image path: MakerWorld/CN link →
+   `/tools/makerworld-cn?url=`, other http(s) link → `/custom-print?ref=` (server-validated, pre-fills the request
+   description). `/products` zero results → "Tìm … trên kho mẫu 3D" opens the dialog with the same query.
+5. **Admin "Mẫu đang nóng"** card (dashboard → Vận hành, STAFF + OWNER, no money): `getHotTrendItems(5)`
+   ranks WATCHING/PRINT_TESTING items by downloads/day → likes/day → downloads; degrades to a hint if the trend
+   migrations are missing.
+
+**Consequences / migration cost.** One additive function migration (must run before deploy, or `/products?q=`
+errors). Seq scan on `fold(name)` is fine for a catalog of hundreds; an expression/trigram index can be added
+later without code change. Header gains one button + a keydown listener; the dialog code loads on demand.

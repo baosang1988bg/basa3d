@@ -492,3 +492,19 @@ export async function captureTrendSnapshots(options: { limit?: number; budgetMs?
   await Promise.all(Array.from({ length: concurrency }, worker));
   return { considered: items.rowCount ?? items.rows.length, captured, skipped, timedOut };
 }
+
+/**
+ * ADR-0064 — admin dashboard "Mẫu đang nóng": active watchlist items that have popularity data, ranked by
+ * downloads/day, then likes/day, then total downloads. Reuses listTrendWatchItems (≤ 500 rows) so the
+ * velocity definition stays in one place (computePopularity).
+ */
+export async function getHotTrendItems(limit = 5): Promise<TrendWatchItem[]> {
+  const items = await listTrendWatchItems();
+  const score = (value: number | null | undefined) => (typeof value === 'number' ? value : -1);
+  return items
+    .filter((item) => (item.status === 'WATCHING' || item.status === 'PRINT_TESTING') && item.popularity)
+    .sort((a, b) => score(b.popularity?.downloadsPerDay) - score(a.popularity?.downloadsPerDay)
+      || score(b.popularity?.likesPerDay) - score(a.popularity?.likesPerDay)
+      || score(b.popularity?.downloads) - score(a.popularity?.downloads))
+    .slice(0, Math.max(1, Math.min(limit, 50)));
+}

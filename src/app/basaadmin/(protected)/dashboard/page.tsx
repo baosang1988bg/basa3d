@@ -12,6 +12,8 @@ import { requireAdmin } from '@/lib/auth/require-admin';
 import { buildExecutiveDemoMetrics, DEMO_SCENARIO_LABELS, DEMO_SCENARIOS, resolveDemoScenario, type DemoScenario } from '@/lib/executive-demo-data';
 import { FILAMENT_LOW_STOCK_PCT, formatVndCompact, resolveDashboardTab } from '@/lib/executive-metrics';
 import { getExecutiveBusinessMetrics, getFinancialMetrics, getOperationalMetrics } from '@/services/dashboard.service';
+import { getHotTrendItems } from '@/services/trend-hunter.service';
+import { HotTrendList } from '@/components/admin/dashboard/hot-trend-list';
 
 // UX refresh 2026-10-27 (OWNER: "UI cứng quá", reference: realtime-dashboard.html "Pulse"): live status
 // + refresh in the header, KPI tiles with sparklines, a stat strip above each chart, a share donut and
@@ -97,9 +99,14 @@ async function BusinessTab({ demo }: { demo: DemoScenario | null }) {
 // OWNER keeps "Doanh thu hôm nay" + the 14-day revenue bars here (Phase 41 decision D5); STAFF never
 // reaches getFinancialMetrics(), so no money value or revenue series is ever passed in that branch.
 async function OperationsTab({ isOwner, now }: { isOwner: boolean; now: string }) {
-  const [operational, financial] = await Promise.all([
+  const [operational, financial, hotTrends] = await Promise.all([
     getOperationalMetrics(),
     isOwner ? getFinancialMetrics() : Promise.resolve(null),
+    // ADR-0064: never let the Trend Radar card break the dashboard (e.g. trend migrations not applied yet).
+    getHotTrendItems(5).catch((error: unknown) => {
+      console.error('[DASHBOARD_HOT_TRENDS_FAILED]', error instanceof Error ? error.message : error);
+      return null;
+    }),
   ]);
   const orderSeries = operational.dailyOrderTrends.map((day) => day.orderCount);
   const orders14 = orderSeries.reduce((sum, value) => sum + value, 0);
@@ -147,6 +154,10 @@ async function OperationsTab({ isOwner, now }: { isOwner: boolean; now: string }
           <MaterialHealthCard materialHealth={operational.materialHealth} />
         </DashCard>
       </div>
+
+      <DashCard title="Mẫu đang nóng" subtitle="Trend Radar · lượt tải tăng mỗi ngày (7 ngày gần nhất)" action={<CardLink href="/basaadmin/trend-hunter">Mở Săn mẫu Trend</CardLink>}>
+        <HotTrendList items={hotTrends} />
+      </DashCard>
     </>
   );
 }
