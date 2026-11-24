@@ -11,6 +11,7 @@ export type ConsultSpec = {
 export type ConsultPayload = {
   source: ConsultSource;
   title: string;
+  greeting?: string;
   specs?: ConsultSpec[];
   estimatedPriceVnd?: { min: number; max?: number } | null;
   referenceUrl?: string;
@@ -35,7 +36,7 @@ function formatVndSimple(amount: number): string {
  */
 export function buildZaloConsultMessage(payload: ConsultPayload): string {
   const lines: string[] = [
-    'Chào BaSa3D, mình muốn tư vấn mẫu này:',
+    payload.greeting || 'Chào BaSa3D, mình muốn tư vấn mẫu này:',
     `📌 Nguồn: ${SOURCE_LABELS[payload.source]}`,
     `🧩 Mẫu: ${payload.title}`,
   ];

@@ -29,6 +29,26 @@ test('buildZaloConsultMessage formats structured specs, range price, and filters
   assert.match(message, /Làm 2 cái/);
 });
 
+test('buildZaloConsultMessage supports custom greeting and makerworld source', () => {
+  const message = buildZaloConsultMessage({
+    source: 'makerworld',
+    title: 'Cyberpunk Helmet',
+    greeting: 'Chào BaSa3D, mình muốn đặt in mẫu MakerWorld này:',
+    specs: [
+      { label: 'Bàn in (Profile)', value: '0.20mm Standard' },
+      { label: 'Số lượng', value: 2 },
+    ],
+    estimatedPriceVnd: { min: 120000 },
+  });
+
+  assert.match(message, /Chào BaSa3D, mình muốn đặt in mẫu MakerWorld này:/);
+  assert.match(message, /Mẫu MakerWorld/);
+  assert.match(message, /Cyberpunk Helmet/);
+  assert.match(message, /• Bàn in \(Profile\): 0\.20mm Standard/);
+  assert.match(message, /• Số lượng: 2/);
+  assert.match(message, /120[.,]000đ/);
+});
+
 test('public e-commerce routes and modules are removed in showcase-only mode', () => {
   const removedPaths = [
     'src/app/[locale]/(storefront)/cart/page.tsx',
