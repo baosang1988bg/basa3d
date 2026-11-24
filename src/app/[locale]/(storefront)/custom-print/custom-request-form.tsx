@@ -90,7 +90,7 @@ const inputClass = 'h-10 rounded-lg border border-input bg-background px-3 text-
  * sliced .3mf (exact) or .stl/.obj (range); 2) only if the customer wants to go ahead, show the contact
  * form. The browser never sends a price — the server recomputes it from the stored file at submit.
  */
-export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill }) {
+export function CustomRequestForm({ prefill, referenceUrl }: { prefill?: CustomRequestPrefill; referenceUrl?: string }) {
   const [state, setState] = useState<SubmitState>({ status: 'idle' });
   const [copied, setCopied] = useState(false);
   const [attachmentPath, setAttachmentPath] = useState(prefill?.attachmentPath ?? '');
@@ -591,7 +591,7 @@ export function CustomRequestForm({ prefill }: { prefill?: CustomRequestPrefill 
               required={!attachmentPath}
               maxLength={20000}
               rows={3}
-              defaultValue={prefill?.description}
+              defaultValue={prefill?.description ?? (referenceUrl ? `Link mẫu tham khảo: ${referenceUrl}\n` : undefined)}
               placeholder="Công dụng, kích thước (dài x rộng x cao mm), tỉ lệ scale, lưu ý đặc biệt..."
               className="rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
             />

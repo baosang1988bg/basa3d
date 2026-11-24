@@ -55,3 +55,36 @@ test('suggest route: short, empty and repeated q return [] without touching the 
     assert.match(res.headers.get('cache-control') ?? '', /s-maxage=60/);
   }
 });
+
+test('sanitizeReferenceUrl only accepts plain http(s) URLs ≤ 2000 chars', async () => {
+  const { sanitizeReferenceUrl } = await import('../src/lib/search/quote-link');
+  assert.equal(sanitizeReferenceUrl('https://www.printables.com/model/1'), 'https://www.printables.com/model/1');
+  assert.equal(sanitizeReferenceUrl(' http://x.test/a '), 'http://x.test/a');
+  assert.equal(sanitizeReferenceUrl('javascript:alert(1)'), null);
+  assert.equal(sanitizeReferenceUrl(['https://a.test']), null);
+  assert.equal(sanitizeReferenceUrl(undefined), null);
+  assert.equal(sanitizeReferenceUrl(`https://a.test/${'x'.repeat(2000)}`), null);
+});
+
+test('Ctrl/⌘+K opens search; other combos do not', async () => {
+  const { isOpenSearchShortcut } = await import('../src/components/storefront/search/search-events');
+  const k = (o: Partial<KeyboardEvent>) => ({ key: 'k', ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, ...o });
+  assert.equal(isOpenSearchShortcut(k({ ctrlKey: true })), true);
+  assert.equal(isOpenSearchShortcut(k({ metaKey: true, key: 'K' })), true);
+  assert.equal(isOpenSearchShortcut(k({})), false);
+  assert.equal(isOpenSearchShortcut(k({ ctrlKey: true, shiftKey: true })), false);
+  assert.equal(isOpenSearchShortcut(k({ ctrlKey: true, key: 'j' })), false);
+});
+
+test('wiring: header renders HeaderSearch, dialog is lazy, /products empty state and /custom-print ?ref are connected', () => {
+  const header = readFileSync('src/components/storefront/header.tsx', 'utf8');
+  assert.match(header, /<HeaderSearch \/>/);
+  const headerSearch = readFileSync('src/components/storefront/search/header-search.tsx', 'utf8');
+  assert.match(headerSearch, /dynamic\(\(\) => import\('\.\/unified-search-dialog'\)/);
+  assert.match(headerSearch, /ssr: false/);
+  assert.doesNotMatch(header, /unified-search-dialog/, 'header must not import the dialog eagerly');
+  assert.match(readFileSync('src/app/[locale]/(storefront)/products/page.tsx', 'utf8'), /<OpenModelSearchButton query=\{filters\.search\} \/>/);
+  assert.match(readFileSync('src/app/[locale]/(storefront)/custom-print/page.tsx', 'utf8'), /sanitizeReferenceUrl\(resolved\?\.ref\)/);
+  // Every external-library path ends with a way back to a quote.
+  assert.match(readFileSync('src/components/storefront/search/model-search-panel.tsx', 'utf8'), /<QuoteLinkBox/);
+});
