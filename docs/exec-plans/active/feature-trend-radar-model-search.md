@@ -89,3 +89,39 @@ Review found 3 BLOCKERS + 4 IMPORTANT. Fixed:
 - CSP `img-src` for Printables/Thingiverse covers before CSP leaves Report-Only.
 - i18n keys for the new storefront banner strings (EN locale shows Vietnamese).
 - "Mở 3 kho cùng lúc" is blocked after the first tab by Safari/Firefox popup blockers — replace with a list of links.
+
+## 5. Upgrades (Claude, 2026-11-25 — branch `feat/trend-radar-upgrades`, ADR-0063)
+- [x] U1 License from platform APIs — Printables GraphQL (undocumented, defensive) + Thingiverse REST (`THINGIVERSE_APP_TOKEN`), `license_source` column, UI warns when NONE.
+- [x] U2 Server publish gate — `trend_watch_items.license_status` + `product_id`; DB triggers block ACTIVE without license type + proof; `trendItemId` links product on create; capture-tab convert saves to watchlist first; form shows warning.
+- [x] U3 Audit log for create / status / delete / convert.
+- [x] U4 Visual-search cache by image SHA-256 (30-day TTL, served before rate limit).
+- [x] U5 Daily popularity snapshots + velocity (`/api/cron/trend-snapshots`, `vercel.json`).
+- [x] U6 Resolver uses `safeFetchText`; i18n key for banner button; CSP img-src for Printables/Thingiverse.
+
+### Verification (2026-11-25, Linux sandbox, Postgres 17 embedded)
+- lint ✅ · typecheck (src/tests) ✅ · check:arch ✅ · `next build` ✅ (76 pages)
+- Unit: `trend-radar-upgrades` 10, `trend-radar-hardening` 14, `trend-hunter` 3, `meta-engines` 4, `phase-13-makerworld-resolver` 20 (after resolver refactor), `netlify-deploy` 11 — all pass.
+- DB: `trend-radar-upgrades-db` 4 + `trend-watch-db` 2 pass on the full migration chain.
+- Regression: product/catalog/STL-gate DB suites — 46/52 pass, **identical** to `dev` baseline (6 pre-existing env failures: missing seed warehouse, `mock.module` flag).
+
+### Still open
+- Verify Printables GraphQL fields against the live API (`licenseSource` should be PLATFORM_API for most Printables captures).
+- Register a Thingiverse app and set `THINGIVERSE_APP_TOKEN` in Vercel.
+- i18n of `ModelSearchDialog` copy (storefront EN locale is currently disabled by ADR-0048, so low priority).
+- Owner review UI for license proof (gate checks presence, not validity).
+
+## 6. Verification pass (Claude, 2026-11-25 — branch `fix/trend-radar-verification`)
+Goal: prove every task above works end to end, not just "tests green on my files".
+
+- [x] Live API contracts (browser): Printables GraphQL (license + stats + full license list), MakerWorld `__NEXT_DATA__` fields, Thingiverse OpenAPI schema, Gemini deprecations page → fixes: "Commercial Use" licences, visual search moved off `gemini-2.5-flash` onto the shared vision helper.
+- [x] Full `npm test`-equivalent run in a Linux sandbox: Postgres 17 (session TimeZone **Asia/Ho_Chi_Minh**, stricter than Supabase's UTC), all migrations + `seed.sql`, `next build` into `.next-test`, `next start`, all 140 test files.
+  - Result: 1007 tests — **0 failures except 16 that need a local Supabase** (Auth admin API / Storage): `phase-3-auth` (2), `phase-3-route-auth` (4), `phase-33-upload-route` (6), `phase-7-blog` (2), `phase-15-staff-notification-failure` (1), `phase-17-keychain-request-integration` (1). Run those with `supabase start` locally.
+  - Fixed on the way (all were failing on `dev` before this branch): trend migrations' timestamp defaults (caught by phase-36), `claimManualNewsSync` UTC drift, `ai-news`/`blog-review` root `after()` registered before a top-level await, `blog-review` 42P08 parameter typing, `admin-products-catalog` mock missing Phase-55 exports, `phase-36` arg-parsing check vs `const valid… = parseActionId(…)` + `assignImageVariantAction` accepting falsy non-null ids, stale `makerworld-estimate` and `phase-7-sitemap` expectations (Phase 49 / ADR-0059), STL importer ENOENT on Linux for NFD file names (`diskRelPath`).
+- [x] UI rendered and screenshotted (esbuild bundle of the real components + compiled Tailwind CSS): ModelSearchDialog (text + image tab), Watchlist (velocity line, licence badges, "Đã tạo SP" disabled state, licence-source warning), product form with a non-commercial Trend item ("Chưa rõ" pre-selected + gate warning).
+- [x] Closed follow-ups: ModelSearchDialog i18n (`modelSearch` namespace, vi/en parity test green); "Mở top 3 kho" → plain links (no popup blocking); Netlify scheduled function `trend-snapshots.mts` (15 items / 20 s for the 30 s limit); Watchlist platform filter adds THANGS / OTHER.
+
+### Still open (owner)
+Step-by-step: `docs/operations/trend-radar-owner-guide.md`.
+- Run the 16 Supabase-dependent tests locally (`supabase start`) before go-live.
+- Register a Thingiverse app → `THINGIVERSE_APP_TOKEN`.
+- Decide whether OCL / GPL / BSD / Apache models may be sold (currently "Chưa rõ" → proof required).

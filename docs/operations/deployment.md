@@ -15,12 +15,22 @@ thật/thanh toán thật** (Hobby cấm dùng thương mại — https://vercel
 Trước khi mở cho khách: nâng Vercel Pro hoặc quay lại Netlify (ADR-0054, `netlify.toml`,
 `docs/operations/deploy-netlify.md` — giữ nguyên, không xoá).
 
+Hướng dẫn từng bước cho Trend Radar (migration, biến môi trường, cron, test Supabase, license): `docs/operations/trend-radar-owner-guide.md`.
+
 Checklist khi deploy lên Vercel:
 - `BASA3D_DEPLOY_PLATFORM` tự suy ra `vercel` từ `VERCEL=1` lúc build (`src/config/resolve-build-info.mjs`);
   rate limiter đọc `x-real-ip`/`x-forwarded-for` (Vercel ghi đè) — không cần cấu hình thêm.
 - Cron trong `vercel.json` (2 job, mỗi job 1 lần/ngày) — tần suất này thấp; vẫn đối chiếu giới hạn cron Hobby hiện hành tại https://vercel.com/docs/cron-jobs trước khi thêm job mới.
 - Body request của Vercel Function tối đa 4.5 MB (413 `FUNCTION_PAYLOAD_TOO_LARGE`) — upload lớn phải đi thẳng lên Supabase Storage bằng signed URL, không qua route handler.
-- Chạy migration mới (vd. `20261124000000_trend_watch_items.sql`) lên DB UAT **trước** khi promote.
+- Chạy migration mới lên DB UAT **trước** khi promote, theo thứ tự: `20261124000000_trend_watch_items.sql`,
+  `20261125000000_trend_radar_upgrades.sql` (ADR-0063 — trigger chặn publish sản phẩm Trend chưa có bằng chứng license),
+  `20261126000000_storefront_search_fold.sql` (ADR-0064 — hàm tìm kiếm không dấu; **bắt buộc**, thiếu thì `/products?q=` lỗi).
+- Cron thứ 3 `/api/cron/trend-snapshots` (`30 3 * * *` UTC ≈ 10:30 giờ VN) cần `CRON_SECRET` như 2 cron cũ.
+- Tuỳ chọn: `THINGIVERSE_APP_TOKEN` (app token Thingiverse) để lấy license + số liệu Thingiverse; không đặt thì bỏ qua.
+- Tuỳ chọn: `VISUAL_SEARCH_MODEL` (mặc định `gemini-3.5-flash-lite`, dùng chung helper với ADR-0039). Không dùng
+  `gemini-2.5-flash` cho dự án mới — Google chỉ mở cho project đã dùng trước đó.
+- MakerWorld chặn fetch không cookie bằng Cloudflare: snapshot độ nóng của mẫu MakerWorld có thể bị "skipped"
+  khi chạy từ Vercel (Printables/Thingiverse không bị). Xem log cron `/api/cron/trend-snapshots`.
 
 ## Biến môi trường bắt buộc (Phase 38)
 

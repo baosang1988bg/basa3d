@@ -16,12 +16,14 @@ test('sitemap never lists an admin route and includes the public static routes',
   assert.equal(entries.some((entry) => entry.url.endsWith('/products')), true);
 });
 
-test('robots.txt disallows /basaadmin and /api and points at the sitemap', () => {
+// ADR-0059 (showcase-only): robots.txt must NOT name the admin path (it would advertise it); the admin is
+// protected by auth + noindex instead. tests/showcase-only.test.ts asserts the same from the other side.
+test('robots.txt disallows /api, does not reveal the admin path, and points at the sitemap', () => {
   const result = robots();
   const rules = Array.isArray(result.rules) ? result.rules[0] : result.rules;
   assert.ok(rules);
   const disallow = Array.isArray(rules?.disallow) ? rules.disallow : [rules?.disallow];
-  assert.ok(disallow.includes('/basaadmin'));
+  assert.ok(!disallow.some((entry) => String(entry).includes('admin')));
   assert.ok(disallow.includes('/api'));
   assert.match(String(result.sitemap), /\/sitemap\.xml$/);
 });

@@ -142,7 +142,8 @@ test('every exported server action parses its positional id/boolean args right a
         && /\b(id|Id|isActive)\b|Id$/.test(name));
       const body = source.slice(match.index!, source.indexOf('\n}\n', match.index!));
       for (const name of scalarParams) {
-        if (!new RegExp(`${name} = parseAction(Id|Boolean)\\(${name}`).test(body) && !new RegExp(`(uuidSchema|Schema)\\.(safeParse|parse)\\([^)]*${name}`).test(body)) {
+        // Phase 55 inline actions parse into a new const (`const validId = parseActionId(productId, …)`) — same guarantee.
+        if (!new RegExp(`(${name}|const \\w+) = [^;\\n]*parseAction(Id|Boolean)\\(${name}\\b`).test(body) && !new RegExp(`(uuidSchema|Schema)\\.(safeParse|parse)\\([^)]*${name}`).test(body)) {
           offenders.push(`${file}#${match[1]}(${name})`);
         }
       }

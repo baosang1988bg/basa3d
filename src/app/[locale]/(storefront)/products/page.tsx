@@ -12,6 +12,7 @@ import { toProductTypeFilter } from '@/lib/analytics';
 import { Link } from '@/i18n/navigation';
 import { localeAlternates } from '@/i18n/seo';
 import { getCategoryDisplayName } from '@/lib/categories';
+import { OpenModelSearchButton } from '@/components/storefront/search/open-model-search-button';
 
 type SearchParams = { q?: string; type?: string; sort?: string; page?: string; categoryId?: string };
 
@@ -112,6 +113,8 @@ export default async function ProductsPage({
           <p className="text-muted-foreground">{t('emptyTitle')}</p>
           <p className="text-sm text-muted-foreground">{t('emptyDescription')}</p>
           <div className="flex flex-wrap items-center justify-center gap-3">
+            {/* ADR-0064: not in the shop → search the 3D libraries with the same words, then paste a link for a quote. */}
+            {filters.search ? <OpenModelSearchButton query={filters.search} /> : null}
             <Link href="/custom-print" className={storefrontButtonClasses('accent')}>{t('ctaCustomRequest')}</Link>
             <Link href="/tools/makerworld-cn" className={storefrontButtonClasses('secondary')}>{t('makerworldOpenTool')}</Link>
           </div>

@@ -473,7 +473,8 @@ export async function assignImageVariantAction(
   try {
     const validProductId = parseActionId(productId, 'productId');
     const validImageId = parseActionId(imageId, 'imageId');
-    const validVariantId = variantId ? parseActionId(variantId, 'variantId') : null;
+    // Only an explicit null unassigns; any other value (incl. '' / false / 0) must be a valid uuid (Phase 36 S5).
+    const validVariantId = variantId === null ? null : parseActionId(variantId, 'variantId');
     const data = await assignProductImageVariant(validProductId, validImageId, validVariantId, actorId);
     revalidateAllCatalogPaths(validProductId);
     return { ok: true, data };

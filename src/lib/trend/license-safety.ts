@@ -22,7 +22,9 @@ export interface LicenseSafetyInfo {
 }
 
 const NON_COMMERCIAL_RE = /standard digital file license|non[\s-]?commercial|\bby[\s-]nc\b|\bcc[\s-]?by[\s-]nc\b|\bnc\b|personal use only/i;
-const SUBSCRIPTION_RE = /patreon|merchant|\bclub\b|membership|commercial\s+(?:tier|subscription|license\s+(?:available|required|sold|via))/i;
+// Printables store licenses "Commercial Use" / "Commercial Use - No Derivative" (verified against the live
+// `licenses` query, 2026-11-25) let the BUYER sell prints → the shop must hold a purchase → needs proof.
+const SUBSCRIPTION_RE = /patreon|merchant|\bclub\b|membership|commercial\s+(?:tier|subscription|license\s+(?:available|required|sold|via))|^\s*commercial\s+use\b|^\s*comm\.\s*-/i;
 const CC0_RE = /\bcc0\b|public\s+domain/i;
 // "BY", "BY-SA", "BY-ND", "BY 4.0", "CC BY-SA 4.0", "Creative Commons … Attribution …"
 const CC_BY_RE = /^\s*(?:cc[\s-]?)?by(?:[\s-](?:sa|nd))?(?:\s*\d(?:\.\d)?)?\s*$|\bcc[\s-]?by\b|creative\s+commons.*attribution|^\s*attribution(?:[\s-](?:share\s*alike|no\s*derivatives?))?\b/i;

@@ -14,6 +14,7 @@ import { navKeyFromHref, trackContactClick, trackMenuOpen, trackNavigationClick 
 import { cn } from '@/lib/utils';
 import { isKnowledgeSectionActive, visibleKnowledgeNavItems } from '@/config/knowledge-nav';
 import { KnowledgeMenu } from './knowledge-menu';
+import { HeaderSearch } from '@/components/storefront/search/header-search';
 
 const KNOWLEDGE_SLOT = { slot: 'knowledge' } as const;
 type NavEntry = { href: string; label: string } | typeof KNOWLEDGE_SLOT;
@@ -303,6 +304,8 @@ export function Header({ categories: initialCategories = [] }: HeaderProps = {})
           </nav>
 
           <div className="flex items-center gap-2">
+            {/* ADR-0064: unified search (shop catalog first, 3D libraries second); dialog is lazy-loaded. */}
+            <HeaderSearch />
             <a
               href={SITE_CONFIG.zaloUrl}
               target="_blank"

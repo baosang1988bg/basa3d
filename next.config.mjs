@@ -15,7 +15,7 @@ const contentSecurityPolicyReportOnly = [
   "worker-src 'self' blob:",
   "style-src 'self' 'unsafe-inline'",
   // Phase 54.2: hotlinked news-source preview images + YouTube thumbnails (admin review).
-  "img-src 'self' data: blob: https://*.supabase.co https://img.vietqr.io https://*.bblmw.com https://image.makerworld.com https://3dprintingindustry.com https://*.3dprintingindustry.com https://all3dp.com https://*.all3dp.com https://hackaday.com https://*.hackaday.com https://*.wp.com https://i.ytimg.com",
+  "img-src 'self' data: blob: https://*.supabase.co https://img.vietqr.io https://*.bblmw.com https://image.makerworld.com https://3dprintingindustry.com https://*.3dprintingindustry.com https://all3dp.com https://*.all3dp.com https://hackaday.com https://*.hackaday.com https://*.wp.com https://i.ytimg.com https://media.printables.com https://cdn.thingiverse.com",
   // Phase 54.2: YouTube embeds in blog posts (privacy-enhanced domain only).
   "frame-src https://www.youtube-nocookie.com",
   "font-src 'self' data:",

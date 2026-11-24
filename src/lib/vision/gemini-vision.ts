@@ -74,9 +74,22 @@ export type VisionOptions = {
 
 /** Returns the model's parsed JSON (unvalidated). Throws VisionUnavailableError on any failure. */
 export async function extractMakerWorldScreenshotJson(image: VisionImage, options: VisionOptions = {}): Promise<unknown> {
+  return generateVisionJson(image, { ...options, prompt: PROMPT, responseSchema: RESPONSE_SCHEMA });
+}
+
+/**
+ * Generic vision call (ADR-0063 V2: shared by the MakerWorld screenshot estimate and the public visual
+ * model search so both use the same supported default model, header auth, deadline and thought-part
+ * handling). Returns parsed JSON (unvalidated — callers must Zod-validate). Throws VisionUnavailableError.
+ */
+export async function generateVisionJson(
+  image: VisionImage,
+  options: VisionOptions & { prompt: string; responseSchema?: unknown; modelEnvVar?: string },
+): Promise<unknown> {
   const apiKey = options.apiKey ?? process.env.GEMINI_API_KEY;
   if (!apiKey) throw new VisionUnavailableError('GEMINI_API_KEY is not configured.');
-  const model = options.model || process.env.MAKERWORLD_VISION_MODEL || DEFAULT_VISION_MODEL;
+  const envModel = options.modelEnvVar ? process.env[options.modelEnvVar] : process.env.MAKERWORLD_VISION_MODEL;
+  const model = options.model || envModel || DEFAULT_VISION_MODEL;
   if (!/^[a-z0-9.-]{1,80}$/i.test(model)) throw new VisionUnavailableError('Invalid vision model name.');
   const fetchImpl = options.fetchImpl ?? (globalThis.fetch as FetchLike);
 
@@ -91,11 +104,15 @@ export async function extractMakerWorldScreenshotJson(image: VisionImage, option
         contents: [{
           role: 'user',
           parts: [
-            { text: PROMPT },
+            { text: options.prompt },
             { inline_data: { mime_type: image.mimeType, data: Buffer.from(image.bytes).toString('base64') } },
           ],
         }],
-        generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: RESPONSE_SCHEMA },
+        generationConfig: {
+          temperature: 0,
+          responseMimeType: 'application/json',
+          ...(options.responseSchema ? { responseSchema: options.responseSchema } : {}),
+        },
       }),
     });
     if (!response.ok) throw new VisionUnavailableError(`Vision HTTP ${response.status}.`);

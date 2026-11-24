@@ -75,6 +75,8 @@ export function ProductOnboardingForm({
     printDriveUrl?: string;
     /** Trend Radar verdict (ADR-0062 §5). Only COMMERCIAL_ALLOWED pre-selects "Có license". */
     licenseStatus?: string;
+    /** ADR-0063 U2: links the created product to its Trend Radar item. */
+    trendItemId?: string;
   };
 }) {
   const formRef = useRef<HTMLFormElement>(null);
@@ -373,6 +375,7 @@ export function ProductOnboardingForm({
       isFeatured,
       warehouseId: warehouseId || null,
       variants: variantPayload,
+      trendItemId: initialData?.trendItemId ?? null,
     };
   }
 
@@ -814,6 +817,12 @@ export function ProductOnboardingForm({
 
           <fieldset className="flex flex-col gap-2" disabled={locked}>
             <legend className="mb-1 text-sm font-medium">Nguồn mẫu / bản quyền <span className="text-rose-600">*</span></legend>
+            {initialData?.trendItemId && initialData.licenseStatus !== 'COMMERCIAL_ALLOWED' ? (
+              <p role="note" className="rounded-lg border border-amber-200 bg-amber-500/10 p-2.5 text-xs text-amber-900 dark:border-amber-800 dark:text-amber-300">
+                Mẫu từ Trend Radar chưa được xác nhận được phép bán. Bạn vẫn lưu nháp được, nhưng hệ thống sẽ chặn đưa lên web
+                cho tới khi chọn đúng loại license và dán link bằng chứng (hoá đơn / giấy phép thương mại).
+              </p>
+            ) : null}
             <div role="radiogroup" className="grid gap-2 sm:grid-cols-3">
               {([
                 ['OWN_DESIGN', 'Xưởng tự thiết kế', 'Mẫu do BaSa3D vẽ.'],

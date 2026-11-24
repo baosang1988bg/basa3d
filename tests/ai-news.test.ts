@@ -25,9 +25,6 @@ import {
 } from '../src/services/ai-news.service.js';
 
 configureTestEnvironment();
-after(async () => {
-  if (process.env.DATABASE_URL) await getPool().end();
-});
 
 // ---------------------------------------------------------------------------------------------
 // Fixtures
@@ -546,4 +543,10 @@ test('claimManualNewsSync enforces the cooldown across concurrent clicks', { ski
   assert.ok(blocked && !blocked.claimed && blocked.retryAfterSeconds >= 1);
   await new Promise((r) => setTimeout(r, cooldownSeconds * 1000 + 100));
   assert.equal((await claimManualNewsSync(actorId, cooldownSeconds)).claimed, true);
+});
+
+// Registered last on purpose: this file has a top-level `await` (DB probe) before its DB tests, and a root
+// after() registered above it fired before those tests ran ("Cannot use a pool after calling end on the pool").
+after(async () => {
+  if (process.env.DATABASE_URL) await getPool().end();
 });

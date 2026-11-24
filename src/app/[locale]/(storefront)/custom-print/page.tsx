@@ -1,6 +1,7 @@
 import { MaterialBadge } from '@/components/storefront/material-badge';
 import { Breadcrumb } from '@/components/storefront/breadcrumb';
 import { CustomRequestForm } from './custom-request-form';
+import { sanitizeReferenceUrl } from '@/lib/search/quote-link';
 import { MakerWorldDiscoveryBanner } from '@/components/storefront/makerworld-discovery-banner';
 import { redirect } from '@/i18n/navigation';
 import { applyRequestLocale, type LocaleParams } from '@/i18n/request-locale';
@@ -24,11 +25,13 @@ export default async function CustomPrintPage({
   searchParams,
 }: {
   params?: LocaleParams;
-  searchParams?: Promise<{ modelUrl?: string; profileId?: string; title?: string }>;
+  searchParams?: Promise<{ modelUrl?: string; profileId?: string; title?: string; ref?: string | string[] }>;
 }) {
   const locale = params ? await applyRequestLocale(params) : 'vi';
   const resolved = searchParams ? await searchParams : undefined;
   const modelUrl = resolved?.modelUrl;
+  // ADR-0064: "Báo giá mẫu này" from the search dialog — a non-MakerWorld model link becomes the request's reference.
+  const referenceUrl = sanitizeReferenceUrl(resolved?.ref);
 
   if (modelUrl) {
     redirect({ href: `/tools/makerworld-cn?url=${encodeURIComponent(modelUrl)}`, locale });
@@ -47,8 +50,15 @@ export default async function CustomPrintPage({
       <section className="mt-8">
         <h2 className="font-heading text-2xl font-bold text-foreground">Gửi yêu cầu đặt in</h2>
         <p className="mt-1 text-sm text-muted-foreground">Điền thông tin bên dưới, chúng tôi sẽ liên hệ lại sớm nhất.</p>
+        {referenceUrl ? (
+          // The description field (pre-filled with this link) only appears at the contact step, so the link is
+          // also shown up-front — the customer sees immediately which model the request is about.
+          <p role="status" className="mt-3 break-all rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-foreground">
+            Mẫu tham khảo: <a href={referenceUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline">{referenceUrl}</a>
+          </p>
+        ) : null}
         <div className="mt-4">
-          <CustomRequestForm />
+          <CustomRequestForm referenceUrl={referenceUrl ?? undefined} />
         </div>
       </section>
 

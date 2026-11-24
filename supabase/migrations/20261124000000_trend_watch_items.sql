@@ -1,6 +1,7 @@
 -- Migration: 20261124000000_trend_watch_items.sql
 -- Trend radar watchlist (ADR-0060, hardened by ADR-0062).
 -- Server-only table: the app reads/writes it through pg.Pool (`query()`, ADR-0012) behind requireAdmin().
+-- timestamptz defaults use now() (Phase 36 rule — `timezone('utc', now())` drifts when the session TimeZone is not UTC).
 -- Edited in place: the first version referenced a non-existent `staff_profiles.status` column in an RLS
 -- policy, so it could never apply anywhere.
 
@@ -19,8 +20,8 @@ create table if not exists public.trend_watch_items (
   category_tag varchar(64) not null default 'Chưa phân loại',
   status varchar(32) not null default 'WATCHING' check (status in ('WATCHING', 'PRINT_TESTING', 'CONVERTED_DRAFT', 'ARCHIVED')),
   created_by uuid references public.staff_profiles(id) on delete set null,
-  created_at timestamptz not null default timezone('utc', now()),
-  updated_at timestamptz not null default timezone('utc', now())
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create index if not exists idx_trend_watch_status_created on public.trend_watch_items (status, created_at desc);

@@ -1273,3 +1273,115 @@ to Netlify — record that as a new ADR when it happens.
 6. `/api/public/search/visual-analyze`: DB rate limit (20 req/h per network), MIME allowlist, 4 MB base64
    cap (under Vercel's 4.5 MB request body limit), API key in `x-goog-api-key` header; the client downsizes
    images to ≤1024 px JPEG before upload and shows an error when analysis fails.
+
+## ADR-0063 — Trend Radar upgrades: platform licenses, DB publish gate, velocity, visual-search cache
+
+**Status.** Accepted 2026-11-25 (branch `feat/trend-radar-upgrades`). Builds on ADR-0060/0062.
+
+**Context.** ADR-0062 made the classifier safe but most non-MakerWorld captures still had no structured
+license (verdict UNKNOWN), the "do not sell" rule lived only in a client `confirm()`, watchlist mutations
+were not audited, every visual search paid a Gemini call, and the radar had no notion of "how fast is this
+model growing".
+
+**Decision.**
+1. **Structured licenses (`src/lib/trend/platform-sources.ts`).** Printables: public GraphQL
+   `print(id) { name license { name abbreviation } }` (shape used by hackclub/construct PR #46, *not
+   officially documented* — parsed with zod, drift ⇒ `null` ⇒ UNKNOWN, never "allowed"); popularity is a
+   separate best-effort query so an unknown field cannot break the license lookup. Thingiverse: REST
+   `GET api.thingiverse.com/things/{id}` with `THINGIVERSE_APP_TOKEN` (optional; skipped when unset).
+   Both go through `lib/net/safe-fetch` (now supports POST; redirects refused for non-GET).
+   `trend_watch_items.license_source` records `PLATFORM_API | PAGE_DATA | NONE`.
+2. **Publish gate in the DB (migration `20261125000000`).** `trend_watch_items.license_status` is computed
+   on the server at save time; `product_id` links the catalog product (set inside
+   `createProductWithVariants` via `trendItemId`, which also moves the item to `CONVERTED_DRAFT`).
+   Triggers `products_trend_publish_gate` / `trend_watch_items_link_gate` refuse `ACTIVE` for a linked
+   product whose trend verdict is not `COMMERCIAL_ALLOWED` unless `license_type <> 'UNKNOWN'` **and**
+   `license_proof_url` is set — also when the proof is removed later. Error
+   `TREND_PUBLISH_BLOCKED:LICENSE_PROOF_REQUIRED` → 409 via `translateImportGateError`. The capture-tab
+   "Đăng bán" now saves the draft to the watchlist first, so every Trend-Radar product is linked.
+3. **Audit.** `TREND_ITEM_CREATED | TREND_ITEM_STATUS_CHANGED | TREND_ITEM_DELETED | TREND_ITEM_CONVERTED`
+   in `audit_logs` (status change now uses `select … for update` in a transaction).
+4. **Velocity.** `trend_watch_snapshots` (1 row/item/UTC day). Daily cron `/api/cron/trend-snapshots`
+   (`30 3 * * *` UTC, ≤40 items, concurrency 3, 45 s budget) for WATCHING/PRINT_TESTING items on
+   MakerWorld (`downloadCount/likeCount/printCount` from `__NEXT_DATA__`, defensive), Printables, Thingiverse.
+   List shows downloads/likes and "+N lượt tải/ngày" over the ≤7-day window.
+5. **Visual-search cache.** `visual_search_cache` keyed by SHA-256 of the decoded image; served before the
+   rate limiter (no Gemini cost), 30-day TTL, pruned by the snapshot cron. Cache errors never block search.
+6. **Tech debt.** `makerworld-resolver` now delegates to `safeFetchText` (one SSRF implementation, same
+   error contract — `phase-13` tests unchanged and green); banner button i18n key `makerworldSmartSearch`;
+   CSP `img-src` adds `media.printables.com`, `cdn.thingiverse.com`.
+
+**Residual risks.** Printables GraphQL is undocumented (monitor `licenseSource = NONE` rate). Staff can
+still type any proof URL — the gate proves *a* proof was recorded, not that it is valid (owner review).
+The license string is sent by the admin client on save (insider could edit it) — acceptable for an
+OWNER/STAFF-only tool; re-capture on save if that ever matters. Netlify has no scheduled function for the
+new cron (Netlify is frozen, ADR-0061). `ModelSearchDialog` copy is still Vietnamese-only.
+
+**Migration cost.** One additive migration (3 columns, 2 tables, 2 triggers). Rollback: drop the triggers
+and the two tables; columns are nullable/defaulted.
+
+**Verification addendum (2026-11-25, branch `fix/trend-radar-verification`).**
+- Printables GraphQL checked live: `print(id){ id name license{ id name abbreviation } }` and the separate
+  `print(id){ likesCount downloadCount makesCount }` both answer (model 3161 → CC0, 602 593 downloads); all 23
+  live license names from the `licenses` query are pinned in `tests/trend-radar-upgrades.test.ts`. Change:
+  Printables store licenses "Commercial Use" / "Commercial Use - No Derivative" → `COMMERCIAL_SUBSCRIPTION`
+  (the shop must have bought the model → proof required). OCL/GPL/BSD/Apache/CERN stay `UNKNOWN` (owner review).
+- MakerWorld `__NEXT_DATA__.design` checked live: `downloadCount`, `likeCount`, `printCount`, `license` exist;
+  CC licences come as short codes (`BY-NC-SA`). A credential-less server fetch of a model page currently gets a
+  ~6 KB Cloudflare challenge (no `__NEXT_DATA__`) → MakerWorld snapshots may be skipped from Vercel; the cron
+  degrades to "skipped", never fails.
+- Thingiverse `thing_schema.yaml` (official OpenAPI) confirms `license`, `like_count`, `download_count`,
+  `make_count`, `thumbnail`, `creator`.
+- Gemini: `gemini-2.5-flash` is limited to projects that already used it (ai.google.dev deprecations page,
+  updated 2026-10-22). Visual search now goes through the shared `generateVisionJson` (lib/vision/gemini-vision)
+  → default `gemini-3.5-flash-lite`, header auth, thought parts skipped, response schema; override with
+  `VISUAL_SEARCH_MODEL`.
+- Timestamp defaults of the two new migrations use `now()` (Phase 36 rule; the `phase-36` test caught the
+  `timezone('utc', now())` drift). Same drift fixed in `claimManualNewsSync`.
+
+## ADR-0064 — Header unified search: shop catalog first, 3D libraries second, always a way back to a quote
+
+**Status.** Accepted 2026-11-25 (Owner: "okay đồng ý"; branch `feat/header-unified-search`).
+Plan: `docs/exec-plans/active/feature-header-unified-search.md`.
+
+**Context.** Search existed twice and nowhere in the header: `/products?q=` (accent-sensitive `ILIKE` on the
+name) and the 3D-library/image `ModelSearchDialog` (only `/custom-print` + `/bao-gia`). External results sent
+customers away with no path back.
+
+**Decision.**
+1. **Accent-insensitive, all-words search.** Migration `20261126000000` adds IMMUTABLE
+   `public.basa3d_search_fold(text)` (translate of every Vietnamese vowel + Đ/đ, then lower — no `unaccent`
+   extension). `src/lib/catalog/search-terms.ts` splits the query (NFC, ≤ 6 tokens, `% _ \` escaped) into AND-ed
+   `fold(name) like fold(token)` clauses. `/products?q=` uses it too.
+2. **Suggest API** `GET /api/public/products/suggest?q=` → ≤ 6 ACTIVE products via `listStorefrontProducts`;
+   `< 2` chars short-circuits; `Cache-Control: public, s-maxage=60, stale-while-revalidate=300`. **No DB rate
+   limiter** (would write a row per keystroke): cost = one `/products?q=` render, client debounce 250 ms + abort,
+   CDN absorbs repeats. Revisit if logs show abuse.
+3. **Header button + `UnifiedSearchDialog`** (lazy `next/dynamic`, `ssr:false`): tabs *Sản phẩm BaSa3D*
+   (default; suggestions, ↑/↓/Enter, GA4 `search` with PII redaction) · *Kho mẫu 3D* · *Tìm bằng ảnh*; one shared
+   query; Ctrl/⌘+K and `window` event `basa3d:open-search`. `ModelSearchDialog` split into `SearchModalShell` +
+   `ModelSearchPanel` (public API unchanged). The shell **portals to `<body>`**: the header's `backdrop-blur`
+   makes it the containing block for `position: fixed`, which clipped the overlay to 64 px (found in UI check).
+4. **Way back to a quote.** `QuoteLinkBox` ends every library/image path: MakerWorld/CN link →
+   `/tools/makerworld-cn?url=`, other http(s) link → `/custom-print?ref=` (server-validated, pre-fills the request
+   description). `/products` zero results → "Tìm … trên kho mẫu 3D" opens the dialog with the same query.
+5. **Admin "Mẫu đang nóng"** card (dashboard → Vận hành, STAFF + OWNER, no money): `getHotTrendItems(5)`
+   ranks WATCHING/PRINT_TESTING items by downloads/day → likes/day → downloads; degrades to a hint if the trend
+   migrations are missing.
+
+**Consequences / migration cost.** One additive function migration (must run before deploy, or `/products?q=`
+errors). Seq scan on `fold(name)` is fine for a catalog of hundreds; an expression/trigram index can be added
+later without code change. Header gains one button + a keydown listener; the dialog code loads on demand.
+
+**Owner feedback addendum (2026-11-25, branch `fix/search-ux-feedback`).**
+1. *"Paste link → lands on Đặt in, should be Báo giá."* `quoteHrefForModelUrl` now targets `/bao-gia`: MakerWorld →
+   `/bao-gia?tab=link&url=` (auto-analysed instant quote); any other model link → `/bao-gia?tab=file&ref=` with a
+   guided box (open the model page → download STL/3MF → drop it here; or send the link on Zalo). The old targets
+   (`/tools/makerworld-cn`, `/custom-print?ref=`) are only used when `NEXT_PUBLIC_BAO_GIA_ENABLED=false`. The
+   `/bao-gia` link tab also stops dead-ending on non-MakerWorld links: it switches to the file tab with the same
+   guidance instead of calling the MakerWorld resolver.
+2. *"Hard to understand for real users."* Plain-language naming: tabs *Có sẵn tại BaSa3D* · *Tìm mẫu 3D trên mạng*
+   · *Tìm mẫu bằng ảnh*; header button "Tìm sản phẩm, mẫu 3D…"; a 3-step strip (find in shop → find a 3D model
+   online → paste link for a quote) and a one-paragraph "what is a 3D model" intro on the online tab.
+3. *"User still can't find it."* `ZaloHelpBox` ("Chưa tìm được thứ bạn cần? Nhắn Zalo BaSa3D") at the bottom of
+   the header search (every tab) and of `ModelSearchDialog`; GA4 `click_contact_channel` with a per-tab placement.

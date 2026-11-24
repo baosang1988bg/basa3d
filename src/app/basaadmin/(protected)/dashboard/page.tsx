@@ -8,14 +8,16 @@ import { ExecutiveRevenueChart } from '@/components/admin/dashboard/executive-re
 import { ActivityFeed } from '@/components/admin/dashboard/activity-feed';
 import { AlertStrip, CardLink, DashCard, DonutChart, KpiTile, StatStrip } from '@/components/admin/dashboard/dash-ui';
 import { WorkshopCatalogHub, type WorkshopCatalogItem } from '@/components/admin/dashboard/workshop-catalog-hub';
+import { HotTrendList } from '@/components/admin/dashboard/hot-trend-list';
 import { requireAdmin } from '@/lib/auth/require-admin';
 import { getCategoryDisplayName } from '@/lib/categories';
-import { buildExecutiveDemoMetrics, DEMO_SCENARIO_LABELS, DEMO_SCENARIOS, resolveDemoScenario, type DemoScenario } from '@/lib/executive-demo-data';
+import { buildExecutiveDemoMetrics, DEMO_SCENARIOS, DEMO_SCENARIO_LABELS, resolveDemoScenario, type DemoScenario } from '@/lib/executive-demo-data';
 import { FILAMENT_LOW_STOCK_PCT, formatVndCompact } from '@/lib/executive-metrics';
 import { productImagePublicUrl } from '@/lib/storage/product-image-url';
 import { getExecutiveBusinessMetrics, getFinancialMetrics, getOperationalMetrics } from '@/services/dashboard.service';
 import { listCatalogProducts } from '@/services/product-onboarding.service';
 import { listCategories } from '@/services/product.service';
+import { getHotTrendItems } from '@/services/trend-hunter.service';
 
 const kg = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 });
 const ROLE_LABEL: Record<string, string> = { OWNER: 'Chủ xưởng', STAFF: 'Nhân viên xưởng' };
@@ -138,9 +140,14 @@ async function BusinessTab({ demo }: { demo: DemoScenario | null }) {
 }
 
 async function OperationsTab({ isOwner, now }: { isOwner: boolean; now: string }) {
-  const [operational, financial] = await Promise.all([
+  const [operational, financial, hotTrends] = await Promise.all([
     getOperationalMetrics(),
     isOwner ? getFinancialMetrics() : Promise.resolve(null),
+    // ADR-0064: never let the Trend Radar card break the dashboard (e.g. trend migrations not applied yet).
+    getHotTrendItems(5).catch((error: unknown) => {
+      console.error('[DASHBOARD_HOT_TRENDS_FAILED]', error instanceof Error ? error.message : error);
+      return null;
+    }),
   ]);
   const orderSeries = operational.dailyOrderTrends.map((day) => day.orderCount);
   const orders14 = orderSeries.reduce((sum, value) => sum + value, 0);
@@ -188,6 +195,10 @@ async function OperationsTab({ isOwner, now }: { isOwner: boolean; now: string }
           <MaterialHealthCard materialHealth={operational.materialHealth} />
         </DashCard>
       </div>
+
+      <DashCard title="Mẫu đang nóng" subtitle="Trend Radar · lượt tải tăng mỗi ngày (7 ngày gần nhất)" action={<CardLink href="/basaadmin/trend-hunter">Mở Săn mẫu Trend</CardLink>}>
+        <HotTrendList items={hotTrends} />
+      </DashCard>
     </>
   );
 }

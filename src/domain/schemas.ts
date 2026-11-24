@@ -194,6 +194,8 @@ export const productOnboardingInputSchema = z.object({
   isFeatured: z.boolean().default(false),
   warehouseId: uuidSchema.nullable().optional(),
   variants: z.array(productOnboardingVariantSchema).min(1).max(PRODUCT_ONBOARDING_MAX_VARIANTS),
+  /** ADR-0063 U2: the Trend Radar item this product is created from (links it + arms the publish gate). */
+  trendItemId: uuidSchema.nullable().optional(),
 }).strict().superRefine((input, context) => {
   validatePricingSnapshotPair(input, context);
   if ((LICENSES_NEEDING_SOURCE as readonly string[]).includes(input.licenseType) && !input.licenseSourceUrl) {

@@ -20,6 +20,7 @@ export default async function NewProductPage({
     sourceUrl?: string;
     notes?: string;
     licenseStatus?: string;
+    trendItemId?: string;
   }>;
 }) {
   await requireAdmin();
@@ -53,6 +54,7 @@ export default async function NewProductPage({
           sourceUrl: resolvedSearchParams?.sourceUrl,
           description: resolvedSearchParams?.notes,
           licenseStatus: resolvedSearchParams?.licenseStatus,
+          trendItemId: resolvedSearchParams?.trendItemId && /^[0-9a-f-]{36}$/i.test(resolvedSearchParams.trendItemId) ? resolvedSearchParams.trendItemId : undefined,
         }}
       />
     </div>

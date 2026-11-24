@@ -8,7 +8,7 @@
 
 - Branch tích hợp: `dev` · Deploy: `vercel` (ADR-0061, Hobby = UAT/nội bộ, chưa nhận khách thật) · `netlify` đóng băng (dự phòng ADR-0054)
 - Last verified: `dev` sau khi merge Phase 55 + 56 (2026-11-17, bản cài sạch Linux: `npm ci`, lint, typecheck, `check:arch`, `next build` 15.5.29 đều xanh)
-- `npm test` (132 file, server chạy): 962 test, 929 pass, 14 fail — cả 14 có sẵn trên `223af23`: `ai-news` (6), `blog-review` (4), `makerworld-estimate` (1), `phase-15-staff-notification-failure` (1), `stl-import-cli` (2). Chưa chạy Playwright.
+- `npm test` (145 file, server chạy, 2026-11-25 sau ADR-0064 header search, Postgres TZ Asia/Ho_Chi_Minh): 1028 test, 16 fail — **cả 16 chỉ vì sandbox không có Supabase local** (Auth admin / Storage: phase-3-auth 2, phase-3-route-auth 4, phase-33-upload-route 6, phase-7-blog 2, phase-15 1, phase-17 1). 14 lỗi cũ (ai-news, blog-review, makerworld-estimate, stl-import-cli…) đã sửa trong `fix/trend-radar-verification`. Chưa chạy Playwright E2E.
 - `npm run check:arch`: passing
 - Chưa merge `dev` → `netlify`: chưa có E2E và chưa ai xem UI mới (nav mobile, trang chi tiết sản phẩm).
 
@@ -21,11 +21,11 @@ Mỗi agent chỉ có **một** mục active tại một thời điểm. Ghi: ag
 | Codex | `feat/neobox-lightbox-generator` | `active/feature-neobox-lightbox.md` | chạy `check:agent`, soát UX + xuất 3MF/STL |
 | Gemini | dev | docs/exec-plans/active/feature-workshop-catalog-dashboard.md | Hoàn thành: Dashboard mẫu in đang bán, visual inline edit, phân quyền Owner/Staff, Dual-stage AI |
 | Claude | `chore/harness-engineering` | — (harness setup) | review/verify harness |
-| Claude (Cowork) | `dev` (đã merge `feat/phase-55-…` + `fix/phase-56-…`) | `active/phase-55-…md`, `active/phase-56-…md` | xong; chờ OWNER xem UI + E2E rồi merge `netlify` |
+| Claude (Cowork) | `dev` (đã merge Trend Radar: `fix/trend-radar-hardening`, `feat/trend-radar-upgrades`, `fix/trend-radar-verification`; đã merge `origin/dev` smart onboarding) | `active/feature-trend-radar-model-search.md`, `active/feature-header-unified-search.md` | xong (kèm ADR-0064 tìm kiếm header), đã merge `dev` → `vercel` local; chờ Owner push + làm `docs/operations/trend-radar-owner-guide.md` (Phase 55/56: xem Blockers) |
 
 ## Next Steps
 
-0. Owner: push `dev` + `vercel`; chạy migration `20261124000000_trend_watch_items.sql` lên DB UAT trước khi Vercel deploy; giữ Vercel Hobby ở chế độ UAT (ADR-0061).
+0. Owner: làm theo `docs/operations/trend-radar-owner-guide.md` — push `dev` + `vercel`; chạy 3 migration `20261124000000_trend_watch_items.sql` + `20261125000000_trend_radar_upgrades.sql` + `20261126000000_storefront_search_fold.sql` (ADR-0064) lên DB UAT trước khi Vercel deploy; (tuỳ chọn) đặt `THINGIVERSE_APP_TOKEN`; giữ Vercel Hobby ở chế độ UAT (ADR-0061).
 
 1. Owner triage bảng "Active plans" bên dưới (đóng / chuyển `pending/` / giữ).
 2. Merge `chore/harness-engineering` → `dev` sau khi Owner review.
