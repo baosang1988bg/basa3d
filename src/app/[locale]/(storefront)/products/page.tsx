@@ -17,6 +17,8 @@ import { OpenModelSearchButton } from '@/components/storefront/search/open-model
 type SearchParams = { q?: string; type?: string; sort?: string; page?: string; categoryId?: string };
 
 export const metadata: Metadata = {
+  title: 'Sản phẩm in 3D — BaSa3D',
+  description: 'Mô hình, móc khoá, keycap, clicker và đồ trang trí in 3D sẵn có hoặc đặt in theo màu bạn chọn tại xưởng BaSa3D.',
   alternates: localeAlternates('/products'),
 };
 

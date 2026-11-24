@@ -21,6 +21,7 @@ import { useContactStatePrefill, useSavedContact } from '@/lib/customer/use-save
 import { RememberContactOption } from '@/components/storefront/remember-contact-option';
 import type { MakerWorldCnModelDetail } from '@/services/makerworld-cn-pricing.service';
 import { ZaloConsultButton } from '@/components/storefront/zalo-consult-button';
+import { VN_PHONE_HTML_PATTERN, VN_PHONE_INVALID_MESSAGE } from '@/lib/customer/phone';
 
 function formatPrintTime(minutes: number): string {
   if (!minutes || minutes <= 0) return 'Chưa rõ';
@@ -516,6 +517,7 @@ export function MakerWorldOrderModal({
                     </label>
                     <input
                       id="orderCustomerPhone"
+                      pattern={VN_PHONE_HTML_PATTERN} title={VN_PHONE_INVALID_MESSAGE}
                       type="tel"
                       autoComplete="tel"
                       required

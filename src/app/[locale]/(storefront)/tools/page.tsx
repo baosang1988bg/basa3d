@@ -20,7 +20,10 @@ const TOOL_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
 
 const ICONS = [Tag, Type, Grid2X2, Waves, Puzzle, Box, Image, Shapes, Palette, ScanLine, Scaling, Cuboid, Layers3, CircleUserRound, KeyRound, Car, Lamp, Download, BookOpen];
 
-export const metadata: Metadata = { title: 'Công cụ thiết kế 3D — BaSa3D' };
+export const metadata: Metadata = {
+  title: 'Công cụ thiết kế 3D — BaSa3D',
+  description: 'Công cụ miễn phí: tạo móc khoá khắc tên, bảng tên xe, hộp bản lề, chụp đèn, ghép hình… xem trước 3D, tải STL/3MF hoặc đặt BaSa3D in.',
+};
 
 export default async function ToolsPage({ params }: { params: LocaleParams }) {
   await applyRequestLocale(params);

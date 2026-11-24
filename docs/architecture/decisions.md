@@ -1385,3 +1385,32 @@ later without code change. Header gains one button + a keydown listener; the dia
    online → paste link for a quote) and a one-paragraph "what is a 3D model" intro on the online tab.
 3. *"User still can't find it."* `ZaloHelpBox` ("Chưa tìm được thứ bạn cần? Nhắn Zalo BaSa3D") at the bottom of
    the header search (every tab) and of `ModelSearchDialog`; GA4 `click_contact_channel` with a per-tab placement.
+
+## ADR-0065 — QA audit 2026-11-24 fixes: degrade instead of 500, public phone rule, cash revenue
+
+**Status.** Accepted 2026-11-24 (branch `fix/qa-audit-2026-11-24`, plan `docs/exec-plans/active/fix-qa-audit-2026-11-24.md`).
+Assumptions below are Claude's; Owner can overturn any of them.
+
+**Context.** The full-app user test (`docs/qa/2026-11-24-user-test-performance-audit.md`) found search and
+"Đăng sản phẩm mới" returning 500 on a UAT DB that was behind the code, public forms accepting `abc123` as a phone,
+and the expenses page counting UNPAID orders as revenue.
+
+**Decision.**
+1. **Schema drift is a named error, not a 500.** Postgres 42883/42703/42P01 → `SCHEMA_OUT_OF_DATE` (503) with a
+   Vietnamese "run the migration" message (`src/lib/db-errors.ts`); `npm run db:check-migrations` (read-only) probes
+   the objects recent migrations create. Storefront search alone degrades further: without `basa3d_search_fold()` it
+   retries with `lower() LIKE` (case-insensitive, accents must match) and logs one warning.
+2. **Public phone rule.** Only the three anonymous schemas (custom request, checkout, `/bao-gia`) require a Vietnamese
+   number: separators stripped, `(+84|84|0)` + 9–10 digits. The stored value is validated, not rewritten. Staff/admin
+   schemas stay free text (Zalo IDs, foreign customers). `apiError(ZodError)` now also returns `message` (first custom
+   issue, else a generic Vietnamese sentence) because every storefront form displays `body.message`.
+3. **Cash revenue = PAID orders.** Expenses "Doanh thu đã thu" sums `status <> 'CANCELLED' and payment_status = 'PAID'`.
+   DEPOSIT_PAID orders are excluded because the deposit amount is not stored — understating is safer than guessing.
+   The executive dashboard keeps its own definition (non-cancelled, non-refunded; ADR for Phase 41).
+4. **Phone-suffix lockout is shown.** The existing 10-wrong/24h budget (business-rules #14/#18) now tells the customer
+   it is locked instead of "không khớp". The suffix stays a GET param (already stripped from analytics).
+5. **External model links** (ADR-0064 keeps accepting any site): the domain is printed with a "trang bên ngoài" notice
+   and links get `rel=nofollow`; MakerWorld summaries are converted to plain text server-side.
+
+**Consequences.** Existing customer rows with non-phone values are untouched; staff can still fix them. A UAT DB
+without the fold migration gets slower, accent-sensitive search until the migration runs.

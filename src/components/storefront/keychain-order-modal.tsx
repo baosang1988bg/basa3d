@@ -22,6 +22,7 @@ import { trackKeychainExportToRequest } from '@/lib/analytics';
 import { SITE_CONFIG } from '@/config/site';
 import { ZaloConsultButton } from '@/components/storefront/zalo-consult-button';
 import type { KeychainModel } from '@/lib/keychain/keychain-engine';
+import { VN_PHONE_HTML_PATTERN, VN_PHONE_INVALID_MESSAGE } from '@/lib/customer/phone';
 
 export interface KeychainOrderModalProps {
   isOpen: boolean;
@@ -400,6 +401,7 @@ export function KeychainOrderModal({
                     </label>
                     <input
                       id="keychainCustomerPhone"
+                      pattern={VN_PHONE_HTML_PATTERN} title={VN_PHONE_INVALID_MESSAGE}
                       type="tel"
                       autoComplete="tel"
                       maxLength={30}

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { apiError } from '@/lib/api';
+import { stripHtml } from '@/lib/parsers/html-text';
 import {
   parseMakerWorldUrl,
   resolveMakerWorldUrl,
@@ -95,7 +96,8 @@ async function fetchFromBambuApi(
       author: data.designCreator?.name || null,
       license: data.license || null,
       sourceUrl,
-      summary: data.summary || null,
+      // QA-010: MakerWorld sends HTML (<p><strong>…); the card renders text, so tags showed literally.
+      summary: data.summary ? stripHtml(data.summary) || null : null,
       authorDimensionNote: modelDim,
       profiles: await Promise.all(
         instances.map(async (inst, index) => {
@@ -212,7 +214,7 @@ async function fetchFromFallbackService(url: string, modelId: string): Promise<M
       author: design.designCreator?.name || null,
       license: design.license || null,
       sourceUrl: url,
-      summary: design.summary || null,
+      summary: design.summary ? stripHtml(design.summary) || null : null,
       authorDimensionNote: modelDim,
       profiles: instances.map((inst, index) => {
         const pId = String(inst.profileId ?? index + 1);

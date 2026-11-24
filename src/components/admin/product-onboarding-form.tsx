@@ -456,7 +456,7 @@ export function ProductOnboardingForm({
         setDone({ productId, published, reasons, imageCount: ready.length });
       }
     } catch {
-      setError('Mất kết nối tới máy chủ. Bấm lưu lại — hệ thống sẽ không tạo trùng sản phẩm.');
+      setError('Lưu chưa thành công (máy chủ báo lỗi hoặc mất kết nối). Bấm lưu lại — hệ thống sẽ không tạo trùng sản phẩm. Nếu vẫn lỗi, báo kỹ thuật kiểm tra log máy chủ.');
     } finally {
       setBusy(false);
       setProgress(null);

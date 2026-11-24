@@ -33,6 +33,14 @@ import {
   trackMakerWorldResolve,
 } from '@/lib/analytics';
 
+function referenceHost(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+}
+
 export type QuoteTab = 'file' | 'link';
 
 export type SampleItem = {
@@ -603,14 +611,18 @@ export function QuoteWorkspace({
         {referenceUrl ? (
           <div role="status" className="mb-6 rounded-xl border border-primary/30 bg-primary/5 p-4 print:hidden">
             <p className="text-sm font-semibold text-foreground">Bạn đang báo giá mẫu từ link:</p>
-            <a href={referenceUrl} target="_blank" rel="noopener noreferrer" className="mt-1 block break-all text-sm font-medium text-primary hover:underline">{referenceUrl}</a>
+            <a href={referenceUrl} target="_blank" rel="noopener noreferrer nofollow" className="mt-1 block break-all text-sm font-medium text-primary hover:underline">{referenceUrl}</a>
+            {/* QA-010: any model site is accepted (ADR-0064), so name the external domain plainly. */}
+            <p className="mt-1 text-xs text-muted-foreground">
+              Trang bên ngoài: <b className="text-foreground">{referenceHost(referenceUrl)}</b> — BaSa3D không quản lý trang này, chỉ tải file mẫu, không nhập mật khẩu hay thông tin thanh toán ở đó.
+            </p>
             <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
               <li>Mở trang mẫu ở trên → bấm <b>Download</b> để tải file <b>.STL / .3MF</b> về máy.</li>
               <li>Kéo thả file vừa tải vào ô bên dưới — giá hiện ngay, xưởng xác nhận lại trước khi in.</li>
               <li>Không tải được file (cần đăng nhập, mẫu trả phí…)? Gửi link qua Zalo, xưởng báo giá giúp bạn.</li>
             </ol>
             <div className="mt-3 flex flex-wrap gap-2">
-              <a href={referenceUrl} target="_blank" rel="noopener noreferrer" className={cn(storefrontButtonClasses('secondary'), 'h-9 px-3 text-sm')}>
+              <a href={referenceUrl} target="_blank" rel="noopener noreferrer nofollow" className={cn(storefrontButtonClasses('secondary'), 'h-9 px-3 text-sm')}>
                 <ExternalLink className="mr-1.5 size-4" aria-hidden="true" />Mở trang mẫu
               </a>
               <a

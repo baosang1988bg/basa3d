@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ProcessStepper } from '@/components/admin/process-stepper';
 import { canTransitionOrderStatus, getOrderById, nextPaymentStatuses, nextShippingStatuses } from '@/services/order.service';
 import { requireAdmin } from '@/lib/auth/require-admin';
+import { formatShippingAddress } from '@/lib/format';
 import { updateOrderAdminFieldsAction, updateOrderStatusAction } from '../actions';
 
 const ORDER_STATUSES = ['NEW', 'CONFIRMED', 'PRODUCING', 'READY_TO_SHIP', 'SHIPPED', 'COMPLETED', 'CANCELLED'];
@@ -75,7 +76,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           </div>
           <div className="col-span-2">
             <Label>Địa chỉ giao hàng</Label>
-            <p className="text-sm break-all">{JSON.stringify(order.shippingAddress)}</p>
+            <p className="text-sm break-words">{formatShippingAddress(order.shippingAddress) || '—'}</p>
           </div>
           <div className="col-span-2">
             <Label>Ghi chú của khách</Label>

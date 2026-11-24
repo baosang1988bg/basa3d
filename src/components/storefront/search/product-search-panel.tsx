@@ -112,6 +112,8 @@ export function ProductSearchPanel({
         <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
         <input
           type="search"
+          // QA-022: the panel can mount after the modal's focus effect ran, so focus it here too.
+          autoFocus
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
           onKeyDown={onKeyDown}

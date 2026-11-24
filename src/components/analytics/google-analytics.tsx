@@ -8,7 +8,8 @@ import { ScreenTimeTracker } from './screen-time-tracker';
 // Claude does not create the GA4 property itself).
 export function GoogleAnalytics() {
   const gaId = process.env.NEXT_PUBLIC_GA_ID;
-  if (!gaId) return null;
+  // QA-016: `next dev` on a laptop with the production GA id in .env polluted real reports.
+  if (!gaId || process.env.NODE_ENV === 'development') return null;
 
   return (
     <>

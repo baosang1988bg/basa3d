@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test:db:setup": "tsx scripts/test-db-setup.ts",
+    "db:check-migrations": "node --env-file=.env scripts/check-migrations.mjs",
     "catalog": "python tools/catalog/server.py",
     "test:e2e": "playwright test",
     "check:arch": "node scripts/check-arch.mjs",

@@ -14,7 +14,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const product = await getCachedStorefrontProductBySlug(slug);
   if (!product) return {};
   const title = product.seoTitle ?? product.name;
-  const description = product.seoDescription ?? product.shortDescription ?? undefined;
+  // QA-017: products without SEO/short description had no meta description at all.
+  const description = product.seoDescription ?? product.shortDescription
+    ?? `${product.name} — sản phẩm in 3D tại xưởng BaSa3D. Chọn màu/mẫu, nhắn Zalo đặt hàng, giao toàn quốc.`;
   return {
     title, description,
     alternates: localeAlternates(`/products/${product.slug}`),

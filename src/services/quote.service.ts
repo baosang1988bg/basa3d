@@ -3,7 +3,7 @@ import { query, withTransaction } from '../lib/db';
 import { DomainError } from '../lib/domain-error';
 import { writeAuditLog } from './audit.service';
 import { createResourceAccessToken, verifyResourceAccessToken } from '../lib/order-confirmation-token';
-import { maskCustomerName, verifyPhoneSuffixWithBudget } from './order.service';
+import { maskCustomerName, verifyPhoneSuffixDetailed } from './order.service';
 import type { PricingBreakdown } from './pricing.service';
 import { quoteModelSnapshotSchema, type QuoteModelSnapshotData } from '../domain/schemas';
 import { sanitizeMakerWorldImageUrl } from '../lib/parsers/makerworld-image';
@@ -161,6 +161,14 @@ export async function createQuote(input: {
       order by effective_from desc, created_at desc limit 1`);
     const shippingFee = input.shippingFee ?? 0;
     const discount = input.discount ?? 0;
+    // QA-013: say what is wrong instead of a confusing "total mismatch (server computed -65.000đ)".
+    if (discount > input.subtotal + shippingFee) {
+      throw new DomainError(
+        'QUOTE_DISCOUNT_TOO_LARGE',
+        `Giảm giá (${discount.toLocaleString('vi-VN')}đ) không được lớn hơn tạm tính + phí vận chuyển (${(input.subtotal + shippingFee).toLocaleString('vi-VN')}đ).`,
+        400,
+      );
+    }
     const totals = computeQuoteTotals(
       { subtotal: input.subtotal, shippingFee, discount },
       { enabled: Boolean(vatConfig.rows[0]?.vat_enabled), rateBps: Number(vatConfig.rows[0]?.vat_rate_bps ?? 0) },
@@ -407,8 +415,15 @@ export async function getPublicQuoteByToken(quoteNumber: string, token: string):
 /** Fallback mode (no/expired token): requires the secondary factor (last-4 phone digits, same
  * contract as getPublicOrderByNumber) and always masks customerName — business-rules.md #18. */
 export async function getPublicQuoteByPhoneSuffix(quoteNumber: string, phoneSuffix: string): Promise<PublicQuoteDetail | null> {
+  return (await lookupPublicQuoteByPhoneSuffix(quoteNumber, phoneSuffix)).quote;
+}
+
+/** QA-004: like getPublicQuoteByPhoneSuffix, plus `locked` when the 10-wrong-answers/24h budget is spent.
+ * An unknown quote number reports locked=false (no hint that a number exists). */
+export async function lookupPublicQuoteByPhoneSuffix(quoteNumber: string, phoneSuffix: string): Promise<{ quote: PublicQuoteDetail | null; locked: boolean }> {
   const row = await getQuoteRowByNumber(quoteNumber);
-  if (!row) return null;
-  if (!(await verifyPhoneSuffixWithBudget(`quote:${row.quoteNumber}`, row.customerPhone, phoneSuffix))) return null;
-  return toPublicQuoteDetail(row, { masked: true });
+  if (!row) return { quote: null, locked: false };
+  const check = await verifyPhoneSuffixDetailed(`quote:${row.quoteNumber}`, row.customerPhone, phoneSuffix);
+  if (check !== 'OK') return { quote: null, locked: check === 'LOCKED' };
+  return { quote: toPublicQuoteDetail(row, { masked: true }), locked: false };
 }

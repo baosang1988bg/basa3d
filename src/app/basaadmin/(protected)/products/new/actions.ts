@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache';
 import { ZodError } from 'zod';
 import { requireAdmin } from '@/lib/auth/require-admin';
 import { DomainError } from '@/lib/domain-error';
+import { SCHEMA_OUT_OF_DATE_MESSAGE, isSchemaDriftError } from '@/lib/db-errors';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import {
   productImageRegisterSchema,
@@ -43,6 +44,12 @@ function toFailure(error: unknown): { ok: false; code: string; message: string; 
     const label = field ? FIELD_LABELS[field] : undefined;
     const message = issue?.code === 'custom' || !label ? issue?.message ?? 'Dữ liệu không hợp lệ.' : `${label}: giá trị chưa hợp lệ.`;
     return { ok: false, code: 'VALIDATION_ERROR', message, field };
+  }
+  // QA-002: code newer than the DB (pending migration) — say so instead of "Mất kết nối tới máy chủ".
+  if (isSchemaDriftError(error)) {
+    const { code, message } = error as { code?: string; message?: string };
+    console.error('[products/new] schema drift', { code, message });
+    return { ok: false, code: 'SCHEMA_OUT_OF_DATE', message: SCHEMA_OUT_OF_DATE_MESSAGE };
   }
   throw error;
 }

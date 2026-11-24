@@ -15,3 +15,20 @@ export function formatPhoneNumber(phone: string): string {
   }
   return phone;
 }
+
+/**
+ * QA-014: orders.shipping_address is free-form jsonb ({ line1, ward, district, city, … }). Admin used to
+ * print it with JSON.stringify. Known keys first in address order, then any other non-empty strings.
+ */
+const ADDRESS_KEY_ORDER = ['line1', 'addressLine1', 'line2', 'ward', 'district', 'city', 'province'];
+export function formatShippingAddress(address: unknown): string {
+  if (typeof address === 'string') return address.trim();
+  if (!address || typeof address !== 'object' || Array.isArray(address)) return '';
+  const record = address as Record<string, unknown>;
+  const keys = [...ADDRESS_KEY_ORDER.filter((key) => key in record), ...Object.keys(record).filter((key) => !ADDRESS_KEY_ORDER.includes(key))];
+  return keys
+    .map((key) => record[key])
+    .filter((value): value is string | number => (typeof value === 'string' && value.trim() !== '') || typeof value === 'number')
+    .map((value) => String(value).trim())
+    .join(', ');
+}

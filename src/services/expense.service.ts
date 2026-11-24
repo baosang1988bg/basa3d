@@ -71,12 +71,16 @@ export type ExpenseFinancialSummary = {
   byCategory: { category: ExpenseCategory; total: number }[];
 };
 
-// Net Operating Cash Flow = total order revenue (excluding CANCELLED orders) - total non-CANCELLED expenses.
+// Net Operating Cash Flow = money actually received from orders - total non-CANCELLED expenses.
+// QA-011 (docs/qa/2026-11-24-user-test-performance-audit.md): this used to sum every non-CANCELLED
+// order, so an UNPAID order counted as cash in. Now only PAID orders count (DEPOSIT_PAID orders have no
+// stored deposit amount, so they are left out rather than guessed). Decision recorded in decisions.md.
+export const CASH_REVENUE_ORDER_FILTER = "status <> 'CANCELLED' and payment_status = 'PAID'";
 export async function getExpenseFinancialSummary(): Promise<ExpenseFinancialSummary> {
   const [totals, monthTotal, revenue, byCategory] = await Promise.all([
     query<{ sum: string | null }>(`select sum(amount) from expenses where status != 'CANCELLED'`),
     query<{ sum: string | null }>(`select sum(amount) from expenses where status != 'CANCELLED' and date_trunc('month', ${sqlLocal('spent_at')}) = date_trunc('month', ${sqlLocal('now()')})`),
-    query<{ sum: string | null }>(`select sum(total) from orders where status != 'CANCELLED'`),
+    query<{ sum: string | null }>(`select sum(total) from orders where ${CASH_REVENUE_ORDER_FILTER}`),
     query<{ category: ExpenseCategory; sum: string | null }>(`select category, sum(amount) from expenses where status != 'CANCELLED' group by category`),
   ]);
   const totalExpenses = Number(totals.rows[0].sum ?? 0);
