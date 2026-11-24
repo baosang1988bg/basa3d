@@ -7,6 +7,9 @@
   2. **1-Click Name & Auto-focus**: Click vào 1 chip gợi ý tên → tự động điền tên và tự nhảy con trỏ sang ô **Giá bán**.
   3. **Auto-Catalog & Category Pills**: Tự động nhận diện danh mục từ từ khoá tên sản phẩm hoặc AI đề xuất. Danh mục dạng chips kèm icon emoji trực quan, có nút thêm nhanh danh mục mới inline.
   4. **Fast Staff Workflow**: Thêm phím tắt `Ctrl + Enter` (hoặc `Cmd + Enter`) để "Lưu & Thêm tiếp" món khác mà không cần rời tay khỏi bàn phím, reset form mượt mà.
+  5. **Voice Input (Giọng nói tiếng Việt)**: Nhân viên bấm `🎙️ Nói tên` để đọc tên sản phẩm, hệ thống tự động điền và nhảy ô Giá.
+  6. **Lưu trữ file 3D & Nguồn mẫu**: Lưu đường dẫn file local trên máy xưởng (`print_local_path`), link Drive (`print_drive_url`) và link nguồn model (`source_url`) để thợ mở in ngay khi có đơn.
+  7. **Cloudflare Tunnel**: File script `Mo_Cong_Ollama_Cloudflare.bat` (giống BaSaTTS) mở tunnel về GPU RTX 4060 khi cần kết nối từ xa.
 
 ---
 
@@ -54,3 +57,18 @@
   - [x] Tự động fallback sang Cloud Gemini API nếu Ollama không bật.
   - [x] Hiển thị badge nguồn trên UI: `⚡ AI Local (RTX 4060)` hoặc `✨ Cloud Gemini`.
 - [x] Viết unit test và kiểm tra `check:agent`.
+
+### Slice 6: Nhập Liệu Bằng Giọng Nói (Voice Input Tiếng Việt)
+- [x] Tích hợp Web Speech Recognition API (`vi-VN`) trực tiếp trên trình duyệt:
+  - [x] Nút micro `🎙️ Nói tên` cạnh ô Tên sản phẩm, nhấp nháy trạng thái khi nghe.
+  - [x] Nhân viên nói tên sản phẩm → tự động điền Tên + tự động gán Danh mục + tự động nhảy con trỏ sang ô Giá.
+  - [x] Hoạt động 100% miễn phí, 0 token, không cần cài đặt thêm phần mềm.
+
+### Slice 7: Nơi Lưu File 3D & Nguồn Mẫu (Tuỳ Chọn) + Cloudflare Tunnel
+- [x] Bổ sung các trường lưu trữ phục vụ in ấn nội bộ xưởng trong `ProductOnboardingForm`:
+  - [x] `sourceUrl`: Link nguồn mẫu (MakerWorld / Printables / Web).
+  - [x] `printLocalPath`: Đường dẫn file 3D trên máy xưởng (VD: `D:\3D_Models\MocKhoa\meo.3mf`) để thợ mở Bambu Studio / OrcaSlicer in ngay.
+  - [x] `printDriveUrl`: Link Google Drive backup file 3D của xưởng.
+- [x] Cập nhật schema (`productOnboardingInputSchema`) & database persistence (`products.print_local_path`, `products.print_drive_url`).
+- [x] Tạo file script `Mo_Cong_Ollama_Cloudflare.bat` (cơ chế giống BaSaTTS) để mở đường truyền HTTPS public về GPU RTX 4060 khi deploy lên cloud.
+- [x] Viết unit test `tests/product-onboarding-storage.test.ts` & chạy bộ kiểm thử toàn diện.
