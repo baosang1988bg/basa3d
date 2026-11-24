@@ -19,7 +19,7 @@ Mỗi agent chỉ có **một** mục active tại một thời điểm. Ghi: ag
 | Agent | Branch | Exec-plan | Đang làm |
 |---|---|---|---|
 | Codex | `feat/neobox-lightbox-generator` | `active/feature-neobox-lightbox.md` | chạy `check:agent`, soát UX + xuất 3MF/STL |
-| Gemini | `feat/trend-radar-model-search` | `active/feature-trend-radar-model-search.md` | Hoàn thành Slice 1, 2, 3 (Trend Radar, Visual Search, Ecosystem Hub); lint, typecheck, build xanh |
+| Gemini | `dev` (đã merge `feat/trend-radar-model-search`) | `active/feature-trend-radar-model-search.md` | Hoàn thành, đã merge vào dev; chờ Claude / Owner review |
 | Claude | `chore/harness-engineering` | — (harness setup) | review/verify harness |
 | Claude (Cowork) | `dev` (đã merge `feat/phase-55-…` + `fix/phase-56-…`) | `active/phase-55-…md`, `active/phase-56-…md` | xong; chờ OWNER xem UI + E2E rồi merge `netlify` |
 
