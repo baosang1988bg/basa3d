@@ -612,9 +612,17 @@ export function MakerWorldOrderModal({
             </div>
           ) : null}
 
-          {/* Desktop QR Modal / Dropdown Toggle */}
+          {/* QR Panel - hiển thị bên trong body modal trước footer */}
           {showQr ? (
-            <div className="rounded-xl border border-border bg-card p-4 text-center space-y-2 animate-in fade-in zoom-in-95 duration-150">
+            <div className="relative rounded-xl border border-border/80 bg-card p-4 text-center space-y-2 animate-in fade-in zoom-in-95 duration-150 shadow-xs">
+              <button
+                type="button"
+                onClick={() => setShowQr(false)}
+                className="absolute top-2.5 right-2.5 rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
+                aria-label="Đóng mã QR"
+              >
+                <X className="size-4" />
+              </button>
               <p className="text-xs font-semibold text-foreground">
                 Quét mã QR bằng ứng dụng Zalo trên điện thoại:
               </p>
@@ -633,55 +641,69 @@ export function MakerWorldOrderModal({
           ) : null}
         </div>
 
-        {/* Actions Footer */}
-        <div className="flex flex-col gap-3 border-t border-border px-5 py-4 sm:px-6 bg-muted/20">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <button
-                type="button"
-                onClick={() => setShowQr(!showQr)}
-                className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer text-xs"
-              >
-                <QrCode className="size-3.5" />
-                <span>{showQr ? 'Ẩn mã QR' : 'Hiện mã QR Zalo'}</span>
-              </button>
-              <span className="text-border">•</span>
-              <a
-                href={`tel:${SITE_CONFIG.zaloPhone.replace(/\s+/g, '')}`}
-                className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition"
-              >
-                <PhoneCall className="size-3.5" />
-                <span>{SITE_CONFIG.zaloPhone}</span>
-              </a>
-            </div>
+        {/* Actions Footer — 2 tầng để không bị ép dòng */}
+        <div className="border-t border-border bg-muted/20 px-5 py-3.5 sm:px-6 space-y-2.5">
+          {/* Tầng 1: Tiện ích liên hệ */}
+          <div className="flex items-center justify-between gap-2">
+            <a
+              href={`tel:${SITE_CONFIG.zaloPhone.replace(/\s+/g, '')}`}
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition font-medium"
+            >
+              <PhoneCall className="size-3.5 text-[#0068FF] shrink-0" />
+              <span className="hidden sm:inline text-muted-foreground">Hotline / Zalo:</span>
+              <span className="font-mono font-semibold text-foreground">{SITE_CONFIG.zaloPhone}</span>
+            </a>
 
-            <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-xl border border-border px-4 py-2.5 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
-              >
-                Đóng
-              </button>
+            <button
+              type="button"
+              onClick={() => setShowQr(!showQr)}
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition cursor-pointer ${
+                showQr
+                  ? 'border-[#0068FF]/50 bg-[#0068FF]/10 text-[#0068FF]'
+                  : 'border-border/70 bg-card text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              <QrCode className="size-3.5 text-[#0068FF]" />
+              <span>{showQr ? 'Ẩn QR' : 'Hiện mã QR'}</span>
+            </button>
+          </div>
 
-              <button
-                type="button"
-                onClick={handleCopyOnly}
-                className="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-semibold text-foreground hover:bg-muted transition cursor-pointer"
-              >
-                <Copy className="size-3.5" />
-                <span>{copied ? 'Đã copy' : 'Sao chép tin nhắn'}</span>
-              </button>
+          {/* Tầng 2: Nút hành động chính */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer active:scale-[0.98]"
+            >
+              Đóng
+            </button>
 
-              <button
-                type="button"
-                onClick={handleOpenZalo}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0068FF] px-5 py-2.5 text-xs font-bold text-white shadow-md hover:bg-[#0057d9] transition cursor-pointer"
-              >
-                <MessageCircle className="size-4" />
-                <span>Mở Zalo đặt in ngay</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleCopyOnly}
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2.5 text-xs font-semibold text-foreground hover:bg-muted transition cursor-pointer active:scale-[0.98]"
+            >
+              {copied ? (
+                <>
+                  <Check className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span className="text-emerald-600 dark:text-emerald-400">Đã copy!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="size-3.5 text-muted-foreground shrink-0" />
+                  <span>Sao chép tin nhắn</span>
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleOpenZalo}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#0068FF] px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#0057d9] transition cursor-pointer active:scale-[0.98]"
+            >
+              <MessageCircle className="size-4 shrink-0" />
+              <span>Mở Zalo đặt in</span>
+            </button>
           </div>
         </div>
       </div>
