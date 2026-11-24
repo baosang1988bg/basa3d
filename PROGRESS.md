@@ -76,7 +76,7 @@ Owner quyết định từng dòng. Prompt/challenge/review đã chuyển sang `
 
 ## Handoff log (mới nhất ở trên, tối đa ~10 dòng — cũ hơn thì xoá, git giữ lịch sử)
 
-- 2026-11-24 · Gemini · `feat/trend-radar-model-search` · Nâng cấp toàn diện: (1) Cầu nối 1-Click Săn mẫu -> Đăng bán Catalog (`/basaadmin/products/new` tự tính giá bán từ gram/phút in và điền sẵn); (2) Tích hợp Smart Search vào trang Báo giá `/bao-gia`; (3) Nút xem bàn in & tải 3MF trực tiếp trong Trend Hunter. Lint, typecheck, arch và production build Next.js 15.5 đều xanh.
+- 2026-11-24 · Gemini · `feat/trend-radar-model-search` · Kết hợp trọn vẹn: (1) Săn trend đa nền tảng (MW CN, Douyin, Thangs); (2) Tự động quét & gắn nhãn bản quyền (CC-BY/CC0 vs Standard/NC vs Hội viên), cảnh báo khi đăng bán mẫu NC; (3) Cầu nối 1-Click Săn mẫu -> Đăng bán Catalog (`/basaadmin/products/new` tự tính giá bán từ gram/phút); (4) Tích hợp Smart Search vào Báo giá `/bao-gia`. Lint, typecheck, arch, 7 tests và build Next.js 15.5 đều xanh.
 
 - 2026-11-17 · Claude (Cowork) · `dev` · Merge Phase 55 + 56. Phase 56: next 15.5.29, cache blog/sitemap, lọc tham số `/products`, link khách theo `NEXT_PUBLIC_SITE_URL`, chính sách bảo mật, thông tin chủ thể ở footer; lockfile đồng bộ lại (`npm ci` trước đó fail). Thêm hỏi xác nhận trước khi xoá hẳn sản phẩm/biến thể.
 - 2026-11-17 · Claude (Cowork) · `feat/phase-55-admin-staff-ux` · Phase 55: nav admin dùng được trên mobile, đổi nhãn menu kho, tìm đơn/yêu cầu theo SĐT-mã-tên, nhân bản sản phẩm, đăng/lưu trữ hàng loạt, trang chi tiết có danh mục + mô tả; sửa lỗi Lưu trang chi tiết xoá mất mô tả. Chưa build/chưa xem UI (sandbox) — xem Evidence trong plan.

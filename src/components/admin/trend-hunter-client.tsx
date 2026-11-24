@@ -18,6 +18,8 @@ import {
   AlertCircle,
   ShoppingBag,
   Eye,
+  ShieldCheck,
+  ShieldAlert,
 } from 'lucide-react';
 import {
   CURATED_TREND_FEEDS,
@@ -26,6 +28,7 @@ import type {
   TrendCapturedDraft,
   TrendWatchItem,
   TrendWatchStatus,
+  LicenseSafetyInfo,
 } from '@/services/trend-hunter.service';
 import { Button } from '@/components/ui/button';
 
@@ -47,6 +50,7 @@ export function TrendHunterClient({ initialItems = [] }: { initialItems?: TrendW
   const [watchlist, setWatchlist] = useState<TrendWatchItem[]>(initialItems);
   const [loadingWatchlist, setLoadingWatchlist] = useState(false);
   const [platformFilter, setPlatformFilter] = useState<string>('ALL');
+  const [licenseFilter, setLicenseFilter] = useState<'ALL' | 'CAN_SELL' | 'NO_SELL'>('ALL');
 
   function calculateSuggestedPrice(grams: number | null, printMinutes: number | null): number {
     const g = grams ?? 50;
@@ -58,10 +62,22 @@ export function TrendHunterClient({ initialItems = [] }: { initialItems?: TrendW
   function handleConvertToProduct(item: {
     title: string;
     sourceUrl: string;
+    license?: string | null;
+    licenseSafety?: LicenseSafetyInfo;
     estimatedGrams?: number | null;
     estimatedPrintMinutes?: number | null;
     notes?: string;
   }) {
+    if (item.licenseSafety && !item.licenseSafety.canDirectSell) {
+      const confirmed = window.confirm(
+        `⚠️ CẢNH BÁO BẢN QUYỀN:\n\n` +
+        `Mẫu này mang giấy phép [${item.license || item.licenseSafety.badgeLabel}], cấm kinh doanh thương mại đại trà.\n\n` +
+        `${item.licenseSafety.explanation}\n\n` +
+        `Nếu bạn vẫn muốn tạo sản phẩm nháp (DRAFT) để chuẩn bị, hãy đảm bảo bạn chỉ bán khi đã có sự đồng ý của tác giả hoặc tự in và chụp ảnh sản phẩm thật của xưởng.\n\n` +
+        `Bạn có muốn tiếp tục mở form đăng bán không?`
+      );
+      if (!confirmed) return;
+    }
     const price = calculateSuggestedPrice(item.estimatedGrams ?? null, item.estimatedPrintMinutes ?? null);
     const params = new URLSearchParams({
       title: item.title,
@@ -190,8 +206,10 @@ export function TrendHunterClient({ initialItems = [] }: { initialItems?: TrendW
   }
 
   const filteredWatchlist = watchlist.filter((item) => {
-    if (platformFilter === 'ALL') return true;
-    return item.platform === platformFilter;
+    if (platformFilter !== 'ALL' && item.platform !== platformFilter) return false;
+    if (licenseFilter === 'CAN_SELL') return item.licenseSafety?.canDirectSell;
+    if (licenseFilter === 'NO_SELL') return !item.licenseSafety?.canDirectSell;
+    return true;
   });
 
   return (
@@ -403,6 +421,26 @@ export function TrendHunterClient({ initialItems = [] }: { initialItems?: TrendW
                       </div>
                     </div>
 
+                    {/* License Safety Advisory */}
+                    <div className="mt-4 rounded-xl border border-border/80 bg-secondary/30 p-3.5 text-xs flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-foreground flex items-center gap-1.5">
+                          {draft.licenseSafety.canDirectSell ? (
+                            <ShieldCheck className="size-4 text-emerald-500" />
+                          ) : (
+                            <ShieldAlert className="size-4 text-amber-500" />
+                          )}
+                          Kiểm Tra Bản Quyền:
+                        </span>
+                        <span className={`rounded-md border px-2 py-0.5 text-[11px] font-bold ${draft.licenseSafety.badgeColor}`}>
+                          {draft.licenseSafety.badgeLabel}
+                        </span>
+                      </div>
+                      <p className="text-muted-foreground text-[11px] leading-relaxed">
+                        {draft.licenseSafety.explanation}
+                      </p>
+                    </div>
+
                     {/* Category Tag Input */}
                     <div className="mt-4 flex items-center gap-2">
                       <Tag className="size-4 text-muted-foreground" />
@@ -465,20 +503,53 @@ export function TrendHunterClient({ initialItems = [] }: { initialItems?: TrendW
             </div>
 
             {/* Filter buttons */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              {['ALL', 'MAKERWORLD_CN', 'MAKERWORLD', 'PRINTABLES', 'THINGIVERSE', 'DOUYIN'].map((p) => (
+            <div className="flex flex-col gap-2 items-start sm:items-end">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {['ALL', 'MAKERWORLD_CN', 'MAKERWORLD', 'PRINTABLES', 'THINGIVERSE', 'DOUYIN'].map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setPlatformFilter(p)}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+                      platformFilter === p
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary text-muted-foreground hover:bg-secondary/80'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                <span className="text-muted-foreground text-[11px]">Bản quyền:</span>
                 <button
-                  key={p}
-                  onClick={() => setPlatformFilter(p)}
-                  className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
-                    platformFilter === p
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-secondary text-muted-foreground hover:bg-secondary/80'
+                  type="button"
+                  onClick={() => setLicenseFilter('ALL')}
+                  className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${
+                    licenseFilter === 'ALL' ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground'
                   }`}
                 >
-                  {p}
+                  Tất cả
                 </button>
-              ))}
+                <button
+                  type="button"
+                  onClick={() => setLicenseFilter('CAN_SELL')}
+                  className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${
+                    licenseFilter === 'CAN_SELL' ? 'bg-emerald-600 text-white' : 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
+                  }`}
+                >
+                  🟢 Được bán (CC-BY/CC0)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLicenseFilter('NO_SELL')}
+                  className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${
+                    licenseFilter === 'NO_SELL' ? 'bg-rose-600 text-white' : 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
+                  }`}
+                >
+                  🔴 Cấm bán (In gia công)
+                </button>
+              </div>
             </div>
           </div>
 
@@ -519,7 +590,17 @@ export function TrendHunterClient({ initialItems = [] }: { initialItems?: TrendW
                       </div>
 
                       <h3 className="mt-3 font-bold text-foreground text-sm line-clamp-1">{item.title}</h3>
-                      <p className="text-xs text-muted-foreground">{item.categoryTag}</p>
+                      <div className="flex items-center justify-between gap-2 mt-1">
+                        <p className="text-xs text-muted-foreground">{item.categoryTag}</p>
+                        {item.licenseSafety && (
+                          <span
+                            className={`rounded px-1.5 py-0.5 text-[10px] font-bold border ${item.licenseSafety.badgeColor}`}
+                            title={item.licenseSafety.explanation}
+                          >
+                            {item.licenseSafety.badgeLabel}
+                          </span>
+                        )}
+                      </div>
 
                       {/* Specs */}
                       <div className="mt-2.5 flex items-center gap-3 text-xs text-muted-foreground">
@@ -579,11 +660,19 @@ export function TrendHunterClient({ initialItems = [] }: { initialItems?: TrendW
                             handleUpdateStatus(item.id, 'CONVERTED_DRAFT');
                             handleConvertToProduct(item);
                           }}
-                          className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-bold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
-                          title="Tạo sản phẩm nháp trong Catalog"
+                          className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-bold transition-colors ${
+                            item.licenseSafety?.canDirectSell
+                              ? 'bg-emerald-500/15 text-emerald-700 hover:bg-emerald-600 hover:text-white dark:text-emerald-400'
+                              : 'bg-secondary text-muted-foreground hover:bg-secondary/80 border border-border'
+                          }`}
+                          title={
+                            item.licenseSafety?.canDirectSell
+                              ? 'Mẫu hợp pháp để tạo sản phẩm Catalog bán đại trà'
+                              : 'Mẫu cấm bán thương mại - Bấm để xem cảnh báo'
+                          }
                         >
                           <ShoppingBag className="size-3.5" />
-                          <span>Đăng bán</span>
+                          <span>{item.licenseSafety?.canDirectSell ? 'Đăng bán' : 'Bán (Cảnh báo)'}</span>
                         </button>
                         <Button
                           variant="ghost"

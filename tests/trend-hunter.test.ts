@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   detectTrendPlatform,
   trendWatchInputSchema,
+  evaluateLicenseSafety,
 } from '../src/services/trend-hunter.service';
 
 test('detectTrendPlatform correctly classifies URLs', () => {
@@ -59,4 +60,37 @@ test('trendWatchInputSchema validates proper inputs and rejects invalid ones', (
   const invalidUrl = { ...valid, sourceUrl: 'not-a-valid-url' };
   const resUrl = trendWatchInputSchema.safeParse(invalidUrl);
   assert.equal(resUrl.success, false);
+});
+
+test('evaluateLicenseSafety correctly classifies license types', () => {
+  // Standard MakerWorld license
+  const standard = evaluateLicenseSafety('Standard Digital File License');
+  assert.equal(standard.status, 'NON_COMMERCIAL');
+  assert.equal(standard.canDirectSell, false);
+
+  // Creative Commons Non-Commercial
+  const ccNc = evaluateLicenseSafety('Creative Commons (4.0 International) Attribution-NonCommercial');
+  assert.equal(ccNc.status, 'NON_COMMERCIAL');
+  assert.equal(ccNc.canDirectSell, false);
+
+  // CC-BY (Allowed with attribution)
+  const ccBy = evaluateLicenseSafety('Creative Commons (4.0 International License) Attribution');
+  assert.equal(ccBy.status, 'COMMERCIAL_ALLOWED');
+  assert.equal(ccBy.canDirectSell, true);
+  assert.equal(ccBy.requiresAttribution, true);
+
+  // CC0 Public Domain
+  const cc0 = evaluateLicenseSafety('CC0 1.0 Universal Public Domain');
+  assert.equal(cc0.status, 'COMMERCIAL_ALLOWED');
+  assert.equal(cc0.canDirectSell, true);
+
+  // Commercial Club / Patreon
+  const club = evaluateLicenseSafety('Standard', 'Commercial license available via Patreon or Printables Club');
+  assert.equal(club.status, 'COMMERCIAL_SUBSCRIPTION');
+  assert.equal(club.canDirectSell, false);
+
+  // Unknown / Missing
+  const unknown = evaluateLicenseSafety(null);
+  assert.equal(unknown.status, 'UNKNOWN');
+  assert.equal(unknown.canDirectSell, false);
 });

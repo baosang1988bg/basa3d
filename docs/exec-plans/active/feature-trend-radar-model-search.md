@@ -58,6 +58,11 @@
   - Tính toán giá bán gợi ý tự động từ gram nhựa + thời gian in (`calculateSuggestedPrice`).
   - Nút "Đăng bán" tự động pre-fill form `/basaadmin/products/new` (tên, giá gợi ý, link nguồn, license).
   - Tích hợp nút xem nhanh bàn in & tải 3MF `/tools/makerworld-cn` trực tiếp từ Watchlist.
+- [x] Hệ thống kiểm tra bản quyền & cảnh báo tự động (Automated License Scanner & Safety Gateway):
+  - Hàm `evaluateLicenseSafety`: Tự động phân loại `COMMERCIAL_ALLOWED`, `NON_COMMERCIAL`, `COMMERCIAL_SUBSCRIPTION`.
+  - Hiển thị License Safety Badge trực quan (Xanh: Được bán, Đỏ: Cấm bán lẻ/In gia công, Vàng: Cần gói hội viên).
+  - Hộp thoại cảnh báo bản quyền bắt buộc khi bấm Đăng Bán một mẫu mang giấy phép Non-Commercial.
+  - Bộ lọc Watchlist theo trạng thái bản quyền (Tất cả / Được bán / Cấm bán).
 
 ---
 

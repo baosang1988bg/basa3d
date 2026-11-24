@@ -15,6 +15,98 @@ export type TrendPlatform =
 
 export type TrendWatchStatus = 'WATCHING' | 'PRINT_TESTING' | 'CONVERTED_DRAFT' | 'ARCHIVED';
 
+export type CommercialSafetyStatus =
+  | 'COMMERCIAL_ALLOWED'
+  | 'NON_COMMERCIAL'
+  | 'COMMERCIAL_SUBSCRIPTION'
+  | 'UNKNOWN';
+
+export interface LicenseSafetyInfo {
+  status: CommercialSafetyStatus;
+  badgeLabel: string;
+  badgeColor: string;
+  explanation: string;
+  canDirectSell: boolean;
+  requiresAttribution: boolean;
+}
+
+const NON_COMMERCIAL_LICENSE_RE = /standard digital file license|non[\s-]?commercial|\bby-nc\b|\bnc\b/i;
+const COMMERCIAL_SUBSCRIPTION_RE = /patreon|commercial\s+license|merchant|club/i;
+const CC0_RE = /\bcc0\b|public\s+domain/i;
+const CC_BY_RE = /cc[\s-]?by|\bby\s*4\.0|attribution/i;
+
+export function evaluateLicenseSafety(license: string | null, notes?: string): LicenseSafetyInfo {
+  if (!license && !notes) {
+    return {
+      status: 'UNKNOWN',
+      badgeLabel: 'Chưa rõ bản quyền',
+      badgeColor: 'bg-muted text-muted-foreground border-border',
+      explanation: 'Không tìm thấy thông tin giấy phép. Khuyến nghị chỉ nhận in gia công theo yêu cầu cá nhân.',
+      canDirectSell: false,
+      requiresAttribution: false,
+    };
+  }
+
+  const raw = `${license ?? ''} ${notes ?? ''}`;
+
+  // Commercial Club / Patreon check
+  if (COMMERCIAL_SUBSCRIPTION_RE.test(raw)) {
+    return {
+      status: 'COMMERCIAL_SUBSCRIPTION',
+      badgeLabel: 'Cần Gói Hội Viên',
+      badgeColor: 'bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800',
+      explanation: 'Tác giả yêu cầu mua gói thương mại (Patreon / Club) để được bán bản in thành phẩm.',
+      canDirectSell: false,
+      requiresAttribution: true,
+    };
+  }
+
+  // Non-commercial checks (Standard Digital File License / CC-NC)
+  if (NON_COMMERCIAL_LICENSE_RE.test(raw)) {
+    return {
+      status: 'NON_COMMERCIAL',
+      badgeLabel: 'Cấm Bán Lẻ (Chỉ In Gia Công)',
+      badgeColor: 'bg-rose-500/10 text-rose-600 border-rose-200 dark:border-rose-800',
+      explanation: 'Giấy phép cấm kinh doanh thương mại. Chỉ nhận in gia công theo yêu cầu cá nhân (Personal Use).',
+      canDirectSell: false,
+      requiresAttribution: true,
+    };
+  }
+
+  // CC0 / Public domain
+  if (CC0_RE.test(raw)) {
+    return {
+      status: 'COMMERCIAL_ALLOWED',
+      badgeLabel: 'Tự Do Thương Mại (CC0)',
+      badgeColor: 'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:border-emerald-800',
+      explanation: 'Thuộc phạm vi công cộng (Public Domain). Được phép in và bán thương mại tự do 100%.',
+      canDirectSell: true,
+      requiresAttribution: false,
+    };
+  }
+
+  // CC-BY (Attribution without NC)
+  if (CC_BY_RE.test(raw)) {
+    return {
+      status: 'COMMERCIAL_ALLOWED',
+      badgeLabel: 'Được Bán (Ghi Công Tác Giả)',
+      badgeColor: 'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:border-emerald-800',
+      explanation: 'Được phép in bán thương mại. Bắt buộc phải ghi công tác giả và dẫn link nguồn gốc.',
+      canDirectSell: true,
+      requiresAttribution: true,
+    };
+  }
+
+  return {
+    status: 'UNKNOWN',
+    badgeLabel: 'Bản Quyền Mở',
+    badgeColor: 'bg-muted text-muted-foreground border-border',
+    explanation: 'Cần kiểm tra kỹ trang gốc trước khi quyết định bán thương mại.',
+    canDirectSell: false,
+    requiresAttribution: false,
+  };
+}
+
 export interface TrendCapturedDraft {
   sourceUrl: string;
   platform: TrendPlatform;
@@ -22,6 +114,7 @@ export interface TrendCapturedDraft {
   coverUrl: string | null;
   author: string | null;
   license: string | null;
+  licenseSafety: LicenseSafetyInfo;
   estimatedGrams: number | null;
   estimatedPrintMinutes: number | null;
   plateCount: number | null;
@@ -130,6 +223,7 @@ export async function captureModelFromUrl(rawUrl: string): Promise<TrendCaptured
       coverUrl: resolved.modelCoverImageUrl ? sanitizeMakerWorldImageUrl(resolved.modelCoverImageUrl) : null,
       author: null,
       license: resolved.license ?? null,
+      licenseSafety: evaluateLicenseSafety(resolved.license, undefined),
       estimatedGrams: defaultProfile?.netWeightGrams ?? null,
       estimatedPrintMinutes: defaultProfile?.printTimeMinutes ?? null,
       plateCount: defaultProfile?.platesCount ?? resolved.profiles.length,
@@ -152,6 +246,7 @@ export async function captureModelFromUrl(rawUrl: string): Promise<TrendCaptured
     coverUrl: og.image || null,
     author: null,
     license: null,
+    licenseSafety: evaluateLicenseSafety(null, og.description),
     estimatedGrams: null,
     estimatedPrintMinutes: null,
     plateCount: null,
@@ -200,6 +295,7 @@ export async function listTrendWatchItems(): Promise<TrendWatchItem[]> {
       coverUrl: row.cover_url,
       author: row.author,
       license: row.license,
+      licenseSafety: evaluateLicenseSafety(row.license, row.notes),
       notes: row.notes,
       estimatedGrams: row.estimated_grams ? Number(row.estimated_grams) : null,
       estimatedPrintMinutes: row.estimated_print_minutes,
