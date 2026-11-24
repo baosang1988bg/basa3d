@@ -40,6 +40,7 @@ nvm install 22 && nvm use 22
 
 Step-by-step local testing (manual checklist, local PostgreSQL via `npm run test:db:setup`,
 full `npm test` + Playwright with local Supabase): `docs/operations/local-testing.md`.
+Trend Radar go-live checklist (migrations, env vars, cron, licence policy): `docs/operations/trend-radar-owner-guide.md`.
 
 ### Checks
 - `npm run typecheck` / `npm run lint` / `npm run build`

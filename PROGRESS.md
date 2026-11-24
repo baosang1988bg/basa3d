@@ -25,7 +25,7 @@ Mỗi agent chỉ có **một** mục active tại một thời điểm. Ghi: ag
 
 ## Next Steps
 
-0. Owner: push `dev` + `vercel`; chạy 2 migration `20261124000000_trend_watch_items.sql` + `20261125000000_trend_radar_upgrades.sql` lên DB UAT trước khi Vercel deploy; (tuỳ chọn) đặt `THINGIVERSE_APP_TOKEN`; giữ Vercel Hobby ở chế độ UAT (ADR-0061).
+0. Owner: làm theo `docs/operations/trend-radar-owner-guide.md` — push `dev` + `vercel`; chạy 2 migration `20261124000000_trend_watch_items.sql` + `20261125000000_trend_radar_upgrades.sql` lên DB UAT trước khi Vercel deploy; (tuỳ chọn) đặt `THINGIVERSE_APP_TOKEN`; giữ Vercel Hobby ở chế độ UAT (ADR-0061).
 
 1. Owner triage bảng "Active plans" bên dưới (đóng / chuyển `pending/` / giữ).
 2. Merge `chore/harness-engineering` → `dev` sau khi Owner review.

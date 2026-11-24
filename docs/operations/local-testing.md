@@ -139,6 +139,8 @@ npx supabase db reset                         # khi muốn DB test sạch lại
 npx supabase stop                             # tắt khi xong
 ```
 
+Trend Radar (2026-11-25): 16 test cần Supabase local còn chờ chạy ở Mức 3 — danh sách trong `docs/operations/trend-radar-owner-guide.md` §5.
+
 Ghi chú: Claude chưa tự chạy được Mức 3 (môi trường của Claude không có Docker). Nếu `supabase start` báo lỗi migration, gửi log lại để sửa.
 
 ---

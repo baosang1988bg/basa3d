@@ -15,6 +15,8 @@ thật/thanh toán thật** (Hobby cấm dùng thương mại — https://vercel
 Trước khi mở cho khách: nâng Vercel Pro hoặc quay lại Netlify (ADR-0054, `netlify.toml`,
 `docs/operations/deploy-netlify.md` — giữ nguyên, không xoá).
 
+Hướng dẫn từng bước cho Trend Radar (migration, biến môi trường, cron, test Supabase, license): `docs/operations/trend-radar-owner-guide.md`.
+
 Checklist khi deploy lên Vercel:
 - `BASA3D_DEPLOY_PLATFORM` tự suy ra `vercel` từ `VERCEL=1` lúc build (`src/config/resolve-build-info.mjs`);
   rate limiter đọc `x-real-ip`/`x-forwarded-for` (Vercel ghi đè) — không cần cấu hình thêm.

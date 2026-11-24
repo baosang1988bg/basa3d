@@ -121,6 +121,7 @@ Goal: prove every task above works end to end, not just "tests green on my files
 - [x] Closed follow-ups: ModelSearchDialog i18n (`modelSearch` namespace, vi/en parity test green); "Mở top 3 kho" → plain links (no popup blocking); Netlify scheduled function `trend-snapshots.mts` (15 items / 20 s for the 30 s limit); Watchlist platform filter adds THANGS / OTHER.
 
 ### Still open (owner)
+Step-by-step: `docs/operations/trend-radar-owner-guide.md`.
 - Run the 16 Supabase-dependent tests locally (`supabase start`) before go-live.
 - Register a Thingiverse app → `THINGIVERSE_APP_TOKEN`.
 - Decide whether OCL / GPL / BSD / Apache models may be sold (currently "Chưa rõ" → proof required).
