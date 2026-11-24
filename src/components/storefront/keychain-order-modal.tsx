@@ -1,26 +1,23 @@
 'use client';
 
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   X,
-  Printer,
   Clock,
   Weight,
-  CheckCircle2,
-  Loader2,
-  FileBox,
-  AlertCircle,
+  Sparkles,
   Tag,
   MessageCircle,
+  Copy,
+  Check,
+  QrCode,
+  Info,
+  PhoneCall,
+  FileBox,
 } from 'lucide-react';
-import { CURRENT_TOS_VERSION } from '@/lib/copyright/tos-version';
-import { useContactStatePrefill, useSavedContact } from '@/lib/customer/use-saved-contact';
-import { RememberContactOption } from '@/components/storefront/remember-contact-option';
-import { calculateMeshVolumeCm3, estimateMeshWeightGrams, estimatePrintMinutes } from '@/lib/pricing/mesh-estimator';
-import { uploadCustomRequestFile } from '@/lib/uploads/upload-custom-request-file';
-import { trackKeychainExportToRequest } from '@/lib/analytics';
 import { SITE_CONFIG } from '@/config/site';
-import { ZaloConsultButton } from '@/components/storefront/zalo-consult-button';
+import { trackContactClick } from '@/lib/analytics';
+import { calculateMeshVolumeCm3, estimateMeshWeightGrams, estimatePrintMinutes } from '@/lib/pricing/mesh-estimator';
 import type { KeychainModel } from '@/lib/keychain/keychain-engine';
 
 export interface KeychainOrderModalProps {
@@ -49,33 +46,20 @@ export function KeychainOrderModal({
   textThicknessMm,
   includeKeyringHole,
   keyringHoleDiameterMm,
-  baseColor,
-  textColor,
   price,
-  makeStl,
   colorDescription,
-  safeFileName,
 }: KeychainOrderModalProps) {
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [customerEmail, setCustomerEmail] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [requestedColor, setRequestedColor] = useState(colorDescription);
   const [note, setNote] = useState('');
-  const [copyrightConfirmed, setCopyrightConfirmed] = useState(true);
-
-  const [status, setStatus] = useState<'idle' | 'uploading_file' | 'submitting' | 'success' | 'error'>('idle');
-  const [errorMessage, setErrorMessage] = useState('');
-  const [requestNumber, setRequestNumber] = useState('');
-  const savedContact = useSavedContact();
-  useContactStatePrefill(savedContact.contact, { name: setCustomerName, phone: setCustomerPhone, email: setCustomerEmail });
+  const [copied, setCopied] = useState(false);
+  const [showQr, setShowQr] = useState(false);
 
   // Sync color description when opened
   useEffect(() => {
     if (isOpen) {
       setRequestedColor(colorDescription);
-      setStatus('idle');
-      setErrorMessage('');
+      setCopied(false);
     }
   }, [isOpen, colorDescription]);
 
@@ -83,114 +67,116 @@ export function KeychainOrderModal({
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && status !== 'submitting' && status !== 'uploading_file') {
+      if (e.key === 'Escape') {
         onClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose, status]);
+  }, [isOpen, onClose]);
 
-  if (!isOpen || !model) return null;
-
-  const weightGrams = estimateMeshWeightGrams(calculateMeshVolumeCm3(model.mergedGeometry));
-  const printMinutes = estimatePrintMinutes(weightGrams);
+  const weightGrams = model ? estimateMeshWeightGrams(calculateMeshVolumeCm3(model.mergedGeometry)) : 0;
+  const printMinutes = model ? estimatePrintMinutes(weightGrams) : 0;
 
   const unitMinPrice = price?.minPriceVnd ?? 25_000;
   const unitMaxPrice = price?.maxPriceVnd ?? 40_000;
   const totalMinPrice = unitMinPrice * Math.max(1, quantity);
   const totalMaxPrice = unitMaxPrice * Math.max(1, quantity);
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (!model) return;
+  const dimensionText = model
+    ? `${model.widthMm.toFixed(1)} × ${model.heightMm.toFixed(1)} × ${(baseThicknessMm + textThicknessMm).toFixed(1)} mm`
+    : 'Chưa rõ';
 
-    if (!customerName.trim()) {
-      setErrorMessage('Vui lòng nhập họ và tên của bạn.');
-      return;
+  // Live generated Zalo message
+  const generatedMessage = useMemo(() => {
+    const lines: string[] = [
+      'Chào BaSa3D, mình muốn đặt in móc khoá thiết kế này:',
+      '📌 Nguồn: Công cụ tạo móc khoá 3D BaSa3D',
+      `🧩 Chữ in: "${text.trim() || 'Tùy chỉnh'}"`,
+      `• Kích thước: ${dimensionText}`,
+      `• Khoen móc: ${includeKeyringHole ? `Có lỗ khoen (Ø${keyringHoleDiameterMm.toFixed(1)}mm)` : 'Không có lỗ khoen (bảng tên)'}`,
+      `• Màu sắc thiết kế: ${colorDescription}`,
+    ];
+
+    if (requestedColor.trim() && requestedColor.trim() !== colorDescription) {
+      lines.push(`• Màu khách yêu cầu thêm: ${requestedColor.trim()}`);
     }
 
-    const cleanPhone = customerPhone.replace(/\D/g, '');
-    if (cleanPhone.length < 9) {
-      setErrorMessage('Vui lòng nhập số điện thoại hoặc Zalo hợp lệ (từ 9 số trở lên).');
-      return;
+    lines.push(`• Khối lượng: ~${weightGrams}g · Thời gian in: ~${printMinutes} phút`);
+    lines.push(`• Số lượng: ${Math.max(1, quantity)} chiếc`);
+    lines.push(`💰 Giá tham khảo trên web: ~${totalMinPrice.toLocaleString('vi-VN')}đ – ${totalMaxPrice.toLocaleString('vi-VN')}đ (~${unitMinPrice.toLocaleString('vi-VN')}đ – ${unitMaxPrice.toLocaleString('vi-VN')}đ/chiếc)`);
+
+    if (typeof window !== 'undefined' && window.location.href) {
+      lines.push(`🔗 Link công cụ: ${window.location.href}`);
     }
 
-    if (!copyrightConfirmed) {
-      setErrorMessage('Vui lòng đồng ý với điều khoản gửi yêu cầu in.');
-      return;
+    if (note.trim()) {
+      lines.push(`📝 Ghi chú: ${note.trim()}`);
     }
 
+    return lines.join('\n');
+  }, [
+    text,
+    dimensionText,
+    includeKeyringHole,
+    keyringHoleDiameterMm,
+    colorDescription,
+    requestedColor,
+    weightGrams,
+    printMinutes,
+    quantity,
+    totalMinPrice,
+    totalMaxPrice,
+    unitMinPrice,
+    unitMaxPrice,
+    note,
+  ]);
+
+  if (!isOpen || !model) return null;
+
+  async function copyToClipboard(str: string): Promise<boolean> {
     try {
-      setStatus('uploading_file');
-      setErrorMessage('');
-
-      // Step 1: Upload generated STL to storage
-      const blob = makeStl();
-      const { path, uploadClaim } = await uploadCustomRequestFile(blob, safeFileName);
-
-      setStatus('submitting');
-
-      const description = [
-        `[Công cụ tạo mẫu] Móc khoá khắc tên: "${text.trim()}"`,
-        `Kích thước mẫu: ${model.widthMm.toFixed(1)} × ${model.heightMm.toFixed(1)} × ${(baseThicknessMm + textThicknessMm).toFixed(1)} mm`,
-        `Khoen móc khoá: ${includeKeyringHole ? `Có lỗ khoen (đường kính Ø${keyringHoleDiameterMm.toFixed(1)} mm)` : 'Không có lỗ khoen (bảng tên)'}`,
-        `Màu sắc thiết kế: ${colorDescription}`,
-        requestedColor.trim() && requestedColor.trim() !== colorDescription ? `Yêu cầu màu tuỳ chọn: ${requestedColor.trim()}` : null,
-        `Khối lượng ước tính: ~${weightGrams}g · Thời gian in: ~${printMinutes} phút`,
-        `Ước tính xưởng: ${unitMinPrice.toLocaleString('vi-VN')}đ – ${unitMaxPrice.toLocaleString('vi-VN')}đ/chiếc (Tổng: ~${totalMinPrice.toLocaleString('vi-VN')}đ – ${totalMaxPrice.toLocaleString('vi-VN')}đ)`,
-        note.trim() ? `Ghi chú khách hàng: ${note.trim()}` : null,
-      ].filter(Boolean).join('\n');
-
-      // Step 2: Submit custom request
-      const response = await fetch('/api/public/custom-requests', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          customerName: customerName.trim(),
-          customerPhone: customerPhone.trim(),
-          customerEmail: customerEmail.trim() || null,
-          requestedMaterial: 'PLA',
-          requestedColor: requestedColor.trim() || colorDescription,
-          description,
-          quantity: Math.max(1, quantity),
-          attachmentPath: path,
-          uploadClaim,
-          copyrightConfirmed: true,
-          tosVersion: CURRENT_TOS_VERSION,
-        }),
-      });
-
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        setStatus('error');
-        setErrorMessage(data?.message || 'Có lỗi xảy ra khi gửi yêu cầu. Vui lòng thử lại.');
-        return;
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(str);
+        return true;
       }
+    } catch {
+      // Fallback
+    }
+    return false;
+  }
 
-      savedContact.saveAfterSubmit({ name: customerName, phone: customerPhone, email: customerEmail });
-      setStatus('success');
-      setRequestNumber(data?.requestNumber || '');
-      trackKeychainExportToRequest({ characterCount: text.trim().length, hasKeyringHole: includeKeyringHole });
-    } catch (err) {
-      setStatus('error');
-      setErrorMessage(err instanceof Error ? err.message : 'Không thể kết nối đến máy chủ. Vui lòng thử lại.');
+  async function handleCopyOnly() {
+    trackContactClick('zalo', `keychain_copy_text:${text}`);
+    const success = await copyToClipboard(generatedMessage);
+    if (success) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 4000);
     }
   }
 
-  const inputClass =
-    'h-10 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground outline-none transition focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50';
+  async function handleOpenZalo() {
+    trackContactClick('zalo', `keychain_open_zalo:${text}`);
+    await copyToClipboard(generatedMessage);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 6000);
+    if (typeof window !== 'undefined') {
+      window.open(SITE_CONFIG.zaloUrl, '_blank', 'noopener,noreferrer');
+    }
+  }
 
-  const zaloDirectLink = requestNumber
-    ? `${SITE_CONFIG.zaloUrl}?text=${encodeURIComponent(`Chào BaSa3D, tôi vừa gửi yêu cầu in móc khoá mã ${requestNumber} (nội dung: ${text.trim()}). Xưởng báo giá giúp tôi nhé!`)}`
-    : SITE_CONFIG.zaloUrl;
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
+    SITE_CONFIG.zaloUrl
+  )}`;
+
+  const inputClass =
+    'h-9 w-full rounded-xl border border-input bg-background px-3 text-xs text-foreground outline-none transition focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50';
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-3 sm:p-4 backdrop-blur-xs animate-in fade-in duration-200"
       onClick={(e) => {
-        if (e.target === e.currentTarget && status !== 'submitting' && status !== 'uploading_file') {
+        if (e.target === e.currentTarget) {
           onClose();
         }
       }}
@@ -199,23 +185,22 @@ export function KeychainOrderModal({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border/80 px-5 py-4 sm:px-6">
           <div className="flex items-center gap-2.5">
-            <div className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Printer className="size-5" />
+            <div className="flex size-9 items-center justify-center rounded-xl bg-[#0068FF]/10 text-[#0068FF]">
+              <MessageCircle className="size-5" />
             </div>
             <div>
               <h3 className="font-heading text-lg font-bold text-foreground">
                 Đặt xưởng BaSa3D in móc khoá
               </h3>
               <p className="text-xs text-muted-foreground">
-                Tự động đính kèm file STL 3D và thông số thiết kế bạn vừa tạo
+                Báo giá xưởng theo mẫu thiết kế — Kết nối trực tiếp qua Zalo
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            disabled={status === 'submitting' || status === 'uploading_file'}
-            className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-50"
+            className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground cursor-pointer"
             aria-label="Đóng"
           >
             <X className="size-5" />
@@ -223,342 +208,246 @@ export function KeychainOrderModal({
         </div>
 
         {/* Modal Body */}
-        <div className="overflow-y-auto px-5 py-5 sm:px-6 space-y-5">
-          {status === 'success' ? (
-            /* Success State */
-            <div className="py-6 text-center space-y-4 animate-in fade-in zoom-in-95 duration-200">
-              <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                <CheckCircle2 className="size-8" />
+        <div className="overflow-y-auto px-5 py-5 sm:px-6 space-y-4">
+          {/* Keychain Specs Snapshot Card */}
+          <div className="rounded-xl border border-border/80 bg-muted/30 p-4 space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="size-16 shrink-0 rounded-lg bg-primary/10 text-primary flex items-center justify-center border border-border font-heading font-black text-lg">
+                <Tag className="size-8 text-primary" />
               </div>
-
-              <div>
-                <h4 className="font-heading text-2xl font-bold text-foreground">
-                  Đã gửi yêu cầu in thành công!
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span>Công cụ tạo móc khoá 3D</span>
+                  <span>• BaSa3D Studio</span>
+                </div>
+                <h4 className="font-heading font-bold text-base text-foreground truncate">
+                  Móc khoá chữ &quot;{text.trim() || 'Tùy chỉnh'}&quot;
                 </h4>
-                {requestNumber ? (
-                  <p className="mt-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-                    Mã yêu cầu: <span className="font-mono">{requestNumber}</span>
-                  </p>
-                ) : null}
-              </div>
-
-              <div className="mx-auto max-w-md rounded-xl border border-border bg-muted/40 p-4 text-left text-xs text-foreground space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Nội dung chữ:</span>
-                  <span className="font-bold text-right">{text.trim()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Kích thước mẫu:</span>
-                  <span className="font-medium">
-                    {model.widthMm.toFixed(1)} × {model.heightMm.toFixed(1)} × {(baseThicknessMm + textThicknessMm).toFixed(1)} mm
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Phối màu:</span>
-                  <span className="font-medium text-right">{colorDescription}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">File đính kèm:</span>
-                  <span className="font-mono text-primary font-medium">{safeFileName}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Số lượng đặt:</span>
-                  <span className="font-medium">{quantity} chiếc</span>
-                </div>
-                <div className="flex justify-between border-t border-border/60 pt-2 font-semibold">
-                  <span>Ước tính tham khảo:</span>
-                  <span className="text-emerald-600 dark:text-emerald-400">
-                    ~{totalMinPrice.toLocaleString('vi-VN')}đ – {totalMaxPrice.toLocaleString('vi-VN')}đ
-                  </span>
-                </div>
-              </div>
-
-              <p className="mx-auto max-w-md text-xs text-muted-foreground leading-relaxed">
-                Kỹ thuật viên xưởng BaSa3D đã nhận file thiết kế 3D và sẽ liên hệ qua Zalo/SĐT{' '}
-                <strong className="text-foreground">{customerPhone}</strong> để xác nhận số lượng, màu nhựa và giao hàng.
-              </p>
-
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-                <a
-                  href={zaloDirectLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 transition"
-                >
-                  <MessageCircle className="size-4" />
-                  <span>Nhắn Zalo xác nhận ngay</span>
-                </a>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="inline-flex w-full sm:w-auto items-center justify-center rounded-xl border border-border px-6 py-2.5 text-xs font-semibold text-foreground hover:bg-muted transition"
-                >
-                  Hoàn tất
-                </button>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Màu sắc: <strong className="text-foreground">{colorDescription}</strong>
+                </p>
               </div>
             </div>
-          ) : (
-            /* Order Form */
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {/* Snapshot of Customized Keychain */}
-              <div className="rounded-xl border border-border/80 bg-muted/30 p-4 space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="flex size-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20">
-                    <Tag className="size-6" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 text-xs text-primary font-semibold">
-                      <span>Móc khoá in 3D cá nhân hoá</span>
-                    </div>
-                    <h4 className="font-heading font-bold text-base text-foreground">
-                      Khắc tên: &ldquo;{text.trim()}&rdquo;
-                    </h4>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      Kích thước: {model.widthMm.toFixed(1)} × {model.heightMm.toFixed(1)} × {(baseThicknessMm + textThicknessMm).toFixed(1)} mm
-                      {includeKeyringHole ? ` · Lỗ khoen Ø${keyringHoleDiameterMm.toFixed(1)}mm` : ' · Không lỗ khoen'}
-                    </p>
-                  </div>
-                </div>
 
-                {/* Specs Badges */}
-                <div className="grid grid-cols-2 gap-2 border-t border-border/50 pt-2.5 text-xs text-muted-foreground sm:grid-cols-3">
-                  <div className="flex items-center gap-1.5">
-                    <Weight className="size-3.5 text-primary shrink-0" />
-                    <span>~{weightGrams}g nhựa PLA</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="size-3.5 text-primary shrink-0" />
-                    <span>In ~{printMinutes} phút</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <FileBox className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                    <span className="font-mono text-[11px] truncate text-foreground">{safeFileName}</span>
-                  </div>
-                </div>
-
-                {/* Color swatches */}
-                <div className="flex items-center gap-2 border-t border-border/50 pt-2.5 text-xs text-muted-foreground">
-                  <span>Màu thiết kế:</span>
-                  <div className="flex items-center gap-1.5 font-medium text-foreground">
-                    <span
-                      className="size-3.5 rounded-full border border-border inline-block"
-                      style={{ backgroundColor: baseColor }}
-                      title={`Đế: ${baseColor}`}
-                    />
-                    <span>Đế</span>
-                    <span>+</span>
-                    <span
-                      className="size-3.5 rounded-full border border-border inline-block"
-                      style={{ backgroundColor: textColor }}
-                      title={`Chữ: ${textColor}`}
-                    />
-                    <span>Chữ</span>
-                  </div>
-                  <span className="text-[11px] text-muted-foreground ml-auto">({colorDescription})</span>
-                </div>
+            {/* Badges */}
+            <div className="grid grid-cols-2 gap-2 border-t border-border/50 pt-2.5 text-xs text-muted-foreground sm:grid-cols-4">
+              <div className="flex items-center gap-1.5">
+                <FileBox className="size-3.5 text-primary shrink-0" />
+                <span className="truncate">{dimensionText}</span>
               </div>
-
-              {/* Pricing Estimate Box */}
-              <div className="flex items-center justify-between rounded-xl bg-primary/10 p-3.5 border border-primary/20">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-primary">Giá in ước tính</p>
-                  <p className="text-xs text-muted-foreground">Áp dụng cho nhựa PLA tiêu chuẩn</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-base font-bold text-foreground">
-                    {totalMinPrice.toLocaleString('vi-VN')}đ – {totalMaxPrice.toLocaleString('vi-VN')}đ
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">
-                    (~{unitMinPrice.toLocaleString('vi-VN')}đ – {unitMaxPrice.toLocaleString('vi-VN')}đ / chiếc)
-                  </p>
-                </div>
+              <div className="flex items-center gap-1.5">
+                <Weight className="size-3.5 text-primary shrink-0" />
+                <span>~{weightGrams}g</span>
               </div>
-
-              {/* Customer Inputs */}
-              <div className="space-y-3.5">
-                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <label htmlFor="keychainCustomerName" className="text-xs font-semibold text-foreground">
-                      Họ và tên <span className="text-destructive">*</span>
-                    </label>
-                    <input
-                      id="keychainCustomerName"
-                      type="text"
-                      autoComplete="name"
-                      maxLength={200}
-                      required
-                      placeholder="Nguyễn Văn A"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      className={inputClass}
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label htmlFor="keychainCustomerPhone" className="text-xs font-semibold text-foreground">
-                      Số điện thoại / Zalo <span className="text-destructive">*</span>
-                    </label>
-                    <input
-                      id="keychainCustomerPhone"
-                      type="tel"
-                      autoComplete="tel"
-                      maxLength={30}
-                      required
-                      placeholder="0912 345 678"
-                      value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value)}
-                      className={inputClass}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <label htmlFor="keychainQuantity" className="text-xs font-semibold text-foreground">
-                      Số lượng cần in
-                    </label>
-                    <input
-                      id="keychainQuantity"
-                      type="number"
-                      min={1}
-                      max={1000}
-                      value={quantity}
-                      onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                      className={inputClass}
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label htmlFor="keychainCustomerEmail" className="text-xs font-semibold text-foreground">
-                      Email (tuỳ chọn)
-                    </label>
-                    <input
-                      id="keychainCustomerEmail"
-                      type="email"
-                      autoComplete="email"
-                      maxLength={320}
-                      placeholder="email@example.com"
-                      value={customerEmail}
-                      onChange={(e) => setCustomerEmail(e.target.value)}
-                      className={inputClass}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label htmlFor="keychainRequestedColor" className="text-xs font-semibold text-foreground">
-                    Màu sắc &amp; vật liệu yêu cầu
-                  </label>
-                  <input
-                    id="keychainRequestedColor"
-                    type="text"
-                    placeholder="Đế đen, chữ vàng, kèm khoen tròn..."
-                    value={requestedColor}
-                    onChange={(e) => setRequestedColor(e.target.value)}
-                    className={inputClass}
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label htmlFor="keychainOrderNote" className="text-xs font-semibold text-foreground">
-                    Ghi chú thêm &amp; địa chỉ nhận hàng (tuỳ chọn)
-                  </label>
-                  <textarea
-                    id="keychainOrderNote"
-                    rows={2}
-                    maxLength={1000}
-                    placeholder="Địa chỉ giao hàng, thời gian cần lấy, yêu cầu in thêm mặt sau..."
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    className="w-full rounded-xl border border-input bg-background p-2.5 text-xs text-foreground outline-none transition focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
-                  />
-                </div>
-
-                {/* Terms confirmation */}
-                <div className="flex items-start gap-2 pt-1">
-                  <input
-                    id="keychainCopyrightConfirmed"
-                    type="checkbox"
-                    required
-                    checked={copyrightConfirmed}
-                    onChange={(e) => setCopyrightConfirmed(e.target.checked)}
-                    className="mt-0.5 size-4 shrink-0 rounded border-input text-primary focus:ring-primary"
-                  />
-                  <label htmlFor="keychainCopyrightConfirmed" className="cursor-pointer text-xs text-muted-foreground leading-relaxed">
-                    Tôi đồng ý gửi file 3D và thông tin liên hệ cho xưởng BaSa3D để nhận báo giá &amp; xác nhận đặt in.
-                  </label>
-                </div>
+              <div className="flex items-center gap-1.5">
+                <Clock className="size-3.5 text-primary shrink-0" />
+                <span>~{printMinutes} phút</span>
               </div>
+              <div className="flex items-center gap-1.5">
+                <span className="size-2 rounded-full bg-emerald-500" />
+                <span>{includeKeyringHole ? 'Có lỗ khoen' : 'Bảng tên'}</span>
+              </div>
+            </div>
+          </div>
 
-              {/* Error Alert */}
-              <RememberContactOption
-                remember={savedContact.remember}
-                onRememberChange={savedContact.setRemember}
-                hasSaved={savedContact.contact !== null}
-                onClear={savedContact.clear}
-              />
+          {/* Customizable Print Options (NO customer PII) */}
+          <div className="space-y-3 rounded-xl border border-border/80 bg-background p-3.5 sm:p-4">
+            <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+              <span>Tuỳ chỉnh thông số in</span>
+              <span className="text-[11px] font-normal lowercase text-muted-foreground">
+                (tự động cập nhật vào tin nhắn Zalo)
+              </span>
+            </h4>
 
-              {errorMessage ? (
-                <div className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
-                  <AlertCircle className="size-4 shrink-0" />
-                  <span>{errorMessage}</span>
-                </div>
-              ) : null}
-
-              {/* Actions Footer */}
-              <div className="flex flex-col gap-3 border-t border-border pt-4">
-                <ZaloConsultButton
-                  label="Mở Zalo tư vấn ngay (tự copy thông số)"
-                  payload={() => ({
-                    source: 'tool',
-                    title: `Móc khóa chữ "${text.trim() || 'Tùy chỉnh'}"`,
-                    specs: [
-                      { label: 'Màu sắc', value: colorDescription },
-                      { label: 'Độ dày đế / chữ', value: `${baseThicknessMm}mm / ${textThicknessMm}mm` },
-                      { label: 'Lỗ móc khóa', value: includeKeyringHole ? `Có (${keyringHoleDiameterMm}mm)` : 'Không' },
-                    ],
-                    estimatedPriceVnd: price ? { min: price.minPriceVnd, max: price.maxPriceVnd } : null,
-                    note,
-                  })}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <label htmlFor="keychainQuantity" className="text-xs font-semibold text-foreground">
+                  Số lượng cần in
+                </label>
+                <input
+                  id="keychainQuantity"
+                  type="number"
+                  min={1}
+                  max={1000}
+                  value={quantity}
+                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                  className={inputClass}
                 />
-              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  disabled={status === 'submitting' || status === 'uploading_file'}
-                  className="rounded-xl border border-border px-4 py-2.5 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-50"
-                >
-                  Đóng
-                </button>
+              </div>
 
-                <button
-                  type="submit"
-                  disabled={status === 'submitting' || status === 'uploading_file' || !copyrightConfirmed}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition disabled:opacity-50 cursor-pointer"
-                >
-                  {status === 'uploading_file' ? (
-                    <>
-                      <Loader2 className="size-4 animate-spin" />
-                      <span>Đang tải file STL lên xưởng...</span>
-                    </>
-                  ) : status === 'submitting' ? (
-                    <>
-                      <Loader2 className="size-4 animate-spin" />
-                      <span>Đang gửi yêu cầu...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Printer className="size-4" />
-                      <span>
-                        Gửi xưởng BaSa3D in ngay (~{totalMinPrice.toLocaleString('vi-VN')}đ)
-                      </span>
-                    </>
-                  )}
-                </button>
+              <div className="space-y-1">
+                <label htmlFor="keychainRequestedColor" className="text-xs font-semibold text-foreground">
+                  Yêu cầu màu sắc tuỳ chọn
+                </label>
+                <input
+                  id="keychainRequestedColor"
+                  type="text"
+                  maxLength={100}
+                  placeholder="Ví dụ: Đổi chữ sang màu vàng gold..."
+                  value={requestedColor}
+                  onChange={(e) => setRequestedColor(e.target.value)}
+                  className={inputClass}
+                />
               </div>
+            </div>
+
+            <div className="space-y-1 pt-1">
+              <label htmlFor="keychainOrderNote" className="text-xs font-semibold text-foreground">
+                Ghi chú thêm cho xưởng (tuỳ chọn)
+              </label>
+              <input
+                id="keychainOrderNote"
+                maxLength={300}
+                placeholder="Ví dụ: Giao kèm 2 khoen tròn kim loại, cần lấy gấp..."
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+          </div>
+
+          {/* Price Callout Banner */}
+          <div className="flex items-center justify-between rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+              <Sparkles className="size-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <div>
+                <span>Giá in xưởng ước tính:</span>
+                <p className="text-[11px] font-normal text-muted-foreground">
+                  Gồm vật liệu PLA 2 màu, điện, khấu hao và khoen móc
+                </p>
               </div>
-            </form>
-          )}
+            </div>
+            <div className="text-right">
+              <span className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
+                ~{totalMinPrice.toLocaleString('vi-VN')}đ – {totalMaxPrice.toLocaleString('vi-VN')}đ
+              </span>
+              {quantity > 1 ? (
+                <span className="block text-[10px] text-muted-foreground">
+                  (~{unitMinPrice.toLocaleString('vi-VN')}đ – {unitMaxPrice.toLocaleString('vi-VN')}đ/chiếc × {quantity})
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Live Message Preview Box */}
+          <div className="rounded-xl border border-border/80 bg-muted/40 p-3.5 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <MessageCircle className="size-3.5 text-[#0068FF]" />
+                Đoạn tin nhắn mẫu gửi Zalo (tự động cập nhật):
+              </span>
+              <button
+                type="button"
+                onClick={handleCopyOnly}
+                className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-foreground shadow-xs hover:bg-muted transition cursor-pointer"
+              >
+                {copied ? (
+                  <>
+                    <Check className="size-3 text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Đã copy!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="size-3 text-muted-foreground" />
+                    <span>Sao chép</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            <pre className="max-h-36 overflow-y-auto whitespace-pre-wrap rounded-lg bg-background/80 p-2.5 font-mono text-[11px] text-muted-foreground leading-relaxed border border-border/50 select-all">
+              {generatedMessage}
+            </pre>
+
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <Info className="size-3.5 text-primary shrink-0" />
+              <span>
+                Không cần điền form hay để lại thông tin cá nhân trên web. Khi bấm nút, nội dung trên sẽ được sao chép sẵn để bạn gửi vào Zalo.
+              </span>
+            </div>
+          </div>
+
+          {/* Feedback Banner when Copied */}
+          {copied ? (
+            <div className="flex items-center gap-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 p-3 text-xs text-emerald-800 dark:text-emerald-300 animate-in fade-in duration-150">
+              <Check className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+              <span>
+                <strong>Đã sao chép tin nhắn vào bộ nhớ tạm!</strong> Khi Zalo mở lên, bạn chỉ cần bấm <strong>Dán (Paste)</strong> vào đoạn chat để gửi xưởng.
+              </span>
+            </div>
+          ) : null}
+
+          {/* Desktop QR Modal / Dropdown Toggle */}
+          {showQr ? (
+            <div className="rounded-xl border border-border bg-card p-4 text-center space-y-2 animate-in fade-in zoom-in-95 duration-150">
+              <p className="text-xs font-semibold text-foreground">
+                Quét mã QR bằng ứng dụng Zalo trên điện thoại:
+              </p>
+              <div className="mx-auto size-40 rounded-lg border border-border bg-white p-2 flex items-center justify-center">
+                <img
+                  src={qrImageUrl}
+                  alt="Mã QR Zalo BaSa3D"
+                  className="size-full object-contain"
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Số Zalo / Hotline:{' '}
+                <strong className="text-foreground font-mono">{SITE_CONFIG.zaloPhone}</strong>
+              </p>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Actions Footer */}
+        <div className="flex flex-col gap-3 border-t border-border px-5 py-4 sm:px-6 bg-muted/20">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <button
+                type="button"
+                onClick={() => setShowQr(!showQr)}
+                className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer text-xs"
+              >
+                <QrCode className="size-3.5" />
+                <span>{showQr ? 'Ẩn mã QR' : 'Hiện mã QR Zalo'}</span>
+              </button>
+              <span className="text-border">•</span>
+              <a
+                href={`tel:${SITE_CONFIG.zaloPhone.replace(/\s+/g, '')}`}
+                className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition"
+              >
+                <PhoneCall className="size-3.5" />
+                <span>{SITE_CONFIG.zaloPhone}</span>
+              </a>
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-xl border border-border px-4 py-2.5 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
+              >
+                Đóng
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCopyOnly}
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-semibold text-foreground hover:bg-muted transition cursor-pointer"
+              >
+                <Copy className="size-3.5" />
+                <span>{copied ? 'Đã copy' : 'Sao chép tin nhắn'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenZalo}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0068FF] px-5 py-2.5 text-xs font-bold text-white shadow-md hover:bg-[#0057d9] transition cursor-pointer"
+              >
+                <MessageCircle className="size-4" />
+                <span>Mở Zalo đặt in ngay</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
