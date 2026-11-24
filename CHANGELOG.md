@@ -32,6 +32,9 @@ Bản production đầu tiên có version.
   dữ liệu catalog cache 60 giây và tự làm mới ngay khi admin sửa sản phẩm, tồn kho hoặc đơn hàng (Phase 42).
 
 ### Sửa
+- Dán link mẫu trong hộp tìm kiếm giờ về trang **Báo giá** (không còn về trang Đặt in); link không phải MakerWorld
+  được hướng dẫn tải file về để báo giá ngay. Hộp tìm kiếm đổi tên dễ hiểu hơn ("Tìm mẫu 3D trên mạng"), có 3 bước
+  hướng dẫn và nút "Nhắn Zalo BaSa3D" khi chưa tìm được (ADR-0064).
 - Tìm mẫu bằng ảnh dùng model Gemini được hỗ trợ (bỏ `gemini-2.5-flash`), hộp thoại tìm mẫu có tiếng Anh, nút
   "mở nhanh" không còn bị trình duyệt chặn popup (ADR-0063).
 - Công cụ nhập STL không còn lỗi "không tìm thấy file" với tên file tiếng Việt chép từ macOS khi chạy trên Linux.

@@ -75,3 +75,9 @@
 - Expression/trigram index on `basa3d_search_fold(name)` when the catalog grows past a few thousand products.
 - Search inside product descriptions / categories (today: name only, same as before).
 - Playwright E2E for Ctrl/⌘+K and keyboard navigation on a real browser (owner, needs local Supabase).
+
+## 6. Owner feedback round 1 (2026-11-25 — branch `fix/search-ux-feedback`)
+- [x] Paste link → `/bao-gia` (MakerWorld: link tab auto-quote; other links: file tab + download guide + Zalo). Fallback to old targets only when `/bao-gia` is disabled. `/bao-gia` link tab no longer errors on non-MakerWorld links.
+- [x] Clearer wording: "Có sẵn tại BaSa3D" · "Tìm mẫu 3D trên mạng" · "Tìm mẫu bằng ảnh", 3-step strip, "what is a 3D model" intro, header label "Tìm sản phẩm, mẫu 3D…".
+- [x] Zalo help box on every tab of the header search and in ModelSearchDialog.
+- Verification: lint ✅ typecheck ✅ check:arch ✅ build ✅; full suite 1028 tests, 16 fail (same Supabase-only set); UI screenshots of the dialog (idle, online tab) and `/bao-gia?tab=file&ref=…`.

@@ -34,12 +34,16 @@ test('fold map in the migration covers every Vietnamese vowel (upper + lower) an
   assert.match(sql, /immutable/i);
 });
 
-test('quoteHrefForModelUrl routes MakerWorld to the quote tool, other https links to /custom-print', () => {
-  assert.equal(quoteHrefForModelUrl('https://makerworld.com/en/models/749527-x#profileId-1'), '/tools/makerworld-cn?url=https%3A%2F%2Fmakerworld.com%2Fen%2Fmodels%2F749527-x%23profileId-1');
-  assert.equal(quoteHrefForModelUrl(' https://makerworld.com.cn/zh/models/12 '), '/tools/makerworld-cn?url=https%3A%2F%2Fmakerworld.com.cn%2Fzh%2Fmodels%2F12');
-  assert.equal(quoteHrefForModelUrl('makerworld.com/en/models/1'), '/tools/makerworld-cn?url=https%3A%2F%2Fmakerworld.com%2Fen%2Fmodels%2F1');
-  assert.equal(quoteHrefForModelUrl('https://www.printables.com/model/3161-3d-benchy'), '/custom-print?ref=https%3A%2F%2Fwww.printables.com%2Fmodel%2F3161-3d-benchy');
-  assert.equal(quoteHrefForModelUrl('https://makerworld.com.evil.io/en/models/1'), '/custom-print?ref=https%3A%2F%2Fmakerworld.com.evil.io%2Fen%2Fmodels%2F1');
+test('quoteHrefForModelUrl sends every link to the quote page (/bao-gia); falls back when /bao-gia is off', () => {
+  const mw = 'https://makerworld.com/en/models/749527-x#profileId-1';
+  assert.equal(quoteHrefForModelUrl(mw), '/bao-gia?tab=link&url=https%3A%2F%2Fmakerworld.com%2Fen%2Fmodels%2F749527-x%23profileId-1');
+  assert.equal(quoteHrefForModelUrl(' https://makerworld.com.cn/zh/models/12 '), '/bao-gia?tab=link&url=https%3A%2F%2Fmakerworld.com.cn%2Fzh%2Fmodels%2F12');
+  assert.equal(quoteHrefForModelUrl('makerworld.com/en/models/1'), '/bao-gia?tab=link&url=https%3A%2F%2Fmakerworld.com%2Fen%2Fmodels%2F1');
+  assert.equal(quoteHrefForModelUrl('https://www.printables.com/model/3161-3d-benchy'), '/bao-gia?tab=file&ref=https%3A%2F%2Fwww.printables.com%2Fmodel%2F3161-3d-benchy');
+  assert.equal(quoteHrefForModelUrl('https://makerworld.com.evil.io/en/models/1'), '/bao-gia?tab=file&ref=https%3A%2F%2Fmakerworld.com.evil.io%2Fen%2Fmodels%2F1');
+  // /bao-gia disabled → previous destinations
+  assert.equal(quoteHrefForModelUrl(mw, { baoGiaEnabled: false }), '/tools/makerworld-cn?url=https%3A%2F%2Fmakerworld.com%2Fen%2Fmodels%2F749527-x%23profileId-1');
+  assert.equal(quoteHrefForModelUrl('https://www.printables.com/model/1', { baoGiaEnabled: false }), '/custom-print?ref=https%3A%2F%2Fwww.printables.com%2Fmodel%2F1');
   assert.equal(quoteHrefForModelUrl('javascript:alert(1)'), null);
   assert.equal(quoteHrefForModelUrl('not a url'), null);
   assert.equal(quoteHrefForModelUrl(''), null);
@@ -87,4 +91,19 @@ test('wiring: header renders HeaderSearch, dialog is lazy, /products empty state
   assert.match(readFileSync('src/app/[locale]/(storefront)/custom-print/page.tsx', 'utf8'), /sanitizeReferenceUrl\(resolved\?\.ref\)/);
   // Every external-library path ends with a way back to a quote.
   assert.match(readFileSync('src/components/storefront/search/model-search-panel.tsx', 'utf8'), /<QuoteLinkBox/);
+});
+
+test('owner feedback 2026-11-25: links land on /bao-gia, Zalo help on every search dialog, clearer wording', () => {
+  const unified = readFileSync('src/components/storefront/search/unified-search-dialog.tsx', 'utf8');
+  assert.match(unified, /<ZaloHelpBox placement=/);
+  assert.match(unified, /<SearchHowItWorks \/>/);
+  assert.match(readFileSync('src/components/storefront/model-search-dialog.tsx', 'utf8'), /<ZaloHelpBox placement=/);
+  assert.match(readFileSync('src/components/storefront/search/quote-link-box.tsx', 'utf8'), /baoGiaEnabled: BAO_GIA_ENABLED_IN_BROWSER/);
+  assert.match(readFileSync('src/app/[locale]/(storefront)/bao-gia/page.tsx', 'utf8'), /sanitizeReferenceUrl\(resolvedSearchParams\?\.ref\)/);
+  const workspace = readFileSync('src/components/bao-gia/quote-workspace.tsx', 'utf8');
+  assert.match(workspace, /if \(!isMakerWorldUrl\(parsed\)\)/, 'non-MakerWorld links switch to the file tab instead of a dead-end error');
+  assert.match(workspace, /SITE_CONFIG\.zaloUrl/);
+  const vi = JSON.parse(readFileSync('messages/vi.json', 'utf8')) as { headerSearch: Record<string, string> };
+  assert.equal(vi.headerSearch.tabLibrary, 'Tìm mẫu 3D trên mạng');
+  assert.ok(vi.headerSearch.zaloButton && vi.headerSearch.step1 && vi.headerSearch.libraryIntro);
 });

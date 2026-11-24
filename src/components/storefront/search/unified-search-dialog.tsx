@@ -7,6 +7,7 @@ import { SearchModalShell, SearchTab } from './search-modal-shell';
 import { ProductSearchPanel } from './product-search-panel';
 import { ModelSearchPanel } from './model-search-panel';
 import type { HeaderSearchTab } from './search-events';
+import { SearchHowItWorks, ZaloHelpBox } from './zalo-help';
 
 /**
  * ADR-0064 — header search. Tab 1 (default) is the shop catalog; tabs 2–3 are the external 3D-library and image
@@ -32,6 +33,7 @@ export function UnifiedSearchDialog({
     <SearchModalShell isOpen={isOpen} onClose={onClose} labelledBy="header-search-title" closeLabel={t('close')}>
       <h2 id="header-search-title" className="pr-10 text-xl font-extrabold text-foreground sm:text-2xl">{t('title')}</h2>
       <p className="mt-1 text-xs text-muted-foreground">{t('subtitle')}</p>
+      <SearchHowItWorks />
       <div role="tablist" aria-label={t('title')} className="mt-4 flex overflow-x-auto border-b border-border">
         <SearchTab active={tab === 'products'} onClick={() => setTab('products')} icon={<Package className="size-4" />}>{t('tabProducts')}</SearchTab>
         <SearchTab active={tab === 'library'} onClick={() => setTab('library')} icon={<Boxes className="size-4" />}>{t('tabLibrary')}</SearchTab>
@@ -49,6 +51,9 @@ export function UnifiedSearchDialog({
           onNavigate={onClose}
         />
       )}
+
+      {/* Owner feedback 2026-11-25: always a human fallback, on every tab. */}
+      <ZaloHelpBox placement={`header_search_${tab}`} />
     </SearchModalShell>
   );
 }

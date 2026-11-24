@@ -19,6 +19,8 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SITE_CONFIG } from '@/config/site';
+import { isMakerWorldUrl } from '@/lib/search/quote-link';
 import { formatVnd } from '@/components/storefront/format';
 import { storefrontButtonClasses } from '@/components/storefront/button';
 import { QuoteFlow } from './quote-flow';
@@ -26,6 +28,7 @@ import { MakerWorldQuoteResult } from '@/components/storefront/makerworld-quote-
 import type { MakerWorldCnModelDetail } from '@/app/api/public/makerworld-cn/resolve/route';
 import {
   analyticsErrorCode,
+  trackContactClick,
   getMakerWorldSourceHost,
   trackMakerWorldResolve,
 } from '@/lib/analytics';
@@ -63,6 +66,8 @@ interface QuoteWorkspaceProps {
   samples: SampleItem[];
   initialTab?: QuoteTab;
   initialUrl?: string;
+  /** ADR-0064: a non-MakerWorld model link (Printables, Thingiverse…) from the search dialog — shown on the file tab. */
+  referenceUrl?: string;
 }
 
 export function QuoteWorkspace({
@@ -70,7 +75,9 @@ export function QuoteWorkspace({
   samples,
   initialTab = 'link',
   initialUrl,
+  referenceUrl: initialReferenceUrl,
 }: QuoteWorkspaceProps) {
+  const [referenceUrl, setReferenceUrl] = useState<string | null>(initialReferenceUrl ?? null);
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<QuoteTab>(initialTab);
   const [linkInput, setLinkInput] = useState(initialUrl ?? '');
@@ -96,12 +103,16 @@ export function QuoteWorkspace({
 
     try {
       const parsed = new URL(raw.startsWith('http') ? raw : `https://${raw}`);
-      const host = parsed.hostname.toLowerCase();
-      if (!host.includes('makerworld.com')) {
-        setLinkError('Hiện công cụ hỗ trợ tốt nhất link MakerWorld (makerworld.com hoặc makerworld.com.cn). Bạn vẫn có thể tiếp tục phân tích.');
-      } else {
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') throw new Error('not http');
+      // ADR-0064: only MakerWorld can be read automatically. Any other model link (Printables, Thingiverse…)
+      // goes to the file tab with "download the STL there, drop it here" + Zalo help instead of a dead-end error.
+      if (!isMakerWorldUrl(parsed)) {
         setLinkError(null);
+        setReferenceUrl(parsed.toString());
+        handleTabChange('file');
+        return;
       }
+      setLinkError(null);
     } catch {
       setLinkError('Đường dẫn không hợp lệ. Vui lòng kiểm tra lại URL.');
       return;
@@ -140,9 +151,19 @@ export function QuoteWorkspace({
 
   useEffect(() => {
     if (initialUrl && initialUrl.trim()) {
+      // A new ?url= can arrive while the page is open (header search → "Báo giá mẫu này"): show the link tab.
+      setActiveTab('link');
+      setLinkInput(initialUrl.trim());
       handleAnalyze(initialUrl.trim());
     }
   }, [initialUrl]);
+
+  useEffect(() => {
+    if (initialReferenceUrl) {
+      setReferenceUrl(initialReferenceUrl);
+      setActiveTab('file');
+    }
+  }, [initialReferenceUrl]);
 
   function handleFormSubmit(e: FormEvent) {
     e.preventDefault();
@@ -578,6 +599,32 @@ export function QuoteWorkspace({
             Chưa có file? Tìm & báo giá theo link <ArrowRight className="size-3" />
           </button>
         </div>
+
+        {referenceUrl ? (
+          <div role="status" className="mb-6 rounded-xl border border-primary/30 bg-primary/5 p-4 print:hidden">
+            <p className="text-sm font-semibold text-foreground">Bạn đang báo giá mẫu từ link:</p>
+            <a href={referenceUrl} target="_blank" rel="noopener noreferrer" className="mt-1 block break-all text-sm font-medium text-primary hover:underline">{referenceUrl}</a>
+            <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
+              <li>Mở trang mẫu ở trên → bấm <b>Download</b> để tải file <b>.STL / .3MF</b> về máy.</li>
+              <li>Kéo thả file vừa tải vào ô bên dưới — giá hiện ngay, xưởng xác nhận lại trước khi in.</li>
+              <li>Không tải được file (cần đăng nhập, mẫu trả phí…)? Gửi link qua Zalo, xưởng báo giá giúp bạn.</li>
+            </ol>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <a href={referenceUrl} target="_blank" rel="noopener noreferrer" className={cn(storefrontButtonClasses('secondary'), 'h-9 px-3 text-sm')}>
+                <ExternalLink className="mr-1.5 size-4" aria-hidden="true" />Mở trang mẫu
+              </a>
+              <a
+                href={SITE_CONFIG.zaloUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => trackContactClick('zalo', 'bao_gia_reference_link')}
+                className={cn(storefrontButtonClasses('primary'), 'h-9 px-3 text-sm')}
+              >
+                Nhắn Zalo BaSa3D gửi link
+              </a>
+            </div>
+          </div>
+        ) : null}
 
         {/* Live File Upload & Mesh Analysis Flow */}
         <QuoteFlow materials={materials} />
