@@ -1385,3 +1385,57 @@ later without code change. Header gains one button + a keydown listener; the dia
    online → paste link for a quote) and a one-paragraph "what is a 3D model" intro on the online tab.
 3. *"User still can't find it."* `ZaloHelpBox` ("Chưa tìm được thứ bạn cần? Nhắn Zalo BaSa3D") at the bottom of
    the header search (every tab) and of `ModelSearchDialog`; GA4 `click_contact_channel` with a per-tab placement.
+
+## ADR-0065 — QA audit 2026-11-24 fixes: degrade instead of 500, public phone rule, cash revenue
+
+**Status.** Accepted 2026-11-24 (branch `fix/qa-audit-2026-11-24`, plan `docs/exec-plans/active/fix-qa-audit-2026-11-24.md`).
+Assumptions below are Claude's; Owner can overturn any of them.
+
+**Context.** The full-app user test (`docs/qa/2026-11-24-user-test-performance-audit.md`) found search and
+"Đăng sản phẩm mới" returning 500 on a UAT DB that was behind the code, public forms accepting `abc123` as a phone,
+and the expenses page counting UNPAID orders as revenue.
+
+**Decision.**
+1. **Schema drift is a named error, not a 500.** Postgres 42883/42703/42P01 → `SCHEMA_OUT_OF_DATE` (503) with a
+   Vietnamese "run the migration" message (`src/lib/db-errors.ts`); `npm run db:check-migrations` (read-only) probes
+   the objects recent migrations create. Storefront search alone degrades further: without `basa3d_search_fold()` it
+   retries with `lower() LIKE` (case-insensitive, accents must match) and logs one warning.
+2. **Public phone rule.** Only the three anonymous schemas (custom request, checkout, `/bao-gia`) require a Vietnamese
+   number: separators stripped, `(+84|84|0)` + 9–10 digits. The stored value is validated, not rewritten. Staff/admin
+   schemas stay free text (Zalo IDs, foreign customers). `apiError(ZodError)` now also returns `message` (first custom
+   issue, else a generic Vietnamese sentence) because every storefront form displays `body.message`.
+3. **Cash revenue = PAID orders.** Expenses "Doanh thu đã thu" sums `status <> 'CANCELLED' and payment_status = 'PAID'`.
+   DEPOSIT_PAID orders are excluded because the deposit amount is not stored — understating is safer than guessing.
+   The executive dashboard keeps its own definition (non-cancelled, non-refunded; ADR for Phase 41).
+4. **Phone-suffix lockout is shown.** The existing 10-wrong/24h budget (business-rules #14/#18) now tells the customer
+   it is locked instead of "không khớp". The suffix stays a GET param (already stripped from analytics).
+5. **External model links** (ADR-0064 keeps accepting any site): the domain is printed with a "trang bên ngoài" notice
+   and links get `rel=nofollow`; MakerWorld summaries are converted to plain text server-side.
+
+**Consequences.** Existing customer rows with non-phone values are untouched; staff can still fix them. A UAT DB
+without the fold migration gets slower, accent-sensitive search until the migration runs.
+
+## ADR-0066 — Quote-only business mode; request status follows its quotes
+
+**Status.** Accepted 2026-11-24 by Owner (branch `fix/qa-audit-2026-11-24`).
+
+**Context.** Owner: BaSa3D is now a place to get a 3D-print QUOTE, not an e-commerce shop. Cart and English were
+already switched off; ready-stock selling and production tracking ("Việc in") are no longer used. The QA audit
+found their screens confusing (stock numbers that disagree, print jobs nobody updates, request status stuck at
+"Đang xem xét" after a quote was accepted).
+
+**Decision.**
+1. `src/config/business-mode.ts` — UI switches, all OFF by default, read at build time:
+   `NEXT_PUBLIC_READY_STOCK_ENABLED` (stock badges → "Đặt in", no "Sẵn hàng" filter, no low-stock tile, no
+   "Lịch sử kho" menu, Kho & giá opens on made-to-order), `NEXT_PUBLIC_PRINT_JOBS_ENABLED` ("Việc in" menu +
+   tile), and the existing `NEXT_PUBLIC_CART_ENABLED` now also hides the admin "Đơn hàng" menu and order tiles.
+   Nothing is deleted: tables, services, routes and URLs stay; accepting a quote still records a print job.
+2. Request status is synced from quotes inside the quote transaction (`syncedCustomRequestStatus`): quote created
+   → QUOTED, quote accepted → APPROVED; forward only; REJECTED/CONVERTED untouched; audited as
+   `CUSTOM_REQUEST_STATUS_SYNCED`. Manual status changes still work.
+3. Admin login rate-limit (QA-015) is out of scope: the Owner is the only admin user.
+4. Performance pass 1: server-only i18n namespaces (`policies`, `home`, `tools`) are not sent to the browser
+   (`src/i18n/client-messages.ts`, guarded by a test); the PDP gallery mounts only images that were shown.
+
+**Consequences.** Turning a mode back on is an env change + rebuild. The single existing READY_STOCK product is
+displayed as made to order; its stock rows are unchanged.

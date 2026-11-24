@@ -20,11 +20,26 @@ function escapeLike(token: string): string {
  * Appends one bind value per token to `values` and returns the SQL fragment (starting with ` and …`,
  * or '' when there is nothing to search). `column` must be a trusted SQL expression.
  */
-export function buildSearchSql(search: string | undefined | null, values: unknown[], column = 'p.name'): string {
+export function buildSearchSql(
+  search: string | undefined | null,
+  values: unknown[],
+  column = 'p.name',
+  options: { fold?: boolean } = {},
+): string {
+  const fold = options.fold ?? true;
   let sql = '';
   for (const token of searchTokens(search)) {
     values.push(`%${escapeLike(token)}%`);
-    sql += ` and public.basa3d_search_fold(${column}) like public.basa3d_search_fold($${values.length})`;
+    sql += fold
+      ? ` and public.basa3d_search_fold(${column}) like public.basa3d_search_fold($${values.length})`
+      // QA-001 fallback: DB without migration 20261126000000 — case-insensitive only, accents must match.
+      : ` and lower(${column}) like lower($${values.length})`;
   }
   return sql;
+}
+
+/** QA-001: true when Postgres says `basa3d_search_fold` does not exist (migration not applied yet). */
+export function isMissingSearchFoldError(error: unknown): boolean {
+  const { code, message } = (error ?? {}) as { code?: unknown; message?: unknown };
+  return code === '42883' && typeof message === 'string' && message.includes('basa3d_search_fold');
 }

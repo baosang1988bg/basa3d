@@ -26,6 +26,7 @@ import type { PublicMakerWorldEstimate, EstimateReason } from '@/services/makerw
 import type { PublicScreenshotEstimate } from '@/services/makerworld-screenshot-estimate.service';
 import { uploadCustomRequestFile, UploadError } from '@/lib/uploads/upload-custom-request-file';
 import { prepareScreenshot } from '@/lib/uploads/prepare-screenshot';
+import { VN_PHONE_HTML_PATTERN, VN_PHONE_INVALID_MESSAGE } from '@/lib/customer/phone';
 
 type Tier = 'ASSEMBLED' | 'KIT';
 
@@ -608,7 +609,7 @@ export function MakerWorldIntakeCard({
             </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="mw-customer-phone" className="text-xs font-semibold text-foreground">Số điện thoại / Zalo nhận báo giá (*)</label>
-              <input id="mw-customer-phone" type="tel" autoComplete="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="Ví dụ: 0912 345 678" required maxLength={30}
+              <input id="mw-customer-phone" type="tel" pattern={VN_PHONE_HTML_PATTERN} title={VN_PHONE_INVALID_MESSAGE} autoComplete="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="Ví dụ: 0912 345 678" required maxLength={30}
                 className="rounded-lg border border-input bg-background p-2.5 text-sm text-foreground shadow-xs focus:border-primary focus:outline-hidden focus:ring-2 focus:ring-primary/20" />
             </div>
           </div>

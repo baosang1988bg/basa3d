@@ -16,6 +16,7 @@ import { DEFAULT_PRINTER_TARGET_ID, type PrinterProfileId } from '@/lib/pricing/
 import { contactFromFormData } from '@/lib/customer/saved-contact';
 import { useContactFormPrefill, useSavedContact } from '@/lib/customer/use-saved-contact';
 import { RememberContactOption } from '@/components/storefront/remember-contact-option';
+import { VN_PHONE_HTML_PATTERN, VN_PHONE_INVALID_MESSAGE } from '@/lib/customer/phone';
 
 type SubmitState = { status: 'idle' | 'submitting' | 'success' | 'error'; message?: string; requestNumber?: string };
 type UploadState = { status: 'idle' | 'uploading' | 'done' | 'error'; fileName?: string; message?: string };
@@ -573,7 +574,7 @@ export function CustomRequestForm({ prefill, referenceUrl }: { prefill?: CustomR
           </div>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="customerPhone" className="text-sm font-semibold text-foreground">SĐT / Zalo liên hệ *</label>
-            <input id="customerPhone" name="customerPhone" type="tel" inputMode="tel" autoComplete="tel" required maxLength={30} placeholder="098xxxxxxx" className={inputClass} />
+            <input id="customerPhone" name="customerPhone" type="tel" pattern={VN_PHONE_HTML_PATTERN} title={VN_PHONE_INVALID_MESSAGE} inputMode="tel" autoComplete="tel" required maxLength={30} placeholder="098xxxxxxx" className={inputClass} />
           </div>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="customerEmail" className="text-sm font-semibold text-foreground">Email (không bắt buộc)</label>

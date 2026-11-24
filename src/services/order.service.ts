@@ -406,11 +406,18 @@ export function digitsOnly(value: string) { return value.replace(/\D/g, ''); }
 export const PHONE_SUFFIX_MAX_FAILURES = 10;
 const phoneSuffixBudget = createDatabaseFailureBudget({ scope: 'phone-suffix-verify', maxFailures: PHONE_SUFFIX_MAX_FAILURES, windowMs: 24 * 60 * 60_000 });
 
-export async function verifyPhoneSuffixWithBudget(resourceKey: string, customerPhone: string, phoneSuffix: string): Promise<boolean> {
-  if (!(await phoneSuffixBudget.tryConsume(resourceKey))) return false;
+export type PhoneSuffixCheck = 'OK' | 'WRONG' | 'LOCKED';
+
+/** QA-004: same budget as before, but tells the page WHY it refused so it can say "too many tries". */
+export async function verifyPhoneSuffixDetailed(resourceKey: string, customerPhone: string, phoneSuffix: string): Promise<PhoneSuffixCheck> {
+  if (!(await phoneSuffixBudget.tryConsume(resourceKey))) return 'LOCKED';
   const matches = digitsOnly(customerPhone).slice(-4) === digitsOnly(phoneSuffix).slice(-4);
   if (matches) await phoneSuffixBudget.refund(resourceKey);
-  return matches;
+  return matches ? 'OK' : 'WRONG';
+}
+
+export async function verifyPhoneSuffixWithBudget(resourceKey: string, customerPhone: string, phoneSuffix: string): Promise<boolean> {
+  return (await verifyPhoneSuffixDetailed(resourceKey, customerPhone, phoneSuffix)) === 'OK';
 }
 
 export function maskCustomerName(name: string): string {

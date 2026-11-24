@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { query, withTransaction } from '../lib/db';
+import type { PoolClient } from 'pg';
 import { DomainError } from '../lib/domain-error';
+import { syncedCustomRequestStatus } from '../domain/custom-request-status';
 import { writeAuditLog } from './audit.service';
 import { createResourceAccessToken, verifyResourceAccessToken } from '../lib/order-confirmation-token';
-import { maskCustomerName, verifyPhoneSuffixWithBudget } from './order.service';
+import { maskCustomerName, verifyPhoneSuffixDetailed } from './order.service';
 import type { PricingBreakdown } from './pricing.service';
 import { quoteModelSnapshotSchema, type QuoteModelSnapshotData } from '../domain/schemas';
 import { sanitizeMakerWorldImageUrl } from '../lib/parsers/makerworld-image';
@@ -93,6 +95,19 @@ export async function listQuotesByCustomRequest(customRequestId: string): Promis
 // pricingBreakdown/pricingConfigId are an optional immutable snapshot (Phase 9) — a Quote created
 // by hand (no pricing engine involved) simply omits both, and the DB pair constraint
 // (quotes_pricing_snapshot_pair) rejects setting only one of the two.
+type TxClient = PoolClient;
+
+/** ADR-0066: move the parent request forward with its quotes (caller already holds the row lock). */
+async function syncCustomRequestStatus(client: TxClient, customRequestId: string, current: string, event: 'QUOTE_CREATED' | 'QUOTE_ACCEPTED', actorId: string) {
+  const next = syncedCustomRequestStatus(current, event);
+  if (!next) return;
+  await client.query('update custom_requests set status = $2 where id = $1', [customRequestId, next]);
+  await writeAuditLog(client, {
+    actorId, action: 'CUSTOM_REQUEST_STATUS_SYNCED', entityType: 'custom_request', entityId: customRequestId,
+    beforeData: { status: current }, afterData: { status: next, reason: event },
+  });
+}
+
 export async function createQuote(input: {
   customRequestId: string; subtotal: number; shippingFee?: number; discount?: number; total: number;
   validUntil: Date; note?: string | null; pricingBreakdown?: unknown | null; pricingConfigId?: string | null;
@@ -103,7 +118,7 @@ export async function createQuote(input: {
     // requires staff to explicitly acknowledge they checked it before a quote can be created — does
     // not touch CUSTOM_REQUEST_STATUS_TRANSITIONS (custom-request.service.ts), only blocks this one
     // write. A request that was never flagged never needs ipRiskAcknowledged.
-    const customRequest = await client.query<{ ip_risk_flag: boolean }>('select ip_risk_flag from custom_requests where id = $1 for update', [input.customRequestId]);
+    const customRequest = await client.query<{ ip_risk_flag: boolean; status: string }>('select ip_risk_flag, status from custom_requests where id = $1 for update', [input.customRequestId]);
     if (!customRequest.rowCount) throw new DomainError('CUSTOM_REQUEST_NOT_FOUND', 'Custom request was not found.', 404);
     if (customRequest.rows[0].ip_risk_flag && !input.ipRiskAcknowledged) {
       throw new DomainError('IP_RISK_ACKNOWLEDGEMENT_REQUIRED', 'Yêu cầu này có rủi ro SHTT — cần xác nhận đã kiểm tra trước khi tạo báo giá.', 409);
@@ -161,6 +176,14 @@ export async function createQuote(input: {
       order by effective_from desc, created_at desc limit 1`);
     const shippingFee = input.shippingFee ?? 0;
     const discount = input.discount ?? 0;
+    // QA-013: say what is wrong instead of a confusing "total mismatch (server computed -65.000đ)".
+    if (discount > input.subtotal + shippingFee) {
+      throw new DomainError(
+        'QUOTE_DISCOUNT_TOO_LARGE',
+        `Giảm giá (${discount.toLocaleString('vi-VN')}đ) không được lớn hơn tạm tính + phí vận chuyển (${(input.subtotal + shippingFee).toLocaleString('vi-VN')}đ).`,
+        400,
+      );
+    }
     const totals = computeQuoteTotals(
       { subtotal: input.subtotal, shippingFee, discount },
       { enabled: Boolean(vatConfig.rows[0]?.vat_enabled), rateBps: Number(vatConfig.rows[0]?.vat_rate_bps ?? 0) },
@@ -188,6 +211,7 @@ export async function createQuote(input: {
       // which is the config the cost breakdown was computed with, or null for a manual quote).
       afterData: { ...input, vatRateBps: totals.vatRateBps, vatAmount: totals.vatAmount, vatPricingConfigId: vatConfig.rows[0]?.id ?? null },
     });
+    await syncCustomRequestStatus(client, input.customRequestId, customRequest.rows[0].status, 'QUOTE_CREATED', actorId);
     if (breakdown && input.subtotal !== breakdown.finalPriceVnd) {
       await writeAuditLog(client, {
         actorId, action: 'MANUAL_PRICE_OVERRIDE', entityType: 'quote', entityId: result.rows[0].id,
@@ -253,6 +277,7 @@ export async function acceptQuote(id: string, actorId: string) {
     }
     const result = await client.query('update quotes set status = $2 where id = $1 returning id, status', [id, 'ACCEPTED']);
     await writeAuditLog(client, { actorId, action: 'QUOTE_ACCEPTED', entityType: 'quote', entityId: id, afterData: result.rows[0] });
+    await syncCustomRequestStatus(client, quote.rows[0].custom_request_id, request.rows[0]?.status ?? '', 'QUOTE_ACCEPTED', actorId);
 
     // B4/B8: tier alternatives (ASSEMBLED vs KIT) of the SAME MakerWorld link are separate quotes —
     // accepting one auto-rejects its still-open siblings so only one print_job is ever created. Scoped
@@ -407,8 +432,15 @@ export async function getPublicQuoteByToken(quoteNumber: string, token: string):
 /** Fallback mode (no/expired token): requires the secondary factor (last-4 phone digits, same
  * contract as getPublicOrderByNumber) and always masks customerName — business-rules.md #18. */
 export async function getPublicQuoteByPhoneSuffix(quoteNumber: string, phoneSuffix: string): Promise<PublicQuoteDetail | null> {
+  return (await lookupPublicQuoteByPhoneSuffix(quoteNumber, phoneSuffix)).quote;
+}
+
+/** QA-004: like getPublicQuoteByPhoneSuffix, plus `locked` when the 10-wrong-answers/24h budget is spent.
+ * An unknown quote number reports locked=false (no hint that a number exists). */
+export async function lookupPublicQuoteByPhoneSuffix(quoteNumber: string, phoneSuffix: string): Promise<{ quote: PublicQuoteDetail | null; locked: boolean }> {
   const row = await getQuoteRowByNumber(quoteNumber);
-  if (!row) return null;
-  if (!(await verifyPhoneSuffixWithBudget(`quote:${row.quoteNumber}`, row.customerPhone, phoneSuffix))) return null;
-  return toPublicQuoteDetail(row, { masked: true });
+  if (!row) return { quote: null, locked: false };
+  const check = await verifyPhoneSuffixDetailed(`quote:${row.quoteNumber}`, row.customerPhone, phoneSuffix);
+  if (check !== 'OK') return { quote: null, locked: check === 'LOCKED' };
+  return { quote: toPublicQuoteDetail(row, { masked: true }), locked: false };
 }

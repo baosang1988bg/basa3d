@@ -13,10 +13,13 @@ import { Link } from '@/i18n/navigation';
 import { localeAlternates } from '@/i18n/seo';
 import { getCategoryDisplayName } from '@/lib/categories';
 import { OpenModelSearchButton } from '@/components/storefront/search/open-model-search-button';
+import { BUSINESS_MODE } from '@/config/business-mode';
 
 type SearchParams = { q?: string; type?: string; sort?: string; page?: string; categoryId?: string };
 
 export const metadata: Metadata = {
+  title: 'Sản phẩm in 3D — BaSa3D',
+  description: 'Mô hình, móc khoá, keycap, clicker và đồ trang trí in 3D sẵn có hoặc đặt in theo màu bạn chọn tại xưởng BaSa3D.',
   alternates: localeAlternates('/products'),
 };
 
@@ -36,7 +39,9 @@ export default async function ProductsPage({
   // Phase 56: these come straight from the URL. Anything that cannot be a real filter is dropped here
   // instead of reaching PostgreSQL — a malformed categoryId/type used to raise a cast error (500) and
   // an unbounded `q` became an arbitrarily long ILIKE pattern.
-  const filters = sanitizeListingParams(params);
+  const sanitized = sanitizeListingParams(params);
+  // ADR-0066: no ready-stock selling → no "Sẵn hàng / Đặt in" filter (an old ?type= link is ignored).
+  const filters = BUSINESS_MODE.readyStock ? sanitized : { ...sanitized, productType: undefined };
   const [{ items, page, limit }, { items: categories }, t] = await Promise.all([
     getCachedStorefrontProducts({ ...filters, sortBy }),
     getCachedCategories(100),
@@ -95,11 +100,13 @@ export default async function ProductsPage({
           placeholder={t('searchPlaceholder')}
           className="h-10 flex-1 rounded-lg border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
         />
-        <select name="type" defaultValue={filters.productType ?? ''} className="h-10 cursor-pointer rounded-lg border border-input bg-transparent px-3 text-sm">
-          <option value="">{t('typeAll')}</option>
-          <option value="READY_STOCK">{t('typeReadyStock')}</option>
-          <option value="MADE_TO_ORDER">{t('typeMadeToOrder')}</option>
-        </select>
+        {BUSINESS_MODE.readyStock ? (
+          <select name="type" defaultValue={filters.productType ?? ''} className="h-10 cursor-pointer rounded-lg border border-input bg-transparent px-3 text-sm">
+            <option value="">{t('typeAll')}</option>
+            <option value="READY_STOCK">{t('typeReadyStock')}</option>
+            <option value="MADE_TO_ORDER">{t('typeMadeToOrder')}</option>
+          </select>
+        ) : null}
         <select name="sort" defaultValue={sortBy} className="h-10 cursor-pointer rounded-lg border border-input bg-transparent px-3 text-sm">
           <option value="newest">{t('sortNewest')}</option>
           <option value="price_asc">{t('sortPriceAsc')}</option>

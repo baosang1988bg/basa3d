@@ -32,6 +32,7 @@ import { QuickRestockButton } from '@/components/admin/quick-restock-dialog';
 import { BatchRestockButton } from '@/components/admin/batch-restock-dialog';
 import type { StockTrackedVariant } from '@/services/quick-restock.service';
 import type { PricingConfigRow } from '@/services/pricing-config.service';
+import { BUSINESS_MODE } from '@/config/business-mode';
 import {
   applyPricingCalculationAction,
   updateProductBasePriceAction,
@@ -100,7 +101,8 @@ export function ProductInventoryManager({
   batchVariants,
   warehouses,
 }: Props) {
-  const [tab, setTab] = useState<Tab>('STOCK');
+  // ADR-0066: quote-only mode opens on made-to-order pricing; the stock tab stays while old READY_STOCK rows exist.
+  const [tab, setTab] = useState<Tab>(BUSINESS_MODE.readyStock ? 'STOCK' : 'MADE_TO_ORDER');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
@@ -343,13 +345,17 @@ export function ProductInventoryManager({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Kho &amp; giá sản phẩm</h1>
-          <p className="text-sm text-muted-foreground">Hàng có sẵn: xem còn bao nhiêu và nhập kho. Hàng in theo yêu cầu: chỉ quản lý giá.</p>
+          <p className="text-sm text-muted-foreground">{BUSINESS_MODE.readyStock ? 'Hàng có sẵn: xem còn bao nhiêu và nhập kho. Hàng in theo yêu cầu: chỉ quản lý giá.' : 'Quản lý giá bán của các mẫu in theo yêu cầu.'}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Link href="/basaadmin/inventory" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
-            <Boxes className="mr-1.5 size-4" /> Lịch sử kho
-          </Link>
-          <BatchRestockButton variants={batchVariants} warehouses={warehouses} />
+          {BUSINESS_MODE.readyStock ? (
+            <>
+              <Link href="/basaadmin/inventory" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+                <Boxes className="mr-1.5 size-4" /> Lịch sử kho
+              </Link>
+              <BatchRestockButton variants={batchVariants} warehouses={warehouses} />
+            </>
+          ) : null}
           <Link href="/basaadmin/products/new" className={buttonVariants({ size: 'sm' })}>
             <Plus className="mr-1.5 size-4" /> Đăng sản phẩm mới
           </Link>
@@ -358,7 +364,7 @@ export function ProductInventoryManager({
 
       {/* Tabs */}
       <div role="tablist" aria-label="Hình thức bán" className="flex gap-6 border-b border-border">
-        {tabButton('STOCK', <Package className="size-4" />, 'Hàng có sẵn', stockProducts.length)}
+        {BUSINESS_MODE.readyStock || stockProducts.length > 0 ? tabButton('STOCK', <Package className="size-4" />, 'Hàng có sẵn', stockProducts.length) : null}
         {tabButton('MADE_TO_ORDER', <Printer className="size-4" />, 'In theo yêu cầu', orderProducts.length)}
       </div>
 

@@ -7,7 +7,9 @@ import { VERSION_LABEL } from '@/config/build-info';
 // and og:image tags) — falls back to localhost so `next build` doesn't warn when
 // NEXT_PUBLIC_SITE_URL isn't set yet in dev.
 export const metadata: Metadata = {
-  title: 'BaSa3D', description: '3D-printing business platform',
+  // QA-017: the fallback for every page without its own metadata — was English ("3D-printing business platform").
+  title: 'BaSa3D — Xưởng in 3D theo yêu cầu',
+  description: 'Xưởng in 3D BaSa3D: in theo file STL/3MF hoặc link MakerWorld, báo giá nhanh, mô hình, móc khoá khắc tên và phụ kiện in sẵn. Giao hàng toàn quốc.',
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
   // Phase 44: <meta name="app-version"> on every page — view-source tells which build served it.
   other: { 'app-version': VERSION_LABEL },

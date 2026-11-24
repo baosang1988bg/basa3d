@@ -2,7 +2,7 @@ import { cache } from 'react';
 import { query } from '../lib/db';
 import { pagination } from './product.service';
 import { availableStock } from './inventory.service';
-import { buildSearchSql } from '../lib/catalog/search-terms';
+import { buildSearchSql, isMissingSearchFoldError } from '../lib/catalog/search-terms';
 
 const PRODUCT_IMAGE_BUCKET = 'product-images';
 
@@ -56,7 +56,26 @@ async function attachStockFlag(variantsByProduct: Map<string, { id: string }[]>)
   return flags;
 }
 
-export async function listStorefrontProducts(input: { page?: number; limit?: number; categoryId?: string; productType?: string; search?: string; sortBy?: 'newest' | 'price_asc' | 'price_desc'; featuredOnly?: boolean } = {}) {
+type StorefrontListInput = { page?: number; limit?: number; categoryId?: string; productType?: string; search?: string; sortBy?: 'newest' | 'price_asc' | 'price_desc'; featuredOnly?: boolean };
+
+let warnedMissingSearchFold = false;
+
+export async function listStorefrontProducts(input: StorefrontListInput = {}) {
+  try {
+    return await listStorefrontProductsWith(input, true);
+  } catch (error) {
+    // QA-001: a DB that has not run migration 20261126000000 has no basa3d_search_fold(). Degrade to a
+    // case-insensitive search instead of a 500 / crashed /products page; the warning tells ops why.
+    if (!input.search || !isMissingSearchFoldError(error)) throw error;
+    if (!warnedMissingSearchFold) {
+      warnedMissingSearchFold = true;
+      console.warn('[catalog] basa3d_search_fold() missing — run migration 20261126000000_storefront_search_fold.sql. Falling back to lower() LIKE.');
+    }
+    return listStorefrontProductsWith(input, false);
+  }
+}
+
+async function listStorefrontProductsWith(input: StorefrontListInput, fold: boolean) {
   const { page, limit, offset } = pagination(input);
   const values: unknown[] = [];
   let filterSql = '';
@@ -65,7 +84,7 @@ export async function listStorefrontProducts(input: { page?: number; limit?: num
   // Phase 56: `%`, `_` and `\\` are LIKE metacharacters — escaped so a customer's text is matched
   // literally ("%%%%" used to match every product through a slow pattern scan).
   // ADR-0064: accent-insensitive ("gia do" finds "Giá đỡ") and every word must match.
-  filterSql += buildSearchSql(input.search, values);
+  filterSql += buildSearchSql(input.search, values, 'p.name', { fold });
   if (input.featuredOnly) filterSql += ' and p.is_featured = true';
   const orderSql = input.sortBy === 'price_asc' ? 'p.base_price asc nulls last'
     : input.sortBy === 'price_desc' ? 'p.base_price desc nulls last'

@@ -41,7 +41,7 @@ test('[locale] layout renders the html shell from params and prerenders both loc
   const layout = code('src/app/[locale]/layout.tsx');
   assert.match(layout, /<HtmlShell lang=\{locale\}>/);
   assert.match(layout, /generateStaticParams\(\)\s*\{\s*return routing\.locales\.map/);
-  assert.match(code('src/app/basaadmin/layout.tsx'), /<HtmlShell lang="vi">/);
+  assert.match(code('src/app/basaadmin/layout.tsx'), /<HtmlShell lang="vi" analytics=\{false\}>/);
 });
 
 test('the root not-found boundary never reads the request (Next.js renders it into every page)', () => {

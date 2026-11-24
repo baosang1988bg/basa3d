@@ -18,6 +18,7 @@ import { getExecutiveBusinessMetrics, getFinancialMetrics, getOperationalMetrics
 import { listCatalogProducts } from '@/services/product-onboarding.service';
 import { listCategories } from '@/services/product.service';
 import { getHotTrendItems } from '@/services/trend-hunter.service';
+import { BUSINESS_MODE } from '@/config/business-mode';
 
 const kg = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 });
 const ROLE_LABEL: Record<string, string> = { OWNER: 'Chủ xưởng', STAFF: 'Nhân viên xưởng' };
@@ -156,11 +157,20 @@ async function OperationsTab({ isOwner, now }: { isOwner: boolean; now: string }
   return (
     <>
       <section aria-label="Chỉ số vận hành" className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
-        <KpiTile label="Đơn hàng hôm nay" value={operational.ordersToday} icon={<ShoppingBag />} trend={orderSeries} hint="14 ngày gần nhất" />
-        <KpiTile label="Đơn đang chờ xử lý" value={operational.pendingOrders} icon={<ClipboardList />} tone={operational.pendingOrders > 0 ? 'warning' : 'success'} hint={operational.pendingOrders > 0 ? 'Bấm để xử lý' : 'Không có đơn chờ'} href="/basaadmin/orders" />
+        {/* ADR-0066: quote-only mode hides shop orders, production and ready-stock tiles (data is untouched). */}
+        {BUSINESS_MODE.orders ? (
+          <>
+            <KpiTile label="Đơn hàng hôm nay" value={operational.ordersToday} icon={<ShoppingBag />} trend={orderSeries} hint="14 ngày gần nhất" />
+            <KpiTile label="Đơn đang chờ xử lý" value={operational.pendingOrders} icon={<ClipboardList />} tone={operational.pendingOrders > 0 ? 'warning' : 'success'} hint={operational.pendingOrders > 0 ? 'Bấm để xử lý' : 'Không có đơn chờ'} href="/basaadmin/orders" />
+          </>
+        ) : null}
         <KpiTile label="Yêu cầu in đang mở" value={operational.customRequestsOpen} icon={<MessageSquareText />} hint="Mới, đang xem, chờ báo giá" href="/basaadmin/custom-requests" />
-        <KpiTile label="Việc in đang chạy" value={operational.printJobsActive} icon={<Printer />} hint="Chờ in, đang in, kiểm tra" href="/basaadmin/print-jobs" />
-        <KpiTile label="Hàng có sẵn sắp hết" value={operational.lowStockCount} icon={operational.lowStockCount > 0 ? <AlertTriangle /> : <PackageOpen />} tone={operational.lowStockCount > 0 ? 'danger' : 'success'} hint={operational.lowStockCount > 0 ? 'Cần in thêm' : 'Kho ổn'} href="/basaadmin/product-inventory" />
+        {BUSINESS_MODE.printJobs ? (
+          <KpiTile label="Việc in đang chạy" value={operational.printJobsActive} icon={<Printer />} hint="Chờ in, đang in, kiểm tra" href="/basaadmin/print-jobs" />
+        ) : null}
+        {BUSINESS_MODE.readyStock ? (
+          <KpiTile label="Hàng có sẵn sắp hết" value={operational.lowStockCount} icon={operational.lowStockCount > 0 ? <AlertTriangle /> : <PackageOpen />} tone={operational.lowStockCount > 0 ? 'danger' : 'success'} hint={operational.lowStockCount > 0 ? 'Cần in thêm' : 'Kho ổn'} href="/basaadmin/product-inventory" />
+        ) : null}
         {financial ? (
           <KpiTile label="Doanh thu hôm nay" value={`${financial.revenueToday.toLocaleString('vi-VN')}đ`} icon={<Wallet />} trend={financial.dailyRevenueTrends.map((day) => day.revenue)} hint="14 ngày gần nhất" />
         ) : null}

@@ -7,10 +7,13 @@ import { BAO_GIA_MAX_EXTENT_MM, BAO_GIA_MAX_ITEMS } from '../config/bao-gia';
 import { FDM_MATERIALS, INFILL_OPTIONS, SCALE_PERMILLE_RANGE } from '../lib/pricing/fdm-estimate-model';
 import { MESH_MAX_TRIANGLES, checkMeshConsistency } from '../lib/pricing/mesh-metrics';
 import { PRINTER_PROFILE_IDS } from '../lib/pricing/printer-profiles';
+import { VN_PHONE_INVALID_MESSAGE, isVietnamesePhone } from '../lib/customer/phone';
 
 export const uuidSchema = z.string().uuid();
 const nonEmptyText = z.string().trim().min(1);
 const safeInteger = z.number().int().safe();
+/** QA-003: public forms only — a refine (code 'custom') so apiError forwards the Vietnamese message. */
+export const publicCustomerPhoneSchema = nonEmptyText.max(30).refine(isVietnamesePhone, { message: VN_PHONE_INVALID_MESSAGE });
 const printLocalPathSchema = z.string().trim().max(1_000).nullable().optional();
 const printDriveUrlSchema = z.string().trim().url().max(2_000).regex(/^https?:\/\//i, 'URL Drive phải bắt đầu bằng http:// hoặc https://').nullable().optional();
 
@@ -414,7 +417,7 @@ export type CustomRequestAdminUpdate = z.infer<typeof customRequestAdminUpdateSc
 //   spam (see route.ts for the fake-201 handling).
 export const publicCustomRequestInputSchema = z.object({
   customerName: nonEmptyText.max(200),
-  customerPhone: nonEmptyText.max(30),
+  customerPhone: publicCustomerPhoneSchema,
   customerEmail: z.string().trim().email().max(320).nullable().optional(),
   description: nonEmptyText.max(20_000),
   quantity: positiveQuantitySchema.max(10_000),
@@ -648,7 +651,7 @@ export const PUBLIC_CHECKOUT_MAX_ITEMS = 50;
 export const publicCheckoutOrderInputSchema = z.object({
   checkoutRequestId: uuidSchema,
   customerName: nonEmptyText.max(200),
-  customerPhone: nonEmptyText.max(30),
+  customerPhone: publicCustomerPhoneSchema,
   customerEmail: z.string().trim().email().max(320).nullable().optional(),
   shippingAddress: z.record(z.string(), z.unknown()).default({}),
   paymentMethod: paymentMethodSchema.default('COD'),
@@ -782,7 +785,8 @@ export const createExpenseInputSchema = z.object({
   expenseCode: z.string().trim().min(1).max(40),
   title: z.string().trim().min(1).max(200),
   category: expenseCategorySchema,
-  amount: vndSchema,
+  // QA-012: a 0đ expense is a data-entry mistake, not an expense.
+  amount: vndSchema.positive({ message: 'Số tiền chi phải lớn hơn 0.' }),
   quantity: positiveQuantitySchema.optional(),
   status: expenseStatusSchema.optional(),
   payerName: z.string().trim().max(100).nullable().optional(),
@@ -853,7 +857,7 @@ export const baoGiaItemInputSchema = z.object({
 
 export const publicBaoGiaRequestSchema = z.object({
   customerName: nonEmptyText.max(200),
-  customerPhone: nonEmptyText.max(30),
+  customerPhone: publicCustomerPhoneSchema,
   customerEmail: z.string().trim().email().max(320).nullable().optional(),
   /** Optional here — the server writes "Báo giá từ /bao-gia: N file (…)" when empty. */
   description: z.string().trim().max(20_000).nullable().optional(),

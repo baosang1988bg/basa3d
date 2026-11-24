@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { MaterialBadge } from '@/components/storefront/material-badge';
 import { Breadcrumb } from '@/components/storefront/breadcrumb';
 import { CustomRequestForm } from './custom-request-form';
@@ -5,6 +6,11 @@ import { sanitizeReferenceUrl } from '@/lib/search/quote-link';
 import { MakerWorldDiscoveryBanner } from '@/components/storefront/makerworld-discovery-banner';
 import { redirect } from '@/i18n/navigation';
 import { applyRequestLocale, type LocaleParams } from '@/i18n/request-locale';
+
+export const metadata: Metadata = {
+  title: 'Đặt in 3D theo yêu cầu — BaSa3D',
+  description: 'Gửi file .3mf/.stl/.obj/.step hoặc ảnh mẫu, xem giá ước tính ngay và nhận báo giá chính thức trong 2 giờ làm việc. Nhận in từ 1 sản phẩm.',
+};
 
 const STEPS = [
   { step: '1', title: 'Tải file, xem giá ngay', description: 'File .3mf đã slice cho giá ước tính tức thì; .stl/.obj cho khoảng giá; .step hoặc ảnh mẫu thì xưởng báo giá' },
@@ -54,7 +60,7 @@ export default async function CustomPrintPage({
           // The description field (pre-filled with this link) only appears at the contact step, so the link is
           // also shown up-front — the customer sees immediately which model the request is about.
           <p role="status" className="mt-3 break-all rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-foreground">
-            Mẫu tham khảo: <a href={referenceUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline">{referenceUrl}</a>
+            Mẫu tham khảo: <a href={referenceUrl} target="_blank" rel="noopener noreferrer nofollow" className="font-medium text-primary hover:underline">{referenceUrl}</a>
           </p>
         ) : null}
         <div className="mt-4">

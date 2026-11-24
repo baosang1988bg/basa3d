@@ -100,6 +100,9 @@ async function loadHomeCatalog() {
 }
 
 export const metadata: Metadata = {
+  // QA-017: the homepage title/description were the generic root fallback.
+  title: 'BaSa3D — Xưởng in 3D theo yêu cầu, báo giá trong 30 phút',
+  description: 'In 3D theo yêu cầu từ 1 sản phẩm: gửi file STL/3MF/STEP hoặc link MakerWorld để nhận báo giá nhanh. Mô hình, móc khoá khắc tên, đồ trang trí in sẵn.',
   alternates: localeAlternates('/'),
 };
 

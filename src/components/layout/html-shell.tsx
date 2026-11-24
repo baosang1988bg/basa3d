@@ -16,7 +16,8 @@ const bodyFont = Inter({ subsets: ['latin', 'vietnamese'], weight: ['400', '500'
 // route in the app to render dynamically. The root layout is now a pass-through and each top-level
 // area renders this shell itself with a `lang` it already knows without reading the request:
 // `[locale]/layout.tsx` (from route params), `admin/layout.tsx` ('vi'), and `not-found.tsx`.
-export function HtmlShell({ lang, children }: { lang: string; children: ReactNode }) {
+// QA-016: `analytics={false}` for /basaadmin — staff screens (order/quote ids in URLs) are not marketing traffic.
+export function HtmlShell({ lang, children, analytics = true }: { lang: string; children: ReactNode; analytics?: boolean }) {
   return (
     <html lang={lang} className={cn('font-sans', headingFont.variable, bodyFont.variable)} suppressHydrationWarning>
       <head>
@@ -24,7 +25,7 @@ export function HtmlShell({ lang, children }: { lang: string; children: ReactNod
       </head>
       <body className="[font-feature-settings:'tnum']" suppressHydrationWarning>
         {children}
-        <GoogleAnalytics />
+        {analytics ? <GoogleAnalytics /> : null}
         {/* Vercel Speed Insights (Core Web Vitals). On Vercel it loads /_vercel/speed-insights/script.js
             (same-origin, already allowed by CSP 'self'). ADR-0054: only rendered on Vercel builds —
             elsewhere (Netlify) that script does not exist and would 404 on every page view. */}

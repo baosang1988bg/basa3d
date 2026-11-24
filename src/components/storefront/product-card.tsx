@@ -6,6 +6,7 @@ import { ArrowRight } from 'lucide-react';
 import { Link } from '@/i18n/navigation';
 import { formatVnd } from './format';
 import { trackSelectItem } from '@/lib/analytics';
+import { displayProductType } from '@/config/business-mode';
 
 export type ProductCardData = {
   id: string;
@@ -21,10 +22,12 @@ export type ProductCardData = {
 
 export function ProductCard({ product }: { product: ProductCardData }) {
   const t = useTranslations('products');
-  const stockLabel = product.productType === 'READY_STOCK'
+  // ADR-0066: with ready-stock selling off, every card reads "Đặt in" (no stock promise).
+  const productType = displayProductType(product.productType);
+  const stockLabel = productType === 'READY_STOCK'
     ? (product.inStock ? t('inStock') : t('outOfStock'))
     : t('printOnDemand24h');
-  const stockBadgeClass = product.productType === 'READY_STOCK' && product.inStock
+  const stockBadgeClass = productType === 'READY_STOCK' && product.inStock
     ? 'border border-emerald-500/20 bg-emerald-50/95 text-emerald-700 shadow-xs dark:bg-emerald-950/90 dark:text-emerald-300 dark:border-emerald-500/30'
     : 'border border-border/60 bg-secondary/90 text-secondary-foreground shadow-xs dark:bg-slate-800/90 dark:text-slate-300';
 

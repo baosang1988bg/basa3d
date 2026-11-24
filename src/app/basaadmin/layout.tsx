@@ -13,5 +13,5 @@ export const metadata: Metadata = {
 // pass-through. Admin stays Vietnamese-only (phase-18.md) and never goes through the locale
 // middleware, so `lang` is fixed rather than read from the request.
 export default function AdminRootLayout({ children }: { children: ReactNode }) {
-  return <HtmlShell lang="vi">{children}</HtmlShell>;
+  return <HtmlShell lang="vi" analytics={false}>{children}</HtmlShell>;
 }

@@ -63,6 +63,7 @@ export function ProductDetailShowcase({
 
   const selectedVariant = variants.find((v) => v.id === selectedVariantId) ?? variants[0];
 
+  const showInStock = productType === 'READY_STOCK' && anyInStock;
   const variantImageMap = useMemo(() => {
     const map: Record<string, string> = {};
     for (const img of images) {
@@ -98,8 +99,10 @@ export function ProductDetailShowcase({
         {selectedVariant ? (
           <p className="mt-1 text-sm text-muted-foreground">{skuLabelTemplate.replace('{sku}', selectedVariant.sku)}</p>
         ) : null}
-        <span className={`mt-3 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${anyInStock ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>
-          {anyInStock ? inStockLabel : printOnDemandLabel}
+        {/* ADR-0066: a made-to-order product is always "in stock" in the data (it is printed on demand), so the
+            badge must follow the product type — it used to say "Sẵn hàng" for made-to-order products too. */}
+        <span className={`mt-3 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${showInStock ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>
+          {showInStock ? inStockLabel : printOnDemandLabel}
         </span>
 
         {displayPrice != null ? (

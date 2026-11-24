@@ -42,7 +42,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <Card><CardContent className="pt-6"><p className="text-xs text-muted-foreground">Tổng chi tích lũy</p><p className="text-xl font-semibold">{formatVnd(summary.totalExpenses)}</p></CardContent></Card>
         <Card><CardContent className="pt-6"><p className="text-xs text-muted-foreground">Chi tiêu tháng này</p><p className="text-xl font-semibold">{formatVnd(summary.expensesThisMonth)}</p></CardContent></Card>
-        <Card><CardContent className="pt-6"><p className="text-xs text-muted-foreground">Doanh thu đơn hàng</p><p className="text-xl font-semibold">{formatVnd(summary.totalRevenue)}</p></CardContent></Card>
+        <Card><CardContent className="pt-6"><p className="text-xs text-muted-foreground" title="Chỉ tính đơn đã thanh toán đủ (PAID), không tính đơn huỷ">Doanh thu đã thu (đơn đã thanh toán)</p><p className="text-xl font-semibold">{formatVnd(summary.totalRevenue)}</p></CardContent></Card>
         <Card>
           <CardContent className="pt-6">
             <p className="text-xs text-muted-foreground">Dòng tiền ròng</p>
@@ -82,7 +82,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="amount">Số tiền (VND)</Label>
-              <Input id="amount" name="amount" type="number" min={0} required />
+              <Input id="amount" name="amount" type="number" min={1} step={1} required />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="quantity">Số lượng</Label>

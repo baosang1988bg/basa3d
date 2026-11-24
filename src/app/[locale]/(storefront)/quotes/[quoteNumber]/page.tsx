@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import { headers } from 'next/headers';
-import { getPublicQuoteByPhoneSuffix, getPublicQuoteByToken } from '@/services/quote.service';
+import { getPublicQuoteByToken, lookupPublicQuoteByPhoneSuffix } from '@/services/quote.service';
+import { SITE_CONFIG } from '@/config/site';
 import { formatVnd } from '@/components/storefront/format';
 import { storefrontButtonClasses } from '@/components/storefront/button';
 import { QuoteCountdown } from '@/components/storefront/quote-countdown';
@@ -19,7 +20,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   return <div className="mx-auto max-w-2xl px-4 py-12">{children}</div>;
 }
 
-function PhoneSuffixGate({ quoteNumber, invalid }: { quoteNumber: string; invalid: boolean }) {
+function PhoneSuffixGate({ quoteNumber, invalid, locked }: { quoteNumber: string; invalid: boolean; locked: boolean }) {
   return (
     <Shell>
       <div className="rounded-xl border border-border bg-card p-6 text-center shadow-xs">
@@ -27,7 +28,13 @@ function PhoneSuffixGate({ quoteNumber, invalid }: { quoteNumber: string; invali
         <p className="mt-2 text-sm text-muted-foreground">
           Link xem báo giá đã hết hạn hoặc thiếu mã xác minh — vui lòng nhập 4 số cuối số điện thoại bạn đã dùng khi gửi yêu cầu để tiếp tục xem.
         </p>
-        {invalid ? <p className="mt-2 text-sm font-medium text-destructive">Không tìm thấy báo giá khớp với số điện thoại này.</p> : null}
+        {locked ? (
+          // QA-004: the 10-wrong-answers/24h budget is spent — even a correct answer is refused now, so say so.
+          <p role="alert" className="mt-2 text-sm font-medium text-destructive">
+            Đã nhập sai quá nhiều lần nên tạm khoá xem bằng số điện thoại (tối đa 24 giờ). Vui lòng mở lại link báo giá BaSa3D đã gửi, hoặc{' '}
+            <a href={SITE_CONFIG.zaloUrl} target="_blank" rel="noopener noreferrer" className="underline">nhắn Zalo</a> để xưởng gửi lại.
+          </p>
+        ) : invalid ? <p role="alert" className="mt-2 text-sm font-medium text-destructive">Không tìm thấy báo giá khớp với số điện thoại này.</p> : null}
         <form method="GET" className="mt-4 flex justify-center gap-2">
           <input
             type="text" name="phoneSuffix" inputMode="numeric" maxLength={4} pattern="\d{4}" required
@@ -63,10 +70,11 @@ export default async function PublicQuotePage({
   }
 
   const hasPhoneSuffixAttempt = /^\d{4}$/.test(phoneSuffix);
-  const quote = (token ? await getPublicQuoteByToken(quoteNumber, token) : null)
-    ?? (hasPhoneSuffixAttempt ? await getPublicQuoteByPhoneSuffix(quoteNumber, phoneSuffix) : null);
+  const byToken = token ? await getPublicQuoteByToken(quoteNumber, token) : null;
+  const bySuffix = !byToken && hasPhoneSuffixAttempt ? await lookupPublicQuoteByPhoneSuffix(quoteNumber, phoneSuffix) : null;
+  const quote = byToken ?? bySuffix?.quote ?? null;
 
-  if (!quote) return <PhoneSuffixGate quoteNumber={quoteNumber} invalid={hasPhoneSuffixAttempt} />;
+  if (!quote) return <PhoneSuffixGate quoteNumber={quoteNumber} invalid={hasPhoneSuffixAttempt} locked={bySuffix?.locked ?? false} />;
 
   const isExpired = new Date(quote.validUntil).getTime() < Date.now();
   // Phase 36: a REJECTED/EXPIRED quote (e.g. the KIT tier auto-rejected when the customer's ASSEMBLED

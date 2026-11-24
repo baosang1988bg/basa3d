@@ -5,6 +5,7 @@ import { XMLParser } from 'fast-xml-parser';
 import { z } from 'zod';
 import { query, withTransaction } from '../lib/db';
 import { DomainError } from '../lib/domain-error';
+import { decodeEntities, stripHtml } from '../lib/parsers/html-text';
 import { blogPostInputSchema } from '../domain/schemas';
 import { blogMediaItemSchema, youtubeVideoIdSchema, type BlogMediaItem } from '../lib/blog-media';
 import { writeAuditLog } from './audit.service';
@@ -55,28 +56,7 @@ const parser = new XMLParser({
 // Text helpers
 // ---------------------------------------------------------------------------------------------
 
-const NAMED_ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
-
-function decodeEntities(input: string): string {
-  return input.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, entity: string) => {
-    if (entity.startsWith('#')) {
-      const code = entity[1].toLowerCase() === 'x' ? parseInt(entity.slice(2), 16) : parseInt(entity.slice(1), 10);
-      return Number.isFinite(code) && code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : ' ';
-    }
-    return NAMED_ENTITIES[entity.toLowerCase()] ?? match;
-  });
-}
-
-export function stripHtml(input: string): string {
-  return decodeEntities(
-    input
-      .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, ' ')
-      .replace(/<!--[\s\S]*?-->/g, ' ')
-      .replace(/<[^>]+>/g, ' '),
-  )
-    .replace(/\s+/g, ' ')
-    .trim();
-}
+export { stripHtml } from '../lib/parsers/html-text';
 
 function textOf(value: unknown): string {
   if (typeof value === 'string' || typeof value === 'number') return String(value);
