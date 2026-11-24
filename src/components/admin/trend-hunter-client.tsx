@@ -1,0 +1,549 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import {
+  Sparkles,
+  ExternalLink,
+  Flame,
+  Plus,
+  Loader2,
+  Trash2,
+  CheckCircle2,
+  Clock,
+  Weight,
+  Layers,
+  ClipboardPaste,
+  Globe,
+  Tag,
+  AlertCircle,
+} from 'lucide-react';
+import {
+  CURATED_TREND_FEEDS,
+} from '@/lib/search/meta-engines';
+import type {
+  TrendCapturedDraft,
+  TrendWatchItem,
+  TrendWatchStatus,
+} from '@/services/trend-hunter.service';
+import { Button } from '@/components/ui/button';
+
+const STATUS_LABELS: Record<TrendWatchStatus, { label: string; color: string }> = {
+  WATCHING: { label: 'Đang theo dõi', color: 'bg-blue-500/10 text-blue-600 border-blue-200 dark:border-blue-800' },
+  PRINT_TESTING: { label: 'Đang in thử', color: 'bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800' },
+  CONVERTED_DRAFT: { label: 'Đã tạo SP nháp', color: 'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:border-emerald-800' },
+  ARCHIVED: { label: 'Đã lưu trữ', color: 'bg-muted text-muted-foreground border-border' },
+};
+
+export function TrendHunterClient({ initialItems = [] }: { initialItems?: TrendWatchItem[] }) {
+  const [activeTab, setActiveTab] = useState<'feeds' | 'capture' | 'watchlist'>('feeds');
+  const [urlInput, setUrlInput] = useState('');
+  const [capturing, setCapturing] = useState(false);
+  const [captureError, setCaptureError] = useState<string | null>(null);
+  const [draft, setDraft] = useState<TrendCapturedDraft | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const [watchlist, setWatchlist] = useState<TrendWatchItem[]>(initialItems);
+  const [loadingWatchlist, setLoadingWatchlist] = useState(false);
+  const [platformFilter, setPlatformFilter] = useState<string>('ALL');
+
+  useEffect(() => {
+    fetchWatchlist();
+  }, []);
+
+  async function fetchWatchlist() {
+    try {
+      setLoadingWatchlist(true);
+      const res = await fetch('/api/admin/trend-hunter/items');
+      const data = await res.json();
+      if (data.data) {
+        setWatchlist(data.data);
+      }
+    } catch (err) {
+      console.error('Failed to load watchlist', err);
+    } finally {
+      setLoadingWatchlist(false);
+    }
+  }
+
+  async function handlePaste() {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        setUrlInput(text);
+        runCapture(text);
+      }
+    } catch {
+      // Ignore clipboard read error
+    }
+  }
+
+  async function runCapture(targetUrl?: string) {
+    const urlToCapture = (targetUrl ?? urlInput).trim();
+    if (!urlToCapture) return;
+
+    try {
+      setCapturing(true);
+      setCaptureError(null);
+      setDraft(null);
+
+      const res = await fetch('/api/admin/trend-hunter/capture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: urlToCapture }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.message || 'Không thể trích xuất thông tin từ URL.');
+      }
+
+      setDraft(json.data);
+      setActiveTab('capture');
+    } catch (err) {
+      setCaptureError(err instanceof Error ? err.message : 'Lỗi không xác định.');
+    } finally {
+      setCapturing(false);
+    }
+  }
+
+  async function handleSaveToWatchlist() {
+    if (!draft) return;
+    try {
+      setSaving(true);
+      const res = await fetch('/api/admin/trend-hunter/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(draft),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Lỗi khi lưu.');
+      }
+
+      await fetchWatchlist();
+      setActiveTab('watchlist');
+      setDraft(null);
+      setUrlInput('');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Không thể lưu mẫu.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleUpdateStatus(id: string, newStatus: TrendWatchStatus) {
+    try {
+      const res = await fetch('/api/admin/trend-hunter/items', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: newStatus }),
+      });
+      if (res.ok) {
+        setWatchlist((prev) =>
+          prev.map((item) => (item.id === id ? { ...item, status: newStatus } : item))
+        );
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function handleDeleteItem(id: string) {
+    if (!confirm('Bạn có chắc muốn xoá mẫu này khỏi Watchlist?')) return;
+    try {
+      const res = await fetch(`/api/admin/trend-hunter/items?id=${id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setWatchlist((prev) => prev.filter((item) => item.id !== id));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  const filteredWatchlist = watchlist.filter((item) => {
+    if (platformFilter === 'ALL') return true;
+    return item.platform === platformFilter;
+  });
+
+  return (
+    <div className="space-y-6">
+      {/* Top Header & Quick Capture Bar */}
+      <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-card via-card to-primary/5 p-6 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
+                <Flame className="size-4 text-amber-500" />
+                Trend Radar
+              </span>
+              <span className="text-xs text-muted-foreground">Săn mẫu hot in 3D đón đầu thị trường</span>
+            </div>
+            <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
+              Trung Tâm Săn Mẫu Trend
+            </h1>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant={activeTab === 'feeds' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveTab('feeds')}
+              className="gap-1.5"
+            >
+              <Globe className="size-4" />
+              Nguồn Săn Trend ({CURATED_TREND_FEEDS.length})
+            </Button>
+            <Button
+              variant={activeTab === 'capture' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveTab('capture')}
+              className="gap-1.5"
+            >
+              <Plus className="size-4" />
+              Bắt Mẫu URL
+            </Button>
+            <Button
+              variant={activeTab === 'watchlist' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveTab('watchlist')}
+              className="gap-1.5"
+            >
+              <CheckCircle2 className="size-4" />
+              Watchlist ({watchlist.length})
+            </Button>
+          </div>
+        </div>
+
+        {/* Global Quick Input Bar */}
+        <div className="mt-5 border-t border-border/60 pt-4">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              runCapture();
+            }}
+            className="flex flex-col gap-2 sm:flex-row sm:items-center"
+          >
+            <div className="relative flex-1">
+              <input
+                type="url"
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                placeholder="Dán liên kết mẫu hot từ MakerWorld (Global / CN), Printables, Thingiverse, Douyin..."
+                className="h-11 w-full rounded-xl border border-input bg-background/90 px-4 pr-24 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+              />
+              <button
+                type="button"
+                onClick={handlePaste}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-secondary px-2.5 py-1 text-xs font-medium text-foreground hover:bg-secondary/80 flex items-center gap-1"
+              >
+                <ClipboardPaste className="size-3.5" />
+                Dán
+              </button>
+            </div>
+            <Button type="submit" disabled={capturing} className="h-11 gap-2 px-5">
+              {capturing ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+              Phân Tích & Bắt Mẫu
+            </Button>
+          </form>
+
+          {captureError && (
+            <div className="mt-2.5 flex items-center gap-2 rounded-lg bg-destructive/10 p-2.5 text-xs text-destructive">
+              <AlertCircle className="size-4 shrink-0" />
+              <span>{captureError}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* TAB 1: CURATED FEEDS */}
+      {activeTab === 'feeds' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <Globe className="size-5 text-primary" />
+              Các Kênh Săn Trend Chọn Lọc (Bấm là mở ngay)
+            </h2>
+            <span className="text-xs text-muted-foreground">
+              Mẹo: Lướt bảng Download TQ hoặc Douyin, thấy mẫu nào hay thì copy link dán vào ô trên!
+            </span>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {CURATED_TREND_FEEDS.map((feed) => (
+              <div
+                key={feed.id}
+                className="group relative flex flex-col justify-between rounded-xl border border-border bg-card p-5 shadow-sm transition-all hover:border-primary/40 hover:shadow-md"
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                      {feed.badge}
+                    </span>
+                    <span className="text-[11px] font-medium text-muted-foreground">{feed.source}</span>
+                  </div>
+                  <h3 className="mt-3 text-base font-bold text-foreground group-hover:text-primary transition-colors">
+                    {feed.title}
+                  </h3>
+                  <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground line-clamp-3">
+                    {feed.description}
+                  </p>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-border/50">
+                  <a
+                    href={feed.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-secondary py-2 text-xs font-medium text-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
+                  >
+                    <span>Mở Kênh Này</span>
+                    <ExternalLink className="size-3.5" />
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: CAPTURE PREVIEW */}
+      {activeTab === 'capture' && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-bold text-foreground">Kết quả Phân Tích Mẫu</h2>
+          {draft ? (
+            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+              <div className="grid gap-6 md:grid-cols-[280px_1fr]">
+                {/* Cover Image */}
+                <div className="relative aspect-square overflow-hidden rounded-xl border border-border bg-muted flex items-center justify-center">
+                  {draft.coverUrl ? (
+                    <img
+                      src={draft.coverUrl}
+                      alt={draft.title}
+                      className="size-full object-cover"
+                    />
+                  ) : (
+                    <div className="text-xs text-muted-foreground">Không có ảnh bìa</div>
+                  )}
+                  <span className="absolute left-2.5 top-2.5 rounded-md bg-black/70 px-2 py-0.5 text-[11px] font-bold text-white uppercase">
+                    {draft.platform}
+                  </span>
+                </div>
+
+                {/* Info & Specs */}
+                <div className="flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-xl font-extrabold text-foreground">{draft.title}</h3>
+                    <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                      {draft.author && <span>Tác giả: <b>{draft.author}</b></span>}
+                      {draft.license && <span>Giấy phép: <b>{draft.license}</b></span>}
+                      <a
+                        href={draft.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-primary hover:underline"
+                      >
+                        <span>Mở trang gốc</span>
+                        <ExternalLink className="size-3" />
+                      </a>
+                    </div>
+
+                    {/* Sliced Specs */}
+                    <div className="mt-4 grid grid-cols-3 gap-3 rounded-xl bg-secondary/50 p-3.5">
+                      <div className="flex flex-col items-center justify-center text-center">
+                        <Weight className="size-4 text-primary mb-1" />
+                        <span className="text-[11px] text-muted-foreground">Khối lượng</span>
+                        <span className="text-sm font-bold text-foreground">
+                          {draft.estimatedGrams ? `${draft.estimatedGrams}g` : 'Chưa rõ'}
+                        </span>
+                      </div>
+                      <div className="flex flex-col items-center justify-center text-center">
+                        <Clock className="size-4 text-primary mb-1" />
+                        <span className="text-[11px] text-muted-foreground">Thời gian in</span>
+                        <span className="text-sm font-bold text-foreground">
+                          {draft.estimatedPrintMinutes
+                            ? `${Math.floor(draft.estimatedPrintMinutes / 60)}h ${draft.estimatedPrintMinutes % 60}m`
+                            : 'Chưa rõ'}
+                        </span>
+                      </div>
+                      <div className="flex flex-col items-center justify-center text-center">
+                        <Layers className="size-4 text-primary mb-1" />
+                        <span className="text-[11px] text-muted-foreground">Số bàn / Profile</span>
+                        <span className="text-sm font-bold text-foreground">
+                          {draft.plateCount ?? 1} bàn
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Category Tag Input */}
+                    <div className="mt-4 flex items-center gap-2">
+                      <Tag className="size-4 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Danh mục gán:</span>
+                      <input
+                        type="text"
+                        value={draft.categoryTag}
+                        onChange={(e) => setDraft({ ...draft, categoryTag: e.target.value })}
+                        className="h-8 rounded-lg border border-input bg-background px-2.5 text-xs font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex items-center gap-3">
+                    <Button onClick={handleSaveToWatchlist} disabled={saving} className="gap-2">
+                      {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                      Lưu Vào Watchlist Săn Mẫu
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setDraft(null);
+                        setUrlInput('');
+                      }}
+                    >
+                      Bỏ qua
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-border p-12 text-center text-muted-foreground">
+              Dán một liên kết bất kỳ vào thanh tìm kiếm phía trên để xem trước và lưu thông số mẫu.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 3: WATCHLIST */}
+      {activeTab === 'watchlist' && (
+        <div className="space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+                <CheckCircle2 className="size-5 text-emerald-500" />
+                Danh Sách Mẫu Đang Theo Dõi ({filteredWatchlist.length})
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Quản lý các mẫu tiềm năng, theo dõi tiến độ in thử trước khi đưa lên Catalog bán.
+              </p>
+            </div>
+
+            {/* Filter buttons */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {['ALL', 'MAKERWORLD_CN', 'MAKERWORLD', 'PRINTABLES', 'THINGIVERSE', 'DOUYIN'].map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPlatformFilter(p)}
+                  className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+                    platformFilter === p
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-secondary text-muted-foreground hover:bg-secondary/80'
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {loadingWatchlist ? (
+            <div className="flex h-40 items-center justify-center">
+              <Loader2 className="size-6 animate-spin text-primary" />
+            </div>
+          ) : filteredWatchlist.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border p-12 text-center text-muted-foreground">
+              Chưa có mẫu nào trong danh sách theo dõi. Hãy dùng tab &quot;Nguồn Săn Trend&quot; hoặc dán URL để lưu mẫu!
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredWatchlist.map((item) => {
+                const statusMeta = STATUS_LABELS[item.status];
+                return (
+                  <div
+                    key={item.id}
+                    className="flex flex-col justify-between rounded-xl border border-border bg-card p-4 shadow-sm transition-all hover:border-primary/40 hover:shadow-md"
+                  >
+                    <div>
+                      {/* Image & Header */}
+                      <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-muted">
+                        {item.coverUrl ? (
+                          <img
+                            src={item.coverUrl}
+                            alt={item.title}
+                            className="size-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex size-full items-center justify-center text-xs text-muted-foreground">
+                            Không có ảnh
+                          </div>
+                        )}
+                        <span className="absolute left-2 top-2 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-bold text-white uppercase">
+                          {item.platform}
+                        </span>
+                      </div>
+
+                      <h3 className="mt-3 font-bold text-foreground text-sm line-clamp-1">{item.title}</h3>
+                      <p className="text-xs text-muted-foreground">{item.categoryTag}</p>
+
+                      {/* Specs */}
+                      <div className="mt-2.5 flex items-center gap-3 text-xs text-muted-foreground">
+                        {item.estimatedGrams && (
+                          <span className="flex items-center gap-1 font-medium">
+                            <Weight className="size-3.5 text-primary" />
+                            {item.estimatedGrams}g
+                          </span>
+                        )}
+                        {item.estimatedPrintMinutes && (
+                          <span className="flex items-center gap-1 font-medium">
+                            <Clock className="size-3.5 text-primary" />
+                            {Math.floor(item.estimatedPrintMinutes / 60)}h{item.estimatedPrintMinutes % 60}m
+                          </span>
+                        )}
+                        <a
+                          href={item.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="ml-auto inline-flex items-center gap-1 text-primary hover:underline text-[11px]"
+                        >
+                          <span>Mở web</span>
+                          <ExternalLink className="size-3" />
+                        </a>
+                      </div>
+                    </div>
+
+                    {/* Status & Actions */}
+                    <div className="mt-4 border-t border-border/50 pt-3 flex items-center justify-between">
+                      <select
+                        value={item.status}
+                        onChange={(e) => handleUpdateStatus(item.id, e.target.value as TrendWatchStatus)}
+                        className={`rounded-md border px-2 py-1 text-xs font-semibold ${statusMeta.color}`}
+                      >
+                        <option value="WATCHING">Đang theo dõi</option>
+                        <option value="PRINT_TESTING">Đang in thử</option>
+                        <option value="CONVERTED_DRAFT">Đã tạo SP nháp</option>
+                        <option value="ARCHIVED">Lưu trữ</option>
+                      </select>
+
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteItem(item.id)}
+                          className="size-8 text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
