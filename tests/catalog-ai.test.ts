@@ -54,3 +54,14 @@ test('suggestProductMetadataFromImage returns fallback when no image provided', 
   assert.equal(suggestion.source, 'fallback');
   assert.equal(suggestion.suggestedNames.length, 3);
 });
+
+
+test('suggestProductMetadataFromImage handles image input gracefully with dual-engine', async () => {
+  const result = await suggestProductMetadataFromImage({
+    imageBase64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+    hint: 'Móc khoá chibi',
+  });
+  assert.ok(['local_ollama', 'ai_vision', 'fallback'].includes(result.source));
+  assert.ok(result.suggestedNames.length > 0);
+  assert.ok(result.suggestedShortDescription.length > 0);
+});

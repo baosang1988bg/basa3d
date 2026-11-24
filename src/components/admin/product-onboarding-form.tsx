@@ -119,6 +119,7 @@ export function ProductOnboardingForm({
 
   // AI Suggestions & Quick Flow
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiSource, setAiSource] = useState<'local_ollama' | 'ai_vision' | 'fallback' | null>(null);
   const [suggestedNames, setSuggestedNames] = useState<string[]>([]);
   const lastAnalyzedKeyRef = useRef<string | null>(null);
 
@@ -179,10 +180,12 @@ export function ProductOnboardingForm({
             suggestedNames?: string[];
             suggestedCategoryId?: string | null;
             suggestedShortDescription?: string | null;
+            source?: 'local_ollama' | 'ai_vision' | 'fallback';
           };
         };
         if (json?.data) {
-          const { suggestedNames: names, suggestedCategoryId, suggestedShortDescription } = json.data;
+          const { suggestedNames: names, suggestedCategoryId, suggestedShortDescription, source } = json.data;
+          if (source) setAiSource(source);
           if (Array.isArray(names) && names.length > 0) {
             setSuggestedNames(names);
           }
@@ -357,6 +360,7 @@ export function ProductOnboardingForm({
         setVariants([]);
         setCreatedProductId(null);
         setSuggestedNames([]);
+        setAiSource(null);
         userManuallyPickedCatRef.current = false;
         setAutoCatReason(null);
         setShowAddCategory(false);
@@ -511,6 +515,15 @@ export function ProductOnboardingForm({
                     <span className="flex items-center gap-1 text-primary font-semibold">
                       <Sparkles className="size-3.5" /> Gợi ý tên từ ảnh (chọn 1 tên để điền nhanh &amp; nhảy tới Giá):
                     </span>
+                    {aiSource === 'local_ollama' ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 border border-emerald-500/25" title="Chạy bằng LLaVA cục bộ trên card RTX 4060 - 0 tốn token, bảo mật 100%">
+                        ⚡ AI Local (RTX 4060)
+                      </span>
+                    ) : aiSource === 'ai_vision' ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-[11px] font-semibold text-sky-700 dark:text-sky-300 border border-sky-500/25" title="Chạy qua Cloud Gemini Vision">
+                        ✨ Cloud Gemini
+                      </span>
+                    ) : null}
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {suggestedNames.map((sName) => (
