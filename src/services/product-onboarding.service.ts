@@ -447,6 +447,19 @@ export type CatalogStatusFilter = 'ACTIVE' | 'DRAFT' | 'ARCHIVED';
 export type CatalogSortOption = 'default' | 'updated_desc' | 'name_asc' | 'price_asc' | 'price_desc';
 export type CatalogSourceFilter = 'ALL' | 'STL' | 'MANUAL';
 
+export type CatalogVariantItem = {
+  id: string;
+  productId: string;
+  sku: string;
+  name: string;
+  price: number;
+  weightGrams: number | null;
+  isActive: boolean;
+  printLocalPath: string | null;
+  printDriveUrl: string | null;
+  coverStoragePath: string | null;
+};
+
 export type CatalogListItem = {
   id: string; name: string; slug: string; status: string; productType: string; basePrice: number | null;
   shortDescription: string | null; isFeatured: boolean;
@@ -457,6 +470,7 @@ export type CatalogListItem = {
   importItemId: string | null; importReviewStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   importLicenseReviewed: boolean | null; importSourceRelPath: string | null; importWarnings: string[];
   updatedAt: string; missing: PublishReadinessReason[];
+  variants: CatalogVariantItem[];
 };
 
 const ORDER_BY_MAP: Record<CatalogSortOption, string> = {
@@ -524,6 +538,47 @@ export async function listCatalogProducts(filters: {
     order by ${orderBy}
     limit $${listValues.length - 1} offset $${listValues.length}`, listValues);
 
+  const productIds = rows.rows.slice(0, limit).map((r) => r.id);
+  const variantsByProductId = new Map<string, CatalogVariantItem[]>();
+  if (productIds.length > 0) {
+    const variantRows = await query<{
+      id: string;
+      productId: string;
+      sku: string;
+      name: string;
+      price: string;
+      weightGrams: number | null;
+      isActive: boolean;
+      printLocalPath: string | null;
+      printDriveUrl: string | null;
+      coverStoragePath: string | null;
+    }>(
+      `select v.id, v.product_id as "productId", v.sku, v.name, v.price, v.weight_grams as "weightGrams",
+              v.is_active as "isActive", v.print_local_path as "printLocalPath", v.print_drive_url as "printDriveUrl",
+              (select pi.storage_path from product_images pi where pi.variant_id = v.id order by pi.sort_order, pi.created_at limit 1) as "coverStoragePath"
+       from product_variants v
+       where v.product_id = any($1::uuid[])
+       order by v.created_at, v.id`,
+      [productIds],
+    );
+    for (const vr of variantRows.rows) {
+      const list = variantsByProductId.get(vr.productId) ?? [];
+      list.push({
+        id: vr.id,
+        productId: vr.productId,
+        sku: vr.sku,
+        name: vr.name,
+        price: Number(vr.price),
+        weightGrams: vr.weightGrams,
+        isActive: vr.isActive,
+        printLocalPath: vr.printLocalPath,
+        printDriveUrl: vr.printDriveUrl,
+        coverStoragePath: vr.coverStoragePath,
+      });
+      variantsByProductId.set(vr.productId, list);
+    }
+  }
+
   const items: CatalogListItem[] = rows.rows.slice(0, limit).map((row) => {
     const basePrice = row.basePrice === null ? null : Number(row.basePrice);
     const importWarnings = Array.isArray(row.importWarnings) ? row.importWarnings.filter((w): w is string => typeof w === 'string') : [];
@@ -538,6 +593,7 @@ export async function listCatalogProducts(filters: {
       importItemId: row.importItemId, importReviewStatus: row.importReviewStatus,
       importLicenseReviewed: row.importLicenseReviewed, importSourceRelPath: row.importSourceRelPath, importWarnings,
       updatedAt: row.updatedAt,
+      variants: variantsByProductId.get(row.id) ?? [],
       missing: readinessReasons({ licenseType: row.licenseType, basePrice, categorySlug: row.categorySlug, imageCount: Number(row.imageCount), pricedVariants: Number(row.pricedVariants) }),
     };
   });
@@ -1032,4 +1088,251 @@ export async function mergeCatalogProducts(session: StaffSession, rawInput: unkn
     }
     throw error;
   }
+}
+
+
+export async function duplicateVariant(
+  session: StaffSession,
+  productId: string,
+  variantId: string,
+): Promise<{ id: string; sku: string; name: string }> {
+  return invalidatesStorefrontCatalog(withTransaction(async (client) => {
+    const parent = await client.query<{ id: string; slug: string; category_slug: string | null }>(
+      'select p.id, p.slug, c.slug as category_slug from products p left join categories c on c.id = p.category_id where p.id = $1',
+      [productId],
+    );
+    if (!parent.rowCount) throw new DomainError('PRODUCT_NOT_FOUND', 'Không tìm thấy sản phẩm cha.', 404);
+
+    const sourceVariant = await client.query<{
+      name: string;
+      attributes: Record<string, string>;
+      price: string;
+      cost_price: string | null;
+      weight_grams: number | null;
+      is_active: boolean;
+      print_local_path: string | null;
+      print_drive_url: string | null;
+    }>(
+      'select name, attributes, price, cost_price, weight_grams, is_active, print_local_path, print_drive_url from product_variants where id = $1 and product_id = $2',
+      [variantId, productId],
+    );
+    if (!sourceVariant.rowCount) throw new DomainError('VARIANT_NOT_FOUND', 'Không tìm thấy biến thể cần nhân bản.', 404);
+    const src = sourceVariant.rows[0];
+
+    const newName = `${src.name} (Bản sao)`.slice(0, 200);
+    const skuCode = skuCodeForCategory(parent.rows[0].category_slug);
+    const skuSlug = `${parent.rows[0].slug.slice(0, 24)}-${slugify(newName)}`;
+
+    let createdId = '';
+    let createdSku = '';
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const taken = await takenValues(client, 'product_variants', 'sku', buildSku(skuCode, skuSlug, () => false));
+      const sku = buildSku(skuCode, skuSlug, (value) => taken.has(value));
+      await client.query('savepoint variant_sku');
+      try {
+        const inserted = await client.query<{ id: string }>(
+          `insert into product_variants (product_id, sku, name, attributes, price, cost_price, weight_grams, is_active, print_local_path, print_drive_url)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning id`,
+          [productId, sku, newName, src.attributes ?? {}, src.price, src.cost_price, src.weight_grams, src.is_active, src.print_local_path, src.print_drive_url],
+        );
+        await client.query('release savepoint variant_sku');
+        createdId = inserted.rows[0].id;
+        createdSku = sku;
+        break;
+      } catch (error) {
+        await client.query('rollback to savepoint variant_sku');
+        if (!isUniqueViolation(error) || attempt >= 4) throw error;
+      }
+    }
+
+    const srcImg = await client.query<{ storage_path: string; alt_text: string | null }>(
+      'select storage_path, alt_text from product_images where product_id = $1 and variant_id = $2 order by sort_order limit 1',
+      [productId, variantId],
+    );
+    if (srcImg.rowCount) {
+      await client.query(
+        'insert into product_images (product_id, variant_id, storage_path, alt_text, sort_order) values ($1, $2, $3, $4, 100)',
+        [productId, createdId, srcImg.rows[0].storage_path, `${newName} alt`],
+      );
+    }
+
+    await writeAuditLog(client, {
+      actorId: session.actorId,
+      action: 'VARIANT_DUPLICATED',
+      entityType: 'product_variant',
+      entityId: createdId,
+      afterData: { productId, originalVariantId: variantId, sku: createdSku, name: newName },
+    });
+
+    return { id: createdId, sku: createdSku, name: newName };
+  }));
+}
+
+export type SplitVariantResult = {
+  productId: string;
+  slug: string;
+  name: string;
+};
+
+export async function splitVariantToProduct(
+  session: StaffSession,
+  input: {
+    productId: string;
+    variantId: string;
+    newProductName?: string;
+    deleteOriginal?: boolean;
+  },
+): Promise<SplitVariantResult> {
+  return invalidatesStorefrontCatalog(withTransaction(async (client) => {
+    const parentQuery = await client.query<{
+      name: string;
+      category_id: string | null;
+      category_slug: string | null;
+      product_type: string;
+      short_description: string | null;
+      description: string | null;
+      license_type: string;
+      license_source_url: string | null;
+      license_proof_url: string | null;
+      print_local_path: string | null;
+      print_drive_url: string | null;
+      pricing_config_id: string | null;
+    }>(
+      `select p.name, p.category_id, c.slug as category_slug, p.product_type, p.short_description, p.description,
+              p.license_type, p.license_source_url, p.license_proof_url, p.print_local_path, p.print_drive_url, p.pricing_config_id
+       from products p left join categories c on c.id = p.category_id where p.id = $1`,
+      [input.productId],
+    );
+    if (!parentQuery.rowCount) throw new DomainError('PRODUCT_NOT_FOUND', 'Không tìm thấy sản phẩm cha.', 404);
+    const parent = parentQuery.rows[0];
+
+    const variantQuery = await client.query<{
+      id: string;
+      sku: string;
+      name: string;
+      attributes: Record<string, string>;
+      price: string;
+      cost_price: string | null;
+      weight_grams: number | null;
+      is_active: boolean;
+      print_local_path: string | null;
+      print_drive_url: string | null;
+    }>(
+      'select id, sku, name, attributes, price, cost_price, weight_grams, is_active, print_local_path, print_drive_url from product_variants where id = $1 and product_id = $2',
+      [input.variantId, input.productId],
+    );
+    if (!variantQuery.rowCount) throw new DomainError('VARIANT_NOT_FOUND', 'Không tìm thấy biến thể cần tách.', 404);
+    const variant = variantQuery.rows[0];
+
+    const prodName = (input.newProductName?.trim() || `${parent.name} - ${variant.name}`).slice(0, 200);
+    let newProductId = '';
+    let newSlug = '';
+
+    for (let attempt = 0; ; attempt += 1) {
+      const taken = await takenValues(client, 'products', 'slug', slugify(prodName));
+      newSlug = uniqueSlug(prodName, (val) => taken.has(val));
+      await client.query('savepoint new_product_slug');
+      try {
+        const inserted = await client.query<{ id: string }>(
+          `insert into products (category_id, name, slug, short_description, description, product_type, status,
+                                 base_price, cost_price, license_type, license_source_url, license_proof_url,
+                                 print_local_path, print_drive_url, pricing_config_id)
+           values ($1, $2, $3, $4, $5, $6, 'DRAFT', $7, $8, $9, $10, $11, $12, $13, $14) returning id`,
+          [
+            parent.category_id,
+            prodName,
+            newSlug,
+            parent.short_description,
+            parent.description,
+            parent.product_type,
+            variant.price,
+            variant.cost_price,
+            parent.license_type,
+            parent.license_source_url,
+            parent.license_proof_url,
+            variant.print_local_path || parent.print_local_path,
+            variant.print_drive_url || parent.print_drive_url,
+            parent.pricing_config_id,
+          ],
+        );
+        await client.query('release savepoint new_product_slug');
+        newProductId = inserted.rows[0].id;
+        break;
+      } catch (error) {
+        await client.query('rollback to savepoint new_product_slug');
+        if (!isUniqueViolation(error) || attempt >= 3) throw error;
+      }
+    }
+
+    const skuCode = skuCodeForCategory(parent.category_slug);
+    let createdNewVariantId = '';
+    for (let attempt = 0; ; attempt += 1) {
+      const taken = await takenValues(client, 'product_variants', 'sku', buildSku(skuCode, newSlug, () => false));
+      const sku = buildSku(skuCode, newSlug, (val) => taken.has(val));
+      await client.query('savepoint new_variant_sku');
+      try {
+        const insVar = await client.query<{ id: string }>(
+          `insert into product_variants (product_id, sku, name, attributes, price, cost_price, weight_grams, is_active, print_local_path, print_drive_url)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning id`,
+          [
+            newProductId,
+            sku,
+            variant.name,
+            variant.attributes ?? {},
+            variant.price,
+            variant.cost_price,
+            variant.weight_grams,
+            variant.is_active,
+            variant.print_local_path || parent.print_local_path,
+            variant.print_drive_url || parent.print_drive_url,
+          ],
+        );
+        await client.query('release savepoint new_variant_sku');
+        createdNewVariantId = insVar.rows[0].id;
+        break;
+      } catch (error) {
+        await client.query('rollback to savepoint new_variant_sku');
+        if (!isUniqueViolation(error) || attempt >= 3) throw error;
+      }
+    }
+
+    const variantImg = await client.query<{ storage_path: string; alt_text: string | null }>(
+      'select storage_path, alt_text from product_images where product_id = $1 and variant_id = $2 order by sort_order limit 1',
+      [input.productId, input.variantId],
+    );
+    const parentCover = !variantImg.rowCount
+      ? await client.query<{ storage_path: string; alt_text: string | null }>(
+          'select storage_path, alt_text from product_images where product_id = $1 order by sort_order, created_at limit 1',
+          [input.productId],
+        )
+      : null;
+
+    const imgToCopy = variantImg.rowCount ? variantImg.rows[0] : (parentCover?.rowCount ? parentCover.rows[0] : null);
+    if (imgToCopy) {
+      await client.query(
+        'insert into product_images (product_id, variant_id, storage_path, alt_text, sort_order) values ($1, $2, $3, $4, 0)',
+        [newProductId, createdNewVariantId, imgToCopy.storage_path, prodName],
+      );
+    }
+
+    if (input.deleteOriginal) {
+      const varCount = await client.query<{ cnt: string }>(
+        'select count(*) as cnt from product_variants where product_id = $1',
+        [input.productId],
+      );
+      if (Number(varCount.rows[0].cnt) > 1) {
+        await client.query('delete from product_variants where id = $1', [input.variantId]);
+      }
+    }
+
+    await writeAuditLog(client, {
+      actorId: session.actorId,
+      action: 'VARIANT_SPLIT_TO_PRODUCT',
+      entityType: 'product',
+      entityId: newProductId,
+      afterData: { sourceProductId: input.productId, sourceVariantId: input.variantId, newSlug, deleteOriginal: input.deleteOriginal },
+    });
+
+    return { productId: newProductId, slug: newSlug, name: prodName };
+  }));
 }

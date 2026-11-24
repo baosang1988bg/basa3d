@@ -32,6 +32,8 @@ mock.module('../src/services/product-onboarding.service.ts', { namedExports: {
   mergeCatalogProducts: record('mergeCatalogProducts'),
   quickUpdateCatalogProduct: record('quickUpdateCatalogProduct'),
   setProductCoverImage: record('setProductCoverImage'),
+  duplicateVariant: record('duplicateVariant'),
+  splitVariantToProduct: record('splitVariantToProduct'),
 } });
 
 // Admin moved from /admin to /basaadmin (merge of origin/dev, 2026-11).

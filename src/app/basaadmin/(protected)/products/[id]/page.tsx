@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import Link from 'next/link';
-import { ArrowLeft, Copy, ExternalLink, ImageOff } from 'lucide-react';
+import { ArrowLeft, Copy, Pencil, ExternalLink, ImageOff, Layers, Package, Printer, Star, Tag } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -57,6 +57,10 @@ export default async function ProductDetailPage({
   if (!product) notFound();
 
   const cover = images[0]?.url ?? null;
+  const activeVariants = product.variants.filter((v: { isActive: boolean }) => v.isActive);
+  const prices = product.variants.map((v: { price: number }) => v.price).filter((p: number) => p > 0);
+  const minPrice = prices.length ? Math.min(...prices) : product.basePrice;
+  const maxPrice = prices.length ? Math.max(...prices) : product.basePrice;
   const badge = STATUS_BADGE[product.status] ?? STATUS_BADGE.DRAFT;
 
   return (
@@ -120,11 +124,91 @@ export default async function ProductDetailPage({
         </div>
       </div>
 
+      {/* Quick KPI Summary Bar */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="flex items-center gap-2.5 rounded-xl border border-border bg-card p-3 shadow-xs">
+          <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Layers className="size-4" />
+          </div>
+          <div>
+            <p className="text-[11px] text-muted-foreground font-medium">Sản phẩm con</p>
+            <p className="text-sm font-semibold text-foreground">
+              {product.variants.length} mẫu <span className="text-xs font-normal text-emerald-600">({activeVariants.length} bán)</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5 rounded-xl border border-border bg-card p-3 shadow-xs">
+          <div className="flex size-9 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
+            <Tag className="size-4" />
+          </div>
+          <div>
+            <p className="text-[11px] text-muted-foreground font-medium">Khoảng giá bán</p>
+            <p className="text-sm font-semibold text-foreground tabular-nums">
+              {minPrice != null
+                ? minPrice === maxPrice
+                  ? `${minPrice.toLocaleString('vi-VN')} ₫`
+                  : `${minPrice.toLocaleString('vi-VN')} ~ ${maxPrice?.toLocaleString('vi-VN')} ₫`
+                : 'Chưa đặt giá'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5 rounded-xl border border-border bg-card p-3 shadow-xs">
+          <div className="flex size-9 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
+            {product.productType === 'READY_STOCK' ? <Package className="size-4" /> : <Printer className="size-4" />}
+          </div>
+          <div>
+            <p className="text-[11px] text-muted-foreground font-medium">Hình thức bán</p>
+            <p className="text-sm font-semibold text-foreground">
+              {product.productType === 'READY_STOCK' ? 'Có sẵn, giao ngay' : 'In theo yêu cầu'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5 rounded-xl border border-border bg-card p-3 shadow-xs">
+          <div className="flex size-9 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
+            <Star className="size-4" />
+          </div>
+          <div>
+            <p className="text-[11px] text-muted-foreground font-medium">Ảnh &amp; File in</p>
+            <p className="text-sm font-semibold text-foreground">
+              {images.length} ảnh · {product.printLocalPath || product.variants.some((v: { printLocalPath: string | null }) => v.printLocalPath) ? 'Đã có .3mf' : 'Chưa có .3mf'}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Nav Anchors */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-border/80 pb-2 text-xs">
+        <a href="#san-pham-con" className="rounded-md bg-muted px-2.5 py-1 font-medium text-foreground hover:bg-primary/10 hover:text-primary transition-colors">
+          Sản phẩm con / Biến thể ({product.variants.length})
+        </a>
+        <a href="#anh" className="rounded-md px-2.5 py-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+          Ảnh ({images.length})
+        </a>
+        <a href="#thong-tin" className="rounded-md px-2.5 py-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors flex items-center gap-1">
+          <Pencil className="size-3" /> Sửa chi tiết cha &amp; SEO
+        </a>
+        <a href="#ban-quyen" className="rounded-md px-2.5 py-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+          Bản quyền &amp; 3MF
+        </a>
+      </div>
+
       {/* Variants & Images (most used for multi-variant merged products!) */}
       <div id="anh" className="scroll-mt-16">
       <ProductDetailVariantsAndImages
         productId={id}
         productName={product.name}
+        productSlug={product.slug}
+        productStatus={product.status}
+        categoryId={product.categoryId}
+        productType={product.productType}
+        shortDescription={product.shortDescription}
+        isFeatured={product.isFeatured}
+        categories={categories.map((c) => ({ id: c.id, name: getCategoryDisplayName(c, 'vi') }))}
+        categoryName={categories.find((c) => c.id === product.categoryId) ? getCategoryDisplayName(categories.find((c) => c.id === product.categoryId)!, 'vi') : null}
+        basePrice={product.basePrice}
         role={role}
         variants={product.variants.map((v: { id: string; sku: string; name: string; price: number; weightGrams: number | null; isActive: boolean; printLocalPath: string | null; printDriveUrl: string | null }) => ({
           id: v.id,
@@ -147,8 +231,23 @@ export default async function ProductDetailPage({
       </div>
 
       {/* General product info */}
-      <Card id="thong-tin" className="scroll-mt-16">
-        <CardHeader><CardTitle>Thông tin chung &amp; SEO</CardTitle></CardHeader>
+      <Card id="thong-tin" className="scroll-mt-16 border-2 border-primary/20">
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Pencil className="size-5 text-primary" />
+                <span>Chi tiết sản phẩm cha &amp; Cấu hình SEO</span>
+              </CardTitle>
+              <CardDescription className="mt-1">
+                Chỉnh sửa toàn bộ thông tin đại diện của sản phẩm cha: tên, danh mục, mô tả chi tiết (Markdown), SEO Title/Description và giấy phép in 3MF.
+              </CardDescription>
+            </div>
+            <Badge variant="outline" className="border-primary/30 bg-primary/5 text-primary font-medium">
+              Sản phẩm cha (ID: {product.slug})
+            </Badge>
+          </div>
+        </CardHeader>
         <CardContent>
           <form action={updateProductAction.bind(null, id)} className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">

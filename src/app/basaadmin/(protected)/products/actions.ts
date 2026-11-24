@@ -32,6 +32,9 @@ import {
   bulkCatalogAction,
   bulkPublishDrafts,
   duplicateProduct,
+  duplicateVariant,
+  splitVariantToProduct,
+  type SplitVariantResult,
   generateVariantSku,
   mergeCatalogProducts,
   publishProductIfReady,
@@ -510,6 +513,46 @@ export async function deleteImageInlineAction(
     await deleteProductImage(validImageId, actorId);
     revalidateAllCatalogPaths(validProductId);
     return { ok: true, data: { id: validImageId } };
+  } catch (error) {
+    return toCatalogFailure(error);
+  }
+}
+
+
+export async function duplicateVariantInlineAction(
+  productId: string,
+  variantId: string,
+): Promise<CatalogActionResult<{ id: string; sku: string; name: string }>> {
+  const session = await requireAdmin();
+  try {
+    const validProductId = parseActionId(productId, 'productId');
+    const validVariantId = parseActionId(variantId, 'variantId');
+    const data = await duplicateVariant(session, validProductId, validVariantId);
+    revalidateAllCatalogPaths(validProductId);
+    return { ok: true, data };
+  } catch (error) {
+    return toCatalogFailure(error);
+  }
+}
+
+export async function splitVariantToProductAction(
+  productId: string,
+  variantId: string,
+  payload: { newProductName?: string; deleteOriginal?: boolean },
+): Promise<CatalogActionResult<SplitVariantResult>> {
+  const session = await requireAdmin();
+  try {
+    const validProductId = parseActionId(productId, 'productId');
+    const validVariantId = parseActionId(variantId, 'variantId');
+    const data = await splitVariantToProduct(session, {
+      productId: validProductId,
+      variantId: validVariantId,
+      newProductName: payload.newProductName,
+      deleteOriginal: payload.deleteOriginal,
+    });
+    revalidateAllCatalogPaths(validProductId);
+    revalidateAllCatalogPaths(data.productId);
+    return { ok: true, data };
   } catch (error) {
     return toCatalogFailure(error);
   }

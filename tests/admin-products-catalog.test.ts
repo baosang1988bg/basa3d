@@ -118,6 +118,8 @@ test('catalog actions enforce auth, OWNER-only delete, and clean DomainError han
       quickUpdateCatalogProduct: async () => { calls.push('quickUpdate'); if (serviceError) throw serviceError; return { id: ID, name: 'Test', status: 'ACTIVE' }; },
       bulkCatalogAction: async () => { calls.push('bulk'); if (serviceError) throw serviceError; return { done: [ID], blocked: [] }; },
       mergeCatalogProducts: async () => { calls.push('merge'); if (serviceError) throw serviceError; return { productId: ID, slug: 'merged', name: 'Merged', status: 'ACTIVE', variantCount: 2 }; },
+      duplicateVariant: async () => { calls.push('duplicateVariant'); return { id: ID, sku: 'SKU-DUP', name: 'Dup' }; },
+      splitVariantToProduct: async () => { calls.push('splitVariant'); return { productId: ID, slug: 'split', name: 'Split' }; },
     },
   });
 
@@ -150,6 +152,15 @@ test('catalog actions enforce auth, OWNER-only delete, and clean DomainError han
   serviceError = undefined;
   const deleted = await actions.deleteCatalogProductAction(ID);
   assert.deepEqual(deleted, { ok: true, data: { id: ID } });
+  // Duplicate & split variant actions
+  const dup = await actions.duplicateVariantInlineAction(ID, ID);
+  assert.equal(dup.ok, true);
+  assert.ok(calls.includes('duplicateVariant'));
+
+  const split = await actions.splitVariantToProductAction(ID, ID, { newProductName: 'New Split Prod' });
+  assert.equal(split.ok, true);
+  assert.ok(calls.includes('splitVariant'));
+
   assert.ok(calls.includes('deleteProduct'));
 });
 
