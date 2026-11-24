@@ -132,9 +132,14 @@ test('catalog actions enforce auth, OWNER-only delete, and clean DomainError han
   await assert.rejects(actions.deleteCatalogProductAction(ID), (e: unknown) => e instanceof DomainError && e.status === 403);
   assert.equal(calls.length, 0);
 
-  // STAFF can quickUpdate; DomainError returns { ok: false }
+  // STAFF can quickUpdate name/price/category, but cannot change status (Owner-only)
   const ok = await actions.quickUpdateCatalogProductAction({ productId: ID, name: 'Updated' });
   assert.equal(ok.ok, true);
+  const staffStatusBlocked = await actions.quickUpdateCatalogProductAction({ productId: ID, status: 'ACTIVE' });
+  assert.deepEqual(staffStatusBlocked, { ok: false, code: 'FORBIDDEN', error: 'Chỉ OWNER mới có quyền ẩn hoặc hiện sản phẩm.' });
+
+  // OWNER can change status; DomainError returns { ok: false }
+  role = 'OWNER';
   serviceError = new DomainError('PUBLISH_BLOCKED', 'Thiếu ảnh', 409);
   const blocked = await actions.quickUpdateCatalogProductAction({ productId: ID, status: 'ACTIVE' });
   assert.deepEqual(blocked, { ok: false, code: 'PUBLISH_BLOCKED', error: 'Thiếu ảnh' });

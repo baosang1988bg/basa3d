@@ -39,7 +39,7 @@ function DemoBanner({ scenario }: { scenario: DemoScenario }) {
 
 /**
  * Tab Mẫu In Đang Bán (Active Catalog Hub).
- * Tinh gọn, chỉ tải dữ liệu danh mục & mẫu in cần thiết cho thao tác xưởng.
+ * MẶC ĐỊNH: Chỉ tải và hiển thị danh mục & các mẫu in đang bán.
  */
 async function CatalogTab({ role }: { role: string }) {
   const [catalog, { items: rawCategories }] = await Promise.all([
@@ -62,6 +62,7 @@ async function CatalogTab({ role }: { role: string }) {
     slug: item.slug,
     status: item.status,
     basePrice: item.basePrice,
+    categoryId: item.categoryId ?? null,
     categoryName: item.categoryName,
     categorySlug: item.categorySlug,
     coverUrl: productImagePublicUrl(item.coverStoragePath),
@@ -212,12 +213,12 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
   const now = new Date();
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3.5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">Mẫu In Xưởng</h1>
           <p className="text-xs text-muted-foreground">
-            {ROLE_LABEL[role] ?? role} · Quản lý mẫu in, cập nhật giá và file in cho máy xưởng
+            {ROLE_LABEL[role] ?? role} · Quản lý mẫu in đang bán, cập nhật giá và file in cho máy
           </p>
         </div>
         <div className="flex items-center gap-2">

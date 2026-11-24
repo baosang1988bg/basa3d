@@ -274,6 +274,10 @@ export async function quickUpdateCatalogProductAction(
 ): Promise<CatalogActionResult<{ id: string; name: string; status: string }>> {
   const session = await requireAdmin();
   try {
+    const raw = typeof payload === 'object' && payload !== null ? (payload as Record<string, unknown>) : {};
+    if (raw.status !== undefined && session.role !== 'OWNER') {
+      throw new DomainError('FORBIDDEN', 'Chỉ OWNER mới có quyền ẩn hoặc hiện sản phẩm.', 403);
+    }
     const data = await quickUpdateCatalogProduct(session, payload);
     revalidateAllCatalogPaths(data.id);
     return { ok: true, data };
