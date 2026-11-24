@@ -3,7 +3,8 @@
 import dynamic from 'next/dynamic';
 import NextLink from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react';
-import { AlertCircle, Box, Check, Copy, Eye, Loader2, MessageCircle, Printer, Trash2, Upload } from 'lucide-react';
+import { AlertCircle, Box, Check, Copy, Eye, Loader2, MessageCircle, Printer, Trash2, Upload, Search, Sparkles } from 'lucide-react';
+import { ModelSearchDialog } from '@/components/storefront/model-search-dialog';
 import { StorefrontButton } from '@/components/storefront/button';
 import { formatVnd } from '@/components/storefront/format';
 import { BAO_GIA_MAX_ITEMS, BAO_GIA_RESPONSE_TIME_TEXT } from '@/config/bao-gia';
@@ -64,6 +65,7 @@ const inputClass = 'h-10 rounded-lg border border-input bg-background px-3 text-
 export function QuoteFlow({ materials }: { materials: string[] }) {
   const [items, setItems] = useState<Item[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [estimate, setEstimate] = useState<{ status: 'idle' | 'loading' | 'done' | 'error'; data?: EstimateResponse; forIds?: string[] }>({ status: 'idle' });
@@ -284,6 +286,23 @@ export function QuoteFlow({ materials }: { materials: string[] }) {
               </label>
               <p className="text-xs text-muted-foreground">Có file .3mf? <NextLink href="/custom-print" className="font-medium text-primary hover:underline">Gửi ở trang Đặt in theo yêu cầu</NextLink> để có giá theo file đã slice.</p>
             </div>
+            {/* Smart Search Assistant Trigger */}
+            <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs sm:text-sm">
+              <div className="flex items-center gap-2 text-foreground">
+                <Sparkles className="size-4 text-primary shrink-0" />
+                <span>Chưa có file in? Tìm mẫu miễn phí hoặc tìm bằng ảnh</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSearchOpen(true)}
+                className="font-bold text-primary hover:underline flex items-center gap-1 shrink-0"
+              >
+                <span>Tìm mẫu 3D</span>
+                <Search className="size-3.5" />
+              </button>
+            </div>
+            <ModelSearchDialog isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+
             {notice ? <p role="alert" className="flex items-center gap-2 rounded-lg bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-300"><AlertCircle className="size-4 shrink-0" />{notice}</p> : null}
             {!materials.length ? <p className="rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground">Hiện chưa thể hiển thị giá tự động. Bạn vẫn gửi yêu cầu được, xưởng báo giá {BAO_GIA_RESPONSE_TIME_TEXT}.</p> : null}
 

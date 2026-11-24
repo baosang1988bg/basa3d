@@ -46,12 +46,19 @@ export function ProductOnboardingForm({
   warehouses,
   materials,
   pricingConfig,
+  initialData,
 }: {
   categories: { id: string; label: string }[];
   colors: ColorOption[];
   warehouses: { id: string; name: string; code: string }[];
   materials: PricingMaterialOption[];
   pricingConfig: PricingConfigOption | null;
+  initialData?: {
+    name?: string;
+    basePrice?: number;
+    sourceUrl?: string;
+    description?: string;
+  };
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const requestId = useRef<string | null>(null);
@@ -62,24 +69,24 @@ export function ProductOnboardingForm({
   const [uploadedPaths, setUploadedPaths] = useState<Record<string, string>>({});
 
   // Block 2 — what it is
-  const [name, setName] = useState('');
+  const [name, setName] = useState(initialData?.name ?? '');
   const [categoryId, setCategoryId] = useState('');
   const [shortDescription, setShortDescription] = useState('');
-  const [licenseMode, setLicenseMode] = useState<LicenseMode>('');
+  const [licenseMode, setLicenseMode] = useState<LicenseMode>(initialData?.sourceUrl ? 'LICENSED' : '');
   const [licensedType, setLicensedType] = useState<LicensedType>('COMMERCIAL_LICENSE');
-  const [licenseSourceUrl, setLicenseSourceUrl] = useState('');
+  const [licenseSourceUrl, setLicenseSourceUrl] = useState(initialData?.sourceUrl ?? '');
   const [licenseProofUrl, setLicenseProofUrl] = useState('');
 
   // Block 3 — how it's sold
   const [productType, setProductType] = useState<'MADE_TO_ORDER' | 'READY_STOCK'>('MADE_TO_ORDER');
-  const [basePriceText, setBasePriceText] = useState('');
+  const [basePriceText, setBasePriceText] = useState(initialData?.basePrice ? String(initialData.basePrice) : '');
   const [variants, setVariants] = useState<VariantRow[]>([]);
   const [defaultStockText, setDefaultStockText] = useState('');
   const [customColor, setCustomColor] = useState('');
   const [warehouseId, setWarehouseId] = useState(warehouses.length === 1 ? warehouses[0].id : '');
 
   // Advanced
-  const [description, setDescription] = useState('');
+  const [description, setDescription] = useState(initialData?.description ?? '');
   const [seoTitle, setSeoTitle] = useState('');
   const [seoDescription, setSeoDescription] = useState('');
   const [isFeatured, setIsFeatured] = useState(false);

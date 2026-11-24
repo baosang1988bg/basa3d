@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import {
   BookOpen, Boxes, Calculator, ChevronDown, ClipboardCheck, FileEdit, LayoutDashboard, Layers, Package, Printer,
   Receipt, ShieldAlert, ShoppingBag, Users,
-  Tags, Loader2, Warehouse, FileBox, Menu, X, Mic,
+  Tags, Loader2, Warehouse, FileBox, Menu, X, Mic, Flame,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
@@ -51,6 +51,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'Sản phẩm & Nhựa',
     items: [
       { href: '/basaadmin/products', label: 'Sản phẩm', icon: Package },
+      { href: '/basaadmin/trend-hunter', label: 'Săn mẫu Trend', icon: Flame },
       { href: '/basaadmin/product-inventory', label: 'Kho & giá', icon: Warehouse },
       { href: '/basaadmin/stl-import', label: 'Duyệt mẫu STL', icon: FileBox },
       { href: '/basaadmin/inventory', label: 'Lịch sử kho', icon: Boxes },

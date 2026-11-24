@@ -2,7 +2,8 @@
 
 import { useState, useEffect, type FormEvent } from 'react';
 import { useTranslations } from 'next-intl';
-import { Globe, ExternalLink, Sparkles, ArrowRight, Link2 } from 'lucide-react';
+import { Globe, ExternalLink, Sparkles, ArrowRight, Link2, Search } from 'lucide-react';
+import { ModelSearchDialog } from './model-search-dialog';
 import { Link, useRouter } from '@/i18n/navigation';
 import { storefrontButtonClasses } from '@/components/storefront/button';
 import { cn } from '@/lib/utils';
@@ -17,6 +18,7 @@ export function MakerWorldDiscoveryBanner({
   const t = useTranslations('products');
   const router = useRouter();
   const [inputUrl, setInputUrl] = useState(initialUrl);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
     if (initialUrl) {
@@ -93,6 +95,40 @@ export function MakerWorldDiscoveryBanner({
             <ExternalLink className="size-3.5 text-muted-foreground" aria-hidden="true" />
           </a>
 
+          {/* Direct link Printables */}
+          <a
+            href="https://www.printables.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3.5 py-2 text-xs font-medium text-foreground shadow-sm transition-all hover:border-primary/40 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm"
+          >
+            <span className="text-base leading-none" aria-hidden="true">🛠️</span>
+            <span>Printables</span>
+            <ExternalLink className="size-3.5 text-muted-foreground" aria-hidden="true" />
+          </a>
+
+          {/* Direct link Thingiverse */}
+          <a
+            href="https://www.thingiverse.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3.5 py-2 text-xs font-medium text-foreground shadow-sm transition-all hover:border-primary/40 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm"
+          >
+            <span className="text-base leading-none" aria-hidden="true">📦</span>
+            <span>Thingiverse</span>
+            <ExternalLink className="size-3.5 text-muted-foreground" aria-hidden="true" />
+          </a>
+
+          {/* Smart Search Trigger Button */}
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3.5 py-2 text-xs font-bold text-primary shadow-sm transition-all hover:bg-primary hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm"
+          >
+            <Search className="size-4" aria-hidden="true" />
+            <span>Tìm Bằng Ảnh / Từ Khóa</span>
+          </button>
+
           {/* New Tool Highlight CTA Button */}
           <Link
             href="/tools/makerworld-cn"
@@ -132,6 +168,7 @@ export function MakerWorldDiscoveryBanner({
           </form>
         </div>
       </div>
+      <ModelSearchDialog isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
     </section>
   );
 }
