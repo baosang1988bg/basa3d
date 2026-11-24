@@ -81,3 +81,7 @@
 - [x] Clearer wording: "Có sẵn tại BaSa3D" · "Tìm mẫu 3D trên mạng" · "Tìm mẫu bằng ảnh", 3-step strip, "what is a 3D model" intro, header label "Tìm sản phẩm, mẫu 3D…".
 - [x] Zalo help box on every tab of the header search and in ModelSearchDialog.
 - Verification: lint ✅ typecheck ✅ check:arch ✅ build ✅; full suite 1028 tests, 16 fail (same Supabase-only set); UI screenshots of the dialog (idle, online tab) and `/bao-gia?tab=file&ref=…`.
+
+## 7. End-to-end smoke (2026-11-25 — branch `fix/search-smoke`)
+- New `tests/header-search-smoke.test.ts` runs against the real `next start` server of `npm test`: header button rendered, `/products?q=` accent-insensitive + zero-result CTA + `%` literal, suggest API, `/bao-gia?tab=file&ref=` guidance, `javascript:` ref ignored, `/bao-gia?tab=link&url=` 200, `/custom-print?ref=` fallback. All green; 0 server error lines.
+- Fix: `/custom-print?ref=` only pre-filled the description field, which appears at the contact step — the link is now also shown up-front ("Mẫu tham khảo: …").
