@@ -22,7 +22,7 @@ export interface ProductAiSuggestion {
   suggestedCategoryName: string | null;
   suggestedShortDescription: string;
   keywords: string[];
-  source: 'ai_vision' | 'fallback';
+  source: 'local_ollama' | 'ai_vision' | 'fallback';
 }
 
 const DEFAULT_FALLBACK_NAMES = [
@@ -35,7 +35,7 @@ const DEFAULT_FALLBACK_DESCRIPTION =
   'Sản phẩm in 3D chất lượng cao, bề mặt hoàn thiện sắc nét, thiết kế tối ưu, thích hợp làm đồ trang trí bàn làm việc hoặc quà tặng độc đáo.';
 
 /**
- * Builds standard fallback suggestions if Gemini vision is unavailable, times out, or produces unexpected output.
+ * Builds standard fallback suggestions if AI vision is unavailable, times out, or produces unexpected output.
  */
 export function buildFallbackSuggestion(
   hint?: string,
@@ -79,29 +79,131 @@ export function buildFallbackSuggestion(
 }
 
 /**
- * Suggests product name, category, and short description using Gemini Vision.
+ * Tries local Ollama Vision (e.g. LLaVA) on the machine's GPU (RTX 4060).
+ * Returns null if Ollama is offline or fails, allowing automatic fallback to Gemini Cloud.
  */
-export async function suggestProductMetadataFromImage(
-  input: ProductAiSuggestInput
-): Promise<ProductAiSuggestion> {
-  const { imageBase64, mimeType, categories = [], hint } = input;
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-
-  if (!apiKey || !imageBase64) {
-    return buildFallbackSuggestion(hint, categories);
-  }
-
+export async function tryOllamaVision(
+  cleanBase64: string,
+  categories: { id: string; name: string }[],
+  hint?: string
+): Promise<ProductAiSuggestion | null> {
+  const ollamaUrl = process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434';
   try {
-    const cleanBase64 = imageBase64.replace(/^data:image\/[a-z]+;base64,/, '');
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10_000);
+    const timeout = setTimeout(() => controller.abort(), 12_000);
 
     const categoriesPrompt =
       categories.length > 0
         ? categories.map((c) => `- ID: "${c.id}", Tên: "${c.name}"`).join('\n')
         : 'Chưa có danh mục cụ thể';
 
-    const prompt = `Bạn là trợ lý chuyên nghiệp cho xưởng in 3D BaSa3D tại Việt Nam.
+    const prompt = `Bạn là trợ lý cho xưởng in 3D BaSa3D tại Việt Nam.
+Hãy quan sát ảnh mẫu in 3D này (gợi ý nếu có: "${hint || 'không'}").
+Đặt 3 tên sản phẩm tiếng Việt chuẩn thương mại, ngắn gọn, hấp dẫn.
+Danh mục của shop:
+${categoriesPrompt}
+
+Trả về đúng JSON theo mẫu sau, không giải thích gì thêm:
+{
+  "suggestedNames": ["Tên tiếng Việt 1", "Tên tiếng Việt 2", "Tên tiếng Việt 3"],
+  "suggestedCategoryId": "id_khớp_hoặc_null",
+  "suggestedShortDescription": "Mô tả ngắn tiếng Việt 1-2 câu...",
+  "keywords": ["kw1", "kw2"]
+}`;
+
+    const res = await fetch(`${ollamaUrl}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'llava',
+        prompt,
+        format: 'json',
+        images: [cleanBase64],
+        stream: false,
+        options: {
+          temperature: 0.3,
+        },
+      }),
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeout));
+
+    if (!res.ok) return null;
+
+    const data = (await res.json()) as { response?: string };
+    if (!data.response) return null;
+
+    const parsed = JSON.parse(data.response) as {
+      suggestedNames?: string[];
+      suggestedCategoryId?: string | null;
+      suggestedShortDescription?: string | null;
+      keywords?: string[];
+    };
+
+    const validNames = Array.isArray(parsed.suggestedNames)
+      ? parsed.suggestedNames
+          .filter((n): n is string => typeof n === 'string' && n.trim().length > 0)
+          .slice(0, 3)
+      : [];
+
+    if (validNames.length === 0) return null;
+
+    let finalCategoryId: string | null = null;
+    let finalCategoryName: string | null = null;
+    if (parsed.suggestedCategoryId) {
+      const found = categories.find((c) => c.id === parsed.suggestedCategoryId);
+      if (found) {
+        finalCategoryId = found.id;
+        finalCategoryName = found.name;
+      }
+    }
+
+    return {
+      suggestedNames: validNames,
+      suggestedCategoryId: finalCategoryId,
+      suggestedCategoryName: finalCategoryName,
+      suggestedShortDescription:
+        parsed.suggestedShortDescription?.trim() || DEFAULT_FALLBACK_DESCRIPTION,
+      keywords: Array.isArray(parsed.keywords)
+        ? parsed.keywords.filter((k): k is string => typeof k === 'string').slice(0, 5)
+        : [],
+      source: 'local_ollama',
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Suggests product name, category, and short description.
+ * Priority: Local Ollama Vision (RTX 4060) -> Cloud Gemini API -> Heuristic Fallback.
+ */
+export async function suggestProductMetadataFromImage(
+  input: ProductAiSuggestInput
+): Promise<ProductAiSuggestion> {
+  const { imageBase64, mimeType = 'image/jpeg', categories = [], hint } = input;
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+
+  if (imageBase64) {
+    const cleanBase64 = imageBase64.replace(/^data:image\/[a-z]+;base64,/, '');
+
+    // 1. Prioritize Local Ollama Vision on local machine (Zero token, private, offline, RTX 4060)
+    const localResult = await tryOllamaVision(cleanBase64, categories, hint);
+    if (localResult) {
+      return localResult;
+    }
+
+    // 2. Fall back to Cloud Gemini API if API key is configured
+    if (apiKey) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10_000);
+
+        const categoriesPrompt =
+          categories.length > 0
+            ? categories.map((c) => `- ID: "${c.id}", Tên: "${c.name}"`).join('\n')
+            : 'Chưa có danh mục cụ thể';
+
+        const prompt = `Bạn là trợ lý chuyên nghiệp cho xưởng in 3D BaSa3D tại Việt Nam.
 Nhiệm vụ: Hãy quan sát kỹ hình ảnh mẫu in 3D đính kèm (và gợi ý nếu có: "${hint || 'không có'}") để giúp nhân viên đặt tên sản phẩm và phân loại siêu nhanh.
 
 Yêu cầu chi tiết:
@@ -125,87 +227,85 @@ Trả về ĐÚNG cấu trúc JSON hợp lệ sau, không kèm bất kỳ giải
   "keywords": ["kw1", "kw2", "kw3"]
 }`;
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: prompt },
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [
                 {
-                  inline_data: {
-                    mime_type: mimeType,
-                    data: cleanBase64,
-                  },
+                  parts: [
+                    { text: prompt },
+                    {
+                      inline_data: {
+                        mime_type: mimeType,
+                        data: cleanBase64,
+                      },
+                    },
+                  ],
                 },
               ],
-            },
-          ],
-          generationConfig: {
-            response_mime_type: 'application/json',
-          },
-        }),
-        signal: controller.signal,
+              generationConfig: {
+                response_mime_type: 'application/json',
+              },
+            }),
+            signal: controller.signal,
+          }
+        ).finally(() => clearTimeout(timeout));
+
+        if (res.ok) {
+          const geminiData = (await res.json().catch(() => null)) as {
+            candidates?: { content?: { parts?: { text?: string }[] } }[];
+          };
+          const rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+          if (rawText) {
+            const parsed = JSON.parse(rawText) as {
+              suggestedNames?: string[];
+              suggestedCategoryId?: string | null;
+              suggestedCategoryName?: string | null;
+              suggestedShortDescription?: string | null;
+              keywords?: string[];
+            };
+
+            const validNames = Array.isArray(parsed.suggestedNames)
+              ? parsed.suggestedNames
+                  .filter((n): n is string => typeof n === 'string' && n.trim().length > 0)
+                  .slice(0, 3)
+              : [];
+
+            if (validNames.length > 0) {
+              let finalCategoryId: string | null = null;
+              let finalCategoryName: string | null = null;
+              if (parsed.suggestedCategoryId) {
+                const found = categories.find((c) => c.id === parsed.suggestedCategoryId);
+                if (found) {
+                  finalCategoryId = found.id;
+                  finalCategoryName = found.name;
+                }
+              }
+
+              return {
+                suggestedNames: validNames,
+                suggestedCategoryId: finalCategoryId,
+                suggestedCategoryName: finalCategoryName || parsed.suggestedCategoryName || null,
+                suggestedShortDescription:
+                  parsed.suggestedShortDescription?.trim() || DEFAULT_FALLBACK_DESCRIPTION,
+                keywords: Array.isArray(parsed.keywords)
+                  ? parsed.keywords.filter((k): k is string => typeof k === 'string').slice(0, 5)
+                  : [],
+                source: 'ai_vision',
+              };
+            }
+          }
+        }
+      } catch {
+        // Fall back to heuristics
       }
-    ).finally(() => clearTimeout(timeout));
-
-    if (!res.ok) {
-      return buildFallbackSuggestion(hint, categories);
     }
-
-    const geminiData = (await res.json().catch(() => null)) as {
-      candidates?: { content?: { parts?: { text?: string }[] } }[];
-    };
-    const rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!rawText) {
-      return buildFallbackSuggestion(hint, categories);
-    }
-
-    const parsed = JSON.parse(rawText) as {
-      suggestedNames?: string[];
-      suggestedCategoryId?: string | null;
-      suggestedCategoryName?: string | null;
-      suggestedShortDescription?: string;
-      keywords?: string[];
-    };
-
-    const validNames = Array.isArray(parsed.suggestedNames)
-      ? parsed.suggestedNames
-          .filter((n): n is string => typeof n === 'string' && n.trim().length > 0)
-          .slice(0, 3)
-      : [];
-
-    if (validNames.length === 0) {
-      return buildFallbackSuggestion(hint, categories);
-    }
-
-    // Verify suggestedCategoryId exists in categories
-    let finalCategoryId: string | null = null;
-    let finalCategoryName: string | null = null;
-    if (parsed.suggestedCategoryId) {
-      const found = categories.find((c) => c.id === parsed.suggestedCategoryId);
-      if (found) {
-        finalCategoryId = found.id;
-        finalCategoryName = found.name;
-      }
-    }
-
-    return {
-      suggestedNames: validNames,
-      suggestedCategoryId: finalCategoryId,
-      suggestedCategoryName: finalCategoryName || parsed.suggestedCategoryName || null,
-      suggestedShortDescription:
-        parsed.suggestedShortDescription?.trim() || DEFAULT_FALLBACK_DESCRIPTION,
-      keywords: Array.isArray(parsed.keywords)
-        ? parsed.keywords.filter((k): k is string => typeof k === 'string').slice(0, 5)
-        : [],
-      source: 'ai_vision',
-    };
-  } catch {
-    return buildFallbackSuggestion(hint, categories);
   }
+
+  // 3. Fall back to smart heuristics
+  return buildFallbackSuggestion(hint, categories);
 }
