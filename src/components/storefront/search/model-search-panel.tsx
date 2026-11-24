@@ -52,6 +52,7 @@ export function ModelSearchPanel({
   onNavigate?: () => void;
 }) {
   const t = useTranslations('modelSearch');
+  const tHelp = useTranslations('headerSearch');
   const [ownQuery, setOwnQuery] = useState(initialQuery);
   const query = controlledQuery ?? ownQuery;
   const setQuery = (value: string) => (onQueryChange ? onQueryChange(value) : setOwnQuery(value));
@@ -157,6 +158,7 @@ export function ModelSearchPanel({
     <>
         {tab === 'text' && (
           <div className="mt-5 space-y-4">
+            <p className="rounded-lg bg-secondary/50 p-3 text-xs leading-relaxed text-muted-foreground">{tHelp('libraryIntro')}</p>
             <div className="relative">
               <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <input

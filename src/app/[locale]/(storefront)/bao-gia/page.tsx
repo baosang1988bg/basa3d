@@ -7,6 +7,7 @@ import { isBaoGiaEnabled } from '@/config/bao-gia';
 import { FDM_MATERIALS } from '@/lib/pricing/fdm-estimate-model';
 import { estimateFromMeshMetrics, loadPricingContext } from '@/services/instant-estimate.service';
 import { QuoteWorkspace, type QuoteTab } from '@/components/bao-gia/quote-workspace';
+import { sanitizeReferenceUrl } from '@/lib/search/quote-link';
 
 // Live prices from the current pricing config — never prerendered.
 export const dynamic = 'force-dynamic';
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
 export default async function BaoGiaPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ tab?: string; url?: string }>;
+  searchParams?: Promise<{ tab?: string; url?: string; ref?: string | string[] }>;
 }) {
   // D7: off until the estimate model is calibrated (S0).
   if (!isBaoGiaEnabled()) notFound();
@@ -34,6 +35,8 @@ export default async function BaoGiaPage({
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const initialTab: QuoteTab = resolvedSearchParams?.tab === 'file' ? 'file' : 'link';
   const initialUrl = resolvedSearchParams?.url;
+  // ADR-0064: non-MakerWorld model link from the header search → file tab with download/Zalo guidance.
+  const referenceUrl = sanitizeReferenceUrl(resolvedSearchParams?.ref) ?? undefined;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
@@ -54,6 +57,7 @@ export default async function BaoGiaPage({
         samples={samples}
         initialTab={initialTab}
         initialUrl={initialUrl}
+        referenceUrl={referenceUrl}
       />
 
       <section className="mt-14 print:hidden">

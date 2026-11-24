@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { Search, Image as ImageIcon, Sparkles } from 'lucide-react';
 import { SearchModalShell, SearchTab } from './search/search-modal-shell';
 import { ModelSearchPanel, type ModelSearchTab } from './search/model-search-panel';
+import { ZaloHelpBox } from './search/zalo-help';
 
 /** 3D-library search dialog (keywords + image). Used by the /custom-print banner and /bao-gia. ADR-0060/0064. */
 export function ModelSearchDialog({
@@ -36,6 +37,7 @@ export function ModelSearchDialog({
         </div>
       </div>
       <ModelSearchPanel tab={tab} onTabChange={setTab} initialQuery={initialQuery} onNavigate={onClose} />
+      <ZaloHelpBox placement={`model_search_${tab}`} />
     </SearchModalShell>
   );
 }

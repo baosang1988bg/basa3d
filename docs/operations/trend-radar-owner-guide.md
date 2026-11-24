@@ -183,12 +183,15 @@ Mọi thao tác tạo / đổi trạng thái / xoá / chuyển thành sản ph�
 
 ## 10. Tìm kiếm trên header (ADR-0064)
 
-- Nút **kính lúp** trên header (desktop rộng hiện chữ "Tìm sản phẩm…", phím tắt **Ctrl/⌘ + K**).
-- Tab **Sản phẩm BaSa3D** (mặc định): gợi ý ngay khi gõ, **không cần dấu** ("gia do" tìm được "Giá đỡ"), mọi từ phải khớp.
+- Nút **kính lúp** trên header (desktop rộng hiện chữ "Tìm sản phẩm, mẫu 3D…", phím tắt **Ctrl/⌘ + K**). Đầu hộp có 3 bước hướng dẫn.
+- Tab **Có sẵn tại BaSa3D** (mặc định): gợi ý ngay khi gõ, **không cần dấu** ("gia do" tìm được "Giá đỡ"), mọi từ phải khớp.
   Enter / "Xem tất cả" → `/products?q=…` (trang này cũng tìm không dấu).
-- Không có trong shop → nút **Tìm trên kho mẫu 3D** (giữ nguyên từ khoá) + **Gửi yêu cầu in**.
-- Tab **Kho mẫu 3D** / **Tìm bằng ảnh**: như hộp tìm mẫu cũ, cuối mỗi tab có ô **"Dán link để xưởng báo giá"**:
-  link MakerWorld → công cụ báo giá MakerWorld; link khác (Printables, Thingiverse…) → form *Đặt in* điền sẵn "Link mẫu tham khảo".
+- Không có trong shop → nút **Tìm mẫu 3D trên mạng** (giữ nguyên từ khoá) + **Gửi yêu cầu in**.
+- Tab **Tìm mẫu 3D trên mạng** / **Tìm mẫu bằng ảnh**: cuối tab có ô **"Dán link vào đây để nhận báo giá"** → luôn về trang
+  **Báo giá** `/bao-gia`: link MakerWorld được phân tích và ra giá ngay; link khác (Printables, Thingiverse…) mở tab *Tải file*
+  kèm hướng dẫn tải STL/3MF về rồi kéo vào, hoặc gửi link qua Zalo. (Chỉ khi tắt `/bao-gia` mới quay về công cụ MakerWorld / form Đặt in.)
+- Cuối hộp tìm kiếm (mọi tab) luôn có **"Chưa tìm được thứ bạn cần? Nhắn Zalo BaSa3D"** — theo dõi được trong GA4
+  (`click_contact_channel`, placement `header_search_*` / `model_search_*` / `bao_gia_reference_link`).
 - `/products` tìm không ra → nút **Tìm "…" trên kho mẫu 3D** mở thẳng hộp tìm kiếm.
 - Admin → Dashboard → tab *Vận hành* → thẻ **Mẫu đang nóng** (top 5 mẫu Trend Radar tăng lượt tải nhanh nhất).
 - Cần chạy migration `20261126000000_storefront_search_fold.sql` (§2) — thiếu thì tìm kiếm sản phẩm báo lỗi.

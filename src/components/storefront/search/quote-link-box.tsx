@@ -5,10 +5,11 @@ import { useTranslations } from 'next-intl';
 import { Link2 } from 'lucide-react';
 import { useRouter } from '@/i18n/navigation';
 import { quoteHrefForModelUrl } from '@/lib/search/quote-link';
+import { BAO_GIA_ENABLED_IN_BROWSER } from '@/config/bao-gia';
 
 /**
- * ADR-0064 — "Đã tìm được mẫu? Dán link để báo giá". MakerWorld links go to the instant quote tool, any
- * other model link to the custom-print request form as a reference.
+ * ADR-0064 — "Đã tìm được mẫu? Dán link để báo giá". Always lands on the quote page /bao-gia (see
+ * quoteHrefForModelUrl); falls back to the MakerWorld tool / custom-print only when /bao-gia is disabled.
  */
 export function QuoteLinkBox({ onNavigate }: { onNavigate?: () => void }) {
   const t = useTranslations('headerSearch');
@@ -18,7 +19,7 @@ export function QuoteLinkBox({ onNavigate }: { onNavigate?: () => void }) {
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    const href = quoteHrefForModelUrl(value);
+    const href = quoteHrefForModelUrl(value, { baoGiaEnabled: BAO_GIA_ENABLED_IN_BROWSER });
     if (!href) {
       setInvalid(true);
       return;

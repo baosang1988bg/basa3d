@@ -1372,3 +1372,16 @@ customers away with no path back.
 **Consequences / migration cost.** One additive function migration (must run before deploy, or `/products?q=`
 errors). Seq scan on `fold(name)` is fine for a catalog of hundreds; an expression/trigram index can be added
 later without code change. Header gains one button + a keydown listener; the dialog code loads on demand.
+
+**Owner feedback addendum (2026-11-25, branch `fix/search-ux-feedback`).**
+1. *"Paste link → lands on Đặt in, should be Báo giá."* `quoteHrefForModelUrl` now targets `/bao-gia`: MakerWorld →
+   `/bao-gia?tab=link&url=` (auto-analysed instant quote); any other model link → `/bao-gia?tab=file&ref=` with a
+   guided box (open the model page → download STL/3MF → drop it here; or send the link on Zalo). The old targets
+   (`/tools/makerworld-cn`, `/custom-print?ref=`) are only used when `NEXT_PUBLIC_BAO_GIA_ENABLED=false`. The
+   `/bao-gia` link tab also stops dead-ending on non-MakerWorld links: it switches to the file tab with the same
+   guidance instead of calling the MakerWorld resolver.
+2. *"Hard to understand for real users."* Plain-language naming: tabs *Có sẵn tại BaSa3D* · *Tìm mẫu 3D trên mạng*
+   · *Tìm mẫu bằng ảnh*; header button "Tìm sản phẩm, mẫu 3D…"; a 3-step strip (find in shop → find a 3D model
+   online → paste link for a quote) and a one-paragraph "what is a 3D model" intro on the online tab.
+3. *"User still can't find it."* `ZaloHelpBox` ("Chưa tìm được thứ bạn cần? Nhắn Zalo BaSa3D") at the bottom of
+   the header search (every tab) and of `ModelSearchDialog`; GA4 `click_contact_channel` with a per-tab placement.
