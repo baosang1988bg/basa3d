@@ -6,7 +6,6 @@ import { MaterialHealthCard } from '@/components/admin/dashboard/material-health
 import { DashboardTabs, type DashboardViewTab } from '@/components/admin/dashboard/dashboard-tabs';
 import { ExecutiveRevenueChart } from '@/components/admin/dashboard/executive-revenue-chart';
 import { ActivityFeed } from '@/components/admin/dashboard/activity-feed';
-import { LiveStatus } from '@/components/admin/dashboard/live-status';
 import { AlertStrip, CardLink, DashCard, DonutChart, KpiTile, StatStrip } from '@/components/admin/dashboard/dash-ui';
 import { WorkshopCatalogHub, type WorkshopCatalogItem } from '@/components/admin/dashboard/workshop-catalog-hub';
 import { requireAdmin } from '@/lib/auth/require-admin';
@@ -19,7 +18,7 @@ import { listCatalogProducts } from '@/services/product-onboarding.service';
 import { listCategories } from '@/services/product.service';
 
 const kg = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 });
-const ROLE_LABEL: Record<string, string> = { OWNER: 'Chủ xưởng', STAFF: 'Nhân viên' };
+const ROLE_LABEL: Record<string, string> = { OWNER: 'Chủ xưởng', STAFF: 'Nhân viên xưởng' };
 
 // Dev-only banner: makes it impossible to mistake demo numbers for real ones.
 function DemoBanner({ scenario }: { scenario: DemoScenario }) {
@@ -40,16 +39,15 @@ function DemoBanner({ scenario }: { scenario: DemoScenario }) {
 
 /**
  * Tab Mẫu In Đang Bán (Active Catalog Hub).
- * Trung tâm thao tác chính của xưởng in: Thêm/Sửa/Xoá, đổi giá, bật/tắt bán, copy đường dẫn file in local slicer.
+ * Tinh gọn, chỉ tải dữ liệu danh mục & mẫu in cần thiết cho thao tác xưởng.
  */
 async function CatalogTab({ role }: { role: string }) {
-  const [catalog, { items: rawCategories }, operational] = await Promise.all([
+  const [catalog, { items: rawCategories }] = await Promise.all([
     listCatalogProducts({
       limit: 100,
       sort: 'updated_desc',
     }),
     listCategories({ limit: 100 }),
-    getOperationalMetrics(),
   ]);
 
   const categories = rawCategories.map((category) => ({
@@ -79,8 +77,6 @@ async function CatalogTab({ role }: { role: string }) {
       categories={categories}
       statusCounts={catalog.statusCounts}
       role={role}
-      customRequestsOpenCount={operational.customRequestsOpen}
-      materialsCount={operational.materialHealth.totalSpools}
     />
   );
 }
@@ -140,8 +136,6 @@ async function BusinessTab({ demo }: { demo: DemoScenario | null }) {
   );
 }
 
-// OWNER keeps "Doanh thu hôm nay" + the 14-day revenue bars here (Phase 41 decision D5); STAFF never
-// reaches getFinancialMetrics(), so no money value or revenue series is ever passed in that branch.
 async function OperationsTab({ isOwner, now }: { isOwner: boolean; now: string }) {
   const [operational, financial] = await Promise.all([
     getOperationalMetrics(),
@@ -218,16 +212,15 @@ export default async function DashboardPage({ searchParams }: { searchParams?: P
   const now = new Date();
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Dashboard Xưởng In 3D</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            {now.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' })} · {ROLE_LABEL[role] ?? role}
+          <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">Mẫu In Xưởng</h1>
+          <p className="text-xs text-muted-foreground">
+            {ROLE_LABEL[role] ?? role} · Quản lý mẫu in, cập nhật giá và file in cho máy xưởng
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <LiveStatus updatedAt={now.toISOString()} />
+        <div className="flex items-center gap-2">
           <DashboardTabs active={activeTab} isOwner={isOwner} />
         </div>
       </div>

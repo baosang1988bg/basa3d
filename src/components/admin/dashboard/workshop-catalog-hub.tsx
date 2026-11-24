@@ -3,17 +3,13 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
-  Cloud,
   Copy,
   Edit2,
-  ExternalLink,
   Eye,
   EyeOff,
   FolderOpen,
-  Layers,
   Loader2,
   Package,
-  Printer,
   Search,
   Sparkles,
   Trash2,
@@ -43,8 +39,6 @@ export interface WorkshopCatalogHubProps {
   categories: { id: string; label: string; slug: string }[];
   statusCounts: { ACTIVE: number; DRAFT: number; ARCHIVED: number };
   role: string;
-  customRequestsOpenCount: number;
-  materialsCount: number;
 }
 
 function formatVnd(val: number | null): string {
@@ -52,13 +46,16 @@ function formatVnd(val: number | null): string {
   return val.toLocaleString('vi-VN') + 'đ';
 }
 
+/**
+ * Giao diện Tinh Gọn Quản Lý Mẫu In Xưởng (Workshop Catalog Hub).
+ * Tối giản, tập trung 100% vào các mẫu in xưởng đang nhận in & bán.
+ * Không hiển thị dữ liệu dư thừa làm rối nhân viên (staff).
+ */
 export function WorkshopCatalogHub({
   initialItems,
   categories,
   statusCounts: initialStatusCounts,
   role,
-  customRequestsOpenCount,
-  materialsCount,
 }: WorkshopCatalogHubProps) {
   const [items, setItems] = useState<WorkshopCatalogItem[]>(initialItems);
   const [statusCounts, setStatusCounts] = useState(initialStatusCounts);
@@ -74,22 +71,21 @@ export function WorkshopCatalogHub({
 
   function showToast(msg: string, icon = '✅') {
     setToastMessage({ msg, icon });
-    setTimeout(() => setToastMessage(null), 2800);
+    setTimeout(() => setToastMessage(null), 2500);
   }
 
-  // Filtered list
+  // Filtered items
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
-      // Status filter
       if (statusFilter === 'ACTIVE' && item.status !== 'ACTIVE') return false;
       if (statusFilter === 'DRAFT' && item.status !== 'DRAFT') return false;
 
-      // Category filter
       if (selectedCat !== 'ALL') {
-        if (item.categorySlug !== selectedCat && item.categoryName !== selectedCat) return false;
+        if (item.categorySlug !== selectedCat && item.categoryName !== selectedCat && item.categorySlug !== selectedCat) {
+          return false;
+        }
       }
 
-      // Search query
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
         const matchName = item.name.toLowerCase().includes(query);
@@ -133,45 +129,34 @@ export function WorkshopCatalogHub({
       } else {
         showToast(
           nextStatus === 'ACTIVE'
-            ? `Đã đăng bán "${item.name}" lên showroom!`
-            : `Đã chuyển "${item.name}" thành Bản nháp/Tạm ẩn!`
+            ? `Đã đăng bán "${item.name}"!`
+            : `Đã tạm ẩn "${item.name}"!`
         );
       }
     } catch {
-      // Rollback
-      setItems((prev) =>
-        prev.map((i) => (i.id === item.id ? { ...i, status: item.status } : i))
-      );
-      showToast('Lỗi mạng khi cập nhật', '⚠️');
+      showToast('Lỗi mạng khi cập nhật trạng thái', '❌');
     } finally {
       setBusyId(null);
     }
   }
 
-  // 1-Click Inline Price Edit
+  // 1-Click Price Edit
   async function handleEditPrice(item: WorkshopCatalogItem) {
-    if (busyId) return;
     const currentPriceStr = item.basePrice ? String(item.basePrice) : '';
-    const newPriceInput = window.prompt(
-      `Nhập giá bán mới cho mẫu in: "${item.name}" (đơn vị: VND):`,
+    const input = window.prompt(
+      `Sửa giá bán cho:\n"${item.name}"\n(Nhập số tiền VND, ví dụ: 45000):`,
       currentPriceStr
     );
+    if (input === null) return;
 
-    if (newPriceInput === null) return;
-    const cleanDigits = newPriceInput.replace(/[^\d]/g, '');
-    const newPrice = cleanDigits ? Number(cleanDigits) : 0;
-
-    if (newPrice <= 0) {
-      alert('Vui lòng nhập giá lớn hơn 0đ.');
+    const newPrice = Number(input.replace(/[^\d]/g, ''));
+    if (!Number.isFinite(newPrice) || newPrice < 0) {
+      alert('Vui lòng nhập số tiền hợp lệ.');
       return;
     }
 
-    if (newPrice === item.basePrice) return;
-
     setBusyId(item.id);
     const oldPrice = item.basePrice;
-
-    // Optimistic UI
     setItems((prev) =>
       prev.map((i) => (i.id === item.id ? { ...i, basePrice: newPrice } : i))
     );
@@ -188,29 +173,26 @@ export function WorkshopCatalogHub({
         );
         showToast(res.error || 'Cập nhật giá thất bại', '⚠️');
       } else {
-        showToast(`Đã đổi giá thành: ${formatVnd(newPrice)}`);
+        showToast(`Đã đổi giá thành ${newPrice.toLocaleString('vi-VN')}đ!`);
       }
     } catch {
       setItems((prev) =>
         prev.map((i) => (i.id === item.id ? { ...i, basePrice: oldPrice } : i))
       );
-      showToast('Lỗi kết nối khi đổi giá', '⚠️');
+      showToast('Lỗi mạng khi đổi giá', '❌');
     } finally {
       setBusyId(null);
     }
   }
 
-  // Inline Quick Name Edit
+  // 1-Click Name Edit
   async function handleEditName(item: WorkshopCatalogItem) {
-    if (busyId) return;
-    const newName = window.prompt('Sửa tên mẫu in:', item.name);
-    if (!newName || !newName.trim() || newName.trim() === item.name) return;
+    const newName = window.prompt(`Sửa tên mẫu in:`, item.name);
+    if (newName === null || !newName.trim() || newName.trim() === item.name) return;
 
     const trimmed = newName.trim();
     setBusyId(item.id);
     const oldName = item.name;
-
-    // Optimistic UI
     setItems((prev) =>
       prev.map((i) => (i.id === item.id ? { ...i, name: trimmed } : i))
     );
@@ -227,71 +209,57 @@ export function WorkshopCatalogHub({
         );
         showToast(res.error || 'Đổi tên thất bại', '⚠️');
       } else {
-        showToast('Đã cập nhật tên mẫu in!');
+        showToast(`Đã đổi tên thành "${trimmed}"!`);
       }
     } catch {
       setItems((prev) =>
         prev.map((i) => (i.id === item.id ? { ...i, name: oldName } : i))
       );
-      showToast('Lỗi mạng khi cập nhật tên', '⚠️');
+      showToast('Lỗi mạng khi đổi tên', '❌');
     } finally {
       setBusyId(null);
     }
   }
 
-  // Delete Action
-  async function confirmDeleteProduct() {
-    if (!deletingItem || isDeleting) return;
+  // Delete product
+  async function confirmDelete() {
+    if (!deletingItem) return;
     setIsDeleting(true);
-
     try {
-      if (role === 'OWNER') {
-        const res = await deleteCatalogProductAction(deletingItem.id);
-        if (!res.ok) {
-          showToast(res.error || 'Không thể xoá mẫu này', '⚠️');
-        } else {
-          setItems((prev) => prev.filter((i) => i.id !== deletingItem.id));
-          setStatusCounts((prev) => ({
-            ...prev,
-            [deletingItem.status]: Math.max(0, (prev[deletingItem.status as keyof typeof prev] || 1) - 1),
-          }));
-          showToast(`Đã xoá thành công: "${deletingItem.name}"`, '🗑️');
-        }
+      const res = await deleteCatalogProductAction(deletingItem.id);
+      if (!res.ok) {
+        showToast(res.error || 'Không thể xoá mẫu này', '⚠️');
       } else {
-        // Staff archives instead of hard delete
-        const res = await quickUpdateCatalogProductAction({
-          productId: deletingItem.id,
-          status: 'ARCHIVED',
-        });
-        if (!res.ok) {
-          showToast(res.error || 'Không thể lưu trữ mẫu này', '⚠️');
-        } else {
-          setItems((prev) => prev.filter((i) => i.id !== deletingItem.id));
-          showToast(`Đã chuyển vào kho lưu trữ: "${deletingItem.name}"`, '📦');
-        }
+        setItems((prev) => prev.filter((i) => i.id !== deletingItem.id));
+        setStatusCounts((prev) => ({
+          ...prev,
+          ACTIVE: deletingItem.status === 'ACTIVE' ? Math.max(0, prev.ACTIVE - 1) : prev.ACTIVE,
+          DRAFT: deletingItem.status === 'DRAFT' ? Math.max(0, prev.DRAFT - 1) : prev.DRAFT,
+        }));
+        showToast(`Đã xoá mẫu "${deletingItem.name}"!`, '🗑️');
+        setDeletingItem(null);
       }
     } catch {
-      showToast('Lỗi mạng khi xoá sản phẩm', '⚠️');
+      showToast('Lỗi mạng khi xoá sản phẩm', '❌');
     } finally {
       setIsDeleting(false);
-      setDeletingItem(null);
     }
   }
 
   function copyPathToClipboard(path: string | null) {
-    if (!path) return;
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(path).catch(() => {});
+    if (!path) {
+      showToast('Mẫu này chưa lưu đường dẫn máy xưởng', 'ℹ️');
+      return;
     }
-    const fileName = path.split('\\').pop() || path;
-    showToast(`Đã copy: ${fileName}`, '📂');
+    navigator.clipboard.writeText(path);
+    showToast(`Đã copy: ${path}`, '📋');
   }
 
   return (
-    <div className="flex flex-col gap-5">
-      {/* Toast Alert */}
+    <div className="flex flex-col gap-4">
+      {/* Toast Notification */}
       {toastMessage ? (
-        <div className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-xl bg-foreground px-4 py-2.5 text-xs font-semibold text-background shadow-xl animate-in fade-in slide-in-from-bottom-3">
+        <div className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-semibold text-foreground shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200">
           <span>{toastMessage.icon}</span>
           <span>{toastMessage.msg}</span>
         </div>
@@ -299,178 +267,116 @@ export function WorkshopCatalogHub({
 
       {/* Delete Confirmation Modal */}
       {deletingItem ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in">
-          <div className="flex w-full max-w-md flex-col gap-3 rounded-2xl border border-border bg-card p-5 shadow-2xl">
-            <div className="flex items-center gap-2.5 text-rose-600 dark:text-rose-400">
-              <div className="flex size-9 items-center justify-center rounded-xl bg-rose-500/10">
-                <Trash2 className="size-5" />
-              </div>
-              <h3 className="font-semibold text-foreground">
-                {role === 'OWNER' ? 'Xác nhận xoá sản phẩm' : 'Chuyển vào lưu trữ'}
-              </h3>
-            </div>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Bạn có chắc muốn {role === 'OWNER' ? 'xoá vĩnh viễn' : 'gỡ khỏi showroom'} mẫu in{' '}
-              <strong className="text-foreground">&ldquo;{deletingItem.name}&rdquo;</strong> không?
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-5 shadow-2xl animate-in zoom-in-95 duration-150">
+            <h3 className="text-sm font-bold text-foreground">Xác nhận xoá mẫu in?</h3>
+            <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
+              Bạn có chắc muốn xoá mẫu <span className="font-semibold text-foreground">"{deletingItem.name}"</span>?
+              {role !== 'OWNER' ? ' Mẫu sẽ được chuyển vào mục lưu trữ an toàn.' : ' Mẫu này sẽ bị xoá khỏi danh mục xưởng.'}
             </p>
-            <div className="mt-2 flex items-center justify-end gap-2 pt-2 border-t border-border/60">
+            <div className="mt-5 flex items-center justify-end gap-2">
               <button
                 type="button"
                 disabled={isDeleting}
                 onClick={() => setDeletingItem(null)}
-                className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
+                className="rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
               >
                 Huỷ
               </button>
               <button
                 type="button"
                 disabled={isDeleting}
-                onClick={() => void confirmDeleteProduct()}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-rose-700 disabled:opacity-50"
+                onClick={() => void confirmDelete()}
+                className="flex items-center gap-1 rounded-xl bg-rose-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
               >
                 {isDeleting ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
-                <span>{role === 'OWNER' ? 'Xoá Mẫu In' : 'Lưu Trữ'}</span>
+                <span>{isDeleting ? 'Đang xoá...' : 'Xác nhận xoá'}</span>
               </button>
             </div>
           </div>
         </div>
       ) : null}
 
-      {/* 4 Quick Stat Tiles for the Workshop */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {/* Active Products Tile */}
-        <button
-          type="button"
-          onClick={() => setStatusFilter(statusFilter === 'ACTIVE' ? 'ALL' : 'ACTIVE')}
-          className={`flex items-center justify-between rounded-xl border p-3.5 text-left transition-all active:scale-[0.99] ${
-            statusFilter === 'ACTIVE'
-              ? 'border-emerald-500 bg-emerald-500/10 ring-2 ring-emerald-500/20'
-              : 'border-border bg-card hover:border-emerald-500/40 hover:bg-muted/40 shadow-xs'
-          }`}
-        >
-          <div>
-            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Đang bán trên web</p>
-            <p className="mt-0.5 text-xl font-bold text-emerald-600 dark:text-emerald-400 sm:text-2xl">
-              {statusCounts.ACTIVE} món
-            </p>
-          </div>
-          <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 text-lg">
-            <Package className="size-5" />
-          </div>
-        </button>
-
-        {/* Draft Products Tile */}
-        <button
-          type="button"
-          onClick={() => setStatusFilter(statusFilter === 'DRAFT' ? 'ALL' : 'DRAFT')}
-          className={`flex items-center justify-between rounded-xl border p-3.5 text-left transition-all active:scale-[0.99] ${
-            statusFilter === 'DRAFT'
-              ? 'border-amber-500 bg-amber-500/10 ring-2 ring-amber-500/20'
-              : 'border-border bg-card hover:border-amber-500/40 hover:bg-muted/40 shadow-xs'
-          }`}
-        >
-          <div>
-            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Bản nháp / Tạm ẩn</p>
-            <p className="mt-0.5 text-xl font-bold text-amber-600 dark:text-amber-400 sm:text-2xl">
-              {statusCounts.DRAFT} món
-            </p>
-          </div>
-          <div className="flex size-10 items-center justify-center rounded-xl bg-amber-500/15 text-amber-600 text-lg">
-            <EyeOff className="size-5" />
-          </div>
-        </button>
-
-        {/* Custom Requests Tile */}
-        <Link
-          href="/basaadmin/custom-requests"
-          className="flex items-center justify-between rounded-xl border border-border bg-card p-3.5 text-left shadow-xs transition-all hover:border-sky-500/40 hover:bg-muted/40 active:scale-[0.99]"
-        >
-          <div>
-            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Yêu cầu in chờ xử lý</p>
-            <p className="mt-0.5 text-xl font-bold text-sky-600 dark:text-sky-400 sm:text-2xl">
-              {customRequestsOpenCount} đơn
-            </p>
-          </div>
-          <div className="flex size-10 items-center justify-center rounded-xl bg-sky-500/15 text-sky-600 text-lg">
-            <Printer className="size-5" />
-          </div>
-        </Link>
-
-        {/* Materials Tile */}
-        <Link
-          href="/basaadmin/materials"
-          className="flex items-center justify-between rounded-xl border border-border bg-card p-3.5 text-left shadow-xs transition-all hover:border-purple-500/40 hover:bg-muted/40 active:scale-[0.99]"
-        >
-          <div>
-            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Kho cuộn nhựa</p>
-            <p className="mt-0.5 text-xl font-bold text-purple-600 dark:text-purple-400 sm:text-2xl">
-              {materialsCount} loại
-            </p>
-          </div>
-          <div className="flex size-10 items-center justify-center rounded-xl bg-purple-500/15 text-purple-600 text-lg">
-            <Layers className="size-5" />
-          </div>
-        </Link>
-      </div>
-
-      {/* Action & Filter Toolbar */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-3.5 shadow-xs sm:flex-row sm:items-center sm:justify-between">
-        {/* Category Pills Tabs */}
+      {/* Compact Clean Toolbar */}
+      <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-3 shadow-xs lg:flex-row lg:items-center lg:justify-between">
+        {/* Left: Quick Status Filters */}
         <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
-            onClick={() => setSelectedCat('ALL')}
+            onClick={() => setStatusFilter('ALL')}
             className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-              selectedCat === 'ALL'
+              statusFilter === 'ALL'
                 ? 'bg-primary text-primary-foreground shadow-xs'
-                : 'text-muted-foreground hover:bg-muted border border-transparent'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
             }`}
           >
             Tất cả ({items.length})
           </button>
-          {categories.map((cat) => {
-            const active = selectedCat === cat.slug || selectedCat === cat.label;
-            const emoji = getCategoryIconEmoji(cat.label);
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => setSelectedCat(cat.slug)}
-                className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${
-                  active
-                    ? 'bg-primary text-primary-foreground shadow-xs'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent'
-                }`}
-              >
-                <span>{emoji}</span>
-                <span>{cat.label}</span>
-              </button>
-            );
-          })}
+          <button
+            type="button"
+            onClick={() => setStatusFilter('ACTIVE')}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              statusFilter === 'ACTIVE'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-muted-foreground hover:bg-muted hover:text-emerald-600'
+            }`}
+          >
+            <span className="size-2 rounded-full bg-emerald-500" />
+            <span>Đang bán ({statusCounts.ACTIVE})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('DRAFT')}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              statusFilter === 'DRAFT'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'text-muted-foreground hover:bg-muted hover:text-amber-600'
+            }`}
+          >
+            <span className="size-2 rounded-full bg-amber-500" />
+            <span>Tạm ẩn ({statusCounts.DRAFT})</span>
+          </button>
         </div>
 
-        {/* Search & Add Button */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 sm:w-64">
+        {/* Right: Search, Category Dropdown, and New Product Button */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Category Dropdown */}
+          <select
+            value={selectedCat}
+            onChange={(e) => setSelectedCat(e.target.value)}
+            className="h-9 rounded-xl border border-border bg-background px-2.5 text-xs font-medium text-foreground focus:border-primary focus:outline-none"
+            aria-label="Lọc theo danh mục"
+          >
+            <option value="ALL">Mọi danh mục</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.slug}>
+                {getCategoryIconEmoji(c.label)} {c.label}
+              </option>
+            ))}
+          </select>
+
+          {/* Search Box */}
+          <div className="relative flex-1 sm:w-56">
             <Search className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm tên mẫu, đường dẫn file..."
-              className="h-9 w-full rounded-xl border border-border bg-background pl-8 pr-7 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              placeholder="Tìm tên mẫu in..."
+              className="h-9 w-full rounded-xl border border-border bg-background pl-8 pr-7 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
             />
             {searchQuery ? (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-2.5 text-xs text-muted-foreground hover:text-foreground"
+                className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
               >
                 <X className="size-3.5" />
               </button>
             ) : null}
           </div>
 
+          {/* Add Product Button */}
           <Link
             href="/basaadmin/products/new"
             className={buttonVariants({
@@ -479,7 +385,7 @@ export function WorkshopCatalogHub({
             })}
           >
             <Sparkles className="size-3.5" />
-            <span>+ Đăng Mẫu Mới (15s)</span>
+            <span>+ Đăng Mẫu Mới</span>
           </Link>
         </div>
       </div>
@@ -491,35 +397,21 @@ export function WorkshopCatalogHub({
           <h4 className="text-sm font-semibold text-foreground">Không tìm thấy mẫu in nào</h4>
           <p className="mt-1 text-xs text-muted-foreground max-w-sm">
             {searchQuery
-              ? `Không có kết quả cho từ khoá "${searchQuery}". Thử tìm tên khác hoặc chọn lại danh mục.`
-              : 'Chưa có mẫu in nào trong danh mục này. Bấm nút "+ Đăng Mẫu Mới" ở trên để thêm.'}
+              ? `Không có kết quả cho từ khoá "${searchQuery}".`
+              : 'Chưa có mẫu in nào trong bộ lọc này. Bấm nút "+ Đăng Mẫu Mới" để thêm.'}
           </p>
-          {searchQuery ? (
-            <button
-              type="button"
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedCat('ALL');
-                setStatusFilter('ALL');
-              }}
-              className="mt-3 text-xs text-primary font-medium hover:underline"
-            >
-              Xem tất cả mẫu in
-            </button>
-          ) : null}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
           {filteredItems.map((item) => {
             const isActive = item.status === 'ACTIVE';
             const isBusy = busyId === item.id;
             const emoji = getCategoryIconEmoji(item.categoryName || '');
-            const localFileName = item.printLocalPath ? item.printLocalPath.split('\\').pop() : null;
 
             return (
               <div
                 key={item.id}
-                className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border bg-card shadow-xs transition-all hover:-translate-y-0.5 hover:shadow-md"
+                className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border bg-card shadow-xs transition-all hover:border-primary/40 hover:shadow-md"
               >
                 {/* Product Cover Image */}
                 <div className="relative aspect-4/3 w-full overflow-hidden bg-muted/40 border-b border-border/60">
@@ -541,7 +433,7 @@ export function WorkshopCatalogHub({
                     type="button"
                     disabled={isBusy}
                     onClick={() => void handleToggleStatus(item)}
-                    title={isActive ? 'Bấm để ẩn khỏi showroom (chuyển về nháp)' : 'Bấm để đăng bán lên showroom'}
+                    title={isActive ? 'Bấm để tạm ẩn' : 'Bấm để đăng bán'}
                     className={`absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold shadow-xs transition-all cursor-pointer ${
                       isActive
                         ? 'border border-emerald-500/30 bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 backdrop-blur-xs'
@@ -555,117 +447,75 @@ export function WorkshopCatalogHub({
                     ) : (
                       <EyeOff className="size-3 text-amber-600 dark:text-amber-400" />
                     )}
-                    <span>{isActive ? 'Đang bán' : 'Bản nháp'}</span>
+                    <span>{isActive ? 'Đang bán' : 'Tạm ẩn'}</span>
                   </button>
 
                   {/* Top Right: Delete Button */}
                   <button
                     type="button"
                     onClick={() => setDeletingItem(item)}
-                    title={role === 'OWNER' ? 'Xoá vĩnh viễn mẫu này' : 'Chuyển vào kho lưu trữ'}
-                    className="absolute right-2.5 top-2.5 flex size-7 items-center justify-center rounded-lg bg-black/50 text-white opacity-80 backdrop-blur-xs transition-all hover:bg-rose-600 hover:opacity-100"
+                    title="Xoá mẫu in này"
+                    className="absolute right-2.5 top-2.5 flex size-7 items-center justify-center rounded-lg bg-black/40 text-white opacity-0 group-hover:opacity-100 backdrop-blur-xs transition-all hover:bg-rose-600"
                   >
                     <Trash2 className="size-3.5" />
                   </button>
                 </div>
 
                 {/* Card Body */}
-                <div className="flex flex-col gap-2 p-3.5">
+                <div className="flex flex-col gap-1.5 p-3">
                   {/* Category Pill */}
-                  <div className="flex items-center gap-1">
-                    <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                      <span>{emoji}</span>
-                      <span>{item.categoryName || 'Chưa phân loại'}</span>
-                    </span>
-                  </div>
+                  <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+                    <span>{emoji}</span>
+                    <span>{item.categoryName || 'Chưa phân loại'}</span>
+                  </span>
 
                   {/* Name (Click to inline edit) */}
                   <h4
                     onClick={() => void handleEditName(item)}
-                    title="Bấm để sửa tên nhanh"
+                    title="Bấm để sửa tên"
                     className="line-clamp-2 text-xs font-semibold text-foreground leading-snug cursor-pointer hover:text-primary transition-colors"
                   >
                     {item.name}
                   </h4>
 
-                  {/* 1-Click Price Edit */}
-                  <div className="flex items-center justify-between border-t border-border/50 pt-2 mt-1">
+                  {/* Price (Click to inline edit) */}
+                  <div className="mt-1 flex items-center justify-between">
                     <button
                       type="button"
                       onClick={() => void handleEditPrice(item)}
-                      title="Bấm vào số để sửa giá nhanh"
-                      className="group/price flex items-center gap-1 text-left cursor-pointer"
+                      title="Bấm để sửa giá"
+                      className="group/price inline-flex items-center gap-1 cursor-pointer"
                     >
                       <span className="font-mono text-sm font-bold text-emerald-600 dark:text-emerald-400">
                         {formatVnd(item.basePrice)}
                       </span>
-                      <Edit2 className="size-3 text-muted-foreground opacity-60 group-hover/price:opacity-100 group-hover/price:text-primary" />
+                      <Edit2 className="size-3 text-muted-foreground opacity-40 group-hover/price:opacity-100 group-hover/price:text-primary" />
                     </button>
-                    <span className="text-[10px] text-muted-foreground">Giá niêm yết</span>
-                  </div>
 
-                  {/* Workshop Local Path / Drive Button */}
-                  <div className="flex items-center gap-1.5 pt-1">
+                    <Link
+                      href={`/basaadmin/products/${item.id}`}
+                      className="text-[11px] font-medium text-muted-foreground hover:text-primary hover:underline"
+                    >
+                      Sửa chi tiết
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Card Footer: Only shown when local file path exists */}
+                {item.printLocalPath ? (
+                  <div className="border-t border-border/40 bg-muted/20 px-3 py-1.5 flex items-center justify-between">
                     <button
                       type="button"
                       onClick={() => copyPathToClipboard(item.printLocalPath)}
-                      title={item.printLocalPath ? `Copy đường dẫn máy xưởng: ${item.printLocalPath}` : 'Chưa lưu đường dẫn máy xưởng'}
-                      className={`flex-1 truncate rounded-lg border px-2 py-1 text-left font-mono text-[11px] transition-colors ${
-                        item.printLocalPath
-                          ? 'border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-primary'
-                          : 'border-dashed border-border/60 bg-muted/20 text-muted-foreground/60 italic'
-                      }`}
+                      title={`Copy đường dẫn máy in: ${item.printLocalPath}`}
+                      className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline truncate"
                     >
-                      <span className="flex items-center gap-1 truncate">
-                        <FolderOpen className="size-3 shrink-0 text-primary" />
-                        <span className="truncate">{localFileName || 'Chưa có file local'}</span>
-                      </span>
+                      <FolderOpen className="size-3 shrink-0" />
+                      <span className="truncate">Copy file máy xưởng</span>
                     </button>
-
-                    {item.printDriveUrl ? (
-                      <a
-                        href={item.printDriveUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        title="Mở thư mục Google Drive"
-                        className="flex size-7 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground hover:border-sky-500/40 hover:text-sky-600"
-                      >
-                        <Cloud className="size-3.5" />
-                      </a>
-                    ) : null}
-
-                    {item.licenseSourceUrl ? (
-                      <a
-                        href={item.licenseSourceUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        title="Mở link nguồn gốc model"
-                        className="flex size-7 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground hover:border-emerald-500/40 hover:text-emerald-600"
-                      >
-                        <ExternalLink className="size-3.5" />
-                      </a>
-                    ) : null}
+                    <Copy className="size-3 text-muted-foreground shrink-0" />
                   </div>
-                </div>
-
-                {/* Bottom Action Footer */}
-                <div className="flex items-center justify-between border-t border-border/40 bg-muted/20 px-3 py-2 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => copyPathToClipboard(item.printLocalPath)}
-                    className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
-                  >
-                    <Copy className="size-3" />
-                    <span>Copy file in</span>
-                  </button>
-
-                  <Link
-                    href={`/basaadmin/products/${item.id}`}
-                    className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:underline"
-                  >
-                    <span>Sửa chi tiết</span>
-                  </Link>
-                </div>
+                ) : null}
               </div>
             );
           })}

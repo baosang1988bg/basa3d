@@ -25,11 +25,50 @@ export interface ProductAiSuggestion {
   source: 'local_ollama' | 'ai_vision' | 'fallback';
 }
 
-const DEFAULT_FALLBACK_NAMES = [
-  'Mẫu in 3D Trang Trí Để Bàn',
-  'Móc Khoá In 3D Sáng Tạo',
-  'Mô Hình Khớp Nối Fidget Độc Đáo',
+const DICT_KEYWORDS = [
+  { en: ['dragon'], base: 'Rồng Khớp Nối Flexi' },
+  { en: ['cat', 'kitten', 'feline'], base: 'Mèo Khớp Cử Động' },
+  { en: ['dog', 'puppy', 'canine'], base: 'Chú Chó Trang Trí' },
+  { en: ['frog'], base: 'Ếch Cử Động Flexi' },
+  { en: ['skull'], base: 'Đầu Lâu Nghệ Thuật' },
+  { en: ['vase', 'planter', 'pot'], base: 'Bình Hoa / Chậu Cây Decor' },
+  { en: ['phone stand', 'holder', 'stand'], base: 'Giá Đỡ Điện Thoại Để Bàn' },
+  { en: ['keychain', 'key ring', 'keyring'], base: 'Móc Khoá Cá Tính' },
+  { en: ['fidget', 'spinner'], base: 'Đồ Chơi Fidget Xả Stress' },
+  { en: ['sword', 'katana', 'blade'], base: 'Kiếm Katana Thu Gọn' },
+  { en: ['box', 'container', 'case'], base: 'Hộp Đựng Mini Đa Năng' },
+  { en: ['logo', 'sign', 'text', 'lettering', 'brand'], base: 'Biển Logo Để Bàn' },
+  { en: ['figure', 'character', 'statue', 'action figure'], base: 'Mô Hình Nhân Vật' },
+  { en: ['gear', 'mechanical', 'clockwork'], base: 'Khối Cơ Khí Bánh Răng' },
+  { en: ['octopus'], base: 'Bạch Tuộc Cử Động' },
 ];
+
+export function extractSubjectFromDescription(desc: string, hint?: string): string | null {
+  const cleanHint = hint?.trim();
+  if (cleanHint) return cleanHint;
+  const lower = desc.toLowerCase();
+  for (const item of DICT_KEYWORDS) {
+    if (item.en.some((k) => lower.includes(k))) {
+      return item.base;
+    }
+  }
+  return null;
+}
+
+export function generateSmartNames(subject: string | null): string[] {
+  if (subject) {
+    return [
+      `Mô hình ${subject} In 3D`,
+      `${subject} Trang Trí Để Bàn Độc Đáo`,
+      `${subject} (Bản Xưởng BaSa3D)`,
+    ];
+  }
+  return [
+    'Mẫu In 3D Thiết Kế Sáng Tạo',
+    'Mô Hình Để Bàn Tinh Xảo',
+    'Phụ Kiện In 3D Tiện Dụng',
+  ];
+}
 
 const DEFAULT_FALLBACK_DESCRIPTION =
   'Sản phẩm in 3D chất lượng cao, bề mặt hoàn thiện sắc nét, thiết kế tối ưu, thích hợp làm đồ trang trí bàn làm việc hoặc quà tặng độc đáo.';
@@ -42,13 +81,7 @@ export function buildFallbackSuggestion(
   categories?: { id: string; name: string }[]
 ): ProductAiSuggestion {
   const cleanHint = hint?.trim();
-  const names = cleanHint
-    ? [
-        `${cleanHint} in 3D`,
-        `Mô hình ${cleanHint} trang trí`,
-        `Phụ kiện ${cleanHint} tiện ích`,
-      ]
-    : DEFAULT_FALLBACK_NAMES;
+  const names = generateSmartNames(cleanHint || null);
 
   let matchedCategoryId: string | null = null;
   let matchedCategoryName: string | null = null;
@@ -79,8 +112,9 @@ export function buildFallbackSuggestion(
 }
 
 /**
- * Tries local Ollama Vision (e.g. LLaVA) on the machine's GPU (RTX 4060).
- * Returns null if Ollama is offline or fails, allowing automatic fallback to Gemini Cloud.
+ * Dual-stage pipeline using local Ollama on RTX 4060:
+ * Stage 1: Fast & factual visual feature extraction in English (LLaVA / Moondream).
+ * Stage 2: High-accuracy Vietnamese commercial naming & categorization (Qwen 2.5 / DeepSeek).
  */
 export async function tryOllamaVision(
   cleanBase64: string,
@@ -90,89 +124,185 @@ export async function tryOllamaVision(
   const ollamaUrl = process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434';
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12_000);
+    const timeout = setTimeout(() => controller.abort(), 15_000);
 
+    // 1. Discover available Ollama models
+    let visionModel = 'llava';
+    let textModel: string | null = null;
+
+    try {
+      const tagsRes = await fetch(`${ollamaUrl}/api/tags`, { signal: controller.signal });
+      if (tagsRes.ok) {
+        const tagsData = (await tagsRes.json()) as { models?: { name: string }[] };
+        const modelNames = (tagsData.models || []).map((m) => m.name.toLowerCase());
+
+        // Check vision model
+        if (modelNames.some((m) => m.startsWith('llava'))) visionModel = 'llava';
+        else if (modelNames.some((m) => m.startsWith('moondream'))) visionModel = 'moondream';
+
+        // Check smart multilingual text model
+        if (modelNames.some((m) => m.startsWith('qwen2.5:7b'))) textModel = 'qwen2.5:7b';
+        else if (modelNames.some((m) => m.startsWith('qwen2.5:14b'))) textModel = 'qwen2.5:14b';
+        else if (modelNames.some((m) => m.startsWith('qwen2.5'))) textModel = modelNames.find((m) => m.startsWith('qwen2.5')) || null;
+        else if (modelNames.some((m) => m.startsWith('deepseek-r1'))) textModel = modelNames.find((m) => m.startsWith('deepseek-r1')) || null;
+      }
+    } catch {
+      // Tags probe failed, try default llava
+    }
+
+    // Stage 1: Visual Extraction in English (LLaVA / Moondream excels at this)
+    const visionPrompt = `Describe the primary 3D printed object, animal, character, tool, or logo in this image concisely in 1-2 factual sentences. What is the specific subject, shape, color, and function?`;
+
+    const visionRes = await fetch(`${ollamaUrl}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: visionModel,
+        prompt: visionPrompt,
+        images: [cleanBase64],
+        stream: false,
+        options: { temperature: 0.1 },
+      }),
+      signal: controller.signal,
+    });
+
+    if (!visionRes.ok) {
+      clearTimeout(timeout);
+      return null;
+    }
+
+    const visionData = (await visionRes.json()) as { response?: string };
+    const visualDescription = visionData.response?.trim() || '';
+    if (!visualDescription) {
+      clearTimeout(timeout);
+      return null;
+    }
+
+    // Stage 2: Vietnamese Naming with Text Model (Qwen2.5) if available
     const categoriesPrompt =
       categories.length > 0
         ? categories.map((c) => `- ID: "${c.id}", Tên: "${c.name}"`).join('\n')
         : 'Chưa có danh mục cụ thể';
 
-    const prompt = `Bạn là trợ lý cho xưởng in 3D BaSa3D tại Việt Nam.
-Hãy quan sát ảnh mẫu in 3D này (gợi ý nếu có: "${hint || 'không'}").
-Đặt 3 tên sản phẩm tiếng Việt chuẩn thương mại, ngắn gọn, hấp dẫn.
+    if (textModel) {
+      const qwenPrompt = `Bạn là trợ lý cho xưởng in 3D BaSa3D tại Việt Nam.
+Một mẫu in 3D được quan sát thấy có đặc điểm: "${visualDescription}".
+Gợi ý từ nhân viên xưởng (nếu có): "${hint || 'không'}".
+
 Danh mục của shop:
 ${categoriesPrompt}
 
-Trả về đúng JSON theo mẫu sau, không giải thích gì thêm:
+Hãy đặt đúng 3 tên sản phẩm tiếng Việt KHÁC NHAU, chuẩn thương mại, bám sát vật thể được nhận diện ở trên (tuyệt đối không đặt tên chung chung như "Sản phẩm in 3D", "Mẫu in nhựa"):
+1. Tên trực diện: đúng tên vật thể/nhân vật (VD: "Mô Hình Rồng Khớp Nối In 3D", "Giá Đỡ Điện Thoại Hình Mèo")
+2. Tên quà tặng / trang trí / công năng
+3. Tên ngắn gọn / độc đáo
+
+Trả về ĐÚNG cấu trúc JSON sau:
 {
-  "suggestedNames": ["Tên tiếng Việt 1", "Tên tiếng Việt 2", "Tên tiếng Việt 3"],
-  "suggestedCategoryId": "id_khớp_hoặc_null",
-  "suggestedShortDescription": "Mô tả ngắn tiếng Việt 1-2 câu...",
+  "suggestedNames": ["Tên 1", "Tên 2", "Tên 3"],
+  "suggestedCategoryId": "id_phù_hợp_nhất_hoặc_null",
+  "suggestedShortDescription": "Mô tả ngắn 1-2 câu tiếng Việt (20-35 từ)...",
   "keywords": ["kw1", "kw2"]
 }`;
 
-    const res = await fetch(`${ollamaUrl}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'llava',
-        prompt,
-        format: 'json',
-        images: [cleanBase64],
-        stream: false,
-        options: {
-          temperature: 0.3,
-        },
-      }),
-      signal: controller.signal,
-    }).finally(() => clearTimeout(timeout));
+      try {
+        const textRes = await fetch(`${ollamaUrl}/api/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: textModel,
+            prompt: qwenPrompt,
+            format: 'json',
+            stream: false,
+            options: { temperature: 0.3 },
+          }),
+          signal: controller.signal,
+        });
 
-    if (!res.ok) return null;
+        if (textRes.ok) {
+          const textData = (await textRes.json()) as { response?: string };
+          if (textData.response) {
+            const parsed = JSON.parse(textData.response) as {
+              suggestedNames?: string[];
+              suggestedCategoryId?: string | null;
+              suggestedShortDescription?: string | null;
+              keywords?: string[];
+            };
 
-    const data = (await res.json()) as { response?: string };
-    if (!data.response) return null;
+            const validNames = Array.isArray(parsed.suggestedNames)
+              ? parsed.suggestedNames
+                  .filter((n): n is string => typeof n === 'string' && n.trim().length > 0)
+                  .map((n) => n.trim())
+                  .slice(0, 3)
+              : [];
 
-    const parsed = JSON.parse(data.response) as {
-      suggestedNames?: string[];
-      suggestedCategoryId?: string | null;
-      suggestedShortDescription?: string | null;
-      keywords?: string[];
-    };
+            if (validNames.length > 0) {
+              // Deduplicate names
+              const uniqueNames = Array.from(new Set(validNames));
+              const smartSubject = extractSubjectFromDescription(visualDescription, hint);
+              const smartFallbacks = generateSmartNames(smartSubject);
+              for (const fb of smartFallbacks) {
+                if (uniqueNames.length >= 3) break;
+                if (!uniqueNames.includes(fb)) uniqueNames.push(fb);
+              }
 
-    const validNames = Array.isArray(parsed.suggestedNames)
-      ? parsed.suggestedNames
-          .filter((n): n is string => typeof n === 'string' && n.trim().length > 0)
-          .slice(0, 3)
-      : [];
+              let finalCategoryId: string | null = null;
+              let finalCategoryName: string | null = null;
+              if (parsed.suggestedCategoryId) {
+                const found = categories.find((c) => c.id === parsed.suggestedCategoryId);
+                if (found) {
+                  finalCategoryId = found.id;
+                  finalCategoryName = found.name;
+                }
+              }
 
-    if (validNames.length === 0) return null;
-
-    const finalNames = [...validNames];
-    const fallbackList = hint ? [`${hint} in 3D`, `Mô hình ${hint}`, `Phụ kiện ${hint}`] : DEFAULT_FALLBACK_NAMES;
-    for (const fb of fallbackList) {
-      if (finalNames.length >= 3) break;
-      if (!finalNames.includes(fb)) finalNames.push(fb);
+              clearTimeout(timeout);
+              return {
+                suggestedNames: uniqueNames,
+                suggestedCategoryId: finalCategoryId,
+                suggestedCategoryName: finalCategoryName,
+                suggestedShortDescription:
+                  parsed.suggestedShortDescription?.trim() || DEFAULT_FALLBACK_DESCRIPTION,
+                keywords: Array.isArray(parsed.keywords)
+                  ? parsed.keywords.filter((k): k is string => typeof k === 'string').slice(0, 5)
+                  : [],
+                source: 'local_ollama',
+              };
+            }
+          }
+        }
+      } catch {
+        // Fall through to domain keyword mapping
+      }
     }
 
-    let finalCategoryId: string | null = null;
-    let finalCategoryName: string | null = null;
-    if (parsed.suggestedCategoryId) {
-      const found = categories.find((c) => c.id === parsed.suggestedCategoryId);
-      if (found) {
-        finalCategoryId = found.id;
-        finalCategoryName = found.name;
+    clearTimeout(timeout);
+
+    // Stage 3: Direct smart mapping if text model was not used or failed
+    const subject = extractSubjectFromDescription(visualDescription, hint);
+    const names = generateSmartNames(subject);
+
+    let matchedCategoryId: string | null = null;
+    let matchedCategoryName: string | null = null;
+    if (subject && categories.length > 0) {
+      const lower = subject.toLowerCase();
+      const matched = categories.find(
+        (c) => lower.includes(c.name.toLowerCase()) || c.name.toLowerCase().includes(lower)
+      );
+      if (matched) {
+        matchedCategoryId = matched.id;
+        matchedCategoryName = matched.name;
       }
     }
 
     return {
-      suggestedNames: finalNames,
-      suggestedCategoryId: finalCategoryId,
-      suggestedCategoryName: finalCategoryName,
-      suggestedShortDescription:
-        parsed.suggestedShortDescription?.trim() || DEFAULT_FALLBACK_DESCRIPTION,
-      keywords: Array.isArray(parsed.keywords)
-        ? parsed.keywords.filter((k): k is string => typeof k === 'string').slice(0, 5)
-        : [],
+      suggestedNames: names,
+      suggestedCategoryId: matchedCategoryId,
+      suggestedCategoryName: matchedCategoryName,
+      suggestedShortDescription: subject
+        ? `Mẫu ${subject} in 3D sắc nét, bề mặt hoàn thiện tinh xảo, thích hợp để bàn làm việc hoặc làm quà tặng độc đáo.`
+        : DEFAULT_FALLBACK_DESCRIPTION,
+      keywords: subject ? [subject, '3d print'] : ['3d print'],
       source: 'local_ollama',
     };
   } catch {
@@ -279,16 +409,19 @@ Trả về ĐÚNG cấu trúc JSON hợp lệ sau, không kèm bất kỳ giải
             const validNames = Array.isArray(parsed.suggestedNames)
               ? parsed.suggestedNames
                   .filter((n): n is string => typeof n === 'string' && n.trim().length > 0)
+                  .map((n) => n.trim())
                   .slice(0, 3)
               : [];
 
             if (validNames.length > 0) {
-              const finalNames = [...validNames];
-              const fallbackList = hint ? [`${hint} in 3D`, `Mô hình ${hint}`, `Phụ kiện ${hint}`] : DEFAULT_FALLBACK_NAMES;
-              for (const fb of fallbackList) {
-                if (finalNames.length >= 3) break;
-                if (!finalNames.includes(fb)) finalNames.push(fb);
+              const uniqueNames = Array.from(new Set(validNames));
+              const smartSubject = cleanBase64 ? extractSubjectFromDescription(rawText, hint) : hint;
+              const smartFallbacks = generateSmartNames(smartSubject || null);
+              for (const fb of smartFallbacks) {
+                if (uniqueNames.length >= 3) break;
+                if (!uniqueNames.includes(fb)) uniqueNames.push(fb);
               }
+
               let finalCategoryId: string | null = null;
               let finalCategoryName: string | null = null;
               if (parsed.suggestedCategoryId) {
@@ -300,7 +433,7 @@ Trả về ĐÚNG cấu trúc JSON hợp lệ sau, không kèm bất kỳ giải
               }
 
               return {
-                suggestedNames: finalNames,
+                suggestedNames: uniqueNames,
                 suggestedCategoryId: finalCategoryId,
                 suggestedCategoryName: finalCategoryName || parsed.suggestedCategoryName || null,
                 suggestedShortDescription:
