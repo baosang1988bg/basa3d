@@ -4,9 +4,9 @@
 // Three blocks in the order a print shop thinks: photos → what it is → how it's sold. Slug and SKUs are
 // generated on the server; licence must be chosen (D8); opening stock is per colour (D9).
 // Flow on save: create (DRAFT, replay-safe by requestId) → upload photos → optionally publish.
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, ChevronDown, Loader2, Package, Plus, Printer, X } from 'lucide-react';
+import { CheckCircle2, ChevronDown, Loader2, Package, Plus, Printer, Sparkles, X } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -35,6 +35,17 @@ const LICENSED_LABELS: Record<LicensedType, string> = {
 const digitsOnly = (value: string) => value.replace(/[^\d]/g, '');
 const toInt = (value: string): number | null => (digitsOnly(value) ? Number(digitsOnly(value)) : null);
 const formatVnd = (value: number) => `${value.toLocaleString('vi-VN')}đ`;
+
+const COMMON_PREFIXES = ['Móc khoá', 'Mô hình Fidget', 'Decor để bàn', 'Giá đỡ', 'Khay / Hộp'];
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
 
 function choiceCard(active: boolean) {
   return `flex w-full items-start gap-3 rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.99] ${active ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border hover:bg-muted/40'}`;
@@ -72,7 +83,7 @@ export function ProductOnboardingForm({
   const [name, setName] = useState(initialData?.name ?? '');
   const [categoryId, setCategoryId] = useState('');
   const [shortDescription, setShortDescription] = useState('');
-  const [licenseMode, setLicenseMode] = useState<LicenseMode>(initialData?.sourceUrl ? 'LICENSED' : '');
+  const [licenseMode, setLicenseMode] = useState<LicenseMode>(initialData?.sourceUrl ? 'LICENSED' : 'OWN_DESIGN');
   const [licensedType, setLicensedType] = useState<LicensedType>('COMMERCIAL_LICENSE');
   const [licenseSourceUrl, setLicenseSourceUrl] = useState(initialData?.sourceUrl ?? '');
   const [licenseProofUrl, setLicenseProofUrl] = useState('');
@@ -98,6 +109,19 @@ export function ProductOnboardingForm({
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<Done | null>(null);
 
+  // AI Suggestions & Quick Flow
+  const [aiLoading, setAiLoading] = useState(false);
+  const [suggestedNames, setSuggestedNames] = useState<string[]>([]);
+  const lastAnalyzedKeyRef = useRef<string | null>(null);
+
+  // Success Notice when saving and adding next
+  const [savedNotice, setSavedNotice] = useState<{
+    productId: string;
+    name: string;
+    published: boolean;
+    imageCount: number;
+  } | null>(null);
+
   const basePrice = toInt(basePriceText);
   const slugPreview = name.trim() ? slugify(name) : '';
   const locked = Boolean(createdProductId) || busy;
@@ -121,6 +145,66 @@ export function ProductOnboardingForm({
 
   function updateVariant(key: string, patch: Partial<VariantRow>) {
     setVariants((previous) => previous.map((variant) => (variant.key === key ? { ...variant, ...patch } : variant)));
+  }
+
+  const primaryImage = images.find((i) => i.key === coverKey) || images[0];
+
+  async function runAiSuggestion(blob: Blob, key: string, force = false) {
+    if (!force && lastAnalyzedKeyRef.current === key) return;
+    lastAnalyzedKeyRef.current = key;
+    setAiLoading(true);
+    try {
+      const base64 = await blobToBase64(blob);
+      const res = await fetch('/api/admin/catalog/ai-suggest-product', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageBase64: base64,
+          mimeType: blob.type || 'image/jpeg',
+          categories: categories.map((c) => ({ id: c.id, name: c.label })),
+          hint: name.trim() || undefined,
+        }),
+      });
+      if (res.ok) {
+        const json = (await res.json()) as {
+          data?: {
+            suggestedNames?: string[];
+            suggestedCategoryId?: string | null;
+            suggestedShortDescription?: string | null;
+          };
+        };
+        if (json?.data) {
+          const { suggestedNames: names, suggestedCategoryId, suggestedShortDescription } = json.data;
+          if (Array.isArray(names) && names.length > 0) {
+            setSuggestedNames(names);
+          }
+          if (suggestedCategoryId && !categoryId) {
+            setCategoryId(suggestedCategoryId);
+          }
+          if (suggestedShortDescription && !shortDescription.trim()) {
+            setShortDescription(suggestedShortDescription);
+          }
+        }
+      }
+    } catch {
+      // Graceful fallback
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (primaryImage?.blob && !primaryImage.error && !name.trim() && lastAnalyzedKeyRef.current !== primaryImage.key) {
+      void runAiSuggestion(primaryImage.blob, primaryImage.key);
+    }
+  }, [primaryImage?.blob, primaryImage?.key, primaryImage?.error, name]);
+
+  function applySuggestedName(suggested: string) {
+    setName(suggested);
+    setTimeout(() => {
+      const priceInput = document.getElementById(BASE_PRICE_INPUT_ID);
+      if (priceInput) priceInput.focus();
+    }, 50);
   }
 
   function clientCheck(): string | null {
@@ -169,7 +253,7 @@ export function ProductOnboardingForm({
     };
   }
 
-  async function save(publish: boolean) {
+  async function save(publish: boolean, addNext = false) {
     setError(null);
     const problem = createdProductId ? null : clientCheck();
     if (problem) { setError(problem); return; }
@@ -210,7 +294,34 @@ export function ProductOnboardingForm({
         published = result.data.published;
         reasons = result.data.reasons;
       }
-      setDone({ productId, published, reasons, imageCount: ready.length });
+      if (addNext) {
+        setSavedNotice({
+          productId,
+          name: name.trim() || 'Sản phẩm mới',
+          published,
+          imageCount: ready.length,
+        });
+        setImages([]);
+        setCoverKey(null);
+        setUploadedPaths({});
+        setName('');
+        setShortDescription('');
+        setDescription('');
+        setBasePriceText('');
+        setDefaultStockText('');
+        setVariants([]);
+        setCreatedProductId(null);
+        setSuggestedNames([]);
+        lastAnalyzedKeyRef.current = null;
+        requestId.current = null;
+        const priceInput = document.getElementById(BASE_PRICE_INPUT_ID) as HTMLInputElement | null;
+        if (priceInput) priceInput.value = '';
+        if (typeof window !== 'undefined') {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      } else {
+        setDone({ productId, published, reasons, imageCount: ready.length });
+      }
     } catch {
       setError('Mất kết nối tới máy chủ. Bấm lưu lại — hệ thống sẽ không tạo trùng sản phẩm.');
     } finally {
@@ -218,6 +329,35 @@ export function ProductOnboardingForm({
       setProgress(null);
     }
   }
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+        event.preventDefault();
+        if (!busy && !createdProductId) {
+          void save(licenseMode !== 'UNKNOWN' && Boolean(basePrice && basePrice > 0), true);
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    busy,
+    createdProductId,
+    licenseMode,
+    basePrice,
+    images,
+    name,
+    categoryId,
+    warehouseId,
+    variants,
+    defaultStockText,
+    shortDescription,
+    description,
+    seoTitle,
+    seoDescription,
+    isFeatured,
+  ]);
 
   if (done) {
     return (
@@ -242,6 +382,36 @@ export function ProductOnboardingForm({
 
   return (
     <form ref={formRef} className="flex flex-col gap-6" onSubmit={(event) => { event.preventDefault(); void save(false); }}>
+      {savedNotice ? (
+        <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-950 dark:text-emerald-200">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="size-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <div>
+              <p className="font-semibold">
+                Đã lưu thành công: &ldquo;{savedNotice.name}&rdquo; ({savedNotice.published ? 'Đã đăng bán' : 'Bản nháp'}, {savedNotice.imageCount} ảnh).
+              </p>
+              <p className="text-xs text-muted-foreground">Khung đã được làm mới — hãy thả ảnh sản phẩm tiếp theo vào bên dưới.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/basaadmin/products/${savedNotice.productId}`}
+              target="_blank"
+              className={buttonVariants({ variant: 'outline', size: 'sm', className: 'h-8 text-xs' })}
+            >
+              Xem chi tiết
+            </Link>
+            <button
+              type="button"
+              onClick={() => setSavedNotice(null)}
+              className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Đóng thông báo"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        </div>
+      ) : null}
       {/* Block 1 — photos */}
       <Card>
         <CardHeader><CardTitle>1. Ảnh mẫu in</CardTitle></CardHeader>
@@ -256,9 +426,79 @@ export function ProductOnboardingForm({
         <CardContent className="flex flex-col gap-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="onboard-name">Tên sản phẩm</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="onboard-name" className="flex items-center gap-1.5">
+                  Tên sản phẩm <span className="text-rose-600">*</span>
+                </Label>
+                {primaryImage?.blob ? (
+                  <button
+                    type="button"
+                    disabled={aiLoading || locked}
+                    onClick={() => primaryImage?.blob && void runAiSuggestion(primaryImage.blob, primaryImage.key, true)}
+                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50"
+                  >
+                    {aiLoading ? (
+                      <>
+                        <Loader2 className="size-3 animate-spin" /> Đang nhận diện ảnh…
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="size-3" /> Nhận diện lại từ ảnh
+                      </>
+                    )}
+                  </button>
+                ) : null}
+              </div>
               <Input id="onboard-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={200} disabled={locked} placeholder="VD: Móc khoá mèo Shiba" autoFocus />
               {slugPreview ? <p className="truncate font-mono text-[11px] text-muted-foreground">/products/{slugPreview}</p> : null}
+
+              {aiLoading ? (
+                <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary">
+                  <Loader2 className="size-3.5 animate-spin shrink-0" />
+                  <span>AI đang quan sát ảnh mẫu in để gợi ý 3 tên tiếng Việt chuẩn SEO…</span>
+                </div>
+              ) : suggestedNames.length > 0 ? (
+                <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-muted/30 p-2.5">
+                  <div className="flex items-center justify-between text-xs font-medium text-foreground">
+                    <span className="flex items-center gap-1 text-primary font-semibold">
+                      <Sparkles className="size-3.5" /> Gợi ý tên từ ảnh (chọn 1 tên để điền nhanh &amp; nhảy tới Giá):
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {suggestedNames.map((sName) => (
+                      <button
+                        key={sName}
+                        type="button"
+                        onClick={() => applySuggestedName(sName)}
+                        className={`rounded-full border px-3 py-1 text-xs font-medium transition-all active:scale-95 ${
+                          name === sName
+                            ? 'border-primary bg-primary text-primary-foreground shadow-xs'
+                            : 'border-border bg-background hover:border-primary/50 hover:bg-muted text-foreground'
+                        }`}
+                      >
+                        + {sName}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : !name.trim() ? (
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  <span className="text-[11px] text-muted-foreground">Tiền tố nhanh:</span>
+                  {COMMON_PREFIXES.map((prefix) => (
+                    <button
+                      key={prefix}
+                      type="button"
+                      onClick={() => {
+                        setName(`${prefix} `);
+                        document.getElementById('onboard-name')?.focus();
+                      }}
+                      className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground active:scale-95 transition-all"
+                    >
+                      + {prefix}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="onboard-category">Danh mục</Label>
@@ -446,6 +686,15 @@ export function ProductOnboardingForm({
       <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center justify-end gap-2 border-t border-border bg-background/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-xl sm:border">
         {progress ? <span className="mr-auto flex items-center gap-1.5 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" />{progress}</span> : null}
         <Button type="submit" variant="outline" disabled={busy}>Lưu nháp</Button>
+        <Button
+          type="button"
+          disabled={busy}
+          onClick={() => void save(licenseMode !== 'UNKNOWN' && Boolean(basePrice && basePrice > 0), true)}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium active:scale-[0.98] transition-all"
+          title="Lưu sản phẩm hiện tại và làm mới khung để tiếp tục thêm món tiếp theo (Phím tắt: Ctrl + Enter)"
+        >
+          Lưu &amp; Thêm tiếp <span className="ml-1 text-[11px] opacity-80">(Ctrl+Enter)</span>
+        </Button>
         <Button type="button" disabled={busy || licenseMode === 'UNKNOWN'} onClick={() => void save(true)} title={licenseMode === 'UNKNOWN' ? 'Mẫu chưa rõ bản quyền chỉ lưu nháp' : undefined}>
           Lưu &amp; đăng bán
         </Button>
