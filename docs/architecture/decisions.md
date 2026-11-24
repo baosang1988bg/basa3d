@@ -1221,3 +1221,53 @@ e-commerce can be restored from git history or automated later.
 
 **Migration cost.** One additive table (`trend_watch_items` in `supabase/migrations/20261124000000_trend_watch_items.sql`) with staff-only RLS and in-memory/service graceful fallback.
 
+
+**Correction (2026-11-24, ADR-0062).** The first implementation did not match points 1–2 above: the OG
+fetch was not SSRF-safe, the watchlist had no transition rules, and the migration's RLS policy referenced a
+non-existent `staff_profiles.status` column (the migration could not apply). Fixed in
+`fix/trend-radar-hardening` — see ADR-0062.
+
+## ADR-0061 — Deploy branch switches from `netlify` to `vercel` (Hobby = UAT only)
+
+**Status.** Accepted 2026-11-24 (Owner decision).
+
+**Context.** ADR-0054 made the app host-agnostic and pointed the "done" merge at `netlify` because Vercel
+Hobby forbids commercial use. The Owner now wants `dev` → `vercel` as the integration/deploy path, on the
+Hobby plan for UAT/internal use. Vercel's fair-use guidelines still restrict Hobby to non-commercial,
+personal use; commercial usage needs Pro or Enterprise
+(https://vercel.com/docs/limits/fair-use-guidelines, re-checked 2026-11-24).
+
+**Decision.**
+1. Branching rule (AGENTS.md, constitution, CI `agent-check.yml`): feature/fix branches from `dev`; after
+   DoD is green (lint, typecheck, check:arch, tests, build) merge into `vercel`. Agents merge locally only —
+   never push or deploy.
+2. The Vercel deployment from `vercel` is **UAT/internal only**: no real customers, orders or VietQR
+   payments while on Hobby.
+3. `netlify` branch, `netlify.toml`, `deploy-netlify.md` and the Netlify code paths (`getClientIp`,
+   `resolve-build-info`) stay as-is — frozen fallback, not deleted.
+
+**Consequences / migration cost.** Docs + CI trigger only; no runtime change (platform is detected at build
+via `VERCEL=1`). Going live with real customers requires either Vercel Pro (~$20/month) or a switch back
+to Netlify — record that as a new ADR when it happens.
+
+## ADR-0062 — Trend Radar hardening (post-review of ADR-0060)
+
+**Status.** Accepted 2026-11-24 (branch `fix/trend-radar-hardening`).
+
+**Decision.**
+1. `trend_watch_items` is accessed through `query()` (pg.Pool) like every other service (ADR-0012), not
+   PostgREST. RLS stays enabled with no policy (deny-all for anon/authenticated), matching the
+   2026-10-12 rule for public tables. DB errors are no longer swallowed into an empty list.
+2. Non-MakerWorld capture goes through `lib/net/safe-fetch.ts`: https only, host allowlist (Printables,
+   Thingiverse, Thangs, Douyin), manual redirects re-validated per hop (max 3), one 6s deadline covering the
+   body read, 512 KB body cap. Other hosts are saved by URL only (no server fetch).
+3. License safety: only the structured `license` string can yield `canDirectSell = true`; free text
+   (`notes`, `og:description`) can only make the verdict stricter. NC is checked before "commercial".
+   MakerWorld short codes (`BY`, `BY-SA`, `BY-ND`, `CC0`) are recognised.
+4. Watchlist transitions: `WATCHING → PRINT_TESTING | ARCHIVED`, `PRINT_TESTING → WATCHING |
+   CONVERTED_DRAFT | ARCHIVED`, `CONVERTED_DRAFT → ARCHIVED`, `ARCHIVED → WATCHING`.
+5. 1-Click onboarding passes `licenseStatus`; only `COMMERCIAL_ALLOWED` pre-selects "Có license" — other
+   statuses pre-select "Chưa rõ" so a non-commercial model is never saved as `COMMERCIAL_LICENSE` by default.
+6. `/api/public/search/visual-analyze`: DB rate limit (20 req/h per network), MIME allowlist, 4 MB base64
+   cap (under Vercel's 4.5 MB request body limit), API key in `x-goog-api-key` header; the client downsizes
+   images to ≤1024 px JPEG before upload and shows an error when analysis fails.
