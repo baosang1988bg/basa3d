@@ -42,20 +42,54 @@ export function HeaderSearch() {
 
   return (
     <>
+      {/*
+        Emil design-eng principles applied:
+        - :active → scale(0.97) for instant press feedback (100ms)
+        - hover: border brightens + icon/text color shift (150ms ease-out)
+        - kbd badge: visible contrast, shrink-0 so it never collapses
+        - Breakpoint: icon-only on md, full pill from lg onward (w-44)
+        - overflow-hidden clips content cleanly inside rounded border
+        - whitespace-nowrap prevents label wrap at any width
+      */}
       <button
         type="button"
         onClick={() => show()}
         aria-label={t('open')}
         aria-haspopup="dialog"
         title={t('openShortcut')}
-        className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg border border-border px-2 text-sm text-muted-foreground transition-colors duration-150 hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background xl:w-48 xl:justify-between xl:px-3"
+        className={[
+          // Base layout
+          'group inline-flex h-8 shrink-0 cursor-pointer items-center gap-2',
+          'overflow-hidden whitespace-nowrap rounded-lg border px-2',
+          // Colors — idle
+          'border-border bg-transparent text-muted-foreground',
+          // Hover — border brightens, bg tints, text shifts
+          'hover:border-border/80 hover:bg-secondary hover:text-foreground',
+          // Press feedback — instant scale (Emil: 100-160ms)
+          'transition-[transform,background-color,border-color,color]',
+          'duration-150 ease-[cubic-bezier(0.23,1,0.32,1)]',
+          'active:scale-[0.97] active:duration-100',
+          // Focus ring
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+          // Responsive: narrow → icon only; lg+ → full pill
+          'lg:w-44 lg:justify-between lg:px-3',
+        ].join(' ')}
       >
-        <span className="inline-flex items-center gap-2">
-          <Search className="size-4" aria-hidden="true" />
-          <span className="hidden xl:inline">{t('buttonLabel')}</span>
+        {/* Left: icon + label */}
+        <span className="inline-flex min-w-0 items-center gap-1.5">
+          <Search
+            className="size-4 shrink-0 transition-colors duration-150 group-hover:text-primary"
+            aria-hidden="true"
+          />
+          <span className="hidden truncate text-sm lg:inline">{t('buttonLabel')}</span>
         </span>
-        <kbd className="hidden shrink-0 rounded border border-border bg-secondary px-1.5 font-mono text-[10px] text-muted-foreground xl:inline">{shortcut}</kbd>
+
+        {/* Right: keyboard shortcut badge — only on lg+ */}
+        <kbd className="hidden shrink-0 items-center rounded border border-border bg-muted px-1.5 font-mono text-[10px] leading-none text-muted-foreground lg:inline-flex">
+          {shortcut}
+        </kbd>
       </button>
+
       {open ? (
         <UnifiedSearchDialog key={open.key} isOpen onClose={() => setOpen(null)} initialTab={open.tab} initialQuery={open.query} />
       ) : null}

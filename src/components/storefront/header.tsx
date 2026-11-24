@@ -303,7 +303,7 @@ export function Header({ categories: initialCategories = [] }: HeaderProps = {})
             })}
           </nav>
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {/* ADR-0064: unified search (shop catalog first, 3D libraries second); dialog is lazy-loaded. */}
             <HeaderSearch />
             <a
@@ -311,7 +311,7 @@ export function Header({ categories: initialCategories = [] }: HeaderProps = {})
               target="_blank"
               rel="noreferrer"
               onClick={() => trackContactClick('zalo', 'header')}
-              className="hidden cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:inline-flex"
+              className="hidden shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:inline-flex"
             >
               <MessageCircle className="size-4 text-[#0068FF]" /> {t('zaloConsult')}
             </a>

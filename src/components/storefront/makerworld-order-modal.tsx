@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   X,
   Clock,
@@ -73,6 +73,7 @@ export function MakerWorldOrderModal({
   const [copied, setCopied] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const [showCustomSpecs, setShowCustomSpecs] = useState(false);
+  const modalBodyRef = useRef<HTMLDivElement>(null);
 
   const hasCustomSpecs = useMemo(() => {
     return (
@@ -90,12 +91,16 @@ export function MakerWorldOrderModal({
     }
   }, [initialProfileId]);
 
-  // Reset collapsible sections when modal opens
+  // Reset collapsible sections when modal opens + scroll body back to top
   useEffect(() => {
     if (isOpen) {
       setShowCustomSpecs(false);
       setShowQr(false);
       setCopied(false);
+      // Scroll modal body to top (profile card always visible on open)
+      if (modalBodyRef.current) {
+        modalBodyRef.current.scrollTop = 0;
+      }
     }
   }, [isOpen]);
 
@@ -272,7 +277,7 @@ export function MakerWorldOrderModal({
         </div>
 
         {/* Modal Body */}
-        <div className="overflow-y-auto px-5 py-5 sm:px-6 space-y-4">
+        <div ref={modalBodyRef} className="overflow-y-auto px-5 py-5 sm:px-6 space-y-4">
           {/* Profile Snapshot Card */}
           <div className="rounded-xl border border-border/80 bg-muted/30 p-4 space-y-3">
             <div className="flex items-start gap-3">

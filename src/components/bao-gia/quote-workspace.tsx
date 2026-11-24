@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import {
   UploadCloud,
@@ -88,6 +88,7 @@ export function QuoteWorkspace({
   const [referenceUrl, setReferenceUrl] = useState<string | null>(initialReferenceUrl ?? null);
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<QuoteTab>(initialTab);
+  const tablistRef = useRef<HTMLDivElement>(null);
   const [linkInput, setLinkInput] = useState(initialUrl ?? '');
   const [linkError, setLinkError] = useState<string | null>(null);
   const [isAnalyzingLink, setIsAnalyzingLink] = useState(false);
@@ -100,6 +101,11 @@ export function QuoteWorkspace({
       url.searchParams.set('tab', tab);
       window.history.replaceState({}, '', url.toString());
     }
+    // Scroll segmented switcher into view so the user immediately sees the
+    // active tab card highlight + the newly revealed panel below it.
+    requestAnimationFrame(() => {
+      tablistRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   }
 
   async function handleAnalyze(targetUrl?: string) {
@@ -194,6 +200,7 @@ export function QuoteWorkspace({
     <div className="flex flex-col gap-8">
       {/* 2-Option Segmented Switcher */}
       <div
+        ref={tablistRef}
         role="tablist"
         aria-label="Chọn phương thức báo giá in 3D"
         className="grid grid-cols-1 gap-4 sm:grid-cols-2 print:hidden"
@@ -336,7 +343,7 @@ export function QuoteWorkspace({
         aria-labelledby="tab-bao-gia-link"
         className={cn(
           'print:hidden',
-          activeTab === 'link' ? 'block' : 'hidden'
+          activeTab === 'link' ? 'block animate-in fade-in duration-200' : 'hidden'
         )}
       >
         <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-card via-card to-primary/5 p-6 shadow-xs sm:p-8">
@@ -587,7 +594,7 @@ export function QuoteWorkspace({
         role="tabpanel"
         aria-labelledby="tab-bao-gia-file"
         className={cn(
-          activeTab === 'file' ? 'block' : 'hidden print:block'
+          activeTab === 'file' ? 'block animate-in fade-in duration-200' : 'hidden print:block'
         )}
       >
         <div className="mb-6 flex flex-col gap-2 rounded-xl border border-border/80 bg-muted/20 p-4 print:hidden sm:flex-row sm:items-center sm:justify-between">
