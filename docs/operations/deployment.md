@@ -18,7 +18,8 @@ Trước khi mở cho khách: nâng Vercel Pro hoặc quay lại Netlify (ADR-00
 Checklist khi deploy lên Vercel:
 - `BASA3D_DEPLOY_PLATFORM` tự suy ra `vercel` từ `VERCEL=1` lúc build (`src/config/resolve-build-info.mjs`);
   rate limiter đọc `x-real-ip`/`x-forwarded-for` (Vercel ghi đè) — không cần cấu hình thêm.
-- Cron trong `vercel.json` (2 job/ngày) nằm trong giới hạn Hobby (cron tối đa 1 lần/ngày).
+- Cron trong `vercel.json` (2 job, mỗi job 1 lần/ngày) — tần suất này thấp; vẫn đối chiếu giới hạn cron Hobby hiện hành tại https://vercel.com/docs/cron-jobs trước khi thêm job mới.
+- Body request của Vercel Function tối đa 4.5 MB (413 `FUNCTION_PAYLOAD_TOO_LARGE`) — upload lớn phải đi thẳng lên Supabase Storage bằng signed URL, không qua route handler.
 - Chạy migration mới (vd. `20261124000000_trend_watch_items.sql`) lên DB UAT **trước** khi promote.
 
 ## Biến môi trường bắt buộc (Phase 38)
