@@ -52,6 +52,12 @@
   - Hiển thị đầy đủ các kho lớn: MakerWorld Global, MakerWorld China, Printables, Thingiverse.
   - Tích hợp nút kích hoạt `ModelSearchDialog` trực tiếp trên Banner.
   - Hướng dẫn trực quan: Khách chọn mẫu -> Copy link -> Dán vào BaSa3D tính giá in ngay.
+- [x] Tích hợp `ModelSearchDialog` trực tiếp vào trang `/bao-gia` (luồng kéo thả upload):
+  - Khách chưa có file in 3D có thể mở tìm kiếm tức thì qua Yeggi/MakerWorld hoặc tìm bằng ảnh ngay tại chỗ.
+- [x] Cầu nối Săn Mẫu -> Đăng Bán Sản Phẩm (1-Click Convert to Catalog Product):
+  - Tính toán giá bán gợi ý tự động từ gram nhựa + thời gian in (`calculateSuggestedPrice`).
+  - Nút "Đăng bán" tự động pre-fill form `/basaadmin/products/new` (tên, giá gợi ý, link nguồn, license).
+  - Tích hợp nút xem nhanh bàn in & tải 3MF `/tools/makerworld-cn` trực tiếp từ Watchlist.
 
 ---
 

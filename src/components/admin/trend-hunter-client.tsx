@@ -16,6 +16,8 @@ import {
   Globe,
   Tag,
   AlertCircle,
+  ShoppingBag,
+  Eye,
 } from 'lucide-react';
 import {
   CURATED_TREND_FEEDS,
@@ -45,6 +47,30 @@ export function TrendHunterClient({ initialItems = [] }: { initialItems?: TrendW
   const [watchlist, setWatchlist] = useState<TrendWatchItem[]>(initialItems);
   const [loadingWatchlist, setLoadingWatchlist] = useState(false);
   const [platformFilter, setPlatformFilter] = useState<string>('ALL');
+
+  function calculateSuggestedPrice(grams: number | null, printMinutes: number | null): number {
+    const g = grams ?? 50;
+    const m = printMinutes ?? 60;
+    const raw = g * 550 + m * 250 + 25_000;
+    return Math.max(35_000, Math.round(raw / 5_000) * 5_000);
+  }
+
+  function handleConvertToProduct(item: {
+    title: string;
+    sourceUrl: string;
+    estimatedGrams?: number | null;
+    estimatedPrintMinutes?: number | null;
+    notes?: string;
+  }) {
+    const price = calculateSuggestedPrice(item.estimatedGrams ?? null, item.estimatedPrintMinutes ?? null);
+    const params = new URLSearchParams({
+      title: item.title,
+      basePrice: String(price),
+      sourceUrl: item.sourceUrl,
+      notes: item.notes || `Mẫu săn từ Trend Radar: ${item.sourceUrl}`,
+    });
+    window.location.href = `/basaadmin/products/new?${params.toString()}`;
+  }
 
   useEffect(() => {
     fetchWatchlist();
@@ -390,10 +416,18 @@ export function TrendHunterClient({ initialItems = [] }: { initialItems?: TrendW
                     </div>
                   </div>
 
-                  <div className="mt-6 flex items-center gap-3">
+                  <div className="mt-6 flex flex-wrap items-center gap-3">
                     <Button onClick={handleSaveToWatchlist} disabled={saving} className="gap-2">
                       {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
                       Lưu Vào Watchlist Săn Mẫu
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => handleConvertToProduct(draft)}
+                      className="gap-2"
+                    >
+                      <ShoppingBag className="size-4 text-primary" />
+                      Đăng Bán SP Catalog (~{calculateSuggestedPrice(draft.estimatedGrams, draft.estimatedPrintMinutes).toLocaleString('vi-VN')}đ)
                     </Button>
                     <Button
                       variant="outline"
@@ -501,6 +535,18 @@ export function TrendHunterClient({ initialItems = [] }: { initialItems?: TrendW
                             {Math.floor(item.estimatedPrintMinutes / 60)}h{item.estimatedPrintMinutes % 60}m
                           </span>
                         )}
+                        {(item.platform === 'MAKERWORLD' || item.platform === 'MAKERWORLD_CN') && (
+                          <a
+                            href={`/tools/makerworld-cn?url=${encodeURIComponent(item.sourceUrl)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                            title="Xem bàn in, thông số cắt lớp & tải 3MF"
+                          >
+                            <Eye className="size-3 text-primary" />
+                            <span>Bàn in</span>
+                          </a>
+                        )}
                         <a
                           href={item.sourceUrl}
                           target="_blank"
@@ -526,7 +572,19 @@ export function TrendHunterClient({ initialItems = [] }: { initialItems?: TrendW
                         <option value="ARCHIVED">Lưu trữ</option>
                       </select>
 
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleUpdateStatus(item.id, 'CONVERTED_DRAFT');
+                            handleConvertToProduct(item);
+                          }}
+                          className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-bold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+                          title="Tạo sản phẩm nháp trong Catalog"
+                        >
+                          <ShoppingBag className="size-3.5" />
+                          <span>Đăng bán</span>
+                        </button>
                         <Button
                           variant="ghost"
                           size="icon"

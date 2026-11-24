@@ -11,8 +11,19 @@ import { getProductOnboardingOptions, UNCATEGORIZED_SLUG } from '@/services/prod
 export const metadata = { title: 'Đăng sản phẩm mới | BaSa3D Admin' };
 
 // Phase 52 P2 (docs/exec-plans/active/phase-52-admin-catalog-restock-ux.md).
-export default async function NewProductPage() {
+export default async function NewProductPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{
+    title?: string;
+    basePrice?: string;
+    sourceUrl?: string;
+    notes?: string;
+  }>;
+}) {
   await requireAdmin();
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const initialBasePrice = resolvedSearchParams?.basePrice ? Number(resolvedSearchParams.basePrice) : undefined;
   const [options, materials, pricingConfig] = await Promise.all([
     getProductOnboardingOptions(), listMaterials(), getCurrentPricingConfig(),
   ]);
@@ -35,6 +46,12 @@ export default async function NewProductPage() {
         warehouses={options.warehouses}
         materials={materials}
         pricingConfig={pricingConfig}
+        initialData={{
+          name: resolvedSearchParams?.title,
+          basePrice: initialBasePrice && !Number.isNaN(initialBasePrice) ? initialBasePrice : undefined,
+          sourceUrl: resolvedSearchParams?.sourceUrl,
+          description: resolvedSearchParams?.notes,
+        }}
       />
     </div>
   );
