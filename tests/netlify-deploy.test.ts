@@ -8,6 +8,7 @@ import { getClientIp } from '../src/lib/rate-limit.js';
 import { config as netlifyCronConfig, resolveCronTarget } from '../netlify/functions/cleanup-orphan-uploads.mjs';
 import { config as netlifyDailyNewsConfig, resolveBackgroundTarget as resolveDailyNewsBackground } from '../netlify/functions/daily-3d-news.mjs';
 import { resolveCronTarget as resolveDailyNewsTarget, runDailyNewsBackground } from '../netlify/functions/daily-3d-news-run-background.mjs';
+import { config as netlifyTrendConfig, resolveCronTarget as resolveTrendTarget } from '../netlify/functions/trend-snapshots.mjs';
 import { failingSecurityHeaders, versionPayloadError } from '../scripts/deploy/smoke-netlify.mjs';
 import { securityHeaders } from '../next.config.mjs';
 
@@ -74,6 +75,13 @@ test('Netlify scheduled cleanup keeps the exact vercel.json cron schedule and pa
   assert.ok(newsCron, 'vercel.json daily-3d-news cron entry missing');
   assert.equal(netlifyDailyNewsConfig.schedule, newsCron.schedule);
   assert.equal(resolveDailyNewsTarget({ URL: 'https://basa3d.netlify.app' }), `https://basa3d.netlify.app${newsCron.path}`);
+
+  // ADR-0063: trend snapshots — same schedule; Netlify asks for a smaller batch (30s function limit).
+  const trendCron = vercel.crons.find((entry) => entry.path === '/api/cron/trend-snapshots');
+  assert.ok(trendCron, 'vercel.json trend-snapshots cron entry missing');
+  assert.equal(netlifyTrendConfig.schedule, trendCron.schedule);
+  assert.equal(resolveTrendTarget({ URL: 'https://basa3d.netlify.app' }), `https://basa3d.netlify.app${trendCron.path}?limit=15&budgetMs=20000`);
+  assert.equal(resolveTrendTarget({}), null);
 });
 
 // Phase 54.1 D4: the scheduled function (30s limit) only dispatches the background function.

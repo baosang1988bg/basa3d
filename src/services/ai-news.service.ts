@@ -770,17 +770,18 @@ export type ManualSyncClaim = { claimed: true } | { claimed: false; retryAfterSe
  * Atomically checks + records a manual trigger. The advisory xact lock serializes concurrent clicks
  * (held only for these two statements — never across the Gemini call). Failed runs still count,
  * on purpose: the cooldown exists to protect the Gemini quota, which a failed run also spends.
- * Timestamps are compared in SQL against the same `timezone('utc', now())` expression the column
- * default uses, so app-server clock skew does not matter.
+ * Timestamps are compared in SQL against `now()` — the audit_logs.created_at default since Phase 36 — so
+ * app-server clock skew and a non-UTC session TimeZone do not matter (the old `timezone('utc', now())`
+ * comparison drifted by the session offset, e.g. 7h in Asia/Ho_Chi_Minh).
  */
 export async function claimManualNewsSync(actorId: string, cooldownSeconds = MANUAL_SYNC_COOLDOWN_SECONDS): Promise<ManualSyncClaim> {
   return withTransaction(async (client) => {
     await client.query(`select pg_advisory_xact_lock(hashtext('basa3d:daily-news-manual-sync'))`);
     const recent = await client.query<{ retry_after: number }>(
-      `select greatest(1, ceil(extract(epoch from (created_at + make_interval(secs => $2) - timezone('utc', now())))))::int as retry_after
+      `select greatest(1, ceil(extract(epoch from (created_at + make_interval(secs => $2) - now()))))::int as retry_after
          from audit_logs
         where entity_type = $1 and entity_id is null and action = $3
-          and created_at > timezone('utc', now()) - make_interval(secs => $2)
+          and created_at > now() - make_interval(secs => $2)
         order by created_at desc
         limit 1`,
       [MANUAL_SYNC_ENTITY, cooldownSeconds, MANUAL_SYNC_AUDIT_ACTION],

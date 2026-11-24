@@ -18,6 +18,14 @@ export type ModelGroup = {
   oversizeSkipped: string[];
 };
 
+/** On-disk folder of a group for I/O (keeps the original Unicode form, see SourceFile.diskRelPath). */
+export function groupDiskDir(group: ModelGroup): string {
+  const first = group.files[0];
+  const disk = first?.diskRelPath ?? first?.relPath;
+  if (!disk) return group.groupMode === 'FOLDER' ? group.sourceRelPath : dirOf(group.sourceRelPath);
+  return dirOf(disk.split(/[\\/]+/).filter(Boolean).join('/'));
+}
+
 /** A model is made of .stl and/or .3mf files (a leaf folder may mix both). */
 export const MODEL_FILE_RE = /\.(stl|3mf)$/i;
 
@@ -43,7 +51,7 @@ export function matchesOnly(relPath: string, only: string | undefined): boolean 
 export function groupModels(files: SourceFile[], mode: GroupMode, options: { maxBytes: number; only?: string }): ModelGroup[] {
   const groups = new Map<string, ModelGroup>();
   const sorted = files
-    .map((file) => ({ ...file, relPath: normalizeRelPath(file.relPath) }))
+    .map((file) => ({ ...file, diskRelPath: file.diskRelPath ?? file.relPath, relPath: normalizeRelPath(file.relPath) }))
     .filter((file) => MODEL_FILE_RE.test(file.relPath) && matchesOnly(file.relPath, options.only))
     .sort((a, b) => (a.relPath < b.relPath ? -1 : a.relPath > b.relPath ? 1 : 0));
   // Folders that have a descendant folder holding models are not leaves.
@@ -90,7 +98,7 @@ export async function walkDir(root: string, ignored?: string[]): Promise<SourceF
       if (entry.isDirectory()) await visit(absolute);
       else if (entry.isFile() && MODEL_FILE_RE.test(entry.name)) {
         const info = await stat(absolute);
-        found.push({ relPath: normalizeRelPath(path.relative(root, absolute)), bytes: info.size, mtimeMs: info.mtimeMs });
+        found.push({ relPath: normalizeRelPath(path.relative(root, absolute)), diskRelPath: path.relative(root, absolute).split(path.sep).join('/'), bytes: info.size, mtimeMs: info.mtimeMs });
       } else if (entry.isFile()) ignored?.push(normalizeRelPath(path.relative(root, absolute)));
     }
   }

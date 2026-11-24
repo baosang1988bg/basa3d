@@ -23,7 +23,9 @@ after(async () => { if (hasDb) await getPool().end(); });
 const FORBIDDEN_DTO_KEYS = ['unitCost', 'margin', 'pricingConfig', 'breakdown', 'materialCost', 'laborCost', 'machineDepreciation', 'materialId'];
 
 test('rejects non-MakerWorld and look-alike URLs before touching the DB', async () => {
-  for (const url of ['https://evil.com/makerworld.com/en/models/1', 'http://makerworld.com/en/models/1', 'https://makerworld.com.evil.com/en/models/1', 'makerworld.com/en/models/1']) {
+  // A bare `makerworld.com/...` is NOT rejected any more: Phase 49 (cleanMakerWorldUrlInput) normalises
+  // scheme-less MakerWorld share strings to https on purpose. Only foreign/look-alike hosts and http stay rejected.
+  for (const url of ['https://evil.com/makerworld.com/en/models/1', 'http://makerworld.com/en/models/1', 'https://makerworld.com.evil.com/en/models/1', 'evil.com/makerworld.com/en/models/1']) {
     await assert.rejects(() => estimateMakerWorldUrl(url), MakerWorldNotFoundError, url);
   }
 });

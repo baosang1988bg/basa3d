@@ -109,3 +109,18 @@ Review found 3 BLOCKERS + 4 IMPORTANT. Fixed:
 - Register a Thingiverse app and set `THINGIVERSE_APP_TOKEN` in Vercel.
 - i18n of `ModelSearchDialog` copy (storefront EN locale is currently disabled by ADR-0048, so low priority).
 - Owner review UI for license proof (gate checks presence, not validity).
+
+## 6. Verification pass (Claude, 2026-11-25 — branch `fix/trend-radar-verification`)
+Goal: prove every task above works end to end, not just "tests green on my files".
+
+- [x] Live API contracts (browser): Printables GraphQL (license + stats + full license list), MakerWorld `__NEXT_DATA__` fields, Thingiverse OpenAPI schema, Gemini deprecations page → fixes: "Commercial Use" licences, visual search moved off `gemini-2.5-flash` onto the shared vision helper.
+- [x] Full `npm test`-equivalent run in a Linux sandbox: Postgres 17 (session TimeZone **Asia/Ho_Chi_Minh**, stricter than Supabase's UTC), all migrations + `seed.sql`, `next build` into `.next-test`, `next start`, all 140 test files.
+  - Result: 1007 tests — **0 failures except 16 that need a local Supabase** (Auth admin API / Storage): `phase-3-auth` (2), `phase-3-route-auth` (4), `phase-33-upload-route` (6), `phase-7-blog` (2), `phase-15-staff-notification-failure` (1), `phase-17-keychain-request-integration` (1). Run those with `supabase start` locally.
+  - Fixed on the way (all were failing on `dev` before this branch): trend migrations' timestamp defaults (caught by phase-36), `claimManualNewsSync` UTC drift, `ai-news`/`blog-review` root `after()` registered before a top-level await, `blog-review` 42P08 parameter typing, `admin-products-catalog` mock missing Phase-55 exports, `phase-36` arg-parsing check vs `const valid… = parseActionId(…)` + `assignImageVariantAction` accepting falsy non-null ids, stale `makerworld-estimate` and `phase-7-sitemap` expectations (Phase 49 / ADR-0059), STL importer ENOENT on Linux for NFD file names (`diskRelPath`).
+- [x] UI rendered and screenshotted (esbuild bundle of the real components + compiled Tailwind CSS): ModelSearchDialog (text + image tab), Watchlist (velocity line, licence badges, "Đã tạo SP" disabled state, licence-source warning), product form with a non-commercial Trend item ("Chưa rõ" pre-selected + gate warning).
+- [x] Closed follow-ups: ModelSearchDialog i18n (`modelSearch` namespace, vi/en parity test green); "Mở top 3 kho" → plain links (no popup blocking); Netlify scheduled function `trend-snapshots.mts` (15 items / 20 s for the 30 s limit); Watchlist platform filter adds THANGS / OTHER.
+
+### Still open (owner)
+- Run the 16 Supabase-dependent tests locally (`supabase start`) before go-live.
+- Register a Thingiverse app → `THINGIVERSE_APP_TOKEN`.
+- Decide whether OCL / GPL / BSD / Apache models may be sold (currently "Chưa rõ" → proof required).

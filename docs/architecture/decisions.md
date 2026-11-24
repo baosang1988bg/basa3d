@@ -1319,3 +1319,22 @@ new cron (Netlify is frozen, ADR-0061). `ModelSearchDialog` copy is still Vietna
 
 **Migration cost.** One additive migration (3 columns, 2 tables, 2 triggers). Rollback: drop the triggers
 and the two tables; columns are nullable/defaulted.
+
+**Verification addendum (2026-11-25, branch `fix/trend-radar-verification`).**
+- Printables GraphQL checked live: `print(id){ id name license{ id name abbreviation } }` and the separate
+  `print(id){ likesCount downloadCount makesCount }` both answer (model 3161 → CC0, 602 593 downloads); all 23
+  live license names from the `licenses` query are pinned in `tests/trend-radar-upgrades.test.ts`. Change:
+  Printables store licenses "Commercial Use" / "Commercial Use - No Derivative" → `COMMERCIAL_SUBSCRIPTION`
+  (the shop must have bought the model → proof required). OCL/GPL/BSD/Apache/CERN stay `UNKNOWN` (owner review).
+- MakerWorld `__NEXT_DATA__.design` checked live: `downloadCount`, `likeCount`, `printCount`, `license` exist;
+  CC licences come as short codes (`BY-NC-SA`). A credential-less server fetch of a model page currently gets a
+  ~6 KB Cloudflare challenge (no `__NEXT_DATA__`) → MakerWorld snapshots may be skipped from Vercel; the cron
+  degrades to "skipped", never fails.
+- Thingiverse `thing_schema.yaml` (official OpenAPI) confirms `license`, `like_count`, `download_count`,
+  `make_count`, `thumbnail`, `creator`.
+- Gemini: `gemini-2.5-flash` is limited to projects that already used it (ai.google.dev deprecations page,
+  updated 2026-10-22). Visual search now goes through the shared `generateVisionJson` (lib/vision/gemini-vision)
+  → default `gemini-3.5-flash-lite`, header auth, thought parts skipped, response schema; override with
+  `VISUAL_SEARCH_MODEL`.
+- Timestamp defaults of the two new migrations use `now()` (Phase 36 rule; the `phase-36` test caught the
+  `timezone('utc', now())` drift). Same drift fixed in `claimManualNewsSync`.

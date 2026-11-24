@@ -12,9 +12,6 @@ import {
 } from '../src/services/blog.service.js';
 
 configureTestEnvironment();
-after(async () => {
-  if (process.env.DATABASE_URL) await getPool().end();
-});
 
 const ACTOR_ID = '00000000-0000-4000-8000-0000000000aa';
 const IMAGE: BlogMediaItem = {
@@ -60,8 +57,9 @@ async function insertPost(slug: string, status: 'DRAFT' | 'PUBLISHED', media: Bl
   await query('delete from blog_posts where slug = $1', [slug]);
   const result = await query<{ id: string }>(
     `insert into blog_posts (title, slug, content, status, published_at, media)
-     values ($1, $2, 'Nội dung', $3, case when $3 = 'PUBLISHED' then now() end, $4::jsonb) returning id`,
-    [`Bài ${slug}`, slug, status, JSON.stringify(media)],
+     values ($1, $2, 'Nội dung', $3, case when $5::boolean then now() end, $4::jsonb) returning id`,
+    // $5 instead of re-using $3 in the CASE: Postgres refuses one parameter typed both as the column and as text (42P08).
+    [`Bài ${slug}`, slug, status, JSON.stringify(media), status === 'PUBLISHED'],
   );
   return result.rows[0].id;
 }
@@ -123,4 +121,10 @@ test('blog_posts.media rejects non-arrays and oversized lists at the DB level', 
   await query('delete from blog_posts where slug = $1', [slug]);
   await assert.rejects(() => query(`insert into blog_posts (title, slug, content, media) values ('x', $1, 'x', '{}'::jsonb)`, [slug]));
   await assert.rejects(() => query(`insert into blog_posts (title, slug, content, media) values ('x', $1, 'x', $2::jsonb)`, [slug, JSON.stringify(Array.from({ length: 21 }, () => ({})))]));
+});
+
+// Registered last on purpose: this file has a top-level `await` (DB probe) before its DB tests, and a root
+// after() registered above it fired before those tests ran ("Cannot use a pool after calling end on the pool").
+after(async () => {
+  if (process.env.DATABASE_URL) await getPool().end();
 });

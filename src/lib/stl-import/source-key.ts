@@ -3,7 +3,13 @@
 // file must normalise to one key on both, or a re-run on the other machine would create duplicates.
 import { createHash } from 'node:crypto';
 
-export type SourceFile = { relPath: string; bytes: number; mtimeMs: number };
+export type SourceFile = {
+  relPath: string; bytes: number; mtimeMs: number;
+  /** The path exactly as it exists on disk (may be NFD on macOS-synced folders). Used ONLY for I/O —
+   * keys/fingerprints use the NFC `relPath`. On Linux (byte-exact names) opening the NFC form of an NFD
+   * name fails with ENOENT, so reads must use this. */
+  diskRelPath?: string;
+};
 
 export function normalizeRelPath(relPath: string): string {
   return relPath

@@ -29,4 +29,8 @@ Bản production đầu tiên có version.
   dữ liệu catalog cache 60 giây và tự làm mới ngay khi admin sửa sản phẩm, tồn kho hoặc đơn hàng (Phase 42).
 
 ### Sửa
+- Tìm mẫu bằng ảnh dùng model Gemini được hỗ trợ (bỏ `gemini-2.5-flash`), hộp thoại tìm mẫu có tiếng Anh, nút
+  "mở nhanh" không còn bị trình duyệt chặn popup (ADR-0063).
+- Công cụ nhập STL không còn lỗi "không tìm thấy file" với tên file tiếng Việt chép từ macOS khi chạy trên Linux.
+- Giới hạn bấm "đồng bộ tin" thủ công tính đúng thời gian khi máy chủ DB không ở múi giờ UTC.
 - Menu mobile bị kẹt trong header 64px, chữ menu đè lên trang và không có nền mờ (Phase 43).

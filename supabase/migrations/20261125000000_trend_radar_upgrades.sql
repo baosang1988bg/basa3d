@@ -67,7 +67,7 @@ create table if not exists public.trend_watch_snapshots (
   downloads integer check (downloads is null or downloads >= 0),
   likes integer check (likes is null or likes >= 0),
   prints integer check (prints is null or prints >= 0),
-  created_at timestamptz not null default timezone('utc', now()),
+  created_at timestamptz not null default now(),
   unique (item_id, captured_on)
 );
 create index if not exists trend_watch_snapshots_item_day_idx on public.trend_watch_snapshots (item_id, captured_on desc);
@@ -77,7 +77,7 @@ create table if not exists public.visual_search_cache (
   image_sha256 char(64) primary key check (image_sha256 ~ '^[0-9a-f]{64}$'),
   result jsonb not null,
   hit_count integer not null default 0 check (hit_count >= 0),
-  created_at timestamptz not null default timezone('utc', now()),
+  created_at timestamptz not null default now(),
   last_hit_at timestamptz
 );
 create index if not exists visual_search_cache_created_idx on public.visual_search_cache (created_at);
