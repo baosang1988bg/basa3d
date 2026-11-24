@@ -19,7 +19,7 @@ Mỗi agent chỉ có **một** mục active tại một thời điểm. Ghi: ag
 | Agent | Branch | Exec-plan | Đang làm |
 |---|---|---|---|
 | Codex | `feat/neobox-lightbox-generator` | `active/feature-neobox-lightbox.md` | chạy `check:agent`, soát UX + xuất 3MF/STL |
-| Gemini | `feat/product-storage-links-and-voice` | `active/feature-smart-product-onboarding.md` | Bổ sung Voice Input, lưu trữ file 3D (Local path, Drive, Web Source), script Tunnel giống BaSaTTS |
+| Gemini | `dev` (đã merge `feat/product-storage-links-and-voice`) | `active/feature-smart-product-onboarding.md` | Hoàn thành: AI Vision, Voice Input, Local Path, Drive, Model Source, Cloudflare Tunnel |
 | Claude | `chore/harness-engineering` | — (harness setup) | review/verify harness |
 | Claude (Cowork) | `dev` (đã merge `feat/phase-55-…` + `fix/phase-56-…`) | `active/phase-55-…md`, `active/phase-56-…md` | xong; chờ OWNER xem UI + E2E rồi merge `netlify` |
 
