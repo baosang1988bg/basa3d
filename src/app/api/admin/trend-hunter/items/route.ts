@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/auth/require-admin';
+import { requireAdmin, requireOwner } from '@/lib/auth/require-admin';
 import { apiError } from '@/lib/api';
 import {
   listTrendWatchItems,
@@ -7,6 +7,7 @@ import {
   updateTrendWatchItemStatus,
   deleteTrendWatchItem,
   trendWatchInputSchema,
+  TREND_WATCH_STATUSES,
 } from '@/services/trend-hunter.service';
 import { z } from 'zod';
 
@@ -42,8 +43,10 @@ export async function POST(request: Request) {
 
 const patchSchema = z.object({
   id: z.string().uuid(),
-  status: z.enum(['WATCHING', 'PRINT_TESTING', 'CONVERTED_DRAFT', 'ARCHIVED']),
+  status: z.enum(TREND_WATCH_STATUSES),
 });
+
+const idSchema = z.string().uuid();
 
 export async function PATCH(request: Request) {
   try {
@@ -67,15 +70,16 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    await requireAdmin();
+    // ADR-0011 boundary #3: hard delete is OWNER-only. Staff archive instead (PATCH → ARCHIVED).
+    await requireOwner();
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
+    const id = idSchema.safeParse(searchParams.get('id'));
 
-    if (!id) {
-      return NextResponse.json({ code: 'ID_REQUIRED', message: 'Thiếu ID mẫu.' }, { status: 400 });
+    if (!id.success) {
+      return NextResponse.json({ code: 'ID_REQUIRED', message: 'Thiếu hoặc sai ID mẫu.' }, { status: 400 });
     }
 
-    await deleteTrendWatchItem(id);
+    await deleteTrendWatchItem(id.data);
     return NextResponse.json({ success: true });
   } catch (error) {
     return apiError(error);

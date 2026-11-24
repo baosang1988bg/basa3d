@@ -27,9 +27,9 @@ import {
 import type {
   TrendCapturedDraft,
   TrendWatchItem,
-  TrendWatchStatus,
-  LicenseSafetyInfo,
 } from '@/services/trend-hunter.service';
+import type { LicenseSafetyInfo } from '@/lib/trend/license-safety';
+import { TREND_WATCH_STATUSES, canTransitionTrendStatus, type TrendWatchStatus } from '@/lib/trend/watch-status';
 import { Button } from '@/components/ui/button';
 
 const STATUS_LABELS: Record<TrendWatchStatus, { label: string; color: string }> = {
@@ -39,7 +39,7 @@ const STATUS_LABELS: Record<TrendWatchStatus, { label: string; color: string }> 
   ARCHIVED: { label: 'Đã lưu trữ', color: 'bg-muted text-muted-foreground border-border' },
 };
 
-export function TrendHunterClient({ initialItems = [] }: { initialItems?: TrendWatchItem[] }) {
+export function TrendHunterClient({ initialItems = [], loadError = null }: { initialItems?: TrendWatchItem[]; loadError?: string | null }) {
   const [activeTab, setActiveTab] = useState<'feeds' | 'capture' | 'watchlist'>('feeds');
   const [urlInput, setUrlInput] = useState('');
   const [capturing, setCapturing] = useState(false);
@@ -49,6 +49,7 @@ export function TrendHunterClient({ initialItems = [] }: { initialItems?: TrendW
 
   const [watchlist, setWatchlist] = useState<TrendWatchItem[]>(initialItems);
   const [loadingWatchlist, setLoadingWatchlist] = useState(false);
+  const [watchlistError, setWatchlistError] = useState<string | null>(loadError);
   const [platformFilter, setPlatformFilter] = useState<string>('ALL');
   const [licenseFilter, setLicenseFilter] = useState<'ALL' | 'CAN_SELL' | 'NO_SELL'>('ALL');
 
@@ -59,7 +60,7 @@ export function TrendHunterClient({ initialItems = [] }: { initialItems?: TrendW
     return Math.max(35_000, Math.round(raw / 5_000) * 5_000);
   }
 
-  function handleConvertToProduct(item: {
+  type ConvertibleItem = {
     title: string;
     sourceUrl: string;
     license?: string | null;
@@ -67,25 +68,35 @@ export function TrendHunterClient({ initialItems = [] }: { initialItems?: TrendW
     estimatedGrams?: number | null;
     estimatedPrintMinutes?: number | null;
     notes?: string;
-  }) {
-    if (item.licenseSafety && !item.licenseSafety.canDirectSell) {
-      const confirmed = window.confirm(
-        `⚠️ CẢNH BÁO BẢN QUYỀN:\n\n` +
-        `Mẫu này mang giấy phép [${item.license || item.licenseSafety.badgeLabel}], cấm kinh doanh thương mại đại trà.\n\n` +
-        `${item.licenseSafety.explanation}\n\n` +
-        `Nếu bạn vẫn muốn tạo sản phẩm nháp (DRAFT) để chuẩn bị, hãy đảm bảo bạn chỉ bán khi đã có sự đồng ý của tác giả hoặc tự in và chụp ảnh sản phẩm thật của xưởng.\n\n` +
-        `Bạn có muốn tiếp tục mở form đăng bán không?`
-      );
-      if (!confirmed) return;
-    }
+  };
+
+  /** Returns false when staff cancels the license warning. */
+  function confirmLicenseForSale(item: ConvertibleItem): boolean {
+    if (item.licenseSafety?.canDirectSell) return true;
+    return window.confirm(
+      `⚠️ CẢNH BÁO BẢN QUYỀN:\n\n` +
+      `Mẫu này mang giấy phép [${item.license || item.licenseSafety?.badgeLabel || 'chưa rõ'}] — chưa được xác nhận là được phép bán thương mại.\n\n` +
+      `${item.licenseSafety?.explanation ?? ''}\n\n` +
+      `Nếu bạn vẫn muốn tạo sản phẩm nháp (DRAFT) để chuẩn bị, hãy đảm bảo bạn chỉ bán khi đã có sự đồng ý của tác giả hoặc tự in và chụp ảnh sản phẩm thật của xưởng.\n\n` +
+      `Bạn có muốn tiếp tục mở form đăng bán không?`
+    );
+  }
+
+  function openProductForm(item: ConvertibleItem) {
     const price = calculateSuggestedPrice(item.estimatedGrams ?? null, item.estimatedPrintMinutes ?? null);
     const params = new URLSearchParams({
       title: item.title,
       basePrice: String(price),
       sourceUrl: item.sourceUrl,
+      // ADR-0062 §5: the product form only pre-selects "Có license" for COMMERCIAL_ALLOWED.
+      licenseStatus: item.licenseSafety?.status ?? 'UNKNOWN',
       notes: item.notes || `Mẫu săn từ Trend Radar: ${item.sourceUrl}`,
     });
     window.location.href = `/basaadmin/products/new?${params.toString()}`;
+  }
+
+  function handleConvertToProduct(item: ConvertibleItem) {
+    if (confirmLicenseForSale(item)) openProductForm(item);
   }
 
   useEffect(() => {
@@ -96,12 +107,15 @@ export function TrendHunterClient({ initialItems = [] }: { initialItems?: TrendW
     try {
       setLoadingWatchlist(true);
       const res = await fetch('/api/admin/trend-hunter/items');
-      const data = await res.json();
-      if (data.data) {
-        setWatchlist(data.data);
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.data) {
+        setWatchlistError(data?.message || 'Không tải được Watchlist (kiểm tra migration trend_watch_items).');
+        return;
       }
-    } catch (err) {
-      console.error('Failed to load watchlist', err);
+      setWatchlist(data.data);
+      setWatchlistError(null);
+    } catch {
+      setWatchlistError('Không tải được Watchlist — lỗi mạng.');
     } finally {
       setLoadingWatchlist(false);
     }
@@ -174,34 +188,40 @@ export function TrendHunterClient({ initialItems = [] }: { initialItems?: TrendW
     }
   }
 
-  async function handleUpdateStatus(id: string, newStatus: TrendWatchStatus) {
+  async function handleUpdateStatus(id: string, newStatus: TrendWatchStatus): Promise<boolean> {
     try {
       const res = await fetch('/api/admin/trend-hunter/items', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, status: newStatus }),
       });
-      if (res.ok) {
-        setWatchlist((prev) =>
-          prev.map((item) => (item.id === id ? { ...item, status: newStatus } : item))
-        );
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        alert(err?.message || 'Không thể cập nhật trạng thái.');
+        return false;
       }
-    } catch (err) {
-      console.error(err);
+      setWatchlist((prev) => prev.map((item) => (item.id === id ? { ...item, status: newStatus } : item)));
+      return true;
+    } catch {
+      alert('Không thể cập nhật trạng thái — lỗi mạng.');
+      return false;
     }
   }
 
   async function handleDeleteItem(id: string) {
     if (!confirm('Bạn có chắc muốn xoá mẫu này khỏi Watchlist?')) return;
     try {
-      const res = await fetch(`/api/admin/trend-hunter/items?id=${id}`, {
+      const res = await fetch(`/api/admin/trend-hunter/items?id=${encodeURIComponent(id)}`, {
         method: 'DELETE',
       });
-      if (res.ok) {
-        setWatchlist((prev) => prev.filter((item) => item.id !== id));
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        alert(err?.message || 'Không thể xoá mẫu. Nhân viên hãy chuyển sang "Lưu trữ" thay vì xoá.');
+        return;
       }
-    } catch (err) {
-      console.error(err);
+      setWatchlist((prev) => prev.filter((item) => item.id !== id));
+    } catch {
+      alert('Không thể xoá mẫu — lỗi mạng.');
     }
   }
 
@@ -553,6 +573,12 @@ export function TrendHunterClient({ initialItems = [] }: { initialItems?: TrendW
             </div>
           </div>
 
+          {watchlistError ? (
+            <p role="alert" className="mb-4 rounded-lg border border-rose-200 bg-rose-500/10 p-3 text-sm text-rose-700 dark:border-rose-800 dark:text-rose-300">
+              {watchlistError}
+            </p>
+          ) : null}
+
           {loadingWatchlist ? (
             <div className="flex h-40 items-center justify-center">
               <Loader2 className="size-6 animate-spin text-primary" />
@@ -647,18 +673,23 @@ export function TrendHunterClient({ initialItems = [] }: { initialItems?: TrendW
                         onChange={(e) => handleUpdateStatus(item.id, e.target.value as TrendWatchStatus)}
                         className={`rounded-md border px-2 py-1 text-xs font-semibold ${statusMeta.color}`}
                       >
-                        <option value="WATCHING">Đang theo dõi</option>
-                        <option value="PRINT_TESTING">Đang in thử</option>
-                        <option value="CONVERTED_DRAFT">Đã tạo SP nháp</option>
-                        <option value="ARCHIVED">Lưu trữ</option>
+                        {TREND_WATCH_STATUSES.map((value) => (
+                          <option key={value} value={value} disabled={!canTransitionTrendStatus(item.status, value)}>
+                            {STATUS_LABELS[value].label}
+                          </option>
+                        ))}
                       </select>
 
                       <div className="flex items-center gap-1.5">
                         <button
                           type="button"
-                          onClick={() => {
-                            handleUpdateStatus(item.id, 'CONVERTED_DRAFT');
-                            handleConvertToProduct(item);
+                          onClick={async () => {
+                            // Mark CONVERTED_DRAFT only after the license warning is confirmed (ADR-0062 §5).
+                            if (!confirmLicenseForSale(item)) return;
+                            if (item.status !== 'CONVERTED_DRAFT' && canTransitionTrendStatus(item.status, 'CONVERTED_DRAFT')) {
+                              await handleUpdateStatus(item.id, 'CONVERTED_DRAFT');
+                            }
+                            openProductForm(item);
                           }}
                           className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-bold transition-colors ${
                             item.licenseSafety?.canDirectSell

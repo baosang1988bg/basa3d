@@ -19,6 +19,7 @@ export default async function NewProductPage({
     basePrice?: string;
     sourceUrl?: string;
     notes?: string;
+    licenseStatus?: string;
   }>;
 }) {
   await requireAdmin();
@@ -51,6 +52,7 @@ export default async function NewProductPage({
           basePrice: initialBasePrice && !Number.isNaN(initialBasePrice) ? initialBasePrice : undefined,
           sourceUrl: resolvedSearchParams?.sourceUrl,
           description: resolvedSearchParams?.notes,
+          licenseStatus: resolvedSearchParams?.licenseStatus,
         }}
       />
     </div>

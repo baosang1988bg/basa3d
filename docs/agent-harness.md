@@ -29,8 +29,8 @@ Tham chiếu: [walkinglabs/learn-harness-engineering](https://github.com/walking
 Đặt ở tầng **git/CI** để áp dụng như nhau cho cả 3 agent (hook riêng của từng tool không đồng bộ được):
 
 - `pre-push` (`.githooks/pre-push`, cài 1 lần mỗi clone: `npm run hooks:install`): lint + typecheck + check:arch.
-- CI `Agent Check`: `npm run check:agent` trên PR vào `dev` / `netlify` / `main` và push vào `dev`.
-  Sau khi chạy ổn định, Owner nên đặt check này thành **required** trong branch protection của `dev`/`netlify`.
+- CI `Agent Check`: `npm run check:agent` trên PR vào `dev` / `vercel` / `main` và push vào `dev`.
+  Sau khi chạy ổn định, Owner nên đặt check này thành **required** trong branch protection của `dev`/`vercel`.
 
 ## Session start / end
 

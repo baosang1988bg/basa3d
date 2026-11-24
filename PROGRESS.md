@@ -6,7 +6,7 @@
 
 ## Current State
 
-- Branch tích hợp: `dev` · Deploy: `netlify` / `vercel`
+- Branch tích hợp: `dev` · Deploy: `vercel` (ADR-0061, Hobby = UAT/nội bộ, chưa nhận khách thật) · `netlify` đóng băng (dự phòng ADR-0054)
 - Last verified: `dev` sau khi merge Phase 55 + 56 (2026-11-17, bản cài sạch Linux: `npm ci`, lint, typecheck, `check:arch`, `next build` 15.5.29 đều xanh)
 - `npm test` (132 file, server chạy): 962 test, 929 pass, 14 fail — cả 14 có sẵn trên `223af23`: `ai-news` (6), `blog-review` (4), `makerworld-estimate` (1), `phase-15-staff-notification-failure` (1), `stl-import-cli` (2). Chưa chạy Playwright.
 - `npm run check:arch`: passing
@@ -24,6 +24,8 @@ Mỗi agent chỉ có **một** mục active tại một thời điểm. Ghi: ag
 | Claude (Cowork) | `dev` (đã merge `feat/phase-55-…` + `fix/phase-56-…`) | `active/phase-55-…md`, `active/phase-56-…md` | xong; chờ OWNER xem UI + E2E rồi merge `netlify` |
 
 ## Next Steps
+
+0. Owner: push `dev` + `vercel`; chạy migration `20261124000000_trend_watch_items.sql` lên DB UAT trước khi Vercel deploy; giữ Vercel Hobby ở chế độ UAT (ADR-0061).
 
 1. Owner triage bảng "Active plans" bên dưới (đóng / chuyển `pending/` / giữ).
 2. Merge `chore/harness-engineering` → `dev` sau khi Owner review.

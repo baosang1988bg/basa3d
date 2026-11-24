@@ -72,3 +72,20 @@
 - [x] `npm run check:arch` — passed 6 rules
 - [x] `npx tsx --test tests/meta-engines.test.ts tests/trend-hunter.test.ts` — passed 7/7 tests
 - [x] `npm run build` — Next.js 15.5 production build passed cleanly (exit code 0)
+
+## 4. Post-merge review & hardening (Claude, 2026-11-24 — branch `fix/trend-radar-hardening`, ADR-0062)
+Review found 3 BLOCKERS + 4 IMPORTANT. Fixed:
+- [x] B1 Migration could not apply (`staff_profiles.status` does not exist) → rewritten as server-only table (RLS on, no policy, API roles revoked), unique `source_url`, `updated_at` trigger. Service moved from PostgREST to `query()` (ADR-0012); DB errors no longer swallowed. Verified: full migration chain applies on Postgres 17 (embedded), old version fails with the exact error.
+- [x] B2 SSRF in OG capture → `src/lib/net/safe-fetch.ts` (https + host allowlist, manual redirects re-validated, 6s deadline incl. body, 512 KB cap). Unknown hosts are never fetched.
+- [x] B3 `visual-analyze` → DB rate limit 20/h/network, MIME enum, 4 MB cap + 413 on Content-Length, key in header, AI output validated with zod. Client downsizes to ≤1024 px JPEG, shows errors, drag-drop works, dialog has role/aria-modal/focus/scroll-lock.
+- [x] I1 License classifier → `src/lib/trend/license-safety.ts`: free text only tightens; NC before "commercial"; MakerWorld short codes.
+- [x] I2 Onboarding → `licenseStatus` query param; non-COMMERCIAL_ALLOWED pre-selects "Chưa rõ"; status set to CONVERTED_DRAFT only after the warning is confirmed.
+- [x] I3/I4 Transitions (`src/lib/trend/watch-status.ts`, compare-and-set), uuid validation, delete = OWNER only.
+- Tests: `tests/trend-radar-hardening.test.ts` (14), `tests/trend-watch-db.test.ts` (2, needs TEST_DATABASE_URL).
+
+### Follow-ups (not done)
+- Dedupe `fetchSafely` in `makerworld-resolver.ts` onto `lib/net/safe-fetch.ts`.
+- Audit-log rows for watchlist create/status/delete (other admin mutations log).
+- CSP `img-src` for Printables/Thingiverse covers before CSP leaves Report-Only.
+- i18n keys for the new storefront banner strings (EN locale shows Vietnamese).
+- "Mở 3 kho cùng lúc" is blocked after the first tab by Safari/Firefox popup blockers — replace with a list of links.
