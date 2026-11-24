@@ -147,6 +147,13 @@ Trả về đúng JSON theo mẫu sau, không giải thích gì thêm:
 
     if (validNames.length === 0) return null;
 
+    const finalNames = [...validNames];
+    const fallbackList = hint ? [`${hint} in 3D`, `Mô hình ${hint}`, `Phụ kiện ${hint}`] : DEFAULT_FALLBACK_NAMES;
+    for (const fb of fallbackList) {
+      if (finalNames.length >= 3) break;
+      if (!finalNames.includes(fb)) finalNames.push(fb);
+    }
+
     let finalCategoryId: string | null = null;
     let finalCategoryName: string | null = null;
     if (parsed.suggestedCategoryId) {
@@ -158,7 +165,7 @@ Trả về đúng JSON theo mẫu sau, không giải thích gì thêm:
     }
 
     return {
-      suggestedNames: validNames,
+      suggestedNames: finalNames,
       suggestedCategoryId: finalCategoryId,
       suggestedCategoryName: finalCategoryName,
       suggestedShortDescription:
@@ -276,6 +283,12 @@ Trả về ĐÚNG cấu trúc JSON hợp lệ sau, không kèm bất kỳ giải
               : [];
 
             if (validNames.length > 0) {
+              const finalNames = [...validNames];
+              const fallbackList = hint ? [`${hint} in 3D`, `Mô hình ${hint}`, `Phụ kiện ${hint}`] : DEFAULT_FALLBACK_NAMES;
+              for (const fb of fallbackList) {
+                if (finalNames.length >= 3) break;
+                if (!finalNames.includes(fb)) finalNames.push(fb);
+              }
               let finalCategoryId: string | null = null;
               let finalCategoryName: string | null = null;
               if (parsed.suggestedCategoryId) {
@@ -287,7 +300,7 @@ Trả về ĐÚNG cấu trúc JSON hợp lệ sau, không kèm bất kỳ giải
               }
 
               return {
-                suggestedNames: validNames,
+                suggestedNames: finalNames,
                 suggestedCategoryId: finalCategoryId,
                 suggestedCategoryName: finalCategoryName || parsed.suggestedCategoryName || null,
                 suggestedShortDescription:
