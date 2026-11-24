@@ -133,12 +133,13 @@ export async function createProductWithVariants(input: ProductOnboardingInput, a
       try {
         const inserted = await client.query<{ id: string }>(`
           insert into products (category_id, name, slug, short_description, description, product_type, status, base_price,
-            is_featured, seo_title, seo_description, pricing_breakdown, pricing_config_id, license_type, license_source_url, license_proof_url)
-          values ($1,$2,$3,$4,$5,$6,'DRAFT',$7,$8,$9,$10,$11,$12,$13,$14,$15) returning id`, [
+            is_featured, seo_title, seo_description, pricing_breakdown, pricing_config_id, license_type, license_source_url, license_proof_url, print_local_path, print_drive_url)
+          values ($1,$2,$3,$4,$5,$6,'DRAFT',$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) returning id`, [
           input.categoryId, input.name, slug, input.shortDescription ?? null, input.description ?? null, input.productType, input.basePrice,
           input.isFeatured, input.seoTitle ?? null, input.seoDescription ?? null,
           input.pricingBreakdown ? JSON.stringify(input.pricingBreakdown) : null, input.pricingConfigId ?? null,
           input.licenseType, input.licenseSourceUrl ?? null, input.licenseProofUrl ?? null,
+          input.printLocalPath ?? null, input.printDriveUrl ?? null,
         ]);
         await client.query('release savepoint product_slug');
         productId = inserted.rows[0].id;

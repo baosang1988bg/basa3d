@@ -187,6 +187,8 @@ export const productOnboardingInputSchema = z.object({
   licenseType: productLicenseTypeSchema,
   licenseSourceUrl: z.string().trim().url().max(2_000).nullable().optional(),
   licenseProofUrl: z.string().trim().url().max(2_000).nullable().optional(),
+  printLocalPath: printLocalPathSchema,
+  printDriveUrl: printDriveUrlSchema,
   seoTitle: z.string().trim().max(200).nullable().optional(),
   seoDescription: z.string().trim().max(500).nullable().optional(),
   isFeatured: z.boolean().default(false),

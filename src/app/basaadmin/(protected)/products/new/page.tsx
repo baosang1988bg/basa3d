@@ -31,7 +31,7 @@ export default async function NewProductPage({
   ]);
   const categories = options.categories
     .filter((category) => category.slug !== UNCATEGORIZED_SLUG)
-    .map((category) => ({ id: category.id, label: getCategoryDisplayName(category, 'vi') }));
+    .map((category) => ({ id: category.id, label: getCategoryDisplayName(category, 'vi'), slug: category.slug }));
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">

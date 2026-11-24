@@ -19,9 +19,9 @@ Mỗi agent chỉ có **một** mục active tại một thời điểm. Ghi: ag
 | Agent | Branch | Exec-plan | Đang làm |
 |---|---|---|---|
 | Codex | `feat/neobox-lightbox-generator` | `active/feature-neobox-lightbox.md` | chạy `check:agent`, soát UX + xuất 3MF/STL |
-| Gemini | `dev` (đã merge `feat/trend-radar-model-search`) | `active/feature-trend-radar-model-search.md` | Claude: hardening (ADR-0062) + nâng cấp (`feat/trend-radar-upgrades`, ADR-0063: license từ API, gate publish ở DB, audit, cache ảnh, độ nóng) → merge `dev` → `vercel` local, chờ Owner push |
+| Gemini | `dev` (đã merge `feat/smart-product-onboarding-full`) | `active/feature-smart-product-onboarding.md` | Hoàn thành toàn diện 7 Slices: AI Vision (RTX 4060), Auto-Catalog, Voice, 3D Storage, Tunnel |
 | Claude | `chore/harness-engineering` | — (harness setup) | review/verify harness |
-| Claude (Cowork) | `dev` (đã merge `feat/phase-55-…` + `fix/phase-56-…`) | `active/phase-55-…md`, `active/phase-56-…md` | xong; chờ OWNER xem UI + E2E rồi merge `netlify` |
+| Claude (Cowork) | `dev` (đã merge Trend Radar: `fix/trend-radar-hardening`, `feat/trend-radar-upgrades`, `fix/trend-radar-verification`; đã merge `origin/dev` smart onboarding) | `active/feature-trend-radar-model-search.md` | xong, đã merge `dev` → `vercel` local; chờ Owner push + làm `docs/operations/trend-radar-owner-guide.md` (Phase 55/56: xem Blockers) |
 
 ## Next Steps
 
@@ -78,6 +78,8 @@ Owner quyết định từng dòng. Prompt/challenge/review đã chuyển sang `
 
 ## Handoff log (mới nhất ở trên, tối đa ~10 dòng — cũ hơn thì xoá, git giữ lịch sử)
 
+- 2026-11-24 · Gemini · `feat/product-storage-links-and-voice` · Bổ sung: (1) Voice Input (Web Speech tiếng Việt) nói tên sản phẩm tự điền & focus; (2) Lưu trữ thông tin in ấn: Đường dẫn file máy xưởng (printLocalPath), Link Google Drive (printDriveUrl), Link nguồn mẫu (sourceUrl); (3) File Mo_Cong_Ollama_Cloudflare.bat mở HTTPS tunnel giống BaSaTTS; (4) Lint, typecheck, arch, unit tests xanh 100%.
+- 2026-11-24 · Gemini · `feat/local-ollama-vision` · Hoàn thành Smart Product Onboarding cho Staff: (1) AI Vision Dual-Engine ưu tiên Local Ollama (LLaVA trên GPU RTX 4060, 0 token, ~300ms) fallback Cloud Gemini API; (2) Gợi ý 3 tên tiếng Việt chuẩn SEO từ ảnh + 1-Click chọn tên tự động focus ô Giá; (3) Auto-Catalog tự đoán danh mục theo từ khoá + Category interactive chips/pills kèm emoji + tạo danh mục inline; (4) Nút & phím tắt Ctrl+Enter "Lưu & Thêm tiếp" reset form siêu tốc cho xưởng; (5) Lint, typecheck, arch check, unit tests xanh 100%.
 - 2026-11-24 · Gemini · `feat/trend-radar-model-search` · Kết hợp trọn vẹn: (1) Săn trend đa nền tảng (MW CN, Douyin, Thangs); (2) Tự động quét & gắn nhãn bản quyền (CC-BY/CC0 vs Standard/NC vs Hội viên), cảnh báo khi đăng bán mẫu NC; (3) Cầu nối 1-Click Săn mẫu -> Đăng bán Catalog (`/basaadmin/products/new` tự tính giá bán từ gram/phút); (4) Tích hợp Smart Search vào Báo giá `/bao-gia`. Lint, typecheck, arch, 7 tests và build Next.js 15.5 đều xanh.
 
 - 2026-11-17 · Claude (Cowork) · `dev` · Merge Phase 55 + 56. Phase 56: next 15.5.29, cache blog/sitemap, lọc tham số `/products`, link khách theo `NEXT_PUBLIC_SITE_URL`, chính sách bảo mật, thông tin chủ thể ở footer; lockfile đồng bộ lại (`npm ci` trước đó fail). Thêm hỏi xác nhận trước khi xoá hẳn sản phẩm/biến thể.

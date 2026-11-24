@@ -111,3 +111,86 @@ export function getCategoryDisplayName(
   // 3. Fallback to existing name
   return category.name;
 }
+
+export interface CategoryOptionLike {
+  id: string;
+  label: string;
+  slug?: string | null;
+}
+
+const CATEGORY_KEYWORD_RULES: { slugOrKeyword: string; matchers: RegExp }[] = [
+  {
+    slugOrKeyword: 'keychain',
+    matchers: /(móc khoá|móc khóa|keychain|key chain|treo chìa)/i,
+  },
+  {
+    slugOrKeyword: 'keycap',
+    matchers: /(keycap|keycaps|nút phím|nút bàn phím|switch phím)/i,
+  },
+  {
+    slugOrKeyword: 'figure-model',
+    matchers: /(mô hình|figure|statue|tượng|chibi|action figure|toy|fidget|khớp nối|flexi|articulated|búp bê)/i,
+  },
+  {
+    slugOrKeyword: 'accessories-gadgets',
+    matchers: /(giá đỡ|stand|holder|khay|kẹp|dock|case|ống cắm|dụng cụ|tiện ích|phụ kiện|tai nghe|dây sạc|cáp)/i,
+  },
+  {
+    slugOrKeyword: 'home-decor',
+    matchers: /(decor|trang trí|để bàn|chậu cây|bình hoa|đèn|hộp khăn|đồng hồ|khung ảnh|gạt tàn|treo tường)/i,
+  },
+];
+
+export function getCategoryIconEmoji(label: string): string {
+  const l = label.toLowerCase();
+  if (l.includes('móc khoá') || l.includes('móc khóa') || l.includes('keychain')) return '🔑';
+  if (l.includes('keycap') || l.includes('phím')) return '⌨️';
+  if (l.includes('mô hình') || l.includes('figure') || l.includes('toy')) return '🧸';
+  if (l.includes('decor') || l.includes('trang trí') || l.includes('nhà')) return '🏠';
+  if (l.includes('phụ kiện') || l.includes('tiện ích') || l.includes('gadget')) return '📱';
+  if (l.includes('dụng cụ') || l.includes('tool')) return '🛠️';
+  return '🏷️';
+}
+
+/**
+ * Automatically detects the most relevant category from a given product name.
+ */
+export function detectCategoryFromName(
+  productName: string,
+  categories: CategoryOptionLike[]
+): { categoryId: string; categoryLabel: string } | null {
+  if (!productName || !productName.trim() || !categories.length) return null;
+  const normalized = productName.normalize('NFC').toLowerCase().trim();
+
+  // 1. Check direct name match with available categories
+  for (const cat of categories) {
+    const catLower = (cat.label || '').normalize('NFC').toLowerCase().trim();
+    if (normalized.includes(catLower)) {
+      return { categoryId: cat.id, categoryLabel: cat.label };
+    }
+  }
+
+  // 2. Check keyword regex rules
+  for (const rule of CATEGORY_KEYWORD_RULES) {
+    if (rule.matchers.test(normalized)) {
+      const matched = categories.find((c) => {
+        const slug = c.slug?.toLowerCase();
+        const label = (c.label || '').normalize('NFC').toLowerCase();
+        return (
+          slug === rule.slugOrKeyword ||
+          label.includes(rule.slugOrKeyword) ||
+          (rule.slugOrKeyword === 'keychain' && (label.includes('móc khoá') || label.includes('móc khóa') || label.includes('keychain'))) ||
+          (rule.slugOrKeyword === 'keycap' && label.includes('keycap')) ||
+          (rule.slugOrKeyword === 'figure-model' && (label.includes('mô hình') || label.includes('figure'))) ||
+          (rule.slugOrKeyword === 'home-decor' && (label.includes('decor') || label.includes('trang trí'))) ||
+          (rule.slugOrKeyword === 'accessories-gadgets' && (label.includes('phụ kiện') || label.includes('tiện ích')))
+        );
+      });
+      if (matched) {
+        return { categoryId: matched.id, categoryLabel: matched.label };
+      }
+    }
+  }
+
+  return null;
+}
