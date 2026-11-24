@@ -16,6 +16,7 @@ import {
   AlertCircle,
   ClipboardPaste,
   RotateCcw,
+  ShieldCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatVnd } from '@/components/storefront/format';
@@ -398,6 +399,12 @@ export function QuoteWorkspace({
                     {s.label}
                   </button>
                 ))}
+              </div>
+
+              {/* Disclaimer ngắn gọn */}
+              <div className="flex items-center gap-1.5 pt-1 text-[11px] text-muted-foreground/80">
+                <ShieldCheck className="size-3.5 text-primary/80 shrink-0" />
+                <span>Dịch vụ in 3D gia công theo yêu cầu cá nhân • Bản quyền thiết kế thuộc về tác giả gốc MakerWorld.</span>
               </div>
 
               {linkError ? (

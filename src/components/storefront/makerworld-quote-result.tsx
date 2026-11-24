@@ -14,6 +14,7 @@ import {
   Eye,
   RotateCcw,
   Ruler,
+  ShieldCheck,
 } from 'lucide-react';
 import { formatVnd } from '@/components/storefront/format';
 import type { MakerWorldCnModelDetail, MakerWorldCnProfile } from '@/app/api/public/makerworld-cn/resolve/route';
@@ -285,8 +286,8 @@ export function MakerWorldQuoteResult({
                   {detail.isChinaModel ? '🇨🇳 MakerWorld Trung Quốc' : '🌐 MakerWorld Quốc Tế'}
                 </span>
                 {detail.license ? (
-                  <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">
-                    {detail.license}
+                  <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground" title="Giấy phép bản quyền gốc của tác giả">
+                    Giấy phép: {detail.license}
                   </span>
                 ) : null}
               </div>
@@ -613,6 +614,19 @@ export function MakerWorldQuoteResult({
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* Disclaimer / Lưu ý bản quyền & dịch vụ gia công */}
+      <div className="rounded-xl border border-border/80 bg-muted/40 p-4 text-xs text-muted-foreground flex items-start gap-3">
+        <ShieldCheck className="size-4 text-primary shrink-0 mt-0.5" />
+        <div className="space-y-1 leading-relaxed">
+          <p className="font-semibold text-foreground">
+            Lưu ý về bản quyền thiết kế &amp; dịch vụ in gia công:
+          </p>
+          <p>
+            BaSa3D cung cấp dịch vụ gia công in 3D theo yêu cầu sử dụng cá nhân, phi thương mại. Toàn bộ quyền tác giả và bản quyền thiết kế 3D thuộc về tác giả gốc trên MakerWorld. Báo giá hiển thị là chi phí dịch vụ gia công (vật liệu, khấu hao máy in, điện năng và công thợ), không bao gồm việc mua bán hay chuyển nhượng bản quyền thiết kế.
+          </p>
         </div>
       </div>
 
