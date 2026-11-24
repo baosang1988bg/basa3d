@@ -247,3 +247,8 @@
 | File upload (storage) | `QA-TEST-cube20.stl`, `QA-TEST-cube20.3mf` | Đính kèm 2 request trên |
 | Product | — | Tạo thất bại (500), không thấy bản ghi |
 | Browser localStorage | `basa3d_saved_contact:v1` | Chứa thông tin liên hệ QA trên máy này |
+| Custom request (sau khi sửa) | `CR-ABD4ED8CBFD5` → nay "Đã duyệt" | do kiểm tra đồng bộ trạng thái (ADR-0066) |
+| Quote | `Q-0FFE0CA654DB` | 25.000đ, ACCEPTED (kiểm tra sync) |
+| Print job | 1 lệnh tạo tự động khi chấp nhận `Q-0FFE0CA654DB` | ẩn trong UI (ADR-0066) |
+| Rate-limit record | budget "phone-suffix-verify" của `Q-AF5971A72D9E` | đã dùng hết lượt (kiểm tra QA-004), tự hết sau 24 giờ |
+

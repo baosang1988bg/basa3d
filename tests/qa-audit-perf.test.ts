@@ -73,3 +73,9 @@ test('perf: product gallery mounts only images the customer has opened', () => {
   assert.match(gallery, /index === activeIndex \|\| mounted\.has\(index\)/);
   assert.match(gallery, /priority=\{index === 0\}/);
 });
+
+test('ADR-0066: PDP badge follows the product type (made-to-order never says "Sẵn hàng")', () => {
+  const showcase = readFileSync('src/app/[locale]/(storefront)/products/[slug]/product-detail-showcase.tsx', 'utf8');
+  assert.match(showcase, /const showInStock = productType === 'READY_STOCK' && anyInStock;/);
+  assert.match(showcase, /\{showInStock \? inStockLabel : printOnDemandLabel\}/);
+});

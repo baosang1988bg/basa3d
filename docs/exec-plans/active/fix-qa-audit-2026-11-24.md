@@ -75,7 +75,30 @@ Owner: *"web chỉ tập trung làm nơi báo giá, không định hướng thư
 
 ## Evidence log
 
-**Vòng 2 (2026-11-24):** tsc (src/tests/e2e/scripts) 0 lỗi · eslint file đổi 0 lỗi · check:arch ✅ · `tests/qa-audit-perf.test.ts` 6/6 + `qa-audit-2026-11-24` 17/17 + `phase-42` pass · full `tests/*.test.ts`: 1042 test, 249 fail đều do môi trường như vòng 1 (Postgres, binary macOS, `mock.module`; `phase-41-dashboard-tabs`/`phase-28-dashboard-role` lỗi import `requireOwner` từ commit trước đó, không do branch này).
+**Kiểm tra hành vi thật (2026-11-24, Owner cho phép tự chạy; dev server `localhost:3000` của Owner đang chạy branch này, DB UAT thật):**
+
+| Mục | Cách kiểm | Kết quả |
+|---|---|---|
+| QA-001 search | `GET /api/public/products/suggest?q=balo/BALO/clicker/động vật` + gõ "balo" trong modal header | ✅ 200, ra "Clicker Balo Động Vật - V2". `dong vat` (không dấu) → 0 kết quả = đúng chế độ dự phòng, **chứng minh DB UAT chưa có `basa3d_search_fold`**. Lần gọi đầu ~20 s (dev compile). `/products?q=balo` không còn crash. |
+| QA-002 tạo SP | Lưu nháp `[QA-TEST] Móc khoá kiểm thử vòng 2` | ✅ Báo "Cơ sở dữ liệu chưa được cập nhật bản mới nhất (thiếu migration)…" → **xác nhận nguyên nhân 500 là lệch schema**. Không tạo bản ghi. |
+| QA-003 SĐT | `POST /api/public/custom-requests` với `abc123`; ô SĐT `/bao-gia` | ✅ 400 + "Số điện thoại chưa đúng…"; trình duyệt chặn `abc123`, nhận `0912 345 678` (pattern chạy được với cờ `v` của Chrome). |
+| QA-004 khoá thử | `Q-AF5971A72D9E`: đúng → 10 sai → đúng | ✅ OK, WRONG×10, LOCKED, đúng-sau-khoá = LOCKED + thông báo "tạm khoá… nhắn Zalo". (Đính chính thêm: lần QA trước thử trên mã **yêu cầu** `CR-…`, không phải mã báo giá, nên không thể kích hoạt budget.) |
+| QA-010 | resolve MakerWorld #1448056; `?ref=https://example.com/…` | ✅ summary là chữ thuần; hiện "Trang bên ngoài: example.com…", link `rel=nofollow`. |
+| QA-011/012 | `/basaadmin/expenses` | ✅ nhãn "Doanh thu đã thu (đơn đã thanh toán)", ô số tiền `min=1`, không nạp GA ở admin. |
+| QA-013 | Báo giá tay: tạm tính 25.000, giảm 90.000 | ✅ "Giảm giá (90.000đ) không được lớn hơn tạm tính + phí vận chuyển (25.000đ)." |
+| QA-014 | Chi tiết `ORD-9A8155DC2E92` | ✅ "123 Đường Test, Phường Test, TP.HCM". |
+| QA-017 | `<title>`/description trang chủ, sản phẩm, PDP | ✅ tiếng Việt; PDP có description tự sinh. |
+| QA-022 | Mở modal tìm kiếm | ✅ `document.activeElement` = ô tìm kiếm. |
+| ADR-0066 sync | `CR-ABD4ED8CBFD5`: Mới → tạo báo giá → chấp nhận | ✅ Mới → **Đã báo giá** → **Đã duyệt**; báo giá `Q-0FFE0CA654DB` ACCEPTED. |
+| ADR-0066 ẩn UI | Menu admin, dashboard, Kho & giá, PDP | ✅ ẩn "Việc in", "Lịch sử kho", ô "Việc in đang chạy"/"Hàng có sẵn sắp hết"; Kho & giá mở tab "In theo yêu cầu". "Đơn hàng" **vẫn hiện** vì `.env` máy Owner đang `NEXT_PUBLIC_CART_ENABLED=true`. |
+| Perf gallery | PDP 16 ảnh | ✅ ban đầu mount 1 ảnh lớn, mở thêm 2 ảnh → 3. |
+
+**Lỗi phát hiện thêm khi kiểm & đã sửa:** PDP sản phẩm đặt in vẫn ghi "Sẵn hàng" (badge dựa vào `anyInStock`, mà MADE_TO_ORDER luôn `inStock=true`) → nay theo loại sản phẩm, hiện "Đặt in 24h" ✅. Trang Kho & giá còn nút "Lịch sử kho"/"Nhập theo mẻ" → ẩn khi tắt ready-stock.
+
+**Phát hiện thêm (chưa sửa — DB):** dashboard log `relation "trend_watch_items" does not exist` → UAT còn thiếu cả 2 migration Trend Radar. Không chạy được migration từ đây (sandbox không tới được DB; Supabase Dashboard chưa đăng nhập trong Chrome, và tôi không đăng nhập hộ dịch vụ bên ngoài).
+
+
+**Vòng 2 (2026-11-24) — check tĩnh:** tsc (src/tests/e2e/scripts) 0 lỗi · eslint file đổi 0 lỗi · check:arch ✅ · `tests/qa-audit-perf.test.ts` 6/6 + `qa-audit-2026-11-24` 17/17 + `phase-42` pass · full `tests/*.test.ts`: 1042 test, 249 fail đều do môi trường như vòng 1 (Postgres, binary macOS, `mock.module`; `phase-41-dashboard-tabs`/`phase-28-dashboard-role` lỗi import `requireOwner` từ commit trước đó, không do branch này).
 
 
 2026-11-24 — sandbox Linux arm64 (node_modules cài trên macOS nên dùng esbuild linux tạm qua `ESBUILD_BINARY_PATH`; không build được Next, không có Postgres/Supabase):

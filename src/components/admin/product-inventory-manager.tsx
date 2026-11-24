@@ -345,13 +345,17 @@ export function ProductInventoryManager({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Kho &amp; giá sản phẩm</h1>
-          <p className="text-sm text-muted-foreground">Hàng có sẵn: xem còn bao nhiêu và nhập kho. Hàng in theo yêu cầu: chỉ quản lý giá.</p>
+          <p className="text-sm text-muted-foreground">{BUSINESS_MODE.readyStock ? 'Hàng có sẵn: xem còn bao nhiêu và nhập kho. Hàng in theo yêu cầu: chỉ quản lý giá.' : 'Quản lý giá bán của các mẫu in theo yêu cầu.'}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Link href="/basaadmin/inventory" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
-            <Boxes className="mr-1.5 size-4" /> Lịch sử kho
-          </Link>
-          <BatchRestockButton variants={batchVariants} warehouses={warehouses} />
+          {BUSINESS_MODE.readyStock ? (
+            <>
+              <Link href="/basaadmin/inventory" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+                <Boxes className="mr-1.5 size-4" /> Lịch sử kho
+              </Link>
+              <BatchRestockButton variants={batchVariants} warehouses={warehouses} />
+            </>
+          ) : null}
           <Link href="/basaadmin/products/new" className={buttonVariants({ size: 'sm' })}>
             <Plus className="mr-1.5 size-4" /> Đăng sản phẩm mới
           </Link>
