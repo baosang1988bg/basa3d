@@ -47,7 +47,7 @@
 ## Governance
 
 - Agent tự động không deploy (Vercel/Netlify), không push, không chạy migration lên DB hosted.
-- **Branching**: Mọi tính năng đều phải branch từ `dev`. Chỉ khi check done (toàn bộ DoD đạt) mới merge vào `netlify`.
+- **Branching**: Mọi tính năng đều phải branch từ `dev`. Chỉ khi check done (toàn bộ DoD đạt) mới merge vào `vercel` (ADR-0061). Agent chỉ merge local, không push.
 - Sửa hiến pháp: cập nhật version + ngày, và đối chiếu lại `AGENTS.md`.
 
-**Version**: 1.0.0 | **Ratified**: 2026-10-20 | **Last Amended**: 2026-10-20
+**Version**: 1.0.1 | **Ratified**: 2026-10-20 | **Last Amended**: 2026-11-24

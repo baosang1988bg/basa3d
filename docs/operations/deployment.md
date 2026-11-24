@@ -9,8 +9,17 @@ MVP target:
 
 Do not make production depend on a developer laptop.
 
-Host: Vercel (`vercel.json`, `scripts/deploy/qc-deploy-vercel.mjs`). Alternative under evaluation:
-Netlify Free (ADR-0054, `netlify.toml`). Runbook: `docs/operations/deploy-netlify.md`.
+Host: Vercel (`vercel.json`, `scripts/deploy/qc-deploy-vercel.mjs`). Deploy branch: `vercel`
+(ADR-0061 — `dev` → `vercel` sau khi DoD xanh). **Plan hiện tại: Hobby = UAT/nội bộ, KHÔNG nhận khách
+thật/thanh toán thật** (Hobby cấm dùng thương mại — https://vercel.com/docs/limits/fair-use-guidelines).
+Trước khi mở cho khách: nâng Vercel Pro hoặc quay lại Netlify (ADR-0054, `netlify.toml`,
+`docs/operations/deploy-netlify.md` — giữ nguyên, không xoá).
+
+Checklist khi deploy lên Vercel:
+- `BASA3D_DEPLOY_PLATFORM` tự suy ra `vercel` từ `VERCEL=1` lúc build (`src/config/resolve-build-info.mjs`);
+  rate limiter đọc `x-real-ip`/`x-forwarded-for` (Vercel ghi đè) — không cần cấu hình thêm.
+- Cron trong `vercel.json` (2 job/ngày) nằm trong giới hạn Hobby (cron tối đa 1 lần/ngày).
+- Chạy migration mới (vd. `20261124000000_trend_watch_items.sql`) lên DB UAT **trước** khi promote.
 
 ## Biến môi trường bắt buộc (Phase 38)
 

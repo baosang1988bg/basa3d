@@ -22,6 +22,28 @@ import {
 } from '@/lib/search/meta-engines';
 import { Button } from '@/components/ui/button';
 
+const MAX_IMAGE_EDGE = 1024;
+const MAX_SOURCE_BYTES = 15 * 1024 * 1024;
+
+/** Downscales to ≤1024 px and re-encodes as JPEG so uploads stay far below the server's 4 MB cap. */
+async function downscaleImage(file: File): Promise<string> {
+  const bitmap = await createImageBitmap(file);
+  try {
+    const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas not supported');
+    ctx.fillStyle = '#ffffff'; // transparent PNG → white background instead of black JPEG
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.82);
+  } finally {
+    bitmap.close();
+  }
+}
+
 export function ModelSearchDialog({
   isOpen,
   onClose,
@@ -41,7 +63,9 @@ export function ModelSearchDialog({
   const [aiKeywordsZh, setAiKeywordsZh] = useState<string[]>([]);
   const [detectedCategory, setDetectedCategory] = useState<string | null>(null);
   const [googleLensUrl, setGoogleLensUrl] = useState<string | null>(null);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   const optimization = optimizeSearchKeywords(query);
 
@@ -54,6 +78,19 @@ export function ModelSearchDialog({
     }
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
+
+  // Lock background scroll and move focus into the dialog while it is open; restore on close.
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    dialogRef.current?.focus();
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus?.();
+    };
+  }, [isOpen]);
 
   // Support paste image anywhere when modal is open on image tab
   useEffect(() => {
@@ -79,19 +116,29 @@ export function ModelSearchDialog({
 
   if (!isOpen) return null;
 
-  function handleImageFile(file: File) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const base64 = e.target?.result as string;
+  async function handleImageFile(file: File) {
+    setAnalyzeError(null);
+    if (!file.type.startsWith('image/')) {
+      setAnalyzeError('Chỉ hỗ trợ file ảnh (JPEG, PNG, WebP).');
+      return;
+    }
+    if (file.size > MAX_SOURCE_BYTES) {
+      setAnalyzeError('Ảnh quá lớn (tối đa 15 MB).');
+      return;
+    }
+    try {
+      const base64 = await downscaleImage(file);
       setImagePreview(base64);
-      analyzeImage(base64, file.type);
-    };
-    reader.readAsDataURL(file);
+      await analyzeImage(base64, 'image/jpeg');
+    } catch {
+      setAnalyzeError('Không đọc được ảnh này. Hãy thử ảnh khác hoặc chụp màn hình lại.');
+    }
   }
 
   async function analyzeImage(base64: string, mimeType: string) {
     try {
       setAnalyzingImage(true);
+      setAnalyzeError(null);
       setAiKeywordsEn([]);
       setAiKeywordsZh([]);
 
@@ -101,15 +148,23 @@ export function ModelSearchDialog({
         body: JSON.stringify({ imageBase64: base64, mimeType }),
       });
 
-      const json = await res.json();
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.data) {
+        setAnalyzeError(json?.message || 'Không phân tích được ảnh. Bạn vẫn có thể tìm bằng Google Lens bên dưới.');
+        setGoogleLensUrl(buildGoogle3dSearchUrl('3d printed item'));
+        return;
+      }
+      if (json.data.aiUsed === false) {
+        setAnalyzeError('AI chưa nhận diện được vật thể — đang gợi ý từ khoá chung. Thử Google Lens để chính xác hơn.');
+      }
       if (json.data) {
         setAiKeywordsEn(json.data.keywordsEn || []);
         setAiKeywordsZh(json.data.keywordsZh || []);
         setDetectedCategory(json.data.category || null);
         setGoogleLensUrl(json.data.googleLensUrl || null);
       }
-    } catch (err) {
-      console.error('Visual analysis failed', err);
+    } catch {
+      setAnalyzeError('Lỗi mạng khi phân tích ảnh, vui lòng thử lại.');
     } finally {
       setAnalyzingImage(false);
     }
@@ -134,13 +189,20 @@ export function ModelSearchDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
       <div
-        className="relative w-full max-w-2xl rounded-2xl border border-border bg-card p-6 shadow-2xl transition-all"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="model-search-title"
+        tabIndex={-1}
+        className="relative max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border bg-card p-6 shadow-2xl outline-none transition-all"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
         <button
+          type="button"
+          aria-label="Đóng"
           onClick={onClose}
           className="absolute right-4 top-4 rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
         >
@@ -157,7 +219,7 @@ export function ModelSearchDialog({
             <span className="text-xs text-muted-foreground">Quét chéo các kho 3D lớn nhất thế giới</span>
           </div>
 
-          <h2 className="mt-2 text-xl font-extrabold text-foreground sm:text-2xl">
+          <h2 id="model-search-title" className="mt-2 text-xl font-extrabold text-foreground sm:text-2xl">
             Tìm Kiếm Mẫu 3D Thông Minh
           </h2>
 
@@ -292,23 +354,34 @@ export function ModelSearchDialog({
                 const file = e.target.files?.[0];
                 if (file) handleImageFile(file);
               }}
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp"
               className="hidden"
             />
 
+            {analyzeError ? (
+              <p role="alert" className="rounded-lg bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-300">{analyzeError}</p>
+            ) : null}
+
             {!imagePreview ? (
-              <div
+              <button
+                type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-secondary/30 p-8 text-center cursor-pointer transition-colors hover:border-primary/50 hover:bg-secondary/50"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) handleImageFile(file);
+                }}
+                className="flex w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-secondary/30 p-8 text-center cursor-pointer transition-colors hover:border-primary/50 hover:bg-secondary/50"
               >
                 <Upload className="size-8 text-muted-foreground mb-2" />
-                <p className="text-sm font-bold text-foreground">
+                <span className="block text-sm font-bold text-foreground">
                   Kéo thả ảnh hoặc bấm để chọn ảnh mẫu vật 3D
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
+                </span>
+                <span className="mt-1 block text-xs text-muted-foreground">
                   (Hoặc chụp ảnh màn hình từ TikTok/Douyin rồi bấm <b>Ctrl + V</b> để dán trực tiếp!)
-                </p>
-              </div>
+                </span>
+              </button>
             ) : (
               <div className="rounded-xl border border-border bg-card p-4 space-y-4">
                 <div className="flex items-center gap-4">
@@ -325,7 +398,9 @@ export function ModelSearchDialog({
                       </span>
                     )}
                     <button
+                      type="button"
                       onClick={() => {
+                        setAnalyzeError(null);
                         setImagePreview(null);
                         setAiKeywordsEn([]);
                         setAiKeywordsZh([]);

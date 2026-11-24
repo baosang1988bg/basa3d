@@ -58,6 +58,8 @@ export function ProductOnboardingForm({
     basePrice?: number;
     sourceUrl?: string;
     description?: string;
+    /** Trend Radar verdict (ADR-0062 §5). Only COMMERCIAL_ALLOWED pre-selects "Có license". */
+    licenseStatus?: string;
   };
 }) {
   const formRef = useRef<HTMLFormElement>(null);
@@ -72,8 +74,11 @@ export function ProductOnboardingForm({
   const [name, setName] = useState(initialData?.name ?? '');
   const [categoryId, setCategoryId] = useState('');
   const [shortDescription, setShortDescription] = useState('');
-  const [licenseMode, setLicenseMode] = useState<LicenseMode>(initialData?.sourceUrl ? 'LICENSED' : '');
-  const [licensedType, setLicensedType] = useState<LicensedType>('COMMERCIAL_LICENSE');
+  const prefillCanSell = Boolean(initialData?.sourceUrl) && initialData?.licenseStatus === 'COMMERCIAL_ALLOWED';
+  const [licenseMode, setLicenseMode] = useState<LicenseMode>(
+    initialData?.sourceUrl ? (prefillCanSell ? 'LICENSED' : 'UNKNOWN') : '',
+  );
+  const [licensedType, setLicensedType] = useState<LicensedType>(prefillCanSell ? 'CC_BY' : 'COMMERCIAL_LICENSE');
   const [licenseSourceUrl, setLicenseSourceUrl] = useState(initialData?.sourceUrl ?? '');
   const [licenseProofUrl, setLicenseProofUrl] = useState('');
 
