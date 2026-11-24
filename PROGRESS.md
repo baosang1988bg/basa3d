@@ -19,7 +19,7 @@ Mỗi agent chỉ có **một** mục active tại một thời điểm. Ghi: ag
 | Agent | Branch | Exec-plan | Đang làm |
 |---|---|---|---|
 | Codex | `feat/neobox-lightbox-generator` | `active/feature-neobox-lightbox.md` | chạy `check:agent`, soát UX + xuất 3MF/STL |
-| Gemini | `dev` (đã merge `feat/local-ollama-vision`) | `active/feature-smart-product-onboarding.md` | Hoàn thành toàn diện: AI Vision (Ollama RTX 4060 + Gemini Cloud), Auto-Catalog, Batch Flow |
+| Gemini | `feat/product-storage-links-and-voice` | `active/feature-smart-product-onboarding.md` | Bổ sung Voice Input, lưu trữ file 3D (Local path, Drive, Web Source), script Tunnel giống BaSaTTS |
 | Claude | `chore/harness-engineering` | — (harness setup) | review/verify harness |
 | Claude (Cowork) | `dev` (đã merge `feat/phase-55-…` + `fix/phase-56-…`) | `active/phase-55-…md`, `active/phase-56-…md` | xong; chờ OWNER xem UI + E2E rồi merge `netlify` |
 
@@ -76,6 +76,7 @@ Owner quyết định từng dòng. Prompt/challenge/review đã chuyển sang `
 
 ## Handoff log (mới nhất ở trên, tối đa ~10 dòng — cũ hơn thì xoá, git giữ lịch sử)
 
+- 2026-11-24 · Gemini · `feat/product-storage-links-and-voice` · Bổ sung: (1) Voice Input (Web Speech tiếng Việt) nói tên sản phẩm tự điền & focus; (2) Lưu trữ thông tin in ấn: Đường dẫn file máy xưởng (printLocalPath), Link Google Drive (printDriveUrl), Link nguồn mẫu (sourceUrl); (3) File Mo_Cong_Ollama_Cloudflare.bat mở HTTPS tunnel giống BaSaTTS; (4) Lint, typecheck, arch, unit tests xanh 100%.
 - 2026-11-24 · Gemini · `feat/local-ollama-vision` · Hoàn thành Smart Product Onboarding cho Staff: (1) AI Vision Dual-Engine ưu tiên Local Ollama (LLaVA trên GPU RTX 4060, 0 token, ~300ms) fallback Cloud Gemini API; (2) Gợi ý 3 tên tiếng Việt chuẩn SEO từ ảnh + 1-Click chọn tên tự động focus ô Giá; (3) Auto-Catalog tự đoán danh mục theo từ khoá + Category interactive chips/pills kèm emoji + tạo danh mục inline; (4) Nút & phím tắt Ctrl+Enter "Lưu & Thêm tiếp" reset form siêu tốc cho xưởng; (5) Lint, typecheck, arch check, unit tests xanh 100%.
 - 2026-11-24 · Gemini · `feat/trend-radar-model-search` · Kết hợp trọn vẹn: (1) Săn trend đa nền tảng (MW CN, Douyin, Thangs); (2) Tự động quét & gắn nhãn bản quyền (CC-BY/CC0 vs Standard/NC vs Hội viên), cảnh báo khi đăng bán mẫu NC; (3) Cầu nối 1-Click Săn mẫu -> Đăng bán Catalog (`/basaadmin/products/new` tự tính giá bán từ gram/phút); (4) Tích hợp Smart Search vào Báo giá `/bao-gia`. Lint, typecheck, arch, 7 tests và build Next.js 15.5 đều xanh.
 

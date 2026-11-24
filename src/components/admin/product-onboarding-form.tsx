@@ -6,7 +6,7 @@
 // Flow on save: create (DRAFT, replay-safe by requestId) → upload photos → optionally publish.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, ChevronDown, Loader2, Package, Plus, Printer, Sparkles, X } from 'lucide-react';
+import { CheckCircle2, ChevronDown, Cloud, ExternalLink, FolderOpen, HardDrive, Loader2, Mic, Package, Plus, Printer, Sparkles, X } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -71,6 +71,8 @@ export function ProductOnboardingForm({
     basePrice?: number;
     sourceUrl?: string;
     description?: string;
+    printLocalPath?: string;
+    printDriveUrl?: string;
   };
 }) {
   const formRef = useRef<HTMLFormElement>(null);
@@ -95,6 +97,11 @@ export function ProductOnboardingForm({
   const [licensedType, setLicensedType] = useState<LicensedType>('COMMERCIAL_LICENSE');
   const [licenseSourceUrl, setLicenseSourceUrl] = useState(initialData?.sourceUrl ?? '');
   const [licenseProofUrl, setLicenseProofUrl] = useState('');
+  const [sourceUrl, setSourceUrl] = useState(initialData?.sourceUrl ?? '');
+  const [printLocalPath, setPrintLocalPath] = useState(initialData?.printLocalPath ?? '');
+  const [printDriveUrl, setPrintDriveUrl] = useState(initialData?.printDriveUrl ?? '');
+  const [isListening, setIsListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
 
   // Block 3 — how it's sold
   const [productType, setProductType] = useState<'MADE_TO_ORDER' | 'READY_STOCK'>('MADE_TO_ORDER');
@@ -157,6 +164,67 @@ export function ProductOnboardingForm({
   }
 
   const primaryImage = images.find((i) => i.key === coverKey) || images[0];
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+      setSpeechSupported(true);
+    }
+  }, []);
+
+  function toggleVoiceInput() {
+    if (typeof window === 'undefined') return;
+    type SpeechRecognitionEventLike = {
+      results?: ArrayLike<ArrayLike<{ transcript?: string }>>;
+    };
+    type SpeechRecognitionLike = {
+      lang: string;
+      continuous: boolean;
+      interimResults: boolean;
+      onstart: (() => void) | null;
+      onend: (() => void) | null;
+      onerror: (() => void) | null;
+      onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+      start: () => void;
+    };
+    const windowWithSpeech = window as unknown as {
+      SpeechRecognition?: new () => SpeechRecognitionLike;
+      webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+    };
+    const SpeechConstructor = windowWithSpeech.SpeechRecognition || windowWithSpeech.webkitSpeechRecognition;
+    if (!SpeechConstructor) return;
+
+    if (isListening) {
+      setIsListening(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechConstructor();
+      recognition.lang = 'vi-VN';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      recognition.onstart = () => setIsListening(true);
+      recognition.onend = () => setIsListening(false);
+      recognition.onerror = () => setIsListening(false);
+      recognition.onresult = (event: SpeechRecognitionEventLike) => {
+        const transcript = event.results?.[0]?.[0]?.transcript;
+        if (transcript) {
+          handleNameChange(transcript.trim());
+          setTimeout(() => {
+            const priceInput = document.getElementById(BASE_PRICE_INPUT_ID);
+            if (priceInput) priceInput.focus();
+          }, 80);
+        }
+        setIsListening(false);
+      };
+
+      recognition.start();
+    } catch {
+      setIsListening(false);
+    }
+  }
+
 
   async function runAiSuggestion(blob: Blob, key: string, force = false) {
     if (!force && lastAnalyzedKeyRef.current === key) return;
@@ -291,8 +359,10 @@ export function ProductOnboardingForm({
       pricingBreakdown: typeof breakdownRaw === 'string' && breakdownRaw ? JSON.parse(breakdownRaw) : null,
       pricingConfigId: typeof breakdownRaw === 'string' && breakdownRaw && typeof configId === 'string' ? configId : null,
       licenseType,
-      licenseSourceUrl: licenseMode === 'LICENSED' ? licenseSourceUrl.trim() || null : null,
+      licenseSourceUrl: (licenseMode === 'LICENSED' ? licenseSourceUrl.trim() : sourceUrl.trim()) || null,
       licenseProofUrl: licenseMode === 'LICENSED' ? licenseProofUrl.trim() || null : null,
+      printLocalPath: printLocalPath.trim() || null,
+      printDriveUrl: printDriveUrl.trim() || null,
       seoTitle: seoTitle.trim() || null,
       seoDescription: seoDescription.trim() || null,
       isFeatured,
@@ -361,6 +431,9 @@ export function ProductOnboardingForm({
         setCreatedProductId(null);
         setSuggestedNames([]);
         setAiSource(null);
+        setPrintLocalPath('');
+        setPrintDriveUrl('');
+        setSourceUrl('');
         userManuallyPickedCatRef.current = false;
         setAutoCatReason(null);
         setShowAddCategory(false);
@@ -479,9 +552,27 @@ export function ProductOnboardingForm({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
-                <Label htmlFor="onboard-name" className="flex items-center gap-1.5">
-                  Tên sản phẩm <span className="text-rose-600">*</span>
-                </Label>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="onboard-name" className="flex items-center gap-1.5">
+                    Tên sản phẩm <span className="text-rose-600">*</span>
+                  </Label>
+                  {speechSupported ? (
+                    <button
+                      type="button"
+                      disabled={locked}
+                      onClick={toggleVoiceInput}
+                      className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium transition-all ${
+                        isListening
+                          ? 'bg-rose-500/15 text-rose-600 border border-rose-500/30 animate-pulse'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent'
+                      }`}
+                      title={isListening ? 'Đang nghe... bấm để dừng' : 'Nói tên sản phẩm bằng giọng nói (tiếng Việt)'}
+                    >
+                      <Mic className={`size-3.5 ${isListening ? 'text-rose-600 animate-bounce' : ''}`} />
+                      {isListening ? 'Đang nghe…' : 'Nói tên'}
+                    </button>
+                  ) : null}
+                </div>
                 {primaryImage?.blob ? (
                   <button
                     type="button"
@@ -693,6 +784,65 @@ export function ProductOnboardingForm({
               </div>
             ) : null}
           </fieldset>
+
+          {/* File lưu trữ & Nguồn mẫu (Tuỳ chọn cho xưởng) */}
+          <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/20 p-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-1">
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                <FolderOpen className="size-4 text-primary" /> Lưu trữ file 3D &amp; Nguồn model (Tuỳ chọn):
+              </span>
+              <span className="text-[11px] text-muted-foreground">Lưu đường dẫn máy xưởng hoặc Drive để khi có đơn thợ mở in ngay</span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="onboard-source-url" className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                  <ExternalLink className="size-3" /> Link nguồn mẫu (MakerWorld/Web)
+                </Label>
+                <Input
+                  id="onboard-source-url"
+                  type="url"
+                  value={sourceUrl}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSourceUrl(val);
+                    if (licenseMode === 'LICENSED') setLicenseSourceUrl(val);
+                  }}
+                  disabled={locked}
+                  placeholder="https://makerworld.com/…"
+                  className="h-8 text-xs bg-background"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="onboard-local-path" className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                  <HardDrive className="size-3" /> Nơi lưu file trên máy xưởng (Local)
+                </Label>
+                <Input
+                  id="onboard-local-path"
+                  value={printLocalPath}
+                  onChange={(e) => setPrintLocalPath(e.target.value)}
+                  disabled={locked}
+                  placeholder="VD: D:\3D_Models\MocKhoa\meo.3mf"
+                  className="h-8 text-xs font-mono bg-background"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="onboard-drive-url" className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                  <Cloud className="size-3" /> Link Google Drive file 3D
+                </Label>
+                <Input
+                  id="onboard-drive-url"
+                  type="url"
+                  value={printDriveUrl}
+                  onChange={(e) => setPrintDriveUrl(e.target.value)}
+                  disabled={locked}
+                  placeholder="https://drive.google.com/…"
+                  className="h-8 text-xs bg-background"
+                />
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
