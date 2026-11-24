@@ -262,6 +262,7 @@ function toCatalogFailure(error: unknown): { ok: false; code: string; error: str
 }
 
 function revalidateAllCatalogPaths(productId?: string) {
+  revalidatePath('/basaadmin/dashboard');
   revalidatePath('/basaadmin/products');
   revalidatePath('/basaadmin/product-inventory');
   revalidatePath('/basaadmin/stl-import');
