@@ -8,6 +8,7 @@ import { ViewItemTracker } from '@/components/analytics/storefront-trackers';
 import { serializeJsonLd } from '@/lib/json-ld';
 import { localeAlternates } from '@/i18n/seo';
 import { getCategoryDisplayName } from '@/lib/categories';
+import { displayProductType } from '@/config/business-mode';
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -74,7 +75,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
       <ProductDetailShowcase
         productName={product.name}
         productSlug={product.slug}
-        productType={product.productType}
+        productType={displayProductType(product.productType)}
         basePrice={product.basePrice}
         shortDescription={product.shortDescription}
         description={product.description}

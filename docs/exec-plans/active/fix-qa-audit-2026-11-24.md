@@ -46,6 +46,26 @@
 | QA-018 | Phải đo trên prod build trước (AGENTS: "optimize after measuring") | Đo Lighthouse trên `next build && next start` |
 | QA-019/020/024/025/026/027 | Polish UX, không chặn | Gom vào backlog UX |
 
+## Quyết định của Owner (2026-11-24, sau vòng 1) → vòng 2
+
+Owner: *"web chỉ tập trung làm nơi báo giá, không định hướng thương mại điện tử"* (ADR-0066).
+
+| ID | Quyết định Owner | Đã làm ở vòng 2 |
+|---|---|---|
+| QA-005 Giỏ hàng | Ẩn | [x] Đã ẩn sẵn (`NEXT_PUBLIC_CART_ENABLED=false`). Menu admin "Đơn hàng" và 2 ô KPI đơn hàng cũng ẩn theo cùng cờ. |
+| QA-006 Tiếng Anh | Ẩn ở giai đoạn này | [x] Đã ẩn sẵn (`NEXT_PUBLIC_LANGUAGE_SWITCHER_ENABLED`: `/en/*` → 308 về VI, không switcher/hreflang). Không cần code. |
+| QA-007 Hàng có sẵn | Không cần — giờ là đặt in | [x] Cờ `NEXT_PUBLIC_READY_STOCK_ENABLED` (mặc định tắt): mọi thẻ/PDP hiện "Đặt in", bỏ bộ lọc "Sẵn hàng", ẩn ô "Hàng có sẵn sắp hết", ẩn menu "Lịch sử kho", trang Kho & giá mở tab "In theo yêu cầu". Dữ liệu giữ nguyên. |
+| QA-008 Lệnh in | Không cần nữa | [x] Cờ `NEXT_PUBLIC_PRINT_JOBS_ENABLED` (mặc định tắt): ẩn menu "Việc in" và ô KPI. Accept báo giá vẫn ghi `print_jobs` (không đổi backend). QA-008 đóng. |
+| QA-009 Đồng bộ trạng thái | Làm nếu tốn ít resource | [x] `syncedCustomRequestStatus`: tạo báo giá → QUOTED, chấp nhận → APPROVED, chỉ tiến, cùng transaction, ghi audit `CUSTOM_REQUEST_STATUS_SYNCED`. |
+| QA-015 Rate-limit login | Không cần (chỉ Owner dùng admin) | Đóng. |
+| QA-018 Hiệu suất | Duyệt | [x] Đợt 1 (rủi ro thấp): bỏ 3 namespace chỉ dùng phía server khỏi payload client (~18 KB/trang); gallery PDP chỉ tải ảnh đang xem (trước: tải hết, ví dụ 15 ảnh) + `sizes`. Đã kiểm tra: three.js của công cụ 3D và MeshViewer `/bao-gia` đều đã lazy-load; ảnh hero đã `priority`. Đợt 2 cần đo Lighthouse trên prod build (xem dưới). |
+
+### Hiệu suất — đợt 2 (cần số đo prod trước khi làm)
+
+- [ ] Owner: `npm run build && npm start`, chạy Lighthouse mobile cho `/home`, `/products/[slug]`, `/bao-gia`, 1 công cụ 3D, `/basaadmin/dashboard`.
+- [ ] `ANALYZE=true` / `@next/bundle-analyzer` cho `/bao-gia` (5.6 MB JS ở dev) — tìm chunk lớn nhất rồi mới tách.
+- [ ] Nếu `/basaadmin/product-inventory` vẫn > 1 s TTFB trên prod: gộp `listStockTrackedVariants` vào truy vấn tồn kho (đang query 2 lần `inventory_movements`).
+
 ## Definition of Done
 
 - [x] `npm run lint` · `npm run typecheck` · `npm run check:arch` xanh
@@ -54,6 +74,9 @@
 - [ ] Owner: chạy migration UAT, `npm run build`, smoke `/products?q=`, tạo sản phẩm, `/bao-gia`
 
 ## Evidence log
+
+**Vòng 2 (2026-11-24):** tsc (src/tests/e2e/scripts) 0 lỗi · eslint file đổi 0 lỗi · check:arch ✅ · `tests/qa-audit-perf.test.ts` 6/6 + `qa-audit-2026-11-24` 17/17 + `phase-42` pass · full `tests/*.test.ts`: 1042 test, 249 fail đều do môi trường như vòng 1 (Postgres, binary macOS, `mock.module`; `phase-41-dashboard-tabs`/`phase-28-dashboard-role` lỗi import `requireOwner` từ commit trước đó, không do branch này).
+
 
 2026-11-24 — sandbox Linux arm64 (node_modules cài trên macOS nên dùng esbuild linux tạm qua `ESBUILD_BINARY_PATH`; không build được Next, không có Postgres/Supabase):
 

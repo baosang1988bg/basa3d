@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
 import { notFound } from 'next/navigation';
 import { NextIntlClientProvider, hasLocale } from 'next-intl';
-import { setRequestLocale } from 'next-intl/server';
+import { getMessages, setRequestLocale } from 'next-intl/server';
 import { routing } from '@/i18n/routing';
 import { HtmlShell } from '@/components/layout/html-shell';
+import { pickClientMessages } from '@/i18n/client-messages';
 
 // Phase 42 (ADR-0045): static pages under [locale] are prerendered for every routable locale at
 // `next build` — only `vi` while EN is switched off (ADR-0048, see src/i18n/routing.ts).
@@ -22,10 +23,12 @@ export default async function LocaleLayout({ children, params }: { children: Rea
   // Enables static rendering for this locale's subtree (next-intl requirement) — must run before
   // any `getTranslations()`/`useTranslations()` call in this request.
   setRequestLocale(locale);
+  // Server-only namespaces stay out of the browser payload (src/i18n/client-messages.ts).
+  const messages = pickClientMessages((await getMessages()) as Record<string, unknown>);
 
   return (
     <HtmlShell lang={locale}>
-      <NextIntlClientProvider>
+      <NextIntlClientProvider messages={messages}>
         {children}
       </NextIntlClientProvider>
     </HtmlShell>

@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import type { StaffRole } from '@/lib/auth/require-admin';
 import { BUILD_INFO, CHANNEL_LABELS, SHORT_COMMIT } from '@/config/build-info';
+import { BUSINESS_MODE } from '@/config/business-mode';
 
 export interface AdminNavBadges {
   pendingOrders?: number;
@@ -26,6 +27,8 @@ interface NavItem {
   icon: typeof LayoutDashboard;
   ownerOnly?: boolean;
   badgeKey?: keyof AdminNavBadges;
+  /** ADR-0066: false hides the item (quote-only business mode). Routes stay reachable by URL. */
+  enabled?: boolean;
 }
 
 interface NavSection {
@@ -33,18 +36,18 @@ interface NavSection {
   items: NavItem[];
 }
 
-const NAV_SECTIONS: NavSection[] = [
+const ALL_NAV_SECTIONS: NavSection[] = [
   {
     items: [
       { href: '/basaadmin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     ],
   },
   {
-    title: 'Đơn hàng & In',
+    title: BUSINESS_MODE.orders || BUSINESS_MODE.printJobs ? 'Đơn hàng & In' : 'Yêu cầu báo giá',
     items: [
-      { href: '/basaadmin/orders', label: 'Đơn hàng', icon: ShoppingBag, badgeKey: 'pendingOrders' },
+      { href: '/basaadmin/orders', label: 'Đơn hàng', icon: ShoppingBag, badgeKey: 'pendingOrders', enabled: BUSINESS_MODE.orders },
       { href: '/basaadmin/custom-requests', label: 'Custom request', icon: FileEdit, badgeKey: 'customRequestsOpen' },
-      { href: '/basaadmin/print-jobs', label: 'Việc in', icon: Printer, badgeKey: 'printJobsActive' },
+      { href: '/basaadmin/print-jobs', label: 'Việc in', icon: Printer, badgeKey: 'printJobsActive', enabled: BUSINESS_MODE.printJobs },
     ],
   },
   {
@@ -54,7 +57,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/basaadmin/trend-hunter', label: 'Săn mẫu Trend', icon: Flame },
       { href: '/basaadmin/product-inventory', label: 'Kho & giá', icon: Warehouse },
       { href: '/basaadmin/stl-import', label: 'Duyệt mẫu STL', icon: FileBox },
-      { href: '/basaadmin/inventory', label: 'Lịch sử kho', icon: Boxes },
+      { href: '/basaadmin/inventory', label: 'Lịch sử kho', icon: Boxes, enabled: BUSINESS_MODE.readyStock },
       { href: '/basaadmin/materials', label: 'Nhựa in', icon: Layers },
     ],
   },
@@ -79,6 +82,10 @@ const NAV_SECTIONS: NavSection[] = [
 ];
 
 const STORAGE_KEY = 'basa3d_admin_nav_expanded';
+
+const NAV_SECTIONS: NavSection[] = ALL_NAV_SECTIONS
+  .map((section) => ({ ...section, items: section.items.filter((item) => item.enabled !== false) }))
+  .filter((section) => section.items.length > 0);
 
 const ALL_ITEMS = NAV_SECTIONS.flatMap((section) => section.items);
 const ALL_HREFS = ALL_ITEMS.map((item) => item.href);

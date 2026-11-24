@@ -1414,3 +1414,28 @@ and the expenses page counting UNPAID orders as revenue.
 
 **Consequences.** Existing customer rows with non-phone values are untouched; staff can still fix them. A UAT DB
 without the fold migration gets slower, accent-sensitive search until the migration runs.
+
+## ADR-0066 — Quote-only business mode; request status follows its quotes
+
+**Status.** Accepted 2026-11-24 by Owner (branch `fix/qa-audit-2026-11-24`).
+
+**Context.** Owner: BaSa3D is now a place to get a 3D-print QUOTE, not an e-commerce shop. Cart and English were
+already switched off; ready-stock selling and production tracking ("Việc in") are no longer used. The QA audit
+found their screens confusing (stock numbers that disagree, print jobs nobody updates, request status stuck at
+"Đang xem xét" after a quote was accepted).
+
+**Decision.**
+1. `src/config/business-mode.ts` — UI switches, all OFF by default, read at build time:
+   `NEXT_PUBLIC_READY_STOCK_ENABLED` (stock badges → "Đặt in", no "Sẵn hàng" filter, no low-stock tile, no
+   "Lịch sử kho" menu, Kho & giá opens on made-to-order), `NEXT_PUBLIC_PRINT_JOBS_ENABLED` ("Việc in" menu +
+   tile), and the existing `NEXT_PUBLIC_CART_ENABLED` now also hides the admin "Đơn hàng" menu and order tiles.
+   Nothing is deleted: tables, services, routes and URLs stay; accepting a quote still records a print job.
+2. Request status is synced from quotes inside the quote transaction (`syncedCustomRequestStatus`): quote created
+   → QUOTED, quote accepted → APPROVED; forward only; REJECTED/CONVERTED untouched; audited as
+   `CUSTOM_REQUEST_STATUS_SYNCED`. Manual status changes still work.
+3. Admin login rate-limit (QA-015) is out of scope: the Owner is the only admin user.
+4. Performance pass 1: server-only i18n namespaces (`policies`, `home`, `tools`) are not sent to the browser
+   (`src/i18n/client-messages.ts`, guarded by a test); the PDP gallery mounts only images that were shown.
+
+**Consequences.** Turning a mode back on is an env change + rebuild. The single existing READY_STOCK product is
+displayed as made to order; its stock rows are unchanged.

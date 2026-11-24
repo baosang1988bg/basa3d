@@ -32,6 +32,7 @@ import { QuickRestockButton } from '@/components/admin/quick-restock-dialog';
 import { BatchRestockButton } from '@/components/admin/batch-restock-dialog';
 import type { StockTrackedVariant } from '@/services/quick-restock.service';
 import type { PricingConfigRow } from '@/services/pricing-config.service';
+import { BUSINESS_MODE } from '@/config/business-mode';
 import {
   applyPricingCalculationAction,
   updateProductBasePriceAction,
@@ -100,7 +101,8 @@ export function ProductInventoryManager({
   batchVariants,
   warehouses,
 }: Props) {
-  const [tab, setTab] = useState<Tab>('STOCK');
+  // ADR-0066: quote-only mode opens on made-to-order pricing; the stock tab stays while old READY_STOCK rows exist.
+  const [tab, setTab] = useState<Tab>(BUSINESS_MODE.readyStock ? 'STOCK' : 'MADE_TO_ORDER');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
@@ -358,7 +360,7 @@ export function ProductInventoryManager({
 
       {/* Tabs */}
       <div role="tablist" aria-label="Hình thức bán" className="flex gap-6 border-b border-border">
-        {tabButton('STOCK', <Package className="size-4" />, 'Hàng có sẵn', stockProducts.length)}
+        {BUSINESS_MODE.readyStock || stockProducts.length > 0 ? tabButton('STOCK', <Package className="size-4" />, 'Hàng có sẵn', stockProducts.length) : null}
         {tabButton('MADE_TO_ORDER', <Printer className="size-4" />, 'In theo yêu cầu', orderProducts.length)}
       </div>
 

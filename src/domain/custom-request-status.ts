@@ -13,3 +13,16 @@ export const CUSTOM_REQUEST_STATUS_TRANSITIONS: Record<string, string[]> = {
 export function nextCustomRequestStatuses(status: string) {
   return CUSTOM_REQUEST_STATUS_TRANSITIONS[status] ?? [];
 }
+
+/**
+ * Owner decision 2026-11-24 (ADR-0066): the site is a QUOTE site, so the request status follows its quotes
+ * automatically instead of staff moving it by hand. Returns the new status, or null to leave it alone
+ * (already further along, REJECTED, or CONVERTED). Only ever moves FORWARD.
+ * - a quote is created → QUOTED (DRAFT/SENT is not used in practice: the quote link goes out over Zalo);
+ * - a quote is accepted → APPROVED.
+ */
+export function syncedCustomRequestStatus(current: string, event: 'QUOTE_CREATED' | 'QUOTE_ACCEPTED'): string | null {
+  const open = ['NEW', 'REVIEWING', 'NEED_INFO'];
+  if (event === 'QUOTE_CREATED') return open.includes(current) ? 'QUOTED' : null;
+  return open.includes(current) || current === 'QUOTED' ? 'APPROVED' : null;
+}
