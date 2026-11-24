@@ -17,6 +17,8 @@ import { ProductImagePicker, type PickedImage } from '@/components/admin/product
 import { slugify } from '@/lib/catalog/naming';
 import { ProductImageUploadError, uploadProductImages } from '@/lib/uploads/product-image-upload';
 import { createProductOnboardingAction, publishProductAction } from '@/app/basaadmin/(protected)/products/new/actions';
+import { createCategoryInlineAction } from '@/app/basaadmin/(protected)/products/actions';
+import { detectCategoryFromName, getCategoryIconEmoji, type CategoryOptionLike } from '@/lib/categories';
 
 type ColorOption = { key: string; label: string; color: string; material: string };
 type VariantRow = { key: string; name: string; color: string | null; material: string | null; priceText: string; stockText: string };
@@ -59,7 +61,7 @@ export function ProductOnboardingForm({
   pricingConfig,
   initialData,
 }: {
-  categories: { id: string; label: string }[];
+  categories: CategoryOptionLike[];
   colors: ColorOption[];
   warehouses: { id: string; name: string; code: string }[];
   materials: PricingMaterialOption[];
@@ -82,6 +84,12 @@ export function ProductOnboardingForm({
   // Block 2 — what it is
   const [name, setName] = useState(initialData?.name ?? '');
   const [categoryId, setCategoryId] = useState('');
+  const [categoriesList, setCategoriesList] = useState<CategoryOptionLike[]>(categories);
+  const [autoCatReason, setAutoCatReason] = useState<string | null>(null);
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [catCreating, setCatCreating] = useState(false);
+  const userManuallyPickedCatRef = useRef(false);
   const [shortDescription, setShortDescription] = useState('');
   const [licenseMode, setLicenseMode] = useState<LicenseMode>(initialData?.sourceUrl ? 'LICENSED' : 'OWN_DESIGN');
   const [licensedType, setLicensedType] = useState<LicensedType>('COMMERCIAL_LICENSE');
@@ -178,7 +186,9 @@ export function ProductOnboardingForm({
           if (Array.isArray(names) && names.length > 0) {
             setSuggestedNames(names);
           }
-          if (suggestedCategoryId && !categoryId) {
+          if (suggestedCategoryId && !userManuallyPickedCatRef.current) {
+            const foundCat = categoriesList.find((c) => c.id === suggestedCategoryId);
+            if (foundCat) setAutoCatReason(`AI nhận diện: "${foundCat.label}"`);
             setCategoryId(suggestedCategoryId);
           }
           if (suggestedShortDescription && !shortDescription.trim()) {
@@ -199,8 +209,43 @@ export function ProductOnboardingForm({
     }
   }, [primaryImage?.blob, primaryImage?.key, primaryImage?.error, name]);
 
+  function handleNameChange(newName: string) {
+    setName(newName);
+    if (!userManuallyPickedCatRef.current) {
+      const detected = detectCategoryFromName(newName, categoriesList);
+      if (detected && detected.categoryId !== categoryId) {
+        setCategoryId(detected.categoryId);
+        setAutoCatReason(`Tự động chọn "${detected.categoryLabel}"`);
+      }
+    }
+  }
+
+  async function handleCreateCategoryInline() {
+    const trimmed = newCatName.trim();
+    if (!trimmed) return;
+    setCatCreating(true);
+    try {
+      const res = await createCategoryInlineAction({ name: trimmed });
+      if (res.ok && res.data) {
+        const newCat: CategoryOptionLike = {
+          id: res.data.id,
+          label: res.data.name,
+          slug: res.data.slug,
+        };
+        setCategoriesList((prev) => [...prev, newCat]);
+        setCategoryId(newCat.id);
+        userManuallyPickedCatRef.current = true;
+        setAutoCatReason(`Đã tạo & chọn: "${newCat.label}"`);
+        setNewCatName('');
+        setShowAddCategory(false);
+      }
+    } finally {
+      setCatCreating(false);
+    }
+  }
+
   function applySuggestedName(suggested: string) {
-    setName(suggested);
+    handleNameChange(suggested);
     setTimeout(() => {
       const priceInput = document.getElementById(BASE_PRICE_INPUT_ID);
       if (priceInput) priceInput.focus();
@@ -312,6 +357,9 @@ export function ProductOnboardingForm({
         setVariants([]);
         setCreatedProductId(null);
         setSuggestedNames([]);
+        userManuallyPickedCatRef.current = false;
+        setAutoCatReason(null);
+        setShowAddCategory(false);
         lastAnalyzedKeyRef.current = null;
         requestId.current = null;
         const priceInput = document.getElementById(BASE_PRICE_INPUT_ID) as HTMLInputElement | null;
@@ -449,7 +497,7 @@ export function ProductOnboardingForm({
                   </button>
                 ) : null}
               </div>
-              <Input id="onboard-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={200} disabled={locked} placeholder="VD: Móc khoá mèo Shiba" autoFocus />
+              <Input id="onboard-name" value={name} onChange={(event) => handleNameChange(event.target.value)} maxLength={200} disabled={locked} placeholder="VD: Móc khoá mèo Shiba" autoFocus />
               {slugPreview ? <p className="truncate font-mono text-[11px] text-muted-foreground">/products/{slugPreview}</p> : null}
 
               {aiLoading ? (
@@ -489,7 +537,7 @@ export function ProductOnboardingForm({
                       key={prefix}
                       type="button"
                       onClick={() => {
-                        setName(`${prefix} `);
+                        handleNameChange(`${prefix} `);
                         document.getElementById('onboard-name')?.focus();
                       }}
                       className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground active:scale-95 transition-all"
@@ -501,10 +549,97 @@ export function ProductOnboardingForm({
               ) : null}
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="onboard-category">Danh mục</Label>
-              <select id="onboard-category" value={categoryId} onChange={(event) => setCategoryId(event.target.value)} disabled={locked} className="h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="onboard-category" className="flex items-center gap-1.5 text-sm font-medium">
+                  Danh mục <span className="text-rose-600">*</span>
+                </Label>
+                {autoCatReason ? (
+                  <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 animate-in fade-in">
+                    <Sparkles className="size-3 shrink-0" /> {autoCatReason}
+                  </span>
+                ) : null}
+              </div>
+
+              {/* Interactive Category Chips */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {categoriesList.map((category) => {
+                  const active = categoryId === category.id;
+                  const icon = getCategoryIconEmoji(category.label);
+                  return (
+                    <button
+                      key={category.id}
+                      type="button"
+                      disabled={locked}
+                      onClick={() => {
+                        userManuallyPickedCatRef.current = true;
+                        setCategoryId(category.id);
+                        setAutoCatReason(null);
+                      }}
+                      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-all active:scale-95 ${
+                        active
+                          ? 'border-primary bg-primary text-primary-foreground shadow-xs ring-2 ring-primary/20'
+                          : 'border-border bg-muted/40 hover:bg-muted hover:border-primary/40 text-foreground'
+                      }`}
+                    >
+                      <span className="text-sm leading-none">{icon}</span>
+                      <span>{category.label}</span>
+                    </button>
+                  );
+                })}
+
+                {!showAddCategory ? (
+                  <button
+                    type="button"
+                    disabled={locked}
+                    onClick={() => setShowAddCategory(true)}
+                    className="inline-flex items-center gap-1 rounded-lg border border-dashed border-border px-2 py-1 text-xs text-muted-foreground hover:border-primary hover:text-foreground active:scale-95 transition-all"
+                    title="Tạo nhanh danh mục mới ngay tại đây"
+                  >
+                    <Plus className="size-3" /> Thêm mục
+                  </button>
+                ) : null}
+              </div>
+
+              {/* Inline Add Category input */}
+              {showAddCategory ? (
+                <div className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/30 p-1.5 animate-in fade-in">
+                  <Input
+                    value={newCatName}
+                    onChange={(e) => setNewCatName(e.target.value)}
+                    placeholder="Tên danh mục mới (VD: Cosplay, Dụng cụ)…"
+                    maxLength={60}
+                    className="h-7 text-xs max-w-xs bg-background"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        void handleCreateCategoryInline();
+                      } else if (e.key === 'Escape') {
+                        setShowAddCategory(false);
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={catCreating || !newCatName.trim()}
+                    onClick={() => void handleCreateCategoryInline()}
+                    className="h-7 px-2.5 text-xs"
+                  >
+                    {catCreating ? <Loader2 className="size-3 animate-spin" /> : 'Tạo'}
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddCategory(false)}
+                    className="px-1 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : null}
+              <select id="onboard-category" value={categoryId} onChange={(event) => { userManuallyPickedCatRef.current = true; setCategoryId(event.target.value); setAutoCatReason(null); }} disabled={locked} className="sr-only" aria-hidden="true" tabIndex={-1}>
                 <option value="">— Chọn danh mục —</option>
-                {categories.map((category) => <option key={category.id} value={category.id}>{category.label}</option>)}
+                {categoriesList.map((category) => <option key={category.id} value={category.id}>{category.label}</option>)}
               </select>
             </div>
           </div>
