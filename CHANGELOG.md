@@ -12,6 +12,9 @@ Quy trình đánh version và release: `docs/operations/versioning.md` (ADR-0046
 Bản production đầu tiên có version.
 
 ### Thêm
+- Trend Radar (admin): lấy giấy phép trực tiếp từ Printables/Thingiverse, hệ thống tự chặn đưa lên web sản phẩm
+  lấy từ mẫu chưa được phép bán khi chưa có bằng chứng license, theo dõi "độ nóng" (lượt tải/ngày) hằng ngày,
+  ghi nhật ký thao tác; tìm mẫu bằng ảnh nhanh hơn nhờ bộ nhớ đệm (ADR-0062, ADR-0063).
 - Đánh version cho web: version ở footer storefront (chữ mờ cạnh bản quyền) và cuối sidebar admin,
   `GET /api/version`, thẻ `<meta name="app-version">`,
   badge PREVIEW/DEV trên bản không phải production; script release kiểm tra đúng commit đã lên và tạo git tag (Phase 44).

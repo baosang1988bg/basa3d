@@ -15,6 +15,11 @@ export type SafeFetchOptions = {
   maxBytes?: number;
   maxRedirects?: number;
   accept?: string;
+  userAgent?: string;
+  /** POST support (e.g. GraphQL). Redirects are refused for non-GET requests. */
+  method?: 'GET' | 'POST';
+  body?: string;
+  headers?: Record<string, string>;
   fetchImpl?: FetchLike;
 };
 
@@ -22,13 +27,15 @@ export class SafeFetchError extends Error {
   constructor(
     public readonly reason: 'INVALID_URL' | 'HOST_NOT_ALLOWED' | 'TIMEOUT' | 'TOO_LARGE' | 'HTTP_ERROR' | 'TOO_MANY_REDIRECTS' | 'NETWORK',
     message: string,
+    /** HTTP status for HTTP_ERROR. */
+    public readonly status?: number,
   ) {
     super(message);
     this.name = 'SafeFetchError';
   }
 }
 
-const USER_AGENT = 'Mozilla/5.0 (compatible; BaSa3D-TrendRadar/1.0; +https://basa3d.vn)';
+const DEFAULT_USER_AGENT = 'Mozilla/5.0 (compatible; BaSa3D-TrendRadar/1.0; +https://basa3d.vn)';
 
 export function isHostAllowed(hostname: string, allowedHostSuffixes: readonly string[]): boolean {
   const host = hostname.toLowerCase().replace(/\.$/, '');
@@ -85,9 +92,15 @@ export async function safeFetchText(rawUrl: string | URL, options: SafeFetchOpti
       try {
         response = await Promise.race([
           fetchImpl(currentUrl, {
+            method: options.method ?? 'GET',
+            body: options.body,
             redirect: 'manual',
             signal: controller.signal,
-            headers: { 'User-Agent': USER_AGENT, Accept: options.accept ?? 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5' },
+            headers: {
+              'User-Agent': options.userAgent ?? DEFAULT_USER_AGENT,
+              Accept: options.accept ?? 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5',
+              ...options.headers,
+            },
           }),
           deadline,
         ]);
@@ -99,7 +112,8 @@ export async function safeFetchText(rawUrl: string | URL, options: SafeFetchOpti
 
       if (response.status >= 300 && response.status < 400) {
         const location = response.headers.get('location');
-        if (!location || response.type === 'opaqueredirect') throw new SafeFetchError('HTTP_ERROR', 'Unverifiable redirect.');
+        if (!location || response.type === 'opaqueredirect') throw new SafeFetchError('HTTP_ERROR', 'Unverifiable redirect.', response.status);
+        if ((options.method ?? 'GET') !== 'GET') throw new SafeFetchError('HTTP_ERROR', 'Redirects are not followed for non-GET requests.', response.status);
         let nextUrl: URL;
         try {
           nextUrl = new URL(location, currentUrl);
@@ -110,7 +124,8 @@ export async function safeFetchText(rawUrl: string | URL, options: SafeFetchOpti
         currentUrl = nextUrl;
         continue;
       }
-      if (!response.ok) throw new SafeFetchError('HTTP_ERROR', `HTTP ${response.status}`);
+      if (response.type === 'opaqueredirect') throw new SafeFetchError('HTTP_ERROR', 'Unverifiable redirect.', response.status);
+      if (!response.ok) throw new SafeFetchError('HTTP_ERROR', `HTTP ${response.status}`, response.status);
       try {
         return await Promise.race([readBodyWithCap(response, maxBytes), deadline]);
       } catch (error) {

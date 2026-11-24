@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { apiError } from '@/lib/api';
 import { createDatabaseRateLimiter, getClientIp } from '@/lib/rate-limit';
 import { buildGoogle3dSearchUrl } from '@/lib/search/meta-engines';
+import { readVisualSearchCache, visualSearchImageHash, writeVisualSearchCache } from '@/services/visual-search-cache.service';
 
 // ADR-0062 §6. Public endpoint that spends the Gemini quota → DB rate limit, MIME allowlist and a body
 // cap below Vercel's 4.5 MB request limit (the client downsizes to ≤1024 px JPEG, typically < 300 KB).
@@ -27,6 +28,8 @@ interface VisualAnalysisResult {
   category: string;
   /** false when the response is the keyword fallback (no AI key, AI failed, or no image). */
   aiUsed: boolean;
+  /** true when served from visual_search_cache (ADR-0063 U4). */
+  cached?: boolean;
 }
 
 const aiOutputSchema = z.object({
@@ -112,6 +115,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ data: fallbackResult(queryHint) }, { headers: NO_STORE });
     }
 
+    // Cache hit costs no Gemini call, so it is served before the rate limiter. Cache failures never block search.
+    const hash = visualSearchImageHash(imageBase64);
+    const cachedResult = await readVisualSearchCache<VisualAnalysisResult>(hash).catch(() => null);
+    if (cachedResult) {
+      return NextResponse.json({ data: { ...cachedResult, cached: true } }, { headers: NO_STORE });
+    }
+
     if (await isRateLimited(getClientIp(request.headers))) {
       return NextResponse.json({ code: 'RATE_LIMITED', message: 'Bạn đã tìm bằng ảnh quá nhiều lần, vui lòng thử lại sau.' }, { status: 429, headers: NO_STORE });
     }
@@ -121,6 +131,11 @@ export async function POST(request: Request) {
       result = await analyzeWithGemini(apiKey, imageBase64, mimeType);
     } catch (aiErr) {
       console.warn('[VISUAL_SEARCH_AI_FAILED]', aiErr instanceof Error ? aiErr.name : typeof aiErr);
+    }
+    if (result?.aiUsed) {
+      await writeVisualSearchCache(hash, result).catch((cacheErr: unknown) => {
+        console.warn('[VISUAL_SEARCH_CACHE_WRITE_FAILED]', cacheErr instanceof Error ? cacheErr.name : typeof cacheErr);
+      });
     }
     return NextResponse.json({ data: result ?? fallbackResult(queryHint) }, { headers: NO_STORE });
   } catch (error) {

@@ -243,7 +243,8 @@
     "makerworldInputLabel": "Or paste a MakerWorld link to analyze right away:",
     "makerworldInputPlaceholder": "Paste makerworld.com or makerworld.com.cn link...",
     "makerworldAnalyzeBtn": "Analyze now",
-    "makerworldEmptyHint": "You can also search models on MakerWorld and send the link for printing:"
+    "makerworldEmptyHint": "You can also search models on MakerWorld and send the link for printing:",
+    "makerworldSmartSearch": "Search by image / keyword"
   },
   "tools": {
     "breadcrumbHome": "Home",

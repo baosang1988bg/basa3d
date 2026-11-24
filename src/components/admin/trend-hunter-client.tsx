@@ -61,6 +61,8 @@ export function TrendHunterClient({ initialItems = [], loadError = null }: { ini
   }
 
   type ConvertibleItem = {
+    /** Watchlist id — required to link the product and arm the server publish gate (ADR-0063). */
+    id?: string;
     title: string;
     sourceUrl: string;
     license?: string | null;
@@ -90,13 +92,31 @@ export function TrendHunterClient({ initialItems = [], loadError = null }: { ini
       sourceUrl: item.sourceUrl,
       // ADR-0062 §5: the product form only pre-selects "Có license" for COMMERCIAL_ALLOWED.
       licenseStatus: item.licenseSafety?.status ?? 'UNKNOWN',
+      ...(item.id ? { trendItemId: item.id } : {}),
       notes: item.notes || `Mẫu săn từ Trend Radar: ${item.sourceUrl}`,
     });
     window.location.href = `/basaadmin/products/new?${params.toString()}`;
   }
 
-  function handleConvertToProduct(item: ConvertibleItem) {
-    if (confirmLicenseForSale(item)) openProductForm(item);
+  /** Capture tab: a draft has no id yet, so it is saved to the watchlist first, then converted. */
+  async function handleConvertDraft(item: TrendCapturedDraft) {
+    if (!confirmLicenseForSale(item)) return;
+    try {
+      setSaving(true);
+      const res = await fetch('/api/admin/trend-hunter/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.data?.id) {
+        alert(json?.message || 'Không thể lưu mẫu vào Watchlist trước khi tạo sản phẩm.');
+        return;
+      }
+      openProductForm({ ...item, id: json.data.id });
+    } finally {
+      setSaving(false);
+    }
   }
 
   useEffect(() => {
@@ -481,7 +501,7 @@ export function TrendHunterClient({ initialItems = [], loadError = null }: { ini
                     </Button>
                     <Button
                       variant="secondary"
-                      onClick={() => handleConvertToProduct(draft)}
+                      onClick={() => handleConvertDraft(draft)}
                       className="gap-2"
                     >
                       <ShoppingBag className="size-4 text-primary" />
@@ -666,6 +686,22 @@ export function TrendHunterClient({ initialItems = [], loadError = null }: { ini
                       </div>
                     </div>
 
+                    {/* Popularity / velocity (ADR-0063 U5) */}
+                    {item.popularity ? (
+                      <p className="mt-3 text-[11px] text-muted-foreground" title={`Số liệu ngày ${item.popularity.capturedOn}`}>
+                        {item.popularity.downloads !== null ? <span>⬇ {item.popularity.downloads.toLocaleString('vi-VN')}</span> : null}
+                        {item.popularity.likes !== null ? <span className="ml-2">♥ {item.popularity.likes.toLocaleString('vi-VN')}</span> : null}
+                        {item.popularity.downloadsPerDay !== null ? (
+                          <span className={`ml-2 font-semibold ${item.popularity.downloadsPerDay >= 50 ? 'text-rose-600' : 'text-foreground'}`}>
+                            +{item.popularity.downloadsPerDay.toLocaleString('vi-VN')} lượt tải/ngày ({item.popularity.windowDays} ngày)
+                          </span>
+                        ) : <span className="ml-2">Đang chờ đủ 2 ngày số liệu để tính độ nóng</span>}
+                      </p>
+                    ) : null}
+                    {item.licenseSource === 'NONE' ? (
+                      <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">License chưa lấy được từ nền tảng — kiểm tra tay trên trang gốc.</p>
+                    ) : null}
+
                     {/* Status & Actions */}
                     <div className="mt-4 border-t border-border/50 pt-3 flex items-center justify-between">
                       <select
@@ -683,15 +719,13 @@ export function TrendHunterClient({ initialItems = [], loadError = null }: { ini
                       <div className="flex items-center gap-1.5">
                         <button
                           type="button"
-                          onClick={async () => {
-                            // Mark CONVERTED_DRAFT only after the license warning is confirmed (ADR-0062 §5).
+                          disabled={Boolean(item.productId) || !canTransitionTrendStatus(item.status, 'CONVERTED_DRAFT')}
+                          onClick={() => {
+                            // The server links the product and sets CONVERTED_DRAFT when the product is created (ADR-0063).
                             if (!confirmLicenseForSale(item)) return;
-                            if (item.status !== 'CONVERTED_DRAFT' && canTransitionTrendStatus(item.status, 'CONVERTED_DRAFT')) {
-                              await handleUpdateStatus(item.id, 'CONVERTED_DRAFT');
-                            }
                             openProductForm(item);
                           }}
-                          className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-bold transition-colors ${
+                          className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                             item.licenseSafety?.canDirectSell
                               ? 'bg-emerald-500/15 text-emerald-700 hover:bg-emerald-600 hover:text-white dark:text-emerald-400'
                               : 'bg-secondary text-muted-foreground hover:bg-secondary/80 border border-border'
@@ -703,7 +737,7 @@ export function TrendHunterClient({ initialItems = [], loadError = null }: { ini
                           }
                         >
                           <ShoppingBag className="size-3.5" />
-                          <span>{item.licenseSafety?.canDirectSell ? 'Đăng bán' : 'Bán (Cảnh báo)'}</span>
+                          <span>{item.productId ? 'Đã tạo SP' : item.licenseSafety?.canDirectSell ? 'Đăng bán' : 'Bán (Cảnh báo)'}</span>
                         </button>
                         <Button
                           variant="ghost"

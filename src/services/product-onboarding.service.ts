@@ -16,6 +16,7 @@ import { invalidatesStorefrontCatalog } from '../lib/cache/storefront-cache-tags
 import { createSupabaseAdminClient } from '../lib/supabase/admin';
 import type { StaffSession } from '../lib/auth/require-admin';
 import { translateImportGateError } from '../lib/stl-import/publish-gate';
+import { linkTrendItemToProduct } from './trend-hunter.service';
 import { buildSku, skuCodeForCategory, slugify, uniqueSlug } from '../lib/catalog/naming';
 import type { ProductOnboardingInput } from '../domain/schemas';
 import { PRODUCT_IMAGE_MAX_BYTES, catalogBulkActionSchema, catalogQuickEditSchema, mergeCatalogProductsSchema } from '../domain/schemas';
@@ -183,6 +184,10 @@ export async function createProductWithVariants(input: ProductOnboardingInput, a
           warehouseId, productVariantId: created.id, movementType: 'ADJUSTMENT_IN', quantity: variant.openingStock, note: OPENING_STOCK_NOTE,
         }, actorId);
       }
+    }
+
+    if (input.trendItemId) {
+      await linkTrendItemToProduct(client, { trendItemId: input.trendItemId, productId, actorId });
     }
 
     await setRequestKeyResult(client, requestId, productId);

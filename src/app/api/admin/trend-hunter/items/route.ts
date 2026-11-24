@@ -50,7 +50,7 @@ const idSchema = z.string().uuid();
 
 export async function PATCH(request: Request) {
   try {
-    await requireAdmin();
+    const admin = await requireAdmin();
     const body = await request.json().catch(() => null);
     const parsed = patchSchema.safeParse(body);
 
@@ -61,7 +61,7 @@ export async function PATCH(request: Request) {
       );
     }
 
-    await updateTrendWatchItemStatus(parsed.data.id, parsed.data.status);
+    await updateTrendWatchItemStatus(parsed.data.id, parsed.data.status, admin.actorId);
     return NextResponse.json({ success: true });
   } catch (error) {
     return apiError(error);
@@ -71,7 +71,7 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: Request) {
   try {
     // ADR-0011 boundary #3: hard delete is OWNER-only. Staff archive instead (PATCH → ARCHIVED).
-    await requireOwner();
+    const owner = await requireOwner();
     const { searchParams } = new URL(request.url);
     const id = idSchema.safeParse(searchParams.get('id'));
 
@@ -79,7 +79,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ code: 'ID_REQUIRED', message: 'Thiếu hoặc sai ID mẫu.' }, { status: 400 });
     }
 
-    await deleteTrendWatchItem(id.data);
+    await deleteTrendWatchItem(id.data, owner.actorId);
     return NextResponse.json({ success: true });
   } catch (error) {
     return apiError(error);
