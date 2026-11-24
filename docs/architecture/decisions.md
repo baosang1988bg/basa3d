@@ -1264,10 +1264,12 @@ to Netlify — record that as a new ADR when it happens.
 3. License safety: only the structured `license` string can yield `canDirectSell = true`; free text
    (`notes`, `og:description`) can only make the verdict stricter. NC is checked before "commercial".
    MakerWorld short codes (`BY`, `BY-SA`, `BY-ND`, `CC0`) are recognised.
-4. Watchlist transitions: `WATCHING → PRINT_TESTING | ARCHIVED`, `PRINT_TESTING → WATCHING |
+4. Watchlist transitions (`src/lib/trend/watch-status.ts`, compare-and-set update): `WATCHING → PRINT_TESTING | CONVERTED_DRAFT | ARCHIVED`, `PRINT_TESTING → WATCHING |
    CONVERTED_DRAFT | ARCHIVED`, `CONVERTED_DRAFT → ARCHIVED`, `ARCHIVED → WATCHING`.
 5. 1-Click onboarding passes `licenseStatus`; only `COMMERCIAL_ALLOWED` pre-selects "Có license" — other
    statuses pre-select "Chưa rõ" so a non-commercial model is never saved as `COMMERCIAL_LICENSE` by default.
+   The item is marked `CONVERTED_DRAFT` only after the license warning is confirmed. Hard delete of a
+   watchlist row is OWNER-only (ADR-0011 boundary #3); staff archive instead.
 6. `/api/public/search/visual-analyze`: DB rate limit (20 req/h per network), MIME allowlist, 4 MB base64
    cap (under Vercel's 4.5 MB request body limit), API key in `x-goog-api-key` header; the client downsizes
    images to ≤1024 px JPEG before upload and shows an error when analysis fails.

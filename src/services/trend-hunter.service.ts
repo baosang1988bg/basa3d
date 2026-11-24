@@ -1,111 +1,20 @@
 import { z } from 'zod';
 import { resolveMakerWorldUrl, parseMakerWorldUrl } from '@/lib/parsers/makerworld-resolver';
 import { sanitizeMakerWorldImageUrl } from '@/lib/parsers/makerworld-image';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { query } from '@/lib/db';
 import { DomainError } from '@/lib/domain-error';
+import { isHostAllowed, safeFetchText, SafeFetchError, type FetchLike } from '@/lib/net/safe-fetch';
+import { evaluateLicenseSafety, type LicenseSafetyInfo } from '@/lib/trend/license-safety';
 
-export type TrendPlatform =
-  | 'MAKERWORLD'
-  | 'MAKERWORLD_CN'
-  | 'PRINTABLES'
-  | 'THINGIVERSE'
-  | 'THANGS'
-  | 'DOUYIN'
-  | 'OTHER';
+export { evaluateLicenseSafety };
+export type { CommercialSafetyStatus, LicenseSafetyInfo } from '@/lib/trend/license-safety';
 
-export type TrendWatchStatus = 'WATCHING' | 'PRINT_TESTING' | 'CONVERTED_DRAFT' | 'ARCHIVED';
+export type TrendPlatform = 'MAKERWORLD' | 'MAKERWORLD_CN' | 'PRINTABLES' | 'THINGIVERSE' | 'THANGS' | 'DOUYIN' | 'OTHER';
 
-export type CommercialSafetyStatus =
-  | 'COMMERCIAL_ALLOWED'
-  | 'NON_COMMERCIAL'
-  | 'COMMERCIAL_SUBSCRIPTION'
-  | 'UNKNOWN';
+import { TREND_WATCH_STATUSES, canTransitionTrendStatus, type TrendWatchStatus } from '@/lib/trend/watch-status';
 
-export interface LicenseSafetyInfo {
-  status: CommercialSafetyStatus;
-  badgeLabel: string;
-  badgeColor: string;
-  explanation: string;
-  canDirectSell: boolean;
-  requiresAttribution: boolean;
-}
-
-const NON_COMMERCIAL_LICENSE_RE = /standard digital file license|non[\s-]?commercial|\bby-nc\b|\bnc\b/i;
-const COMMERCIAL_SUBSCRIPTION_RE = /patreon|commercial\s+license|merchant|club/i;
-const CC0_RE = /\bcc0\b|public\s+domain/i;
-const CC_BY_RE = /cc[\s-]?by|\bby\s*4\.0|attribution/i;
-
-export function evaluateLicenseSafety(license: string | null, notes?: string): LicenseSafetyInfo {
-  if (!license && !notes) {
-    return {
-      status: 'UNKNOWN',
-      badgeLabel: 'Chưa rõ bản quyền',
-      badgeColor: 'bg-muted text-muted-foreground border-border',
-      explanation: 'Không tìm thấy thông tin giấy phép. Khuyến nghị chỉ nhận in gia công theo yêu cầu cá nhân.',
-      canDirectSell: false,
-      requiresAttribution: false,
-    };
-  }
-
-  const raw = `${license ?? ''} ${notes ?? ''}`;
-
-  // Commercial Club / Patreon check
-  if (COMMERCIAL_SUBSCRIPTION_RE.test(raw)) {
-    return {
-      status: 'COMMERCIAL_SUBSCRIPTION',
-      badgeLabel: 'Cần Gói Hội Viên',
-      badgeColor: 'bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800',
-      explanation: 'Tác giả yêu cầu mua gói thương mại (Patreon / Club) để được bán bản in thành phẩm.',
-      canDirectSell: false,
-      requiresAttribution: true,
-    };
-  }
-
-  // Non-commercial checks (Standard Digital File License / CC-NC)
-  if (NON_COMMERCIAL_LICENSE_RE.test(raw)) {
-    return {
-      status: 'NON_COMMERCIAL',
-      badgeLabel: 'Cấm Bán Lẻ (Chỉ In Gia Công)',
-      badgeColor: 'bg-rose-500/10 text-rose-600 border-rose-200 dark:border-rose-800',
-      explanation: 'Giấy phép cấm kinh doanh thương mại. Chỉ nhận in gia công theo yêu cầu cá nhân (Personal Use).',
-      canDirectSell: false,
-      requiresAttribution: true,
-    };
-  }
-
-  // CC0 / Public domain
-  if (CC0_RE.test(raw)) {
-    return {
-      status: 'COMMERCIAL_ALLOWED',
-      badgeLabel: 'Tự Do Thương Mại (CC0)',
-      badgeColor: 'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:border-emerald-800',
-      explanation: 'Thuộc phạm vi công cộng (Public Domain). Được phép in và bán thương mại tự do 100%.',
-      canDirectSell: true,
-      requiresAttribution: false,
-    };
-  }
-
-  // CC-BY (Attribution without NC)
-  if (CC_BY_RE.test(raw)) {
-    return {
-      status: 'COMMERCIAL_ALLOWED',
-      badgeLabel: 'Được Bán (Ghi Công Tác Giả)',
-      badgeColor: 'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:border-emerald-800',
-      explanation: 'Được phép in bán thương mại. Bắt buộc phải ghi công tác giả và dẫn link nguồn gốc.',
-      canDirectSell: true,
-      requiresAttribution: true,
-    };
-  }
-
-  return {
-    status: 'UNKNOWN',
-    badgeLabel: 'Bản Quyền Mở',
-    badgeColor: 'bg-muted text-muted-foreground border-border',
-    explanation: 'Cần kiểm tra kỹ trang gốc trước khi quyết định bán thương mại.',
-    canDirectSell: false,
-    requiresAttribution: false,
-  };
-}
+export { TREND_WATCH_STATUSES, TREND_WATCH_TRANSITIONS, canTransitionTrendStatus } from '@/lib/trend/watch-status';
+export type { TrendWatchStatus } from '@/lib/trend/watch-status';
 
 export interface TrendCapturedDraft {
   sourceUrl: string;
@@ -129,30 +38,29 @@ export interface TrendWatchItem extends TrendCapturedDraft {
   updatedAt: string;
 }
 
-/**
- * Detects the platform of a model URL.
- */
+/** Hosts we fetch OpenGraph metadata from (non-MakerWorld). Anything else is saved by URL only. */
+const OG_FETCH_HOSTS: Partial<Record<TrendPlatform, readonly string[]>> = {
+  PRINTABLES: ['printables.com'],
+  THINGIVERSE: ['thingiverse.com'],
+  THANGS: ['thangs.com'],
+  DOUYIN: ['douyin.com'],
+};
+
+const PLATFORM_HOSTS: [TrendPlatform, readonly string[]][] = [
+  ['MAKERWORLD_CN', ['makerworld.com.cn', 'makerworld.cn']],
+  ['MAKERWORLD', ['makerworld.com']],
+  ['PRINTABLES', ['printables.com']],
+  ['THINGIVERSE', ['thingiverse.com']],
+  ['THANGS', ['thangs.com']],
+  ['DOUYIN', ['douyin.com']],
+];
+
+/** Detects the platform by exact host / subdomain match (not substring — `makerworld.com.evil.io` is OTHER). */
 export function detectTrendPlatform(rawUrl: string): TrendPlatform {
   try {
-    const parsed = new URL(rawUrl);
-    const host = parsed.hostname.toLowerCase();
-    if (host.includes('makerworld.com.cn') || host.includes('makerworld.cn')) {
-      return 'MAKERWORLD_CN';
-    }
-    if (host.includes('makerworld.com')) {
-      return 'MAKERWORLD';
-    }
-    if (host.includes('printables.com')) {
-      return 'PRINTABLES';
-    }
-    if (host.includes('thingiverse.com')) {
-      return 'THINGIVERSE';
-    }
-    if (host.includes('thangs.com')) {
-      return 'THANGS';
-    }
-    if (host.includes('douyin.com')) {
-      return 'DOUYIN';
+    const { hostname } = new URL(rawUrl);
+    for (const [platform, suffixes] of PLATFORM_HOSTS) {
+      if (isHostAllowed(hostname, suffixes)) return platform;
     }
     return 'OTHER';
   } catch {
@@ -160,62 +68,53 @@ export function detectTrendPlatform(rawUrl: string): TrendPlatform {
   }
 }
 
-/**
- * Helper to fetch OpenGraph metadata with SSRF protection and timeouts.
- */
-async function fetchOpenGraphMeta(url: string): Promise<{ title?: string; image?: string; description?: string }> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5_000);
-
-  try {
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        Accept: 'text/html,application/xhtml+xml',
-      },
-      signal: controller.signal,
-    }).finally(() => clearTimeout(timeout));
-
-    if (!res.ok) return {};
-
-    const text = await res.text();
-
-    const titleMatch = text.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i) ||
-      text.match(/<title>([^<]+)<\/title>/i);
-    const imageMatch = text.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i);
-    const descMatch = text.match(/<meta\s+property=["']og:description["']\s+content=["']([^"']+)["']/i);
-
-    return {
-      title: titleMatch?.[1]?.replace(/\s*\|.*$/, '').trim(),
-      image: imageMatch?.[1]?.trim(),
-      description: descMatch?.[1]?.trim(),
-    };
-  } catch {
-    return {};
-  }
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&#x27;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
 }
 
-/**
- * Captures model info from a URL on-demand.
- */
-export async function captureModelFromUrl(rawUrl: string): Promise<TrendCapturedDraft> {
+function metaContent(html: string, property: string): string | undefined {
+  const re = new RegExp(`<meta[^>]+(?:property|name)=["']${property}["'][^>]*content=["']([^"']+)["']|<meta[^>]+content=["']([^"']+)["'][^>]*(?:property|name)=["']${property}["']`, 'i');
+  const match = html.match(re);
+  const value = match?.[1] ?? match?.[2];
+  return value ? decodeHtmlEntities(value).trim() : undefined;
+}
+
+/** Exported for tests. Parses OpenGraph tags from an HTML string. */
+export function parseOpenGraph(html: string): { title?: string; image?: string; description?: string } {
+  const title = metaContent(html, 'og:title') ?? html.match(/<title>([^<]+)<\/title>/i)?.[1];
+  const image = metaContent(html, 'og:image');
+  return {
+    title: title ? decodeHtmlEntities(title).replace(/\s*\|.*$/, '').trim().slice(0, 255) : undefined,
+    image: image && /^https:\/\//i.test(image) ? image.slice(0, 2000) : undefined,
+    description: metaContent(html, 'og:description')?.slice(0, 1000),
+  };
+}
+
+export async function captureModelFromUrl(rawUrl: string, deps: { fetchImpl?: FetchLike } = {}): Promise<TrendCapturedDraft> {
   const trimmed = rawUrl.trim();
-  if (!trimmed) {
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(trimmed);
+  } catch {
     throw new DomainError('INVALID_URL', 'Vui lòng cung cấp URL hợp lệ.', 400);
+  }
+  if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
+    throw new DomainError('INVALID_URL', 'Chỉ hỗ trợ link http(s).', 400);
   }
 
   const platform = detectTrendPlatform(trimmed);
 
-  // MakerWorld Global / China: use dedicated resolver
   if (platform === 'MAKERWORLD' || platform === 'MAKERWORLD_CN') {
-    const parsedMw = parseMakerWorldUrl(trimmed);
-    if (!parsedMw) {
+    if (!parseMakerWorldUrl(trimmed)) {
       throw new DomainError('INVALID_MAKERWORLD_URL', 'URL MakerWorld không hợp lệ.', 400);
     }
-
     const resolved = await resolveMakerWorldUrl(trimmed);
     const defaultProfile = resolved.profiles[0];
-
     return {
       sourceUrl: trimmed,
       platform,
@@ -223,16 +122,24 @@ export async function captureModelFromUrl(rawUrl: string): Promise<TrendCaptured
       coverUrl: resolved.modelCoverImageUrl ? sanitizeMakerWorldImageUrl(resolved.modelCoverImageUrl) : null,
       author: null,
       license: resolved.license ?? null,
-      licenseSafety: evaluateLicenseSafety(resolved.license, undefined),
+      licenseSafety: evaluateLicenseSafety(resolved.license),
       estimatedGrams: defaultProfile?.netWeightGrams ?? null,
       estimatedPrintMinutes: defaultProfile?.printTimeMinutes ?? null,
-      plateCount: defaultProfile?.platesCount ?? resolved.profiles.length,
+      plateCount: defaultProfile?.platesCount ?? (resolved.profiles.length || null),
       categoryTag: 'MakerWorld Hot',
     };
   }
 
-  // Printables, Thingiverse, Thangs, Douyin, etc.
-  const og = await fetchOpenGraphMeta(trimmed);
+  let og: { title?: string; image?: string; description?: string } = {};
+  const allowedHosts = OG_FETCH_HOSTS[platform];
+  if (allowedHosts) {
+    try {
+      og = parseOpenGraph(await safeFetchText(parsedUrl, { allowedHostSuffixes: allowedHosts, fetchImpl: deps.fetchImpl }));
+    } catch (error) {
+      // Metadata is best-effort: an unreachable/oversized page still yields a URL-only draft.
+      if (!(error instanceof SafeFetchError)) throw error;
+    }
+  }
 
   let defaultCategory = 'Chưa phân loại';
   if (platform === 'DOUYIN') defaultCategory = 'Douyin Video Trend';
@@ -246,6 +153,7 @@ export async function captureModelFromUrl(rawUrl: string): Promise<TrendCaptured
     coverUrl: og.image || null,
     author: null,
     license: null,
+    // No structured license here: description text can only make the verdict stricter (ADR-0062 §3).
     licenseSafety: evaluateLicenseSafety(null, og.description),
     estimatedGrams: null,
     estimatedPrintMinutes: null,
@@ -256,120 +164,106 @@ export async function captureModelFromUrl(rawUrl: string): Promise<TrendCaptured
 }
 
 export const trendWatchInputSchema = z.object({
-  sourceUrl: z.string().url().max(2000),
+  sourceUrl: z.string().trim().url().max(2000).refine((value) => /^https?:\/\//i.test(value), 'Chỉ hỗ trợ link http(s).'),
   platform: z.enum(['MAKERWORLD', 'MAKERWORLD_CN', 'PRINTABLES', 'THINGIVERSE', 'THANGS', 'DOUYIN', 'OTHER']),
   title: z.string().trim().min(1).max(255),
-  coverUrl: z.string().url().nullable().optional(),
+  coverUrl: z.string().url().max(2000).refine((value) => /^https:\/\//i.test(value), 'Ảnh cover phải là https.').nullable().optional(),
   author: z.string().trim().max(120).nullable().optional(),
-  license: z.string().trim().max(100).nullable().optional(),
+  license: z.string().trim().max(200).nullable().optional(),
   notes: z.string().max(1000).optional(),
-  estimatedGrams: z.number().nonnegative().nullable().optional(),
-  estimatedPrintMinutes: z.number().int().nonnegative().nullable().optional(),
-  plateCount: z.number().int().positive().nullable().optional(),
-  categoryTag: z.string().max(64).default('Chưa phân loại'),
-  status: z.enum(['WATCHING', 'PRINT_TESTING', 'CONVERTED_DRAFT', 'ARCHIVED']).default('WATCHING'),
+  estimatedGrams: z.number().nonnegative().max(100_000).nullable().optional(),
+  estimatedPrintMinutes: z.number().int().nonnegative().max(1_000_000).nullable().optional(),
+  plateCount: z.number().int().positive().max(1000).nullable().optional(),
+  categoryTag: z.string().trim().max(64).default('Chưa phân loại'),
+  status: z.enum(TREND_WATCH_STATUSES).default('WATCHING'),
 });
 
-export type TrendWatchInput = z.infer<typeof trendWatchInputSchema>;
+export type TrendWatchInput = z.input<typeof trendWatchInputSchema>;
 
-/**
- * Lists all trend watch items with fallback to memory if DB not ready.
- */
-export async function listTrendWatchItems(): Promise<TrendWatchItem[]> {
-  try {
-    const supabase = await createSupabaseServerClient();
-    const { data, error } = await supabase
-      .from('trend_watch_items')
-      .select('*')
-      .order('created_at', { ascending: false });
+type TrendRow = {
+  id: string;
+  source_url: string;
+  platform: TrendPlatform;
+  title: string;
+  cover_url: string | null;
+  author: string | null;
+  license: string | null;
+  notes: string | null;
+  estimated_grams: string | null;
+  estimated_print_minutes: number | null;
+  plate_count: number | null;
+  category_tag: string | null;
+  status: TrendWatchStatus;
+  created_at: Date;
+  updated_at: Date;
+};
 
-    if (error || !data) {
-      return [];
-    }
+const TREND_COLUMNS = `id, source_url, platform, title, cover_url, author, license, notes, estimated_grams,
+  estimated_print_minutes, plate_count, category_tag, status, created_at, updated_at`;
 
-    return data.map((row) => ({
-      id: row.id,
-      sourceUrl: row.source_url,
-      platform: row.platform,
-      title: row.title,
-      coverUrl: row.cover_url,
-      author: row.author,
-      license: row.license,
-      licenseSafety: evaluateLicenseSafety(row.license, row.notes),
-      notes: row.notes,
-      estimatedGrams: row.estimated_grams ? Number(row.estimated_grams) : null,
-      estimatedPrintMinutes: row.estimated_print_minutes,
-      plateCount: row.plate_count,
-      categoryTag: row.category_tag || 'Chưa phân loại',
-      status: row.status,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    }));
-  } catch {
-    return [];
-  }
+function toItem(row: TrendRow): TrendWatchItem {
+  return {
+    id: row.id,
+    sourceUrl: row.source_url,
+    platform: row.platform,
+    title: row.title,
+    coverUrl: row.cover_url,
+    author: row.author,
+    license: row.license,
+    licenseSafety: evaluateLicenseSafety(row.license, row.notes),
+    notes: row.notes ?? undefined,
+    estimatedGrams: row.estimated_grams === null ? null : Number(row.estimated_grams),
+    estimatedPrintMinutes: row.estimated_print_minutes,
+    plateCount: row.plate_count,
+    categoryTag: row.category_tag || 'Chưa phân loại',
+    status: row.status,
+    createdAt: new Date(row.created_at).toISOString(),
+    updatedAt: new Date(row.updated_at).toISOString(),
+  };
 }
 
-/**
- * Saves a new item to the trend watchlist.
- */
+/** Lists watchlist items, newest first. DB errors propagate (no silent empty list). */
+export async function listTrendWatchItems(limit = 500): Promise<TrendWatchItem[]> {
+  const result = await query<TrendRow>(`select ${TREND_COLUMNS} from trend_watch_items order by created_at desc limit $1`, [limit]);
+  return result.rows.map(toItem);
+}
+
 export async function saveTrendWatchItem(input: TrendWatchInput, staffId?: string): Promise<{ id: string }> {
-  const validated = trendWatchInputSchema.parse(input);
-
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from('trend_watch_items')
-    .insert({
-      source_url: validated.sourceUrl,
-      platform: validated.platform,
-      title: validated.title,
-      cover_url: validated.coverUrl ?? null,
-      author: validated.author ?? null,
-      license: validated.license ?? null,
-      notes: validated.notes ?? null,
-      estimated_grams: validated.estimatedGrams ?? null,
-      estimated_print_minutes: validated.estimatedPrintMinutes ?? null,
-      plate_count: validated.plateCount ?? null,
-      category_tag: validated.categoryTag,
-      status: validated.status,
-      created_by: staffId ?? null,
-    })
-    .select('id')
-    .single();
-
-  if (error || !data) {
-    throw new DomainError('TREND_SAVE_FAILED', `Không thể lưu mẫu trend: ${error?.message || 'Database error'}`, 500);
+  const v = trendWatchInputSchema.parse(input);
+  try {
+    const result = await query<{ id: string }>(
+      `insert into trend_watch_items (source_url, platform, title, cover_url, author, license, notes,
+        estimated_grams, estimated_print_minutes, plate_count, category_tag, status, created_by)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       returning id`,
+      [
+        v.sourceUrl, v.platform, v.title, v.coverUrl ?? null, v.author ?? null, v.license ?? null, v.notes ?? null,
+        v.estimatedGrams ?? null, v.estimatedPrintMinutes ?? null, v.plateCount ?? null, v.categoryTag, v.status, staffId ?? null,
+      ],
+    );
+    return { id: result.rows[0].id };
+  } catch (error) {
+    if ((error as { code?: string }).code === '23505') {
+      throw new DomainError('TREND_DUPLICATE', 'Mẫu này đã có trong Watchlist.', 409);
+    }
+    throw error;
   }
-
-  return { id: data.id };
 }
 
-/**
- * Updates status of an item in the watchlist.
- */
 export async function updateTrendWatchItemStatus(id: string, status: TrendWatchStatus): Promise<void> {
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase
-    .from('trend_watch_items')
-    .update({ status, updated_at: new Date().toISOString() })
-    .eq('id', id);
-
-  if (error) {
-    throw new DomainError('TREND_UPDATE_FAILED', `Không thể cập nhật trạng thái: ${error.message}`, 500);
+  const current = await query<{ status: TrendWatchStatus }>('select status from trend_watch_items where id = $1', [id]);
+  if (!current.rowCount) throw new DomainError('TREND_NOT_FOUND', 'Không tìm thấy mẫu trong Watchlist.', 404);
+  const from = current.rows[0].status;
+  if (!canTransitionTrendStatus(from, status)) {
+    throw new DomainError('TREND_INVALID_TRANSITION', `Không thể chuyển trạng thái ${from} → ${status}.`, 409);
   }
+  if (from === status) return;
+  // Compare-and-set on the previous status so two staff clicking at once cannot skip the rules.
+  const updated = await query('update trend_watch_items set status = $2 where id = $1 and status = $3', [id, status, from]);
+  if (!updated.rowCount) throw new DomainError('TREND_CONFLICT', 'Trạng thái vừa được người khác thay đổi, hãy tải lại.', 409);
 }
 
-/**
- * Deletes an item from the watchlist.
- */
 export async function deleteTrendWatchItem(id: string): Promise<void> {
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase
-    .from('trend_watch_items')
-    .delete()
-    .eq('id', id);
-
-  if (error) {
-    throw new DomainError('TREND_DELETE_FAILED', `Không thể xoá mẫu: ${error.message}`, 500);
-  }
+  const result = await query('delete from trend_watch_items where id = $1', [id]);
+  if (!result.rowCount) throw new DomainError('TREND_NOT_FOUND', 'Không tìm thấy mẫu trong Watchlist.', 404);
 }
