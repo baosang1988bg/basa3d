@@ -12,6 +12,9 @@ Quy trình đánh version và release: `docs/operations/versioning.md` (ADR-0046
 Bản production đầu tiên có version.
 
 ### Thêm
+- Nút tìm kiếm trên header (Ctrl/⌘+K): tìm sản phẩm của shop trước (gợi ý ngay khi gõ, gõ không dấu vẫn ra),
+  không có thì tìm trên các kho mẫu 3D hoặc bằng ảnh, rồi dán link mẫu để xưởng báo giá; trang Sản phẩm tìm
+  không dấu và gợi ý tìm kho mẫu khi không có kết quả; dashboard admin có thẻ "Mẫu đang nóng" (ADR-0064).
 - Trend Radar (admin): lấy giấy phép trực tiếp từ Printables/Thingiverse, hệ thống tự chặn đưa lên web sản phẩm
   lấy từ mẫu chưa được phép bán khi chưa có bằng chứng license, theo dõi "độ nóng" (lượt tải/ngày) hằng ngày,
   ghi nhật ký thao tác; tìm mẫu bằng ảnh nhanh hơn nhờ bộ nhớ đệm (ADR-0062, ADR-0063).

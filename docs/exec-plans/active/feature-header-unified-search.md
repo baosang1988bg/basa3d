@@ -61,4 +61,17 @@
 | Breaking `ModelSearchDialog` users | Public props unchanged; existing UI tests/screenshots re-run. |
 
 ## 5. Progress
-- [ ] Phase 1 · [ ] Phase 2 · [ ] Phase 3 · [ ] Phase 4 · [ ] Phase 5 · [ ] Phase 6
+- [x] Phase 1 · [x] Phase 2 · [x] Phase 3 · [x] Phase 4 · [x] Phase 5 · [x] Phase 6
+
+### Verification (2026-11-25)
+- lint ✅ · typecheck ✅ · check:arch ✅ · `next build` ✅ (`/api/public/products/suggest` listed).
+- New tests: `tests/header-unified-search.test.ts` (8, no DB) + `tests/header-unified-search-db.test.ts` (4, DB: fold function, accent-insensitive AND search with DRAFT hidden and `%`/`_` literal, suggest shape/limit, hot-trend ranking). Phase 56 search test still green.
+- Full suite (145 files, Postgres TZ Asia/Ho_Chi_Minh): 1027 tests, 16 fail — the same Supabase-only set as before (owner guide §5). No regressions.
+- UI rendered + screenshotted (real components, compiled Tailwind): header desktop (1280) + mobile, products tab with suggestions, zero-result state, library tab with QuoteLinkBox, admin hot-trend card.
+  - Bug found and fixed: overlay clipped to the header (backdrop-filter containing block) → `SearchModalShell` portals to `<body>`.
+  - Bug found and fixed: "Tìm sản phẩm…" label wrapped at 1024–1279 px → label/shortcut only from `xl`, icon-only below.
+
+### Follow-ups (not done)
+- Expression/trigram index on `basa3d_search_fold(name)` when the catalog grows past a few thousand products.
+- Search inside product descriptions / categories (today: name only, same as before).
+- Playwright E2E for Ctrl/⌘+K and keyboard navigation on a real browser (owner, needs local Supabase).

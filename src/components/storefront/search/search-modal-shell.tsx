@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 /**
@@ -45,9 +46,11 @@ export function SearchModalShell({
     };
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (!isOpen || typeof document === 'undefined') return null;
 
-  return (
+  // Portal to <body>: the storefront header uses backdrop-blur (backdrop-filter), which makes it the containing
+  // block for `position: fixed` descendants — without the portal the overlay would be clipped to the 64px header.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center" onClick={onClose}>
       <div
         ref={dialogRef}
@@ -68,7 +71,8 @@ export function SearchModalShell({
         </button>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

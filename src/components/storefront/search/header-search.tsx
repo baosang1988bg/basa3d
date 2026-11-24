@@ -48,13 +48,13 @@ export function HeaderSearch() {
         aria-label={t('open')}
         aria-haspopup="dialog"
         title={t('openShortcut')}
-        className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-lg border border-border px-2 text-sm text-muted-foreground transition-colors duration-150 hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:w-44 lg:justify-between lg:px-3"
+        className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg border border-border px-2 text-sm text-muted-foreground transition-colors duration-150 hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background xl:w-48 xl:justify-between xl:px-3"
       >
         <span className="inline-flex items-center gap-2">
           <Search className="size-4" aria-hidden="true" />
-          <span className="hidden lg:inline">{t('buttonLabel')}</span>
+          <span className="hidden xl:inline">{t('buttonLabel')}</span>
         </span>
-        <kbd className="hidden rounded border border-border bg-secondary px-1.5 font-mono text-[10px] text-muted-foreground lg:inline">{shortcut}</kbd>
+        <kbd className="hidden shrink-0 rounded border border-border bg-secondary px-1.5 font-mono text-[10px] text-muted-foreground xl:inline">{shortcut}</kbd>
       </button>
       {open ? (
         <UnifiedSearchDialog key={open.key} isOpen onClose={() => setOpen(null)} initialTab={open.tab} initialQuery={open.query} />

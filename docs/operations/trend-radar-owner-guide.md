@@ -8,7 +8,7 @@ Checklist nhanh (làm theo thứ tự):
 | # | Việc | Ai | Mục |
 |---|---|---|---|
 | 1 | Push `dev` + `vercel` | Owner | [§1](#1-push-và-deploy-uat) |
-| 2 | Chạy 2 migration lên DB UAT (trước khi Vercel build xong) | Owner | [§2](#2-migration-lên-db-uat) |
+| 2 | Chạy 3 migration lên DB UAT (trước khi Vercel build xong) | Owner | [§2](#2-migration-lên-db-uat) |
 | 3 | Kiểm tra / thêm biến môi trường trên Vercel | Owner | [§3](#3-biến-môi-trường-trên-vercel) |
 | 4 | Gọi thử cron `trend-snapshots` | Owner | [§4](#4-kiểm-tra-cron-độ-nóng) |
 | 5 | Chạy 16 test cần Supabase local | Owner / dev | [§5](#5-chạy-16-test-cần-supabase-local) |
@@ -38,6 +38,7 @@ Chạy **đúng thứ tự**, mỗi file một lần (Supabase → SQL Editor, d
 ```bash
 psql "$UAT_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261124000000_trend_watch_items.sql
 psql "$UAT_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261125000000_trend_radar_upgrades.sql
+psql "$UAT_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261126000000_storefront_search_fold.sql   # ADR-0064 tìm kiếm không dấu
 ```
 
 Kiểm tra sau khi chạy (phải ra đủ 3 bảng, 2 trigger, cột mặc định là `now()`):
@@ -47,6 +48,8 @@ select table_name from information_schema.tables
  where table_schema = 'public' and table_name in ('trend_watch_items', 'trend_watch_snapshots', 'visual_search_cache');
 
 select tgname from pg_trigger where tgname in ('products_trend_publish_gate', 'trend_watch_items_link_gate');
+
+select public.basa3d_search_fold('Giá Đỡ');   -- ADR-0064: phải ra 'gia do'
 
 select table_name, column_name, column_default from information_schema.columns
  where table_schema = 'public' and column_default like 'timezone(''utc''%';   -- phải RỖNG
@@ -178,7 +181,19 @@ MakerWorld trong nhiều ngày → báo agent để cân nhắc phương án kh�
 Mọi thao tác tạo / đổi trạng thái / xoá / chuyển thành sản phẩm đều được ghi vào **Nhật ký** (`audit_logs`,
 `entity_type = 'trend_watch_item'`).
 
-## 10. Sự cố thường gặp
+## 10. Tìm kiếm trên header (ADR-0064)
+
+- Nút **kính lúp** trên header (desktop rộng hiện chữ "Tìm sản phẩm…", phím tắt **Ctrl/⌘ + K**).
+- Tab **Sản phẩm BaSa3D** (mặc định): gợi ý ngay khi gõ, **không cần dấu** ("gia do" tìm được "Giá đỡ"), mọi từ phải khớp.
+  Enter / "Xem tất cả" → `/products?q=…` (trang này cũng tìm không dấu).
+- Không có trong shop → nút **Tìm trên kho mẫu 3D** (giữ nguyên từ khoá) + **Gửi yêu cầu in**.
+- Tab **Kho mẫu 3D** / **Tìm bằng ảnh**: như hộp tìm mẫu cũ, cuối mỗi tab có ô **"Dán link để xưởng báo giá"**:
+  link MakerWorld → công cụ báo giá MakerWorld; link khác (Printables, Thingiverse…) → form *Đặt in* điền sẵn "Link mẫu tham khảo".
+- `/products` tìm không ra → nút **Tìm "…" trên kho mẫu 3D** mở thẳng hộp tìm kiếm.
+- Admin → Dashboard → tab *Vận hành* → thẻ **Mẫu đang nóng** (top 5 mẫu Trend Radar tăng lượt tải nhanh nhất).
+- Cần chạy migration `20261126000000_storefront_search_fold.sql` (§2) — thiếu thì tìm kiếm sản phẩm báo lỗi.
+
+## 11. Sự cố thường gặp
 
 | Triệu chứng | Nguyên nhân | Cách xử lý |
 |---|---|---|
@@ -188,3 +203,4 @@ Mọi thao tác tạo / đổi trạng thái / xoá / chuyển thành sản ph�
 | "Bạn đã tìm bằng ảnh quá nhiều lần" (429) | Rate limit 20 lần/giờ/mạng | Đợi; ảnh đã tìm trước đó vẫn trả ngay (cache 30 ngày) |
 | Cron trả 401 | Sai/thiếu `CRON_SECRET` | §3, §4 |
 | Không xoá được mẫu (403) | Tài khoản STAFF | Dùng *Lưu trữ* hoặc nhờ OWNER |
+| Tìm sản phẩm báo lỗi / `/products?q=` lỗi 500 | Chưa chạy migration `20261126000000_storefront_search_fold.sql` | §2 |
