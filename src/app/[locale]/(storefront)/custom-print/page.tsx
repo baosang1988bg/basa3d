@@ -50,6 +50,13 @@ export default async function CustomPrintPage({
       <section className="mt-8">
         <h2 className="font-heading text-2xl font-bold text-foreground">Gửi yêu cầu đặt in</h2>
         <p className="mt-1 text-sm text-muted-foreground">Điền thông tin bên dưới, chúng tôi sẽ liên hệ lại sớm nhất.</p>
+        {referenceUrl ? (
+          // The description field (pre-filled with this link) only appears at the contact step, so the link is
+          // also shown up-front — the customer sees immediately which model the request is about.
+          <p role="status" className="mt-3 break-all rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-foreground">
+            Mẫu tham khảo: <a href={referenceUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline">{referenceUrl}</a>
+          </p>
+        ) : null}
         <div className="mt-4">
           <CustomRequestForm referenceUrl={referenceUrl ?? undefined} />
         </div>
